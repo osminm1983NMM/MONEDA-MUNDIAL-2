@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "Moneda Mundial 2.0",
+    "slug": "moneda-mundial-2",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "com.monedamundial.app"
+    }
+  }
+}
