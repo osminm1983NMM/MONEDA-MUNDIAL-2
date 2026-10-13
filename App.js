@@ -9,7 +9,7 @@ import 'react-native-get-random-values';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, Alert, Platform, StatusBar, ActivityIndicator
+  StyleSheet, Alert, Platform, StatusBar, ActivityIndicator, Share
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
@@ -53,6 +53,18 @@ function confirmAction(title, detail, action) {
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Confirmar', onPress: action },
     ]);
+  }
+}
+
+async function shareDemoCode(kind, value) {
+  if (!value) return;
+  const label = kind === 'wallet'
+    ? 'Mi identificador de billetera de demostración:'
+    : 'Solicitud de cobro ficticio de Moneda Mundial:';
+  try {
+    await Share.share({ message: label + '\n' + value + '\nSOLO PRUEBAS - SIN DINERO REAL' });
+  } catch (error) {
+    message('Compartir', error.message || 'No fue posible compartir el código.');
   }
 }
 
@@ -461,6 +473,8 @@ export default function App() {
                 <Text style={styles.balance}>{wallet ? formatMWD(wallet.balance_cents) : '...'} MWD</Text>
                 <Text style={styles.muted}>Saldo ficticio en Supabase</Text>
                 <Text selectable style={styles.code}>{wallet?.account_code || 'Cargando identificador...'}</Text>
+                <Btn title="Compartir mi código de prueba" secondary
+                  onPress={() => shareDemoCode('wallet', wallet?.account_code)} disabled={!wallet} />
               </View>
               <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet} />
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
@@ -531,6 +545,8 @@ export default function App() {
                 {request.description ? <Text style={styles.small}>{request.description}</Text> : null}
                 <Text selectable style={styles.code}>{request.id}</Text>
                 <Text style={styles.muted}>Comparte este código con el cliente de prueba.</Text>
+                <Btn title="Compartir código de cobro" secondary
+                  onPress={() => shareDemoCode('payment', request.id)} />
                 {request.status === 'pending' &&
                   <Btn title="Cancelar solicitud" secondary disabled={merchantBusy}
                     onPress={() => cancelMerchantRequest(request.id)} />}
@@ -562,6 +578,8 @@ export default function App() {
               <Text style={styles.heading}>Mi identificador para recibir</Text>
               <Text selectable style={styles.code}>{wallet?.account_code}</Text>
               <Text style={styles.muted}>Comparte este identificador con otra cuenta de prueba. No compartas tu contraseña.</Text>
+              <Btn title="Compartir código de billetera" secondary
+                onPress={() => shareDemoCode('wallet', wallet?.account_code)} disabled={!wallet} />
               <Text style={styles.small}>Correo: {session.user.email}</Text>
             </View>}
 
