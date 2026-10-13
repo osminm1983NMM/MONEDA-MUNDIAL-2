@@ -23,6 +23,6 @@ export function normalizeRecipientCode(value) {
 export function normalizePaymentRequestId(value) {
   if (typeof value !== 'string') return null;
   const code = value.trim().toLowerCase();
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(code)
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(code)
     ? code : null;
 }
