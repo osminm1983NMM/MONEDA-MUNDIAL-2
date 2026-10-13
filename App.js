@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentRequestId } from './src/demo-money.mjs';
 
 // CLAVE PUBLICABLE de Supabase. Nunca coloques claves secret/service_role en App.js.
 const SUPABASE_URL = 'https://egrsdrlpavrtbgxoyxvg.supabase.co';
@@ -25,17 +26,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     detectSessionInUrl: false,
   },
 });
-
-const LIMIT_CENTS = 100000000; // 1 millón de MWD por operación ficticia
-const formatMWD = cents => (Number(cents || 0) / 100).toFixed(2);
-
-function amountToCents(value) {
-  const normalized = value.trim().replace(',', '.');
-  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return null;
-  const cents = Math.round(Number(normalized) * 100);
-  if (!Number.isSafeInteger(cents) || cents < 1 || cents > LIMIT_CENTS) return null;
-  return cents;
-}
 
 function uniqueRequestId() {
   if (!globalThis.crypto || !globalThis.crypto.getRandomValues) {
@@ -272,8 +262,8 @@ export default function App() {
   }
 
   async function lookupMerchantPayment() {
-    const id = paymentCode.trim().toLowerCase();
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) {
+    const id = normalizePaymentRequestId(paymentCode);
+    if (!id) {
       return message('Código', 'Introduce el identificador UUID de la solicitud.');
     }
     if (busyRef.current) return;
@@ -415,9 +405,9 @@ export default function App() {
     }
     if (!wallet) return message('Espera', 'Primero carga tu cuenta.');
     if (cents > wallet.balance_cents) return message('Saldo insuficiente', 'No tienes suficientes MWD ficticios.');
-    const code = recipientCode.trim().toUpperCase();
+    const code = type === 'transfer' ? normalizeRecipientCode(recipientCode) : '';
     if (type === 'transfer') {
-      if (!/^MWD-[A-F0-9]{16}$/.test(code)) {
+      if (!code) {
         return message('Identificador', 'Introduce el código MWD- seguido de 16 caracteres.');
       }
       if (code === wallet.account_code) return message('Destinatario', 'No puedes enviarte MWD a tu propia cuenta.');
