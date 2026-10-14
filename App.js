@@ -87,6 +87,11 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [recoveryBusy, setRecoveryBusy] = useState(false);
   const [screen, setScreen] = useState('Inicio');
   const [wallet, setWallet] = useState(null);
   const [operations, setOperations] = useState([]);
@@ -106,6 +111,7 @@ export default function App() {
   const [paymentPreview, setPaymentPreview] = useState(null);
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
+  const recoveryInProgressRef = useRef(false);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -118,11 +124,19 @@ export default function App() {
       .catch(error => message('Sesión', error.message))
       .finally(() => { if (active) setAuthLoading(false); });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
       setSession(nextSession);
       setAuthLoading(false);
-      setScreen('Inicio');
+      if (event === 'SIGNED_OUT') {
+        recoveryInProgressRef.current = false;
+        setScreen('Inicio');
+      } else if (event === 'PASSWORD_RECOVERY' ||
+                 (recoveryInProgressRef.current && nextSession)) {
+        setScreen('NuevaContrasena');
+      } else if (event === 'SIGNED_IN') {
+        setScreen('Inicio');
+      }
     });
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
@@ -337,6 +351,85 @@ export default function App() {
     }
   }
 
+
+  // Recuperación por código OTP (correo) para evitar enlaces rotos de Expo Snack.
+  // Requiere plantilla «Reset Password» de Supabase con {{ .Token }}.
+  // No se muestra si la dirección corresponde a un usuario registrado.
+  async function requestPasswordReset() {
+    const requestedEmail = recoveryEmail.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(requestedEmail)) {
+      return message('Correo', 'Introduce un correo electrónico válido.');
+    }
+    if (recoveryBusy) return;
+    setRecoveryBusy(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(requestedEmail);
+      if (error) throw error;
+      setRecoveryEmail(requestedEmail);
+      setRecoveryCode('');
+      setScreen('VerificarCodigo');
+      message('Revisa tu correo', 'Si la cuenta existe, recibirás un código de recuperación. No compartas el código con nadie.');
+    } catch (error) {
+      message('Recuperación no enviada', error.message || 'Intenta de nuevo más tarde.');
+    } finally {
+      setRecoveryBusy(false);
+    }
+  }
+
+  async function verifyRecoveryCode() {
+    const codeValue = recoveryCode.trim();
+    if (!/^\d{6}$/.test(codeValue)) {
+      return message('Código', 'Introduce el código de seis números recibido en tu correo.');
+    }
+    if (recoveryBusy) return;
+    setRecoveryBusy(true);
+    try {
+      recoveryInProgressRef.current = true;
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: recoveryEmail.trim().toLowerCase(),
+        token: codeValue,
+        type: 'recovery',
+      });
+      if (error) throw error;
+      if (!data?.session) throw new Error('No se recibió una sesión segura de recuperación.');
+      setRecoveryCode('');
+      setScreen('NuevaContrasena');
+    } catch (error) {
+      recoveryInProgressRef.current = false;
+      message('Código no válido', 'Comprueba el código o solicita uno nuevo. Puede haber caducado.');
+    } finally {
+      setRecoveryBusy(false);
+    }
+  }
+
+  async function saveNewPassword() {
+    if (newPassword.length < 12) {
+      return message('Contraseña', 'Utiliza al menos 12 caracteres para tu nueva contraseña.');
+    }
+    if (newPassword !== confirmNewPassword) {
+      return message('Contraseña', 'Las dos contraseñas no coinciden.');
+    }
+    if (recoveryBusy || !session) return;
+    setRecoveryBusy(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setRecoveryCode('');
+      recoveryInProgressRef.current = false;
+      const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' });
+      if (signOutError) throw signOutError;
+      setEmail(recoveryEmail);
+      setScreen('Inicio');
+      message('Contraseña actualizada', 'Vuelve a iniciar sesión con tu nueva contraseña.');
+    } catch (error) {
+      message('Cambio no confirmado', 'No pudimos completar todo el proceso. Revisa la sesión antes de volver a intentarlo.');
+    } finally {
+      setRecoveryBusy(false);
+    }
+  }
+
   async function authenticate(action) {
     const cleanEmail = email.trim().toLowerCase();
     if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) return message('Correo', 'Introduce un correo válido.');
@@ -457,7 +550,52 @@ export default function App() {
           <Text style={styles.demoBannerText}>MODO DEMOSTRACIÓN · SIN DINERO REAL</Text>
         </View>
 
-        {authLoading ? <Text style={styles.loadingText}>Estamos preparando tu cuenta</Text> : !session ? (
+        {authLoading ? <Text style={styles.loadingText}>Estamos preparando tu cuenta</Text> : !session && screen === 'RecuperarAcceso' ? (
+          <View style={styles.card}>
+            <Text style={styles.heading}>Recuperar mi contraseña</Text>
+            <Text style={styles.muted}>Introduce tu correo. Recibirás un código de recuperación, sin necesidad de abrir enlaces externos.</Text>
+            <TextInput style={styles.input} placeholder="Correo electrónico"
+              accessibilityLabel="Correo para recuperación"
+              placeholderTextColor="#9fb1c8" keyboardType="email-address"
+              autoCapitalize="none" autoCorrect={false} value={recoveryEmail}
+              onChangeText={setRecoveryEmail} />
+            <Btn title={recoveryBusy ? 'Enviando...' : 'Enviar código de recuperación'}
+              disabled={recoveryBusy} onPress={requestPasswordReset} />
+            <Btn title="← Volver a iniciar sesión" secondary
+              disabled={recoveryBusy} onPress={() => setScreen('Inicio')} />
+          </View>
+        ) : !session && screen === 'VerificarCodigo' ? (
+          <View style={styles.card}>
+            <Text style={styles.heading}>Verificar correo</Text>
+            <Text style={styles.muted}>Escribe el código de seis números enviado a {recoveryEmail}. Revisa también spam.</Text>
+            <TextInput style={styles.input} placeholder="Código de 6 números"
+              accessibilityLabel="Código de recuperación"
+              placeholderTextColor="#9fb1c8" keyboardType="number-pad"
+              maxLength={6} value={recoveryCode} onChangeText={setRecoveryCode} />
+            <Btn title={recoveryBusy ? 'Comprobando...' : 'Verificar código'}
+              disabled={recoveryBusy} onPress={verifyRecoveryCode} />
+            <Btn title="Solicitar otro código" secondary
+              disabled={recoveryBusy} onPress={requestPasswordReset} />
+            <Btn title="← Volver" secondary disabled={recoveryBusy}
+              onPress={() => setScreen('RecuperarAcceso')} />
+          </View>
+        ) : session && screen === 'NuevaContrasena' ? (
+          <View style={styles.card}>
+            <Text style={styles.heading}>Crea una contraseña nueva</Text>
+            <Text style={styles.muted}>Tu correo ya está verificado. Elige una contraseña única de al menos 12 caracteres.</Text>
+            <TextInput style={styles.input} placeholder="Nueva contraseña"
+              accessibilityLabel="Nueva contraseña"
+              placeholderTextColor="#9fb1c8" autoCapitalize="none"
+              secureTextEntry value={newPassword} onChangeText={setNewPassword} />
+            <TextInput style={styles.input} placeholder="Confirmar nueva contraseña"
+              accessibilityLabel="Confirmar contraseña nueva"
+              placeholderTextColor="#9fb1c8" autoCapitalize="none"
+              secureTextEntry value={confirmNewPassword} onChangeText={setConfirmNewPassword} />
+            <Btn title={recoveryBusy ? 'Guardando...' : 'Guardar nueva contraseña'}
+              disabled={recoveryBusy} onPress={saveNewPassword} />
+            <Text style={styles.muted}>Nunca compartas tu código ni contraseña con otras personas.</Text>
+          </View>
+        ) : !session ? (
           <View style={styles.card}>
             <Text style={styles.heading}>Accede a Moneda Mundial</Text>
             <Text style={styles.muted}>Crea una cuenta de prueba o inicia sesión.</Text>
@@ -469,6 +607,8 @@ export default function App() {
               secureTextEntry value={password} onChangeText={setPassword} />
             <Btn title={authBusy ? 'Espera...' : 'Iniciar sesión'} onPress={() => authenticate('login')} disabled={authBusy} />
             <Btn title="Crear cuenta de prueba" secondary onPress={() => authenticate('register')} disabled={authBusy} />
+            <Btn title="¿Olvidaste tu contraseña?" secondary disabled={authBusy}
+              onPress={() => { setRecoveryEmail(email.trim().toLowerCase()); setScreen('RecuperarAcceso'); }} />
             <Text style={styles.muted}>Cada cuenta nueva recibe 10,000 MWD ficticios. Si Supabase solicita confirmar el correo, revisa tu bandeja de entrada.</Text>
           </View>
         ) : (
