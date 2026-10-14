@@ -218,9 +218,7 @@ export default function App() {
         supabase.from('mwd_wallets')
           .select('user_id,account_code,balance_cents')
           .eq('user_id', id).single(),
-        supabase.from('mwd_operations')
-          .select('id,kind,source_user_id,destination_user_id,amount_cents,created_at')
-          .order('created_at', { ascending: false }).limit(50),
+        supabase.rpc('mwd_history_demo'),
         supabase.from('mwd_admin_roles').select('role').eq('user_id', id).maybeSingle(),
       ]);
       if (w.error) throw w.error;
@@ -578,13 +576,13 @@ export default function App() {
         {authLoading ? <Text style={styles.loadingText}>Estamos preparando tu cuenta</Text> : !session && screen === 'RecuperarAcceso' ? (
           <View style={styles.card}>
             <Text style={styles.heading}>Recuperar mi contraseña</Text>
-            <Text style={styles.muted}>Introduce tu correo. Recibirás un código de recuperación, sin necesidad de abrir enlaces externos.</Text>
+            <Text style={styles.muted}>Introduce tu correo. Recibirás un enlace seguro de recuperación para abrir en este teléfono.</Text>
             <TextInput style={styles.input} placeholder="Correo electrónico"
               accessibilityLabel="Correo para recuperación"
               placeholderTextColor="#9fb1c8" keyboardType="email-address"
               autoCapitalize="none" autoCorrect={false} value={recoveryEmail}
               onChangeText={setRecoveryEmail} />
-            <Btn title={recoveryBusy ? 'Enviando...' : 'Enviar código de recuperación'}
+            <Btn title={recoveryBusy ? 'Enviando...' : 'Enviar enlace de recuperación'}
               disabled={recoveryBusy} onPress={requestPasswordReset} />
             <Btn title="← Volver a iniciar sesión" secondary
               disabled={recoveryBusy} onPress={() => setScreen('Inicio')} />
@@ -785,7 +783,9 @@ export default function App() {
               {operations.map(op => {
                 const sent = op.kind === 'contribution' || op.source_user_id === userId;
                 const label = op.kind === 'contribution' ? 'Aportación ficticia' :
-                  sent ? 'Transferencia enviada' : 'Transferencia recibida';
+                  op.is_merchant_payment
+                    ? (sent ? 'Pago ficticio a comercio' : 'Cobro ficticio de comercio')
+                    : (sent ? 'Transferencia enviada' : 'Transferencia recibida');
                 return (
                   <View style={styles.entry} key={op.id}>
                     <Text style={styles.itemHeading}>{label}</Text>
