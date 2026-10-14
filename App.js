@@ -9,7 +9,7 @@ import 'react-native-get-random-values';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, Alert, Platform, StatusBar, Share
+  StyleSheet, Alert, Platform, StatusBar, Share, Linking
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
@@ -18,6 +18,7 @@ import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentReque
 // CLAVE PUBLICABLE de Supabase. Nunca coloques claves secret/service_role en App.js.
 const SUPABASE_URL = 'https://egrsdrlpavrtbgxoyxvg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_sKotmweOAug6XqTR16U9Wg_ugxAx3vm';
+const RECOVERY_REDIRECT_URL = 'monedamundial://auth/recovery';
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: AsyncStorage,
@@ -88,7 +89,6 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
   const [recoveryEmail, setRecoveryEmail] = useState('');
-  const [recoveryCode, setRecoveryCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [recoveryBusy, setRecoveryBusy] = useState(false);
@@ -139,6 +139,42 @@ export default function App() {
       }
     });
     return () => { active = false; subscription.unsubscribe(); };
+  }, []);
+
+  // Capturar enlaces de restablecimiento dirigidos exclusivamente a esta app.
+  useEffect(() => {
+    let active = true;
+    async function onRecoveryUrl(url) {
+      if (!active || typeof url !== 'string' ||
+          !url.startsWith(RECOVERY_REDIRECT_URL)) return;
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'monedamundial:' || parsed.hostname !== 'auth' ||
+            parsed.pathname !== '/recovery') return;
+        const params = new URLSearchParams(parsed.hash.slice(1));
+        if (params.has('error') || params.has('error_code')) {
+          throw new Error('Enlace caducado o inválido. Solicita otro.');
+        }
+        const access_token = params.get('access_token');
+        const refresh_token = params.get('refresh_token');
+        if (params.get('type') !== 'recovery' || !access_token || !refresh_token) {
+          throw new Error('Enlace incompleto.');
+        }
+        recoveryInProgressRef.current = true;
+        const { data, error } = await supabase.auth.setSession({
+          access_token, refresh_token,
+        });
+        if (error) throw error;
+        if (!data?.session) throw new Error('No se pudo confirmar la sesión.');
+        if (active) setScreen('NuevaContrasena');
+      } catch (error) {
+        recoveryInProgressRef.current = false;
+        if (active) message('Recuperación', error.message || 'Solicita otro enlace.');
+      }
+    }
+    Linking.getInitialURL().then(onRecoveryUrl).catch(() => {});
+    const linkSubscription = Linking.addEventListener('url', ({ url }) => onRecoveryUrl(url));
+    return () => { active = false; linkSubscription.remove(); };
   }, []);
 
   useEffect(() => {
@@ -352,9 +388,7 @@ export default function App() {
   }
 
 
-  // Recuperación por código OTP (correo) para evitar enlaces rotos de Expo Snack.
-  // Requiere plantilla «Reset Password» de Supabase con {{ .Token }}.
-  // No se muestra si la dirección corresponde a un usuario registrado.
+  // Enlace nativo de recuperación; no requiere plantilla SMTP personalizada.
   async function requestPasswordReset() {
     const requestedEmail = recoveryEmail.trim().toLowerCase();
     if (!/^\S+@\S+\.\S+$/.test(requestedEmail)) {
@@ -363,40 +397,15 @@ export default function App() {
     if (recoveryBusy) return;
     setRecoveryBusy(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(requestedEmail);
-      if (error) throw error;
-      setRecoveryEmail(requestedEmail);
-      setRecoveryCode('');
-      setScreen('VerificarCodigo');
-      message('Revisa tu correo', 'Si la cuenta existe, recibirás un código de recuperación. No compartas el código con nadie.');
-    } catch (error) {
-      message('Recuperación no enviada', error.message || 'Intenta de nuevo más tarde.');
-    } finally {
-      setRecoveryBusy(false);
-    }
-  }
-
-  async function verifyRecoveryCode() {
-    const codeValue = recoveryCode.trim();
-    if (!/^\d{6}$/.test(codeValue)) {
-      return message('Código', 'Introduce el código de seis números recibido en tu correo.');
-    }
-    if (recoveryBusy) return;
-    setRecoveryBusy(true);
-    try {
-      recoveryInProgressRef.current = true;
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: recoveryEmail.trim().toLowerCase(),
-        token: codeValue,
-        type: 'recovery',
+      const { error } = await supabase.auth.resetPasswordForEmail(requestedEmail, {
+        redirectTo: RECOVERY_REDIRECT_URL,
       });
       if (error) throw error;
-      if (!data?.session) throw new Error('No se recibió una sesión segura de recuperación.');
-      setRecoveryCode('');
-      setScreen('NuevaContrasena');
+      setRecoveryEmail(requestedEmail);
+      setScreen('VerificarCodigo');
+      message('Revisa tu correo', 'Si la cuenta existe, recibirás un enlace seguro. Ábrelo en este teléfono para volver a Moneda Mundial.');
     } catch (error) {
-      recoveryInProgressRef.current = false;
-      message('Código no válido', 'Comprueba el código o solicita uno nuevo. Puede haber caducado.');
+      message('Recuperación', error.message || 'No se pudo enviar el correo.');
     } finally {
       setRecoveryBusy(false);
     }
@@ -416,7 +425,6 @@ export default function App() {
       if (error) throw error;
       setNewPassword('');
       setConfirmNewPassword('');
-      setRecoveryCode('');
       recoveryInProgressRef.current = false;
       const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' });
       if (signOutError) throw signOutError;
@@ -566,18 +574,10 @@ export default function App() {
           </View>
         ) : !session && screen === 'VerificarCodigo' ? (
           <View style={styles.card}>
-            <Text style={styles.heading}>Verificar correo</Text>
-            <Text style={styles.muted}>Escribe el código de seis números enviado a {recoveryEmail}. Revisa también spam.</Text>
-            <TextInput style={styles.input} placeholder="Código de 6 números"
-              accessibilityLabel="Código de recuperación"
-              placeholderTextColor="#9fb1c8" keyboardType="number-pad"
-              maxLength={6} value={recoveryCode} onChangeText={setRecoveryCode} />
-            <Btn title={recoveryBusy ? 'Comprobando...' : 'Verificar código'}
-              disabled={recoveryBusy} onPress={verifyRecoveryCode} />
-            <Btn title="Solicitar otro código" secondary
-              disabled={recoveryBusy} onPress={requestPasswordReset} />
-            <Btn title="← Volver" secondary disabled={recoveryBusy}
-              onPress={() => setScreen('RecuperarAcceso')} />
+            <Text style={styles.heading}>Revisa tu correo</Text>
+            <Text style={styles.muted}>Abre el enlace de recuperación enviado a {recoveryEmail} en este teléfono. Regresarás a Moneda Mundial para crear una contraseña nueva.</Text>
+            <Btn title="Reenviar enlace" secondary disabled={recoveryBusy} onPress={requestPasswordReset} />
+            <Btn title="← Volver" secondary disabled={recoveryBusy} onPress={() => setScreen('RecuperarAcceso')} />
           </View>
         ) : session && screen === 'NuevaContrasena' ? (
           <View style={styles.card}>
