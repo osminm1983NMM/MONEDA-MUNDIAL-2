@@ -44,3 +44,14 @@ test('no genera comprobantes de cuentas ajenas o datos malformados', () => {
   assert.equal(formatDemoReceipt({ ...base, amount_cents: -1 }, owner), null);
   assert.equal(formatDemoReceipt({ ...base, created_at: 'invalida' }, owner), null);
 });
+
+
+test('receipt in English retains the reference, correct amount and clear safety warning', () => {
+  const receipt = formatDemoReceipt(base, owner, 'en');
+  assert.match(receipt, /DEMO TRANSACTION RECEIPT/);
+  assert.match(receipt, /NO REAL MONEY/);
+  assert.match(receipt, /Transfer sent/);
+  assert.match(receipt, /-1\.00 demo MWD/);
+  assert.match(receipt, /f3f26e36-99d0-41e9-8670-cc6f48110f23/);
+  assert.doesNotMatch(receipt, /usuario-1|usuario-2/);
+});
