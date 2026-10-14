@@ -84,6 +84,48 @@ function Btn({ title, onPress, secondary = false, disabled = false }) {
   );
 }
 
+// Selector compacto: evita recorrer 19 botones grandes para llegar a la cotización.
+function CountrySelector({ title, options, selectedCode, onChoose }) {
+  const [expanded, setExpanded] = useState(false);
+  const [search, setSearch] = useState('');
+  const normal = value => String(value || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  const current = options.find(item => item.code === selectedCode);
+  const visible = options.filter(item => normal(item.label).includes(normal(search)));
+  return (
+    <View style={styles.countryPicker}>
+      <Text style={styles.muted}>{title}</Text>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cambiar país"
+        style={styles.countryToggle} onPress={() => setExpanded(value => !value)}>
+        <Text style={styles.countryToggleText}>
+          {current ? current.label + (current.info ? ' · ' + current.info : '') : 'Selecciona un país'}
+          {expanded ? '  ▲' : '  ▼'}
+        </Text>
+      </TouchableOpacity>
+      {expanded && <View style={styles.countryOptions}>
+        <TextInput style={styles.input} placeholder="Buscar país" value={search}
+          autoCorrect={false} placeholderTextColor="#9fb1c8" onChangeText={setSearch} />
+        {visible.map(item => (
+          <TouchableOpacity key={item.code} accessibilityRole="button"
+            accessibilityLabel={item.label} style={[
+              styles.countryOption, item.code === selectedCode && styles.countryOptionSelected
+            ]} onPress={() => {
+              onChoose(item.code);
+              setExpanded(false);
+              setSearch('');
+            }}>
+            <Text style={styles.countryOptionText}>
+              {item.code === selectedCode ? '✓ ' : ''}{item.label}
+              {item.info ? ' · ' + item.info : ''}
+            </Text>
+          </TouchableOpacity>
+        ))}
+        {visible.length === 0 && <Text style={styles.muted}>No se encontró ese país.</Text>}
+      </View>}
+    </View>
+  );
+}
+
 export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [session, setSession] = useState(null);
@@ -215,7 +257,13 @@ export default function App() {
     try {
       const {data,error} = await supabase.rpc('mwd_owner_demo_fee_catalog');
       if (error) throw error;
-      setFeeCatalog(Array.isArray(data) ? data : []);
+      const catalog = Array.isArray(data) ? data : [];
+      setFeeCatalog(catalog);
+      const selected = catalog.find(item => item.destination === feeCountry);
+      if (selected) {
+        setFeePercent((selected.feeBps / 100).toFixed(2));
+        setFeeMinimum(formatMWD(selected.minFeeCents));
+      }
     } catch (error) {
       message('Tarifas de prueba', 'No se pudo cargar el catálogo del propietario.');
     }
@@ -910,13 +958,10 @@ export default function App() {
               <Text style={styles.heading}>Simulador internacional MWD</Text>
               <Text style={styles.warning}>CÁLCULOS HIPOTÉTICOS · SIN BANCOS · SIN DINERO REAL</Text>
               <Text style={styles.muted}>País de origen: Estados Unidos (USD). Comisiones y costos de demostración, NO tarifas aprobadas.</Text>
-              <Text style={styles.panelTitle}>Selecciona un país de destino</Text>
-              {DEMO_CORRIDORS.map(route => (
-                <Btn key={route.code}
-                  title={demoDestination === route.code ? '✓ ' + route.country : route.country}
-                  secondary={demoDestination !== route.code}
-                  onPress={() => { setDemoDestination(route.code); setInternationalQuote(null); }} />
-              ))}
+              <CountrySelector title="País de destino"
+                options={DEMO_CORRIDORS.map(route => ({code: route.code, label: route.country}))}
+                selectedCode={demoDestination}
+                onChoose={code => { setDemoDestination(code); setInternationalQuote(null); }} />
               <Text style={styles.panelTitle}>Método de origen simulado</Text>
               <Btn title={demoMethod === 'bank' ? '✓ Cuenta bancaria (simulada)' : 'Cuenta bancaria (simulada)'}
                 secondary={demoMethod !== 'bank'} onPress={() => { setDemoMethod('bank'); setInternationalQuote(null); }} />
@@ -968,14 +1013,18 @@ export default function App() {
                   <Btn title="Consultar tarifas de prueba" secondary onPress={refreshDemoFeeCatalog} />
                   {feeCatalog && <View style={styles.panel}>
                     <Text style={styles.small}>Países configurados: {feeCatalog.length}</Text>
-                    {feeCatalog.map(route => <Btn key={route.destination}
-                      title={(feeCountry === route.destination ? '✓ ' : '') + route.country +
-                        ' · ' + (route.feeBps / 100).toFixed(2) + '%'}
-                      secondary={feeCountry !== route.destination} onPress={() => {
-                        setFeeCountry(route.destination);
+                    <CountrySelector title="Selecciona el país que deseas administrar"
+                      options={feeCatalog.map(route => ({
+                        code: route.destination, label: route.country,
+                        info: (route.feeBps / 100).toFixed(2) + '%'
+                      }))}
+                      selectedCode={feeCountry} onChoose={code => {
+                        const route = feeCatalog.find(item => item.destination === code);
+                        if (!route) return;
+                        setFeeCountry(code);
                         setFeePercent((route.feeBps / 100).toFixed(2));
                         setFeeMinimum(formatMWD(route.minFeeCents));
-                      }} />)}
+                      }} />
                     <Text style={styles.muted}>Porcentaje de comisión de prueba</Text>
                     <TextInput style={styles.input} value={feePercent} keyboardType="decimal-pad"
                       placeholderTextColor="#9fb1c8" onChangeText={setFeePercent} />
@@ -1052,6 +1101,15 @@ const styles = StyleSheet.create({
   small: { color: '#D4E0E7', marginTop: 6 },
   code: { color: '#8FE6D4', fontSize: 16, marginTop: 12, fontWeight: '700' },
   input: { backgroundColor: '#1C3A4E', color: '#FFFFFF', padding: 14, borderRadius: 11, marginVertical: 8, fontSize: 16 },
+  countryPicker: { marginVertical: 10 },
+  countryToggle: { backgroundColor: '#284658', borderRadius: 11, padding: 15,
+    borderWidth: 1, borderColor: '#478E94' },
+  countryToggleText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' },
+  countryOptions: { backgroundColor: '#163347', borderRadius: 12, padding: 9, marginTop: 9 },
+  countryOption: { backgroundColor: '#284658', borderRadius: 9, marginVertical: 4,
+    paddingVertical: 11, paddingHorizontal: 14 },
+  countryOptionSelected: { backgroundColor: '#15887F' },
+  countryOptionText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
   button: { backgroundColor: '#15887F', padding: 16, borderRadius: 11, marginBottom: 12, alignItems: 'center' },
   buttonSecondary: { backgroundColor: '#284658' },
   buttonDisabled: { opacity: 0.5 },
