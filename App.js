@@ -561,8 +561,8 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#07111f" />
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <StatusBar barStyle="light-content" backgroundColor="#07111f" translucent />
+      <ScrollView style={styles.scrollArea} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <View style={styles.brandHeader}>
           <View style={styles.brandIcon}><Text style={styles.brandIconText}>◎</Text></View>
           <View style={styles.brandWords}>
@@ -642,7 +642,7 @@ export default function App() {
                 <Text style={styles.balanceUnit}>MWD · créditos ficticios</Text>
                 <View style={styles.heroDivider} />
                 <Text style={styles.walletLabel}>TU IDENTIFICADOR DE BILLETERA</Text>
-                <Text selectable style={styles.heroCode}>{wallet?.account_code || 'Preparando cuenta'}</Text>
+                <Text selectable numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.65} style={styles.heroCode}>{wallet?.account_code || 'Preparando cuenta'}</Text>
                 <Btn title="Compartir código para recibir" secondary
                   onPress={() => shareDemoCode('wallet', wallet?.account_code)} disabled={!wallet} />
               </View>
@@ -834,7 +834,11 @@ export default function App() {
 // Interfaz estática sin animaciones. Todos los saldos siguen siendo ficticios.
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#071321' },
-  body: { paddingHorizontal: 18, paddingTop: 38, paddingBottom: 66, maxWidth: 620, width: '100%', alignSelf: 'center' },
+  // Reserva espacio real para las barras de estado y navegacion en Android edge-to-edge.
+  // El margen queda fijo mientras se desplaza el contenido: ninguna etiqueta se oculta tras la hora.
+  scrollArea: { marginTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0,
+    marginBottom: Platform.OS === 'android' ? 28 : 0 },
+  body: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 84, maxWidth: 620, width: '100%', alignSelf: 'center' },
   brandHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   brandIcon: { width: 44, height: 44, borderRadius: 13, backgroundColor: '#114858', alignItems: 'center', justifyContent: 'center', marginRight: 10, borderWidth: 1, borderColor: '#3ED4C5' },
   brandIconText: { fontSize: 27, color: '#D5B57A', fontWeight: '700' },
@@ -847,15 +851,15 @@ const styles = StyleSheet.create({
   demoBannerText: { color: '#F3D49A', textAlign: 'center', fontWeight: '700', letterSpacing: 0.5, fontSize: 11 },
   warning: { color: '#F3D49A', textAlign: 'center', marginVertical: 19, fontSize: 12 },
   hero: { backgroundColor: '#123849', borderRadius: 23, padding: 22, marginBottom: 25, borderWidth: 1, borderColor: '#286B78' },
-  heroTopLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 29 },
+  heroTopLine: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: 29, gap: 8 },
   heroEyebrow: { color: '#D6EAEC', fontSize: 11, letterSpacing: 1.4, fontWeight: '800' },
-  heroBadge: { color: '#061E23', backgroundColor: '#7FE0CA', paddingHorizontal: 10, paddingVertical: 5, overflow: 'hidden', borderRadius: 12, fontSize: 10, fontWeight: '800' },
+  heroBadge: { color: '#061E23', backgroundColor: '#7FE0CA', paddingHorizontal: 10, paddingVertical: 5, overflow: 'hidden', borderRadius: 12, fontSize: 10, fontWeight: '800', flexShrink: 0 },
   balanceCaption: { color: '#C2DBE2', fontSize: 14 },
   balance: { color: '#FFFFFF', fontSize: 39, fontWeight: '800', marginTop: 5, letterSpacing: -1.1 },
   balanceUnit: { color: '#BBD0D7', marginTop: 5, marginBottom: 12, fontSize: 13 },
   heroDivider: { borderBottomColor: '#517585', borderBottomWidth: 1, marginVertical: 17 },
   walletLabel: { color: '#C1D6DB', fontSize: 10, letterSpacing: 0.8, fontWeight: '700' },
-  heroCode: { color: '#FFFFFF', fontSize: 16, marginTop: 8, marginBottom: 17, fontWeight: '700', letterSpacing: 0.2 },
+  heroCode: { color: '#FFFFFF', fontSize: 15, marginTop: 8, marginBottom: 17, fontWeight: '700', letterSpacing: 0 },
   sectionEyebrow: { color: '#7FE0CA', fontSize: 11, letterSpacing: 1.1, fontWeight: '700', marginBottom: 6 },
   sectionTitle: { color: '#FFFFFF', fontSize: 24, fontWeight: '800', marginBottom: 16 },
   quickRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30 },
