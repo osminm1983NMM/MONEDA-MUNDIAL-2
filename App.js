@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentRequestId } from './src/demo-money.mjs';
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
+import { DEMO_CORRIDORS, quoteInternationalDemo } from './src/international-demo.mjs';
 
 // CLAVE PUBLICABLE de Supabase. Nunca coloques claves secret/service_role en App.js.
 const SUPABASE_URL = 'https://egrsdrlpavrtbgxoyxvg.supabase.co';
@@ -97,6 +98,9 @@ export default function App() {
   const [wallet, setWallet] = useState(null);
   const [operations, setOperations] = useState([]);
   const [selectedReceiptId, setSelectedReceiptId] = useState(null);
+  const [demoDestination, setDemoDestination] = useState('EC');
+  const [demoMethod, setDemoMethod] = useState('bank');
+  const [demoAmount, setDemoAmount] = useState('100');
   const [adminRole, setAdminRole] = useState(null);
   const [ownerSummary, setOwnerSummary] = useState(null);
   const [ownerLoading, setOwnerLoading] = useState(false);
@@ -685,6 +689,7 @@ export default function App() {
                 <Btn title="Mi comercio y solicitudes de cobro" secondary onPress={() => navigate('Comercio')} />
                 <Btn title={syncing ? 'Actualizando cuenta...' : 'Actualizar saldo e historial'} secondary
                   onPress={() => refreshAccount()} disabled={syncing} />
+                <Btn title="Simulador internacional de comisiones" secondary onPress={() => navigate('SimuladorInternacional')} />
                 <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
               </View>
               <View style={styles.accountStrip}>
@@ -820,6 +825,46 @@ export default function App() {
                 );
               })}
             </>}
+
+            {screen === 'SimuladorInternacional' && <View style={styles.card}>
+              <Text style={styles.heading}>Simulador internacional MWD</Text>
+              <Text style={styles.warning}>CÁLCULOS HIPOTÉTICOS · SIN BANCOS · SIN DINERO REAL</Text>
+              <Text style={styles.muted}>País de origen: Estados Unidos (USD). Comisiones y costos de demostración, NO tarifas aprobadas.</Text>
+              <Text style={styles.panelTitle}>Selecciona un país de destino</Text>
+              {DEMO_CORRIDORS.map(route => (
+                <Btn key={route.code}
+                  title={demoDestination === route.code ? '✓ ' + route.country : route.country}
+                  secondary={demoDestination !== route.code}
+                  onPress={() => setDemoDestination(route.code)} />
+              ))}
+              <Text style={styles.panelTitle}>Método de origen simulado</Text>
+              <Btn title={demoMethod === 'bank' ? '✓ Cuenta bancaria (simulada)' : 'Cuenta bancaria (simulada)'}
+                secondary={demoMethod !== 'bank'} onPress={() => setDemoMethod('bank')} />
+              <Btn title={demoMethod === 'card' ? '✓ Tarjeta (simulada)' : 'Tarjeta (simulada)'}
+                secondary={demoMethod !== 'card'} onPress={() => setDemoMethod('card')} />
+              <TextInput style={styles.input} value={demoAmount}
+                placeholder="Importe de ejemplo en USD" placeholderTextColor="#9fb1c8"
+                keyboardType="decimal-pad" onChangeText={setDemoAmount} />
+              {(() => {
+                const cents = amountToCents(demoAmount);
+                const q = quoteInternationalDemo({destination:demoDestination,
+                  amountCents:cents, method:demoMethod});
+                if (!q) return <Text style={styles.warning}>Importe inválido (mínimo 1 USD; máximo 100,000 USD).</Text>;
+                return <View style={styles.panel}>
+                  <Text style={styles.panelTitle}>Presupuesto de prueba</Text>
+                  <Text style={styles.small}>Destino: {q.country} ({q.destinationCurrency})</Text>
+                  <Text style={styles.small}>Envío simulado: {formatMWD(q.amountCents)} USD</Text>
+                  <Text style={styles.small}>Comisión hipotética: {formatMWD(q.feeCents)} USD</Text>
+                  <Text style={styles.small}>Total simulado: {formatMWD(q.totalPayCents)} USD</Text>
+                  <Text style={styles.small}>Costo variable de ejemplo: {formatMWD(q.costEstimateCents)} USD</Text>
+                  <Text style={styles.small}>Margen parcial ilustrativo: {formatMWD(q.illustrativeMarginCents)} USD</Text>
+                  <Text style={styles.small}>{q.receiverAmountCents === null
+                    ? 'Importe final no disponible: tipo de cambio real pendiente.'
+                    : 'Recepción simulada: ' + formatMWD(q.receiverAmountCents) + ' USD'}</Text>
+                  <Text style={styles.warning}>La estimación omite costos regulatorios, fiscales, FX y otros. No constituye cotización real ni utilidad neta.</Text>
+                </View>;
+              })()}
+            </View>}
 
             {screen === 'Admin' && <View style={styles.card}>
               <Text style={styles.heading}>Administración MWD</Text>
