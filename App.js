@@ -105,6 +105,11 @@ export default function App() {
   const [quoteBusy, setQuoteBusy] = useState(false);
   const [adminRole, setAdminRole] = useState(null);
   const [ownerSummary, setOwnerSummary] = useState(null);
+  const [feeCatalog, setFeeCatalog] = useState(null);
+  const [feeCountry, setFeeCountry] = useState('EC');
+  const [feePercent, setFeePercent] = useState('1.00');
+  const [feeMinimum, setFeeMinimum] = useState('0.50');
+  const [feeSaving, setFeeSaving] = useState(false);
   const [ownerLoading, setOwnerLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [recipientCode, setRecipientCode] = useState('');
@@ -204,6 +209,53 @@ export default function App() {
     refreshAccount(userId);
     refreshMerchant(userId);
   }, [userId]);
+
+  async function refreshDemoFeeCatalog() {
+    if (adminRole !== 'owner') return;
+    try {
+      const {data,error} = await supabase.rpc('mwd_owner_demo_fee_catalog');
+      if (error) throw error;
+      setFeeCatalog(Array.isArray(data) ? data : []);
+    } catch (error) {
+      message('Tarifas de prueba', 'No se pudo cargar el catálogo del propietario.');
+    }
+  }
+
+  async function saveOwnerDemoFee() {
+    if (adminRole !== 'owner' || feeSaving) return;
+    const pct = String(feePercent).trim().replace(',', '.');
+    const minText = String(feeMinimum).trim().replace(',', '.');
+    const min = minText === '0' || minText === '0.00' ? 0 : amountToCents(minText);
+    const bps = Number(pct) * 100;
+    if (!/^[0-9]{1,2}([.][0-9]{1,2})?$/.test(pct) ||
+        !Number.isSafeInteger(bps) || bps < 10 || bps > 1000 ||
+        min === null || min < 0 || min > 5000) {
+      return message('Tarifa inválida', 'Comisión entre 0.10% y 10.00%; mínimo entre 0 y 50 USD.');
+    }
+    const country = feeCatalog?.find(r => r.destination === feeCountry);
+    if (!country) return message('País', 'Selecciona un país del catálogo.');
+    confirmAction('Modificar solo tarifa ficticia',
+      'Guardar tarifa de prueba de ' + pct + '% y mínimo ' + minText +
+      ' USD para ' + country.country + '? NO habilita dinero real.',
+      async () => {
+        setFeeSaving(true);
+        try {
+          const {data,error} = await supabase.rpc('mwd_owner_update_demo_fee', {
+            p_destination_country: feeCountry, p_fee_bps: bps, p_min_fee_cents: min
+          });
+          if (error) throw error;
+          if (!['updated_simulation','unchanged_simulation'].includes(data?.status))
+            throw Error('Confirmación inválida');
+          setInternationalQuote(null);
+          await refreshDemoFeeCatalog();
+          message('Guardado', 'Tarifa ficticia confirmada. No procesa dinero real.');
+        } catch (error) {
+          message('No se pudo guardar', 'Comprueba tu sesión y los valores.');
+        } finally {
+          setFeeSaving(false);
+        }
+      });
+  }
 
   async function fetchDemoInternationalQuote() {
     const cents = amountToCents(demoAmount);
@@ -910,6 +962,28 @@ export default function App() {
                     <Text style={styles.small}>Aportaciones: {ownerSummary.aportaciones}</Text>
                     <Text style={styles.small}>Cobros pagados: {ownerSummary.cobros_pagados}</Text>
                     <Text style={styles.small}>Saldo conjunto ficticio: {formatMWD(ownerSummary.saldo_demo_centavos)} MWD</Text>
+                  </View>}
+                  <Text style={styles.sectionEyebrow}>TARIFAS INTERNACIONALES FICTICIAS</Text>
+                  <Btn title="Consultar tarifas de prueba" secondary onPress={refreshDemoFeeCatalog} />
+                  {feeCatalog && <View style={styles.panel}>
+                    <Text style={styles.small}>Países configurados: {feeCatalog.length}</Text>
+                    {feeCatalog.map(route => <Btn key={route.destination}
+                      title={(feeCountry === route.destination ? '✓ ' : '') + route.country +
+                        ' · ' + (route.feeBps / 100).toFixed(2) + '%'}
+                      secondary={feeCountry !== route.destination} onPress={() => {
+                        setFeeCountry(route.destination);
+                        setFeePercent((route.feeBps / 100).toFixed(2));
+                        setFeeMinimum(formatMWD(route.minFeeCents));
+                      }} />)}
+                    <Text style={styles.muted}>Porcentaje de comisión de prueba</Text>
+                    <TextInput style={styles.input} value={feePercent} keyboardType="decimal-pad"
+                      placeholderTextColor="#9fb1c8" onChangeText={setFeePercent} />
+                    <Text style={styles.muted}>Tarifa mínima ficticia en USD</Text>
+                    <TextInput style={styles.input} value={feeMinimum} keyboardType="decimal-pad"
+                      placeholderTextColor="#9fb1c8" onChangeText={setFeeMinimum} />
+                    <Btn title={feeSaving ? 'Guardando...' : 'Guardar tarifa ficticia'}
+                      onPress={saveOwnerDemoFee} disabled={feeSaving} />
+                    <Text style={styles.warning}>Solo modifica cotizaciones simuladas. Queda auditado en Supabase; no activa pagos.</Text>
                   </View>}
                   <Text style={styles.muted}>No se permite cambiar roles, saldos ni operaciones desde este panel.</Text>
                 </View>
