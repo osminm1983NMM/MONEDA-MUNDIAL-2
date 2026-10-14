@@ -6,12 +6,14 @@
 
 import 'react-native-url-polyfill/auto';
 import 'react-native-get-random-values';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useContext, createContext } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, Alert, Platform, StatusBar, Share, Linking
+  View, Text as RNText, TextInput as RNTextInput, TouchableOpacity, ScrollView,
+  StyleSheet, Alert, Platform, StatusBar, Share, Linking, AppState
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getLocales } from 'expo-localization';
+import { resolveAppLanguage, translate, LANGUAGE_SETTING_KEY, formatLocalizedDate } from './src/i18n.mjs';
 import { createClient } from '@supabase/supabase-js';
 import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentRequestId } from './src/demo-money.mjs';
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
@@ -29,6 +31,29 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     detectSessionInUrl: false,
   },
 });
+
+// Un solo motor de traducción para los textos y campos de todas las pantallas.
+const LanguageContext = createContext('es');
+function trChild(child, language) {
+  if (typeof child !== 'string') return child;
+  const stripped = child.trim();
+  if (!stripped) return child;
+  const translated = translate(stripped, language);
+  if (translated === stripped) return child;
+  return child.replace(stripped, translated);
+}
+function Text({children, ...props}) {
+  const language = useContext(LanguageContext);
+  return <RNText {...props}>{React.Children.map(children, c => trChild(c, language))}</RNText>;
+}
+function TextInput(props) {
+  const language = useContext(LanguageContext);
+  return <RNTextInput {...props} placeholder={translate(props.placeholder,language)} />;
+}
+function deviceLanguage() {
+  try { return getLocales()?.[0]?.languageTag || 'es'; }
+  catch { return 'es'; }
+}
 
 function uniqueRequestId() {
   if (!globalThis.crypto || !globalThis.crypto.getRandomValues) {
@@ -127,6 +152,27 @@ function CountrySelector({ title, options, selectedCode, onChoose }) {
 }
 
 export default function App() {
+  const [deviceLocale, setDeviceLocale] = useState(deviceLanguage);
+  const [languageMode, setLanguageMode] = useState('auto');
+  const language = resolveAppLanguage(languageMode, deviceLocale);
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem(LANGUAGE_SETTING_KEY)
+      .then(value => {
+        if (active && ['auto','es','en'].includes(value)) setLanguageMode(value);
+      })
+      .catch(() => {});
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active' && active) setDeviceLocale(deviceLanguage());
+    });
+    return () => { active = false; sub.remove(); };
+  }, []);
+  async function chooseLanguage(mode) {
+    if (!['auto','es','en'].includes(mode)) return;
+    setLanguageMode(mode);
+    try { await AsyncStorage.setItem(LANGUAGE_SETTING_KEY,mode); }
+    catch { message('Idioma', 'No se pudo guardar la preferencia.'); }
+  }
   const [authLoading, setAuthLoading] = useState(true);
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState('');
@@ -712,7 +758,7 @@ export default function App() {
   }
 
   async function shareReceipt(op) {
-    const receipt = formatDemoReceipt(op, userId);
+    const receipt = formatDemoReceipt(op, userId, language);
     if (!receipt) return message('Comprobante', 'No fue posible preparar esta operación.');
     try {
       await Share.share({ message: receipt });
@@ -722,6 +768,7 @@ export default function App() {
   }
 
   return (
+    <LanguageContext.Provider value={language}>
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#07111f" translucent />
       <ScrollView style={styles.scrollArea} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
@@ -837,6 +884,7 @@ export default function App() {
                   onPress={() => refreshAccount()} disabled={syncing} />
                 <Btn title="Países del mundo y disponibilidad" secondary onPress={() => { navigate('PaisesMundo'); loadWorldCountries(); }} />
                 <Btn title="Simulador internacional de comisiones" secondary onPress={() => navigate('SimuladorInternacional')} />
+                <Btn title="Configuración" secondary onPress={() => navigate('Configuracion')} />
                 <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
               </View>
               <View style={styles.accountStrip}>
@@ -846,6 +894,19 @@ export default function App() {
                 </TouchableOpacity>
               </View>
             </>}
+
+            {screen === 'Configuracion' && <View style={styles.card}>
+              <Text style={styles.heading}>Configuración</Text>
+              <Text style={styles.panelTitle}>Idioma de la aplicación</Text>
+              <Text style={styles.muted}>Idioma actual: {language === 'en' ? 'English' : 'Español'}</Text>
+              <Btn title={(languageMode==='auto' ? '✓ ' : '')+'Automático (idioma del teléfono)'}
+                secondary={languageMode!=='auto'} onPress={()=>chooseLanguage('auto')} />
+              <Btn title={(languageMode==='es' ? '✓ ' : '')+'Español'}
+                secondary={languageMode!=='es'} onPress={()=>chooseLanguage('es')} />
+              <Btn title={(languageMode==='en' ? '✓ ' : '')+'English'}
+                secondary={languageMode!=='en'} onPress={()=>chooseLanguage('en')} />
+              <Text style={styles.small}>Idioma guardado en este dispositivo</Text>
+            </View>}
 
             {screen === 'Transferir' && <View style={styles.card}>
               <Text style={styles.heading}>Transferencia de prueba</Text>
@@ -951,9 +1012,9 @@ export default function App() {
                 if (!movement) return null;
                 return (
                   <View style={styles.entry} key={op.id}>
-                    <Text style={styles.itemHeading}>{movement.label}</Text>
+                    <Text style={styles.itemHeading}>{translate(movement.label, language)}</Text>
                     <Text style={styles.amount}>{movement.sign}{formatMWD(op.amount_cents)} MWD</Text>
-                    <Text style={styles.muted}>{new Date(op.created_at).toLocaleString()}</Text>
+                    <Text style={styles.muted}>{formatLocalizedDate(op.created_at, language)}</Text>
                     <Btn title={selectedReceiptId === op.id ? 'Ocultar comprobante de prueba' : 'Ver comprobante de prueba'}
                       secondary onPress={() => setSelectedReceiptId(selectedReceiptId === op.id ? null : op.id)} />
                     {selectedReceiptId === op.id && (
@@ -961,9 +1022,9 @@ export default function App() {
                         <Text style={styles.small}>COMPROBANTE FICTICIO · SIN DINERO REAL</Text>
                         <Text style={styles.muted}>Referencia:</Text>
                         <Text selectable style={styles.code}>{op.id}</Text>
-                        <Text style={styles.muted}>Tipo: {movement.label}</Text>
+                        <Text style={styles.muted}>Tipo: {translate(movement.label, language)}</Text>
                         <Text style={styles.muted}>Monto: {movement.sign}{formatMWD(op.amount_cents)} MWD de prueba</Text>
-                        <Text style={styles.muted}>Fecha: {new Date(op.created_at).toLocaleString()}</Text>
+                        <Text style={styles.muted}>Fecha: {formatLocalizedDate(op.created_at, language)}</Text>
                         <Text style={styles.warning}>Este comprobante NO acredita ningún movimiento de dinero real.</Text>
                         <Btn title="Compartir comprobante ficticio" secondary onPress={() => shareReceipt(op)} />
                       </View>
@@ -1101,6 +1162,7 @@ export default function App() {
         <Text style={styles.footer}>Moneda Mundial • Prototipo conectado a Supabase • No es un servicio financiero</Text>
       </ScrollView>
     </View>
+    </LanguageContext.Provider>
   );
 }
 
