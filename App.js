@@ -9,7 +9,7 @@ import 'react-native-get-random-values';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, Alert, Platform, StatusBar, ActivityIndicator, Share
+  StyleSheet, Alert, Platform, StatusBar, Share
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
@@ -445,11 +445,19 @@ export default function App() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#07111f" />
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <Text style={styles.logo}>🌐 MONEDA MUNDIAL</Text>
-        <Text style={styles.sub}>MWD • Versión 2.0 • Supabase</Text>
-        <Text style={styles.warning}>SOLO DEMOSTRACIÓN • SIN DINERO REAL</Text>
+        <View style={styles.brandHeader}>
+          <View style={styles.brandIcon}><Text style={styles.brandIconText}>◎</Text></View>
+          <View style={styles.brandWords}>
+            <Text style={styles.logo}>MONEDA MUNDIAL</Text>
+            <Text style={styles.sub}>Tu mundo, una billetera</Text>
+          </View>
+          <View style={styles.versionPill}><Text style={styles.versionText}>2.0</Text></View>
+        </View>
+        <View style={styles.demoBanner}>
+          <Text style={styles.demoBannerText}>MODO DEMOSTRACIÓN · SIN DINERO REAL</Text>
+        </View>
 
-        {authLoading ? <ActivityIndicator color="#4a8dff" size="large" /> : !session ? (
+        {authLoading ? <Text style={styles.loadingText}>Estamos preparando tu cuenta</Text> : !session ? (
           <View style={styles.card}>
             <Text style={styles.heading}>Accede a Moneda Mundial</Text>
             <Text style={styles.muted}>Crea una cuenta de prueba o inicia sesión.</Text>
@@ -467,24 +475,55 @@ export default function App() {
           <>
             {screen !== 'Inicio' && <Btn title="← Volver al inicio" secondary onPress={() => navigate('Inicio')} disabled={busy} />}
             {screen === 'Inicio' && <>
-              <View style={styles.card}>
-                <Text style={styles.muted}>TU CUENTA PERSONAL DE PRUEBA</Text>
-                <Text style={styles.small}>{session.user.email}</Text>
-                <Text style={styles.balance}>{wallet ? formatMWD(wallet.balance_cents) : '...'} MWD</Text>
-                <Text style={styles.muted}>Saldo ficticio en Supabase</Text>
-                <Text selectable style={styles.code}>{wallet?.account_code || 'Cargando identificador...'}</Text>
-                <Btn title="Compartir mi código de prueba" secondary
+              <View style={styles.hero}>
+                <View style={styles.heroTopLine}>
+                  <Text style={styles.heroEyebrow}>BILLETERA MUNDIAL</Text>
+                  <Text style={styles.heroBadge}>MWD · PRUEBA</Text>
+                </View>
+                <Text style={styles.balanceCaption}>Saldo disponible</Text>
+                <Text style={styles.balance}>{wallet ? formatMWD(wallet.balance_cents) : 'Consultando...'}</Text>
+                <Text style={styles.balanceUnit}>MWD · créditos ficticios</Text>
+                <View style={styles.heroDivider} />
+                <Text style={styles.walletLabel}>TU IDENTIFICADOR DE BILLETERA</Text>
+                <Text selectable style={styles.heroCode}>{wallet?.account_code || 'Preparando cuenta'}</Text>
+                <Btn title="Compartir código para recibir" secondary
                   onPress={() => shareDemoCode('wallet', wallet?.account_code)} disabled={!wallet} />
               </View>
-              <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet} />
-              <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
-              <Btn title="Mi comercio y cobros de prueba" secondary onPress={() => navigate('Comercio')} />
-              <Btn title="Pagar a un comercio de prueba" secondary onPress={() => navigate('PagarComercio')} />
-              <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
-              <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
-              <Btn title="Actualizar saldo e historial" secondary onPress={() => refreshAccount()} disabled={syncing} />
-              <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
-              <Btn title="Cerrar sesión" secondary onPress={logout} />
+              <Text style={styles.sectionEyebrow}>MOVIMIENTOS</Text>
+              <Text style={styles.sectionTitle}>¿Qué quieres hacer hoy?</Text>
+              <View style={styles.quickRow}>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Enviar MWD de demostración"
+                  style={styles.quickAction} onPress={() => navigate('Transferir')} disabled={!wallet}>
+                  <Text style={styles.quickIcon}>⇄</Text><Text style={styles.quickText}>Enviar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Recibir MWD de demostración"
+                  style={styles.quickAction} onPress={() => navigate('Cuenta')}>
+                  <Text style={styles.quickIcon}>↓</Text><Text style={styles.quickText}>Recibir</Text>
+                </TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Pagar a un comercio de demostración"
+                  style={styles.quickAction} onPress={() => navigate('PagarComercio')}>
+                  <Text style={styles.quickIcon}>◇</Text><Text style={styles.quickText}>Pagar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Ver actividad"
+                  style={styles.quickAction} onPress={() => navigate('Historial')}>
+                  <Text style={styles.quickIcon}>≡</Text><Text style={styles.quickText}>Actividad</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.sectionEyebrow}>SERVICIOS</Text>
+              <View style={styles.panel}>
+                <Text style={styles.panelTitle}>Más opciones</Text>
+                <Btn title="Aportaciones de demostración" secondary onPress={() => navigate('Aportar')} disabled={!wallet} />
+                <Btn title="Mi comercio y solicitudes de cobro" secondary onPress={() => navigate('Comercio')} />
+                <Btn title={syncing ? 'Actualizando cuenta...' : 'Actualizar saldo e historial'} secondary
+                  onPress={() => refreshAccount()} disabled={syncing} />
+                <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
+              </View>
+              <View style={styles.accountStrip}>
+                <Text style={styles.accountText} numberOfLines={1}>{session.user.email}</Text>
+                <TouchableOpacity accessibilityRole="button" onPress={logout} style={styles.logoutButton}>
+                  <Text style={styles.logoutText}>Cerrar sesión</Text>
+                </TouchableOpacity>
+              </View>
             </>}
 
             {screen === 'Transferir' && <View style={styles.card}>
@@ -617,25 +656,57 @@ export default function App() {
   );
 }
 
+// Identidad visual 2.0: azul marino profundo, turquesa y dorado sobrio.
+// Interfaz estática sin animaciones. Todos los saldos siguen siendo ficticios.
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#07111f' },
-  body: { padding: 22, paddingTop: 40, paddingBottom: 60 },
-  logo: { color: '#ffffff', fontSize: 25, fontWeight: '800', textAlign: 'center' },
-  sub: { color: '#9ab0cf', textAlign: 'center', marginTop: 6 },
-  warning: { color: '#f4cc81', textAlign: 'center', marginVertical: 19, fontSize: 12 },
-  card: { backgroundColor: '#13253e', borderRadius: 17, padding: 20, marginBottom: 17 },
-  heading: { color: '#fff', fontSize: 21, fontWeight: '700', marginBottom: 13 },
-  muted: { color: '#9ab0cf', lineHeight: 21, marginBottom: 9 },
-  small: { color: '#d4e0f1', marginTop: 6 },
-  balance: { color: '#fff', fontSize: 31, fontWeight: '800', marginVertical: 17 },
-  code: { color: '#8fc1ff', fontSize: 16, marginTop: 12, fontWeight: '700' },
-  input: { backgroundColor: '#233a58', color: '#fff', padding: 14, borderRadius: 11, marginVertical: 8, fontSize: 16 },
-  button: { backgroundColor: '#276af1', padding: 16, borderRadius: 11, marginBottom: 12, alignItems: 'center' },
-  buttonSecondary: { backgroundColor: '#334b68' },
+  container: { flex: 1, backgroundColor: '#071321' },
+  body: { paddingHorizontal: 18, paddingTop: 38, paddingBottom: 66, maxWidth: 620, width: '100%', alignSelf: 'center' },
+  brandHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  brandIcon: { width: 44, height: 44, borderRadius: 13, backgroundColor: '#114858', alignItems: 'center', justifyContent: 'center', marginRight: 10, borderWidth: 1, borderColor: '#3ED4C5' },
+  brandIconText: { fontSize: 27, color: '#D5B57A', fontWeight: '700' },
+  brandWords: { flex: 1 },
+  logo: { color: '#FFFFFF', fontSize: 18, letterSpacing: 0.8, fontWeight: '800' },
+  sub: { color: '#A9BCCB', marginTop: 3, fontSize: 12 },
+  versionPill: { borderWidth: 1, borderColor: '#4C6878', borderRadius: 9, paddingVertical: 5, paddingHorizontal: 9 },
+  versionText: { color: '#C6DDE0', fontSize: 12, fontWeight: '700' },
+  demoBanner: { padding: 12, backgroundColor: '#263323', borderRadius: 11, borderWidth: 1, borderColor: '#6B653A', marginBottom: 17 },
+  demoBannerText: { color: '#F3D49A', textAlign: 'center', fontWeight: '700', letterSpacing: 0.5, fontSize: 11 },
+  warning: { color: '#F3D49A', textAlign: 'center', marginVertical: 19, fontSize: 12 },
+  hero: { backgroundColor: '#123849', borderRadius: 23, padding: 22, marginBottom: 25, borderWidth: 1, borderColor: '#286B78' },
+  heroTopLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 29 },
+  heroEyebrow: { color: '#D6EAEC', fontSize: 11, letterSpacing: 1.4, fontWeight: '800' },
+  heroBadge: { color: '#061E23', backgroundColor: '#7FE0CA', paddingHorizontal: 10, paddingVertical: 5, overflow: 'hidden', borderRadius: 12, fontSize: 10, fontWeight: '800' },
+  balanceCaption: { color: '#C2DBE2', fontSize: 14 },
+  balance: { color: '#FFFFFF', fontSize: 39, fontWeight: '800', marginTop: 5, letterSpacing: -1.1 },
+  balanceUnit: { color: '#BBD0D7', marginTop: 5, marginBottom: 12, fontSize: 13 },
+  heroDivider: { borderBottomColor: '#517585', borderBottomWidth: 1, marginVertical: 17 },
+  walletLabel: { color: '#C1D6DB', fontSize: 10, letterSpacing: 0.8, fontWeight: '700' },
+  heroCode: { color: '#FFFFFF', fontSize: 16, marginTop: 8, marginBottom: 17, fontWeight: '700', letterSpacing: 0.2 },
+  sectionEyebrow: { color: '#7FE0CA', fontSize: 11, letterSpacing: 1.1, fontWeight: '700', marginBottom: 6 },
+  sectionTitle: { color: '#FFFFFF', fontSize: 24, fontWeight: '800', marginBottom: 16 },
+  quickRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30 },
+  quickAction: { width: '23.5%', backgroundColor: '#122C3D', borderRadius: 15, paddingVertical: 17, paddingHorizontal: 3, alignItems: 'center', borderWidth: 1, borderColor: '#2A5260' },
+  quickIcon: { color: '#8FE6D4', fontSize: 27, marginBottom: 8, fontWeight: '600' },
+  quickText: { color: '#EAF6F6', fontSize: 12, fontWeight: '700' },
+  panel: { backgroundColor: '#10293A', borderWidth: 1, borderColor: '#25495A', borderRadius: 17, padding: 16, marginBottom: 17 },
+  panelTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', marginBottom: 14 },
+  accountStrip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
+  accountText: { color: '#A6BCCC', flex: 1, marginRight: 9, fontSize: 12 },
+  logoutButton: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, backgroundColor: '#1F3A48' },
+  logoutText: { color: '#D3E2E6', fontSize: 12, fontWeight: '700' },
+  loadingText: { color: '#DFEEEE', textAlign: 'center', marginVertical: 28, fontSize: 15 },
+  card: { backgroundColor: '#10293A', borderRadius: 17, padding: 20, marginBottom: 17, borderWidth: 1, borderColor: '#25495A' },
+  heading: { color: '#FFFFFF', fontSize: 21, fontWeight: '700', marginBottom: 13 },
+  muted: { color: '#ABBECC', lineHeight: 21, marginBottom: 9 },
+  small: { color: '#D4E0E7', marginTop: 6 },
+  code: { color: '#8FE6D4', fontSize: 16, marginTop: 12, fontWeight: '700' },
+  input: { backgroundColor: '#1C3A4E', color: '#FFFFFF', padding: 14, borderRadius: 11, marginVertical: 8, fontSize: 16 },
+  button: { backgroundColor: '#15887F', padding: 16, borderRadius: 11, marginBottom: 12, alignItems: 'center' },
+  buttonSecondary: { backgroundColor: '#284658' },
   buttonDisabled: { opacity: 0.5 },
-  buttonText: { color: '#fff', fontSize: 15, fontWeight: '700', textAlign: 'center' },
-  entry: { backgroundColor: '#14263e', padding: 17, borderRadius: 13, marginBottom: 12 },
-  itemHeading: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  amount: { color: '#fff', fontSize: 18, marginVertical: 8 },
-  footer: { color: '#7e92a8', textAlign: 'center', fontSize: 11, marginTop: 30 },
+  buttonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', textAlign: 'center' },
+  entry: { backgroundColor: '#10293A', padding: 17, borderRadius: 13, marginBottom: 12 },
+  itemHeading: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  amount: { color: '#FFFFFF', fontSize: 18, marginVertical: 8 },
+  footer: { color: '#92AABB', textAlign: 'center', fontSize: 11, marginTop: 30 },
 });
