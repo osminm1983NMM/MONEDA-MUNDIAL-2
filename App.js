@@ -141,6 +141,9 @@ export default function App() {
   const [operations, setOperations] = useState([]);
   const [selectedReceiptId, setSelectedReceiptId] = useState(null);
   const [demoDestination, setDemoDestination] = useState('EC');
+  const [worldCountries, setWorldCountries] = useState(null);
+  const [worldQuery, setWorldQuery] = useState('');
+  const [worldLoading, setWorldLoading] = useState(false);
   const [demoMethod, setDemoMethod] = useState('bank');
   const [demoAmount, setDemoAmount] = useState('100');
   const [internationalQuote, setInternationalQuote] = useState(null);
@@ -304,6 +307,21 @@ export default function App() {
           setFeeSaving(false);
         }
       });
+  }
+
+  async function loadWorldCountries() {
+    if (worldLoading) return;
+    setWorldLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('mwd_world_countries_demo');
+      if (error) throw error;
+      if (!Array.isArray(data)) throw Error('Catálogo no disponible');
+      setWorldCountries(data);
+    } catch (error) {
+      message('Países del mundo', 'No se pudo consultar el catálogo mundial. Inténtalo nuevamente.');
+    } finally {
+      setWorldLoading(false);
+    }
   }
 
   async function fetchDemoInternationalQuote() {
@@ -817,6 +835,7 @@ export default function App() {
                 <Btn title="Mi comercio y solicitudes de cobro" secondary onPress={() => navigate('Comercio')} />
                 <Btn title={syncing ? 'Actualizando cuenta...' : 'Actualizar saldo e historial'} secondary
                   onPress={() => refreshAccount()} disabled={syncing} />
+                <Btn title="Países del mundo y disponibilidad" secondary onPress={() => { navigate('PaisesMundo'); loadWorldCountries(); }} />
                 <Btn title="Simulador internacional de comisiones" secondary onPress={() => navigate('SimuladorInternacional')} />
                 <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
               </View>
@@ -953,6 +972,39 @@ export default function App() {
                 );
               })}
             </>}
+
+            {screen === 'PaisesMundo' && <View style={styles.card}>
+              <Text style={styles.heading}>Países y territorios del mundo</Text>
+              <Text style={styles.warning}>CATÁLOGO INFORMATIVO · NINGÚN PAÍS HABILITADO PARA DINERO REAL</Text>
+              <Text style={styles.muted}>La lista usa códigos internacionales ISO. Incluye territorios además de países. La disponibilidad se habilitará únicamente después de los permisos, controles y acuerdos bancarios aplicables.</Text>
+              <Btn title={worldLoading ? 'Consultando catálogo...' : 'Actualizar catálogo mundial'}
+                secondary disabled={worldLoading} onPress={loadWorldCountries} />
+              {worldCountries && <>
+                <Text style={styles.panelTitle}>Destinos registrados: {worldCountries.length}</Text>
+                <TextInput style={styles.input} value={worldQuery} placeholder="Buscar país o territorio"
+                  placeholderTextColor="#9fb1c8" autoCorrect={false} onChangeText={setWorldQuery}/>
+                {(() => {
+                  const norm = s => String(s || '').toLowerCase().normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '').trim();
+                  const query = norm(worldQuery);
+                  const filtered = worldCountries.filter(item =>
+                    norm(item.name).includes(query) || norm(item.code).includes(query));
+                  return <View>
+                    <Text style={styles.small}>Resultados: {filtered.length}{filtered.length > 25 ? ' · mostrando los primeros 25' : ''}</Text>
+                    {filtered.slice(0,25).map(item => <View key={item.code} style={styles.countryOption}>
+                      <Text style={styles.countryOptionText}>{item.name} ({item.code})</Text>
+                      <Text style={styles.small}>{item.demoAvailable
+                        ? 'Simulaciones disponibles · NO dinero real'
+                        : 'Pendiente de preparación y autorizaciones'}</Text>
+                      <Text style={styles.muted}>Transferencias reales: no disponibles</Text>
+                      {item.demoAvailable && <Btn title="Ver simulación de este destino" secondary
+                        onPress={() => { setDemoDestination(item.code); setInternationalQuote(null); navigate('SimuladorInternacional'); }} />}
+                    </View>)}
+                    {filtered.length === 0 && <Text style={styles.muted}>No encontramos ese nombre. Comprueba la escritura.</Text>}
+                  </View>;
+                })()}
+              </>}
+            </View>}
 
             {screen === 'SimuladorInternacional' && <View style={styles.card}>
               <Text style={styles.heading}>Simulador internacional MWD</Text>
