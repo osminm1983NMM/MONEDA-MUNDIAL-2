@@ -2,7 +2,7 @@
 
 Fecha: 2026-10-14
 Estado: **ESPECIFICACIÓN DE PRODUCTO; NO FUNCIONAL CON DINERO REAL**.
-Decisión del fundador: mantener una app común para usuarios de diferentes países; permitir, donde esté autorizado y soportado, financiar un envío desde una cuenta bancaria o tarjeta habilitada; recibir en una billetera regulada o directamente en cuenta bancaria; retirar desde billetera a banco o tarjeta elegible. Descarga gratuita y comisiones competitivas, transparentes y sostenibles.
+Decisión del fundador: la **prioridad regional es toda Centroamérica y Sudamérica**, con Estados Unidos como uno de los principales mercados de origen, no únicamente Ecuador. Diseñar desde el principio una app común multinacional; permitir, donde esté autorizado y soportado, financiar un envío desde una cuenta bancaria o tarjeta habilitada; recibir en una billetera regulada o directamente en cuenta bancaria; retirar desde billetera a banco o tarjeta elegible. Descarga gratuita y comisiones competitivas, transparentes y sostenibles. España, Turquía y otros mercados quedan dentro de la visión global posterior.
 
 ## 1. Conceptos que nunca deben confundirse
 
@@ -11,7 +11,7 @@ Decisión del fundador: mantener una app común para usuarios de diferentes paí
 3. **Billetera Moneda Mundial (saldo real futuro)**: únicamente si la opera una entidad autorizada para custodiar dinero electrónico o un socio responsable, con salvaguarda de fondos, conciliación y reembolsos. Debe identificar la entidad jurídica que custodia dinero. No debe convertirse automáticamente el saldo ficticio MWD en dinero real.
 4. **Saldo bancario**: solamente se incrementa cuando la entidad receptora confirma el crédito en la cuenta. Vincular una tarjeta no significa que un saldo de la billetera se encuentre ya en el banco.
 
-## 2. Flujo conceptual (ejemplo EE. UU. → Nicaragua, España o Turquía)
+## 2. Flujo conceptual (ejemplo EE. UU. → Centroamérica o Sudamérica, y luego otras regiones)
 
 a. Usuario remitente y destinatario se autentican; KYC, verificaciones de listas restrictivas, elegibilidad de corredor, límites, verificaciones de riesgo, beneficiario y titularidad.
 b. Remitente elige destinatario y fuente: transferencia bancaria habilitada o tarjeta **elegible** tokenizada por proveedor PCI; nunca guardar PIN, CVV ni PAN completo en App.js, Supabase ni logs.
@@ -32,6 +32,28 @@ f. Servicio recibe notificaciones firmadas, verifica idempotencia, asienta parti
 | España | EUR | Banco de España, entidades autorizadas de pago/dinero electrónico, exigencias UE y operación transfronteriza y privacidad |
 
 **Regla estricta:** autorización y conexión por país, ruta, producto, origen/destino, canal de financiación, moneda y beneficiario; nunca prometer cobertura global automática.
+
+### Alcance geográfico aprobado por el fundador
+
+**Región prioritaria en el diseño del producto (sin afirmar operatividad ni autorización):**
+- **Centroamérica:** Belice, Guatemala, Honduras, El Salvador, Nicaragua, Costa Rica y Panamá.
+- **Sudamérica:** Colombia, Venezuela, Guyana, Surinam, Ecuador, Perú, Bolivia, Brasil, Paraguay, Chile, Argentina y Uruguay. La Guayana Francesa requiere tratamiento normativo propio por su vinculación con Francia.
+- **Origen principal a estudiar:** Estados Unidos. Un país puede actuar como origen y como destino cuando la regulación y la infraestructura lo permitan.
+- **Ampliaciones globales:** México (Norteamérica), España, Turquía y otros mercados por fases posteriores.
+
+**No es una lista de países habilitados.** Todas estas jurisdicciones quedan por evaluar respecto a socios, reglas, bancos, moneda, riesgos, licencias y restricciones locales. Los procedimientos y requisitos no son idénticos en todos los países.
+
+### Estrategia de despliegue multirregional
+
+1. Diseñar **una sola plataforma, multi-país desde el primer día de desarrollo**, con múltiples monedas, idiomas, rutas, destinos y medios de abono configurados desde servidor.
+2. **Estudiar en paralelo** a socios bancarios y procesadores capaces de servir varias rutas entre EE. UU., Centroamérica y Sudamérica, para reducir trabajo contractual repetido cuando sea viable.
+3. Crear una **matriz por corredor**: país origen/destino, moneda, método de fondeo, método de recepción, entidad ejecutora, licencias/opinión legal, KYB/KYC/AML, costos, límites, reversos, riesgos, pagos y conciliación.
+4. Iniciar pruebas técnicas en entornos de simulación para **varios países simultáneamente**, aunque el primer movimiento de dinero real solo podrá ocurrir en rutas plenamente autorizadas y operativas.
+5. Abrir rutas reales **por grupos según autorizaciones y contratos recibidos**; no limitar el plan comercial al primer país que pueda activarse. Países en revisión siguen deshabilitados para operaciones reales.
+6. Definir las tarifas por corredor, forma de pago y moneda. No ofrecer comisiones inferiores al costo: el objetivo es mantener **margen de contribución positivo y rentabilidad sostenible** para Moneda Mundial, sin comisiones ocultas y de modo competitivo.
+7. Para cada corredor definir el dinero final recibido, tiempo de entrega, riesgo de fraude y reversos, carga de soporte, tipo de cambio, impuestos y derechos del consumidor; y revaluarlo periódicamente.
+
+**Ejemplo de política de disponibilidad:** Estados Unidos → Guatemala podría estar habilitado si todas las condiciones están satisfechas, mientras Estados Unidos → Perú puede seguir en revisión; ambas rutas aparecen como opciones informativas, pero la app no permitirá cursar dinero real por una ruta no habilitada.
 
 ## 4. Servicios de socios (contratación futura; ninguno conectado hoy)
 - Procesador regulado de tarjeta con tokenización/PCI y flujos aceptados para financiar remesas; confirmación de elegibilidad y costos y reglas de contracargos.
@@ -57,7 +79,7 @@ f. Servicio recibe notificaciones firmadas, verifica idempotencia, asienta parti
 - Revisar seguridad de pagos, RLS, PCI DSS, autenticación reforzada, consentimiento, PSD/AML, secretos backend, auditoría y protección de datos por región.
 
 ## 7. Prioridades y criterios de salida
-1. Aprobar requisitos iniciales EE. UU. → **un** país piloto, estimar costos y evaluar riesgo.
+1. Aprobar el alcance técnico **EE. UU. → Centroamérica y Sudamérica** y preparar en paralelo una matriz regulatoria y comercial de cada corredor. Elegir la primera ruta autorizada para una puesta en marcha controlada, sin reducir a ella el alcance del proyecto.
 2. Obtener dictamen jurídico escrito y contratos del programa de pagos con entidades elegibles y autorizadas.
 3. Crear simulador de flujos y comisiones con datos ficticios (no número de tarjeta real).
 4. Probar rechazos, reintentos, duplicados, idempotencia, concilios, devoluciones, chargebacks, fraudes, interrupciones y fondos insuficientes.
