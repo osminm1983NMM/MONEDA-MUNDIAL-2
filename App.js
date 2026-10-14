@@ -23,6 +23,263 @@ import { DEMO_CORRIDORS } from './src/international-demo.mjs';
 const SUPABASE_URL = 'https://egrsdrlpavrtbgxoyxvg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_sKotmweOAug6XqTR16U9Wg_ugxAx3vm';
 const RECOVERY_REDIRECT_URL = 'monedamundial://auth/recovery';
+
+// Nombres ISO para el catálogo de alcance mundial; la interfaz nunca cambia
+// la autorización financiera, que se decide exclusivamente en el servidor.
+const COUNTRY_NAMES_EN = Object.freeze({
+  "AD": "Andorra",
+  "AE": "United Arab Emirates",
+  "AF": "Afghanistan",
+  "AG": "Antigua & Barbuda",
+  "AI": "Anguilla",
+  "AL": "Albania",
+  "AM": "Armenia",
+  "AO": "Angola",
+  "AQ": "Antarctica",
+  "AR": "Argentina",
+  "AS": "American Samoa",
+  "AT": "Austria",
+  "AU": "Australia",
+  "AW": "Aruba",
+  "AX": "Åland Islands",
+  "AZ": "Azerbaijan",
+  "BA": "Bosnia & Herzegovina",
+  "BB": "Barbados",
+  "BD": "Bangladesh",
+  "BE": "Belgium",
+  "BF": "Burkina Faso",
+  "BG": "Bulgaria",
+  "BH": "Bahrain",
+  "BI": "Burundi",
+  "BJ": "Benin",
+  "BL": "St. Barthélemy",
+  "BM": "Bermuda",
+  "BN": "Brunei",
+  "BO": "Bolivia",
+  "BQ": "Caribbean Netherlands",
+  "BR": "Brazil",
+  "BS": "Bahamas",
+  "BT": "Bhutan",
+  "BV": "Bouvet Island",
+  "BW": "Botswana",
+  "BY": "Belarus",
+  "BZ": "Belize",
+  "CA": "Canada",
+  "CC": "Cocos (Keeling) Islands",
+  "CD": "Congo - Kinshasa",
+  "CF": "Central African Republic",
+  "CG": "Congo - Brazzaville",
+  "CH": "Switzerland",
+  "CI": "Côte d’Ivoire",
+  "CK": "Cook Islands",
+  "CL": "Chile",
+  "CM": "Cameroon",
+  "CN": "China",
+  "CO": "Colombia",
+  "CR": "Costa Rica",
+  "CU": "Cuba",
+  "CV": "Cape Verde",
+  "CW": "Curaçao",
+  "CX": "Christmas Island",
+  "CY": "Cyprus",
+  "CZ": "Czechia",
+  "DE": "Germany",
+  "DJ": "Djibouti",
+  "DK": "Denmark",
+  "DM": "Dominica",
+  "DO": "Dominican Republic",
+  "DZ": "Algeria",
+  "EC": "Ecuador",
+  "EE": "Estonia",
+  "EG": "Egypt",
+  "EH": "Western Sahara",
+  "ER": "Eritrea",
+  "ES": "Spain",
+  "ET": "Ethiopia",
+  "FI": "Finland",
+  "FJ": "Fiji",
+  "FK": "Falkland Islands (Islas Malvinas)",
+  "FM": "Micronesia",
+  "FO": "Faroe Islands",
+  "FR": "France",
+  "GA": "Gabon",
+  "GB": "United Kingdom",
+  "GD": "Grenada",
+  "GE": "Georgia",
+  "GF": "French Guiana",
+  "GG": "Guernsey",
+  "GH": "Ghana",
+  "GI": "Gibraltar",
+  "GL": "Greenland",
+  "GM": "Gambia",
+  "GN": "Guinea",
+  "GP": "Guadeloupe",
+  "GQ": "Equatorial Guinea",
+  "GR": "Greece",
+  "GS": "South Georgia & South Sandwich Islands",
+  "GT": "Guatemala",
+  "GU": "Guam",
+  "GW": "Guinea-Bissau",
+  "GY": "Guyana",
+  "HK": "Hong Kong",
+  "HM": "Heard & McDonald Islands",
+  "HN": "Honduras",
+  "HR": "Croatia",
+  "HT": "Haiti",
+  "HU": "Hungary",
+  "ID": "Indonesia",
+  "IE": "Ireland",
+  "IL": "Israel",
+  "IM": "Isle of Man",
+  "IN": "India",
+  "IO": "British Indian Ocean Territory",
+  "IQ": "Iraq",
+  "IR": "Iran",
+  "IS": "Iceland",
+  "IT": "Italy",
+  "JE": "Jersey",
+  "JM": "Jamaica",
+  "JO": "Jordan",
+  "JP": "Japan",
+  "KE": "Kenya",
+  "KG": "Kyrgyzstan",
+  "KH": "Cambodia",
+  "KI": "Kiribati",
+  "KM": "Comoros",
+  "KN": "St. Kitts & Nevis",
+  "KP": "North Korea",
+  "KR": "South Korea",
+  "KW": "Kuwait",
+  "KY": "Cayman Islands",
+  "KZ": "Kazakhstan",
+  "LA": "Laos",
+  "LB": "Lebanon",
+  "LC": "St. Lucia",
+  "LI": "Liechtenstein",
+  "LK": "Sri Lanka",
+  "LR": "Liberia",
+  "LS": "Lesotho",
+  "LT": "Lithuania",
+  "LU": "Luxembourg",
+  "LV": "Latvia",
+  "LY": "Libya",
+  "MA": "Morocco",
+  "MC": "Monaco",
+  "MD": "Moldova",
+  "ME": "Montenegro",
+  "MF": "St. Martin",
+  "MG": "Madagascar",
+  "MH": "Marshall Islands",
+  "MK": "North Macedonia",
+  "ML": "Mali",
+  "MM": "Myanmar (Burma)",
+  "MN": "Mongolia",
+  "MO": "Macao",
+  "MP": "Northern Mariana Islands",
+  "MQ": "Martinique",
+  "MR": "Mauritania",
+  "MS": "Montserrat",
+  "MT": "Malta",
+  "MU": "Mauritius",
+  "MV": "Maldives",
+  "MW": "Malawi",
+  "MX": "Mexico",
+  "MY": "Malaysia",
+  "MZ": "Mozambique",
+  "NA": "Namibia",
+  "NC": "New Caledonia",
+  "NE": "Niger",
+  "NF": "Norfolk Island",
+  "NG": "Nigeria",
+  "NI": "Nicaragua",
+  "NL": "Netherlands",
+  "NO": "Norway",
+  "NP": "Nepal",
+  "NR": "Nauru",
+  "NU": "Niue",
+  "NZ": "New Zealand",
+  "OM": "Oman",
+  "PA": "Panama",
+  "PE": "Peru",
+  "PF": "French Polynesia",
+  "PG": "Papua New Guinea",
+  "PH": "Philippines",
+  "PK": "Pakistan",
+  "PL": "Poland",
+  "PM": "St. Pierre & Miquelon",
+  "PN": "Pitcairn Islands",
+  "PR": "Puerto Rico",
+  "PS": "Palestine",
+  "PT": "Portugal",
+  "PW": "Palau",
+  "PY": "Paraguay",
+  "QA": "Qatar",
+  "RE": "Réunion",
+  "RO": "Romania",
+  "RS": "Serbia",
+  "RU": "Russia",
+  "RW": "Rwanda",
+  "SA": "Saudi Arabia",
+  "SB": "Solomon Islands",
+  "SC": "Seychelles",
+  "SD": "Sudan",
+  "SE": "Sweden",
+  "SG": "Singapore",
+  "SH": "St. Helena",
+  "SI": "Slovenia",
+  "SJ": "Svalbard & Jan Mayen",
+  "SK": "Slovakia",
+  "SL": "Sierra Leone",
+  "SM": "San Marino",
+  "SN": "Senegal",
+  "SO": "Somalia",
+  "SR": "Suriname",
+  "SS": "South Sudan",
+  "ST": "São Tomé & Príncipe",
+  "SV": "El Salvador",
+  "SX": "Sint Maarten",
+  "SY": "Syria",
+  "SZ": "Eswatini",
+  "TC": "Turks & Caicos Islands",
+  "TD": "Chad",
+  "TF": "French Southern Territories",
+  "TG": "Togo",
+  "TH": "Thailand",
+  "TJ": "Tajikistan",
+  "TK": "Tokelau",
+  "TL": "Timor-Leste",
+  "TM": "Turkmenistan",
+  "TN": "Tunisia",
+  "TO": "Tonga",
+  "TR": "Türkiye",
+  "TT": "Trinidad & Tobago",
+  "TV": "Tuvalu",
+  "TW": "Taiwan",
+  "TZ": "Tanzania",
+  "UA": "Ukraine",
+  "UG": "Uganda",
+  "UM": "U.S. Outlying Islands",
+  "US": "United States",
+  "UY": "Uruguay",
+  "UZ": "Uzbekistan",
+  "VA": "Vatican City",
+  "VC": "St. Vincent & Grenadines",
+  "VE": "Venezuela",
+  "VG": "British Virgin Islands",
+  "VI": "U.S. Virgin Islands",
+  "VN": "Vietnam",
+  "VU": "Vanuatu",
+  "WF": "Wallis & Futuna",
+  "WS": "Samoa",
+  "YE": "Yemen",
+  "YT": "Mayotte",
+  "ZA": "South Africa",
+  "ZM": "Zambia",
+  "ZW": "Zimbabwe"
+});
+function countryName(code, nameEs, language) {
+  return language === 'en' ? (COUNTRY_NAMES_EN[code] || nameEs) : nameEs;
+}
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: AsyncStorage,
@@ -73,13 +330,13 @@ function message(title, body) {
   else Alert.alert(title, body);
 }
 
-function confirmAction(title, detail, action) {
+function confirmAction(title, detail, action, language = 'es') {
   if (Platform.OS === 'web') {
     if (window.confirm(title + '\n' + detail)) action();
   } else {
     Alert.alert(title, detail, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Confirmar', onPress: action },
+      { text: translate('Cancelar', language), style: 'cancel' },
+      { text: translate('Confirmar', language), onPress: action },
     ]);
   }
 }
@@ -170,11 +427,17 @@ export default function App() {
     });
     return () => { active = false; sub.remove(); };
   }, []);
+  function showMessage(title, body) {
+    return message(translate(title,language),translate(body,language));
+  }
+  function showConfirm(title, detail, action) {
+    return confirmAction(translate(title,language),translate(detail,language),action,language);
+  }
   async function chooseLanguage(mode) {
     if (!['auto','es','en'].includes(mode)) return;
     setLanguageMode(mode);
     try { await AsyncStorage.setItem(LANGUAGE_SETTING_KEY,mode); }
-    catch { message('Idioma', 'No se pudo guardar la preferencia.'); }
+    catch { showMessage('Idioma', 'No se pudo guardar la preferencia.'); }
   }
   const [authLoading, setAuthLoading] = useState(true);
   const [session, setSession] = useState(null);
@@ -230,7 +493,7 @@ export default function App() {
         if (error) throw error;
         if (active) setSession(data.session);
       })
-      .catch(error => message('Sesión', error.message))
+      .catch(error => showMessage('Sesión', error.message))
       .finally(() => { if (active) setAuthLoading(false); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
@@ -278,7 +541,7 @@ export default function App() {
         if (active) setScreen('NuevaContrasena');
       } catch (error) {
         recoveryInProgressRef.current = false;
-        if (active) message('Recuperación', error.message || 'Solicita otro enlace.');
+        if (active) showMessage('Recuperación', error.message || 'Solicita otro enlace.');
       }
     }
     Linking.getInitialURL().then(onRecoveryUrl).catch(() => {});
@@ -317,7 +580,7 @@ export default function App() {
         setFeeMinimum(formatMWD(selected.minFeeCents));
       }
     } catch (error) {
-      message('Tarifas de prueba', 'No se pudo cargar el catálogo del propietario.');
+      showMessage('Tarifas de prueba', 'No se pudo cargar el catálogo del propietario.');
     }
   }
 
@@ -331,11 +594,11 @@ export default function App() {
     if (!/^[0-9]{1,2}([.][0-9]{1,2})?$/.test(pct) ||
         !Number.isSafeInteger(bps) || bps < 10 || bps > 1000 ||
         min === null || min < 0 || min > 5000) {
-      return message('Tarifa inválida', 'Comisión entre 0.10% y 10.00%; mínimo entre 0 y 50 USD.');
+      return showMessage('Tarifa inválida', 'Comisión entre 0.10% y 10.00%; mínimo entre 0 y 50 USD.');
     }
     const country = feeCatalog?.find(r => r.destination === feeCountry);
-    if (!country) return message('País', 'Selecciona un país del catálogo.');
-    confirmAction('Modificar solo tarifa ficticia',
+    if (!country) return showMessage('País', 'Selecciona un país del catálogo.');
+    showConfirm('Modificar solo tarifa ficticia',
       'Guardar tarifa de prueba de ' + pct + '% y mínimo ' + minText +
       ' USD para ' + country.country + '? NO habilita dinero real.',
       async () => {
@@ -349,9 +612,9 @@ export default function App() {
             throw Error('Confirmación inválida');
           setInternationalQuote(null);
           await refreshDemoFeeCatalog();
-          message('Guardado', 'Tarifa ficticia confirmada. No procesa dinero real.');
+          showMessage('Guardado', 'Tarifa ficticia confirmada. No procesa dinero real.');
         } catch (error) {
-          message('No se pudo guardar', 'Comprueba tu sesión y los valores.');
+          showMessage('No se pudo guardar', 'Comprueba tu sesión y los valores.');
         } finally {
           setFeeSaving(false);
         }
@@ -367,7 +630,7 @@ export default function App() {
       if (!Array.isArray(data)) throw Error('Catálogo no disponible');
       setWorldCountries(data);
     } catch (error) {
-      message('Países del mundo', 'No se pudo consultar el catálogo mundial. Inténtalo nuevamente.');
+      showMessage('Países del mundo', 'No se pudo consultar el catálogo mundial. Inténtalo nuevamente.');
     } finally {
       setWorldLoading(false);
     }
@@ -376,7 +639,7 @@ export default function App() {
   async function fetchDemoInternationalQuote() {
     const cents = amountToCents(demoAmount);
     if (cents === null || cents < 100 || cents > 10000000) {
-      return message('Cantidad', 'Introduce un importe entre 1 y 100,000 USD para esta simulación.');
+      return showMessage('Cantidad', 'Introduce un importe entre 1 y 100,000 USD para esta simulación.');
     }
     setInternationalQuote(null);
     setQuoteBusy(true);
@@ -392,7 +655,7 @@ export default function App() {
       }
       setInternationalQuote(data);
     } catch (error) {
-      message('Simulación', 'No fue posible calcular la cotización de prueba. Inténtalo otra vez.');
+      showMessage('Simulación', 'No fue posible calcular la cotización de prueba. Inténtalo otra vez.');
     } finally {
       setQuoteBusy(false);
     }
@@ -406,7 +669,7 @@ export default function App() {
       if (error) throw error;
       setOwnerSummary(data);
     } catch (error) {
-      message('Panel propietario', 'No fue posible cargar el resumen de demostración.');
+      showMessage('Panel propietario', 'No fue posible cargar el resumen de demostración.');
     } finally {
       setOwnerLoading(false);
     }
@@ -431,7 +694,7 @@ export default function App() {
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
     } catch (error) {
-      message('Sincronización', error.message || 'No se pudo consultar Supabase.');
+      showMessage('Sincronización', error.message || 'No se pudo consultar Supabase.');
     } finally {
       setSyncing(false);
     }
@@ -460,7 +723,7 @@ export default function App() {
         setMerchantCountry(m.data.country_code);
       }
     } catch (error) {
-      message('Comercios', error.message || 'No se pudo consultar el comercio.');
+      showMessage('Comercios', error.message || 'No se pudo consultar el comercio.');
     }
   }
 
@@ -468,10 +731,10 @@ export default function App() {
     const business_name = merchantName.trim();
     const country_code = merchantCountry.trim().toUpperCase();
     if (business_name.length < 2 || business_name.length > 120) {
-      return message('Comercio', 'El nombre debe tener entre 2 y 120 caracteres.');
+      return showMessage('Comercio', 'El nombre debe tener entre 2 y 120 caracteres.');
     }
     if (!/^[A-Z]{2}$/.test(country_code)) {
-      return message('País', 'Introduce un código ISO de dos letras, por ejemplo US o HN.');
+      return showMessage('País', 'Introduce un código ISO de dos letras, por ejemplo US o HN.');
     }
     if (!userId || merchantBusy) return;
     setMerchantBusy(true);
@@ -481,9 +744,9 @@ export default function App() {
       }, { onConflict: 'owner_user_id' });
       if (error) throw error;
       await refreshMerchant(userId);
-      message('Comercio de prueba', 'Datos del comercio guardados en Supabase.');
+      showMessage('Comercio de prueba', 'Datos del comercio guardados en Supabase.');
     } catch (error) {
-      message('Comercio', error.message || 'No se pudo guardar el comercio.');
+      showMessage('Comercio', error.message || 'No se pudo guardar el comercio.');
     } finally {
       setMerchantBusy(false);
     }
@@ -492,14 +755,14 @@ export default function App() {
   async function createMerchantRequest() {
     const cents = amountToCents(merchantAmount);
     if (cents === null) {
-      return message('Cantidad', 'Importe inválido. Máximo 1,000,000 MWD ficticios.');
+      return showMessage('Cantidad', 'Importe inválido. Máximo 1,000,000 MWD ficticios.');
     }
     const description = merchantDescription.trim();
     if (description.length > 240) {
-      return message('Descripción', 'Máximo 240 caracteres.');
+      return showMessage('Descripción', 'Máximo 240 caracteres.');
     }
     if (!merchant || !userId || merchantBusy) {
-      return message('Comercio', 'Primero registra tu comercio de prueba.');
+      return showMessage('Comercio', 'Primero registra tu comercio de prueba.');
     }
     setMerchantBusy(true);
     try {
@@ -511,9 +774,9 @@ export default function App() {
       setMerchantAmount('');
       setMerchantDescription('');
       await refreshMerchant(userId);
-      message('Cobro de demostración', 'Solicitud creada. Comparte su identificador UUID con el cliente de prueba.');
+      showMessage('Cobro de demostración', 'Solicitud creada. Comparte su identificador UUID con el cliente de prueba.');
     } catch (error) {
-      message('Cobro', error.message || 'No se pudo crear la solicitud.');
+      showMessage('Cobro', error.message || 'No se pudo crear la solicitud.');
     } finally {
       setMerchantBusy(false);
     }
@@ -521,7 +784,7 @@ export default function App() {
 
   function cancelMerchantRequest(id) {
     if (merchantBusy) return;
-    confirmAction('Cancelar cobro ficticio', 'Esta solicitud ya no podrá pagarse.', async () => {
+    showConfirm('Cancelar cobro ficticio', 'Esta solicitud ya no podrá pagarse.', async () => {
       setMerchantBusy(true);
       try {
         const { data, error } = await supabase.rpc('mwd_cancel_payment_request_demo', {
@@ -533,7 +796,7 @@ export default function App() {
         }
         await refreshMerchant();
       } catch (error) {
-        message('Cancelación', error.message || 'No se pudo cancelar el cobro.');
+        showMessage('Cancelación', error.message || 'No se pudo cancelar el cobro.');
       } finally {
         setMerchantBusy(false);
       }
@@ -543,7 +806,7 @@ export default function App() {
   async function lookupMerchantPayment() {
     const id = normalizePaymentRequestId(paymentCode);
     if (!id) {
-      return message('Código', 'Introduce el identificador UUID de la solicitud.');
+      return showMessage('Código', 'Introduce el identificador UUID de la solicitud.');
     }
     if (busyRef.current) return;
     busyRef.current = true;
@@ -557,7 +820,7 @@ export default function App() {
       if (!data || data.id !== id) throw new Error('No se encontró la solicitud.');
       setPaymentPreview(data);
     } catch (error) {
-      message('Consultar cobro', error.message || 'No se encontró el cobro.');
+      showMessage('Consultar cobro', error.message || 'No se encontró el cobro.');
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -567,10 +830,10 @@ export default function App() {
   function confirmMerchantPayment() {
     if (!paymentPreview || paymentPreview.status !== 'pending' || busyRef.current) return;
     if (!wallet || paymentPreview.amount_cents > wallet.balance_cents) {
-      return message('Saldo insuficiente', 'No tienes MWD ficticios suficientes.');
+      return showMessage('Saldo insuficiente', 'No tienes MWD ficticios suficientes.');
     }
     const id = paymentPreview.id;
-    confirmAction('Pagar comercio de prueba',
+    showConfirm('Pagar comercio de prueba',
       'Comercio: ' + paymentPreview.business_name +
       '\nCantidad: ' + formatMWD(paymentPreview.amount_cents) +
       ' MWD ficticios\nNo se mueve dinero real.',
@@ -593,9 +856,9 @@ export default function App() {
       setPaymentCode('');
       await refreshAccount();
       await refreshMerchant();
-      message('Pago de demostración', 'Pago ficticio registrado en Supabase.');
+      showMessage('Pago de demostración', 'Pago ficticio registrado en Supabase.');
     } catch (error) {
-      message('Pago no confirmado',
+      showMessage('Pago no confirmado',
         (error.message || 'Error desconocido') +
         '\nConsulta de nuevo el estado antes de reintentar.');
     } finally {
@@ -609,7 +872,7 @@ export default function App() {
   async function requestPasswordReset() {
     const requestedEmail = recoveryEmail.trim().toLowerCase();
     if (!/^\S+@\S+\.\S+$/.test(requestedEmail)) {
-      return message('Correo', 'Introduce un correo electrónico válido.');
+      return showMessage('Correo', 'Introduce un correo electrónico válido.');
     }
     if (recoveryBusy) return;
     setRecoveryBusy(true);
@@ -620,9 +883,9 @@ export default function App() {
       if (error) throw error;
       setRecoveryEmail(requestedEmail);
       setScreen('VerificarCodigo');
-      message('Revisa tu correo', 'Si la cuenta existe, recibirás un enlace seguro. Ábrelo en este teléfono para volver a Moneda Mundial.');
+      showMessage('Revisa tu correo', 'Si la cuenta existe, recibirás un enlace seguro. Ábrelo en este teléfono para volver a Moneda Mundial.');
     } catch (error) {
-      message('Recuperación', error.message || 'No se pudo enviar el correo.');
+      showMessage('Recuperación', error.message || 'No se pudo enviar el correo.');
     } finally {
       setRecoveryBusy(false);
     }
@@ -630,10 +893,10 @@ export default function App() {
 
   async function saveNewPassword() {
     if (newPassword.length < 12) {
-      return message('Contraseña', 'Utiliza al menos 12 caracteres para tu nueva contraseña.');
+      return showMessage('Contraseña', 'Utiliza al menos 12 caracteres para tu nueva contraseña.');
     }
     if (newPassword !== confirmNewPassword) {
-      return message('Contraseña', 'Las dos contraseñas no coinciden.');
+      return showMessage('Contraseña', 'Las dos contraseñas no coinciden.');
     }
     if (recoveryBusy || !session) return;
     setRecoveryBusy(true);
@@ -647,9 +910,9 @@ export default function App() {
       if (signOutError) throw signOutError;
       setEmail(recoveryEmail);
       setScreen('Inicio');
-      message('Contraseña actualizada', 'Vuelve a iniciar sesión con tu nueva contraseña.');
+      showMessage('Contraseña actualizada', 'Vuelve a iniciar sesión con tu nueva contraseña.');
     } catch (error) {
-      message('Cambio no confirmado', 'No pudimos completar todo el proceso. Revisa la sesión antes de volver a intentarlo.');
+      showMessage('Cambio no confirmado', 'No pudimos completar todo el proceso. Revisa la sesión antes de volver a intentarlo.');
     } finally {
       setRecoveryBusy(false);
     }
@@ -657,15 +920,15 @@ export default function App() {
 
   async function authenticate(action) {
     const cleanEmail = email.trim().toLowerCase();
-    if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) return message('Correo', 'Introduce un correo válido.');
-    if (password.length < 8) return message('Contraseña', 'Debe tener por lo menos 8 caracteres.');
+    if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) return showMessage('Correo', 'Introduce un correo válido.');
+    if (password.length < 8) return showMessage('Contraseña', 'Debe tener por lo menos 8 caracteres.');
     if (authBusy) return;
     setAuthBusy(true);
     try {
       if (action === 'register') {
         const { data, error } = await supabase.auth.signUp({ email: cleanEmail, password });
         if (error) throw error;
-        message('Registro de prueba', data.session
+        showMessage('Registro de prueba', data.session
           ? 'Cuenta creada. Iniciaste sesión correctamente.'
           : 'Revisa tu correo para confirmar el registro. Luego regresa e inicia sesión.');
       } else {
@@ -674,7 +937,7 @@ export default function App() {
       }
       setPassword('');
     } catch (error) {
-      message('Acceso', error.message || 'No se pudo completar la operación.');
+      showMessage('Acceso', error.message || 'No se pudo completar la operación.');
     } finally {
       setAuthBusy(false);
     }
@@ -715,11 +978,11 @@ export default function App() {
       setRecipientCode('');
       setScreen('Inicio');
       await refreshAccount();
-      message('Operación ficticia confirmada', type === 'transfer'
+      showMessage('Operación ficticia confirmada', type === 'transfer'
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
     } catch (error) {
-      message('Operación no confirmada',
+      showMessage('Operación no confirmada',
         (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
     } finally {
       busyRef.current = false;
@@ -731,25 +994,25 @@ export default function App() {
     if (busyRef.current) return;
     const cents = amountToCents(amount);
     if (cents === null) {
-      return message('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
+      return showMessage('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
     }
-    if (!wallet) return message('Espera', 'Primero carga tu cuenta.');
-    if (cents > wallet.balance_cents) return message('Saldo insuficiente', 'No tienes suficientes MWD ficticios.');
+    if (!wallet) return showMessage('Espera', 'Primero carga tu cuenta.');
+    if (cents > wallet.balance_cents) return showMessage('Saldo insuficiente', 'No tienes suficientes MWD ficticios.');
     const code = type === 'transfer' ? normalizeRecipientCode(recipientCode) : '';
     if (type === 'transfer') {
       if (!code) {
-        return message('Identificador', 'Introduce el código MWD- seguido de 16 caracteres.');
+        return showMessage('Identificador', 'Introduce el código MWD- seguido de 16 caracteres.');
       }
-      if (code === wallet.account_code) return message('Destinatario', 'No puedes enviarte MWD a tu propia cuenta.');
+      if (code === wallet.account_code) return showMessage('Destinatario', 'No puedes enviarte MWD a tu propia cuenta.');
     }
-    confirmAction(type === 'transfer' ? 'Transferencia de prueba' : 'Aportación de prueba',
+    showConfirm(type === 'transfer' ? 'Transferencia de prueba' : 'Aportación de prueba',
       `${formatMWD(cents)} MWD ficticios${type === 'transfer' ? '\nDestino: ' + code : '\nFondo de demostración'}`,
       () => executeOperation(type, cents, code));
   }
 
   async function logout() {
     const { error } = await supabase.auth.signOut();
-    if (error) message('Salida', error.message);
+    if (error) showMessage('Salida', error.message);
   }
 
   function navigate(to) {
@@ -762,11 +1025,11 @@ export default function App() {
 
   async function shareReceipt(op) {
     const receipt = formatDemoReceipt(op, userId, language);
-    if (!receipt) return message('Comprobante', 'No fue posible preparar esta operación.');
+    if (!receipt) return showMessage('Comprobante', 'No fue posible preparar esta operación.');
     try {
       await Share.share({ message: receipt });
     } catch (error) {
-      message('Compartir comprobante', 'No fue posible abrir el menú para compartir.');
+      showMessage('Compartir comprobante', 'No fue posible abrir el menú para compartir.');
     }
   }
 
@@ -1052,11 +1315,13 @@ export default function App() {
                     .replace(/[\u0300-\u036f]/g, '').trim();
                   const query = norm(worldQuery);
                   const filtered = worldCountries.filter(item =>
-                    norm(item.name).includes(query) || norm(item.code).includes(query));
+                    norm(item.name).includes(query) ||
+                    norm(countryName(item.code,item.name,language)).includes(query) ||
+                    norm(item.code).includes(query));
                   return <View>
                     <Text style={styles.small}>Resultados: {filtered.length}{filtered.length > 25 ? ' · mostrando los primeros 25' : ''}</Text>
                     {filtered.slice(0,25).map(item => <View key={item.code} style={styles.countryOption}>
-                      <Text style={styles.countryOptionText}>{item.name} ({item.code})</Text>
+                      <Text style={styles.countryOptionText}>{countryName(item.code,item.name,language)} ({item.code})</Text>
                       <Text style={styles.small}>{item.demoAvailable
                         ? 'Simulaciones disponibles · NO dinero real'
                         : 'Pendiente de preparación y autorizaciones'}</Text>
@@ -1075,7 +1340,7 @@ export default function App() {
               <Text style={styles.warning}>CÁLCULOS HIPOTÉTICOS · SIN BANCOS · SIN DINERO REAL</Text>
               <Text style={styles.muted}>País de origen: Estados Unidos (USD). Comisiones y costos de demostración, NO tarifas aprobadas.</Text>
               <CountrySelector title="País de destino"
-                options={DEMO_CORRIDORS.map(route => ({code: route.code, label: route.country}))}
+                options={DEMO_CORRIDORS.map(route => ({code: route.code, label: countryName(route.code, route.country, language)}))}
                 selectedCode={demoDestination}
                 onChoose={code => { setDemoDestination(code); setInternationalQuote(null); }} />
               <Text style={styles.panelTitle}>Método de origen simulado</Text>
@@ -1131,7 +1396,7 @@ export default function App() {
                     <Text style={styles.small}>Países configurados: {feeCatalog.length}</Text>
                     <CountrySelector title="Selecciona el país que deseas administrar"
                       options={feeCatalog.map(route => ({
-                        code: route.destination, label: route.country,
+                        code: route.destination, label: countryName(route.destination, route.country, language),
                         info: (route.feeBps / 100).toFixed(2) + '%'
                       }))}
                       selectedCode={feeCountry} onChoose={code => {
