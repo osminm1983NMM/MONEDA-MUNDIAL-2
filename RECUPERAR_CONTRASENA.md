@@ -1,36 +1,25 @@
-# Recuperación de contraseña — Moneda Mundial (modo demostración)
+# Recuperar contraseña — Moneda Mundial 2.0 (demostración)
 
-**Estado:** Se añadió al código de la rama de desarrollo; requiere configurar la plantilla de correo y compilar/instalar la APK actualizada. **No está operativo todavía en la APK previamente instalada.**
+## Estado real
+El flujo que existe en App.js usa un **enlace de recuperación**, NO códigos introducidos manualmente. Esta funcionalidad aún necesita una prueba completa de extremo a extremo en Android.
 
-## Diagnóstico
-Captura del 14-10-2026: en Supabase Authentication → URL Configuration, `Site URL` apunta a `https://snack.expo.dev/...` y no existen `Redirect URLs`. En esa página Snack no hay formulario de cambio de contraseña. Los enlaces de recuperación actuales por tanto llevan al entorno Snack y no completan la recuperación.
+## Cómo debe funcionar
+1. Desde la pantalla de acceso, seleccionar «¿Olvidaste tu contraseña?».
+2. Introducir el correo de la cuenta y pulsar «Enviar enlace de recuperación».
+3. Supabase ejecuta `auth.resetPasswordForEmail(email, {redirectTo: 'monedamundial://auth/recovery'})`.
+4. La persona abre el correo y el enlace seguro en el **mismo teléfono** donde está instalada la APK.
+5. Supabase debe redirigir a `monedamundial://auth/recovery` con una sesión de recuperación válida; la aplicación debe reconocer el deep link y abrir «Nueva contraseña».
+6. La persona establece una contraseña única de 12 caracteres o más, la confirma, y la app invoca `auth.updateUser({password})` y cierra la sesión.
+7. Verificar que puede iniciar sesión otra vez y que saldo e historial ficticios se conservaron.
 
-## Flujo nuevo propuesto y escrito en App.js
-1. «¿Olvidaste tu contraseña?» abre formulario de correo.
-2. `auth.resetPasswordForEmail(email)` solicita mensaje de recuperación.
-3. Se muestra entrada «Código de 6 números».
-4. `auth.verifyOtp({ email, token, type: 'recovery' })` valida código de un solo uso.
-5. Con la sesión obtenida, `auth.updateUser({password})` establece contraseña nueva y cierra la sesión.
+## Configuración previa y advertencias
+- `app.json` contiene `scheme: monedamundial`.
+- En Supabase Auth → URL Configuration debe figurar **exactamente** `monedamundial://auth/recovery` en Redirect URLs.
+- La Site URL actual apunta a un prototipo de Expo Snack; no se debe asumir que esa dirección sirve para recuperación en producción ni modificarla sin plan de migración.
+- La plantilla predeterminada de Supabase envía un enlace; no se requiere personalizarla para usar este flujo, pero sí verificar los enlaces reales y el servicio de envío.
+- No pedir ni compartir contraseñas, códigos, fragmentos del enlace de recuperación ni tokens.
+- No iniciar la primera prueba en la única cuenta de propietario que funciona. Usar primero una cuenta de ensayo que pueda recuperar su acceso.
+- Probar también enlaces caducados, reutilizados, cancelación, errores de correo y apertura del enlace sin la app instalada.
+- Revisar la configuración antispam, límites de intentos, MFA, autenticación reciente y registros de seguridad antes de salir del modo demostración.
 
-## Configuración manual necesaria EN SUPABASE
-- Authentication → Emails → Templates → **Reset Password** (puede aparecer bajo Authentication → Email Templates según la versión del panel).
-- Cambiar el cuerpo del mensaje de recuperación para que muestre un **código**, no el enlace:
-```html
-<h2>Moneda Mundial — Recuperación de contraseña</h2>
-<p>Solicitaste restablecer tu contraseña.</p>
-<p>Tu código de recuperación es: <strong>{{ .Token }}</strong></p>
-<p>Introduce el código únicamente dentro de la aplicación Moneda Mundial.</p>
-<p>Si no hiciste esta solicitud, ignora el mensaje.</p>
-```
-- Guardar la plantilla. No introducir contraseñas, tokens ni secretos en GitHub o soporte.
-- Hasta tener una URL de dominio/app estable y un manejo de enlaces probado, **no cambiar Site URL a una dirección inventada ni utilizar Snack como destino definitivo**.
-- Si todavía existen versiones antiguas de la aplicación, sus correos de recuperación podrían dejar de ser compatibles; planificar la transición.
-
-## Plan de comprobación
-- Compilar APK de la rama de desarrollo; probar en un dispositivo Android real.
-- Solicitar OTP de correo de prueba, validarlo en la pantalla, cambiar contraseña y volver a entrar.
-- Probar código erróneo, caducado, reutilizado, reenvío limitado por Supabase, email inexistente y ausencia de cuenta autenticada.
-- Verificar que el flujo conserva saldo e historial y no expone tokens en logs.
-- En producción revisar control de abuso, limitación de solicitudes, notificaciones de cambio y MFA.
-
-**No se ha enviado correo, cambiado contraseñas ni modificado Auth del proyecto desde este documento.**
+**Ningún paso de esta guía requiere dinero real.**
