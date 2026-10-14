@@ -97,6 +97,9 @@ async function shareDemoCode(kind, value) {
 }
 
 function Btn({ title, onPress, secondary = false, disabled = false }) {
+  const language = useContext(LanguageContext);
+  const prefix = typeof title === 'string' && title.startsWith('✓ ') ? '✓ ' : '';
+  const translatedTitle = prefix + translate(prefix ? title.slice(2) : title, language);
   return (
     <TouchableOpacity
       accessibilityRole="button"
@@ -104,7 +107,7 @@ function Btn({ title, onPress, secondary = false, disabled = false }) {
       onPress={onPress}
       style={[styles.button, secondary && styles.buttonSecondary, disabled && styles.buttonDisabled]}
     >
-      <Text style={styles.buttonText}>{title}</Text>
+      <Text style={styles.buttonText}>{translatedTitle}</Text>
     </TouchableOpacity>
   );
 }
