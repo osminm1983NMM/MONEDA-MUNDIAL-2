@@ -6,6 +6,10 @@ on:
     branches:
       - desarrollo-comercios-20261013
     paths:
+      - 'App.js'
+      - 'app.json'
+      - 'package.json'
+      - 'src/**'
       - '.github/workflows/android-apk-independiente.yml'
 
 permissions:
