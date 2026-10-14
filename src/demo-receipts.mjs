@@ -1,5 +1,6 @@
 // Comprobantes exclusivamente para créditos ficticios MWD; no son documentos bancarios.
 import { formatMWD } from './demo-money.mjs';
+import { translate, formatLocalizedDate } from './i18n.mjs';
 
 export function classifyDemoOperation(op, currentUserId) {
   if (!op || typeof currentUserId !== 'string' || !currentUserId) return null;
@@ -19,7 +20,7 @@ export function classifyDemoOperation(op, currentUserId) {
     : { label: 'Transferencia recibida', sign: '+', direction: 'Entrada' };
 }
 
-export function formatDemoReceipt(op, currentUserId) {
+export function formatDemoReceipt(op, currentUserId, language = 'es') {
   const movement = classifyDemoOperation(op, currentUserId);
   const cents = Number(op?.amount_cents);
   const time = new Date(op?.created_at);
@@ -30,16 +31,16 @@ export function formatDemoReceipt(op, currentUserId) {
 
   return [
     'MONEDA MUNDIAL 2.0',
-    'COMPROBANTE DE DEMOSTRACIÓN',
-    'SIN VALOR FINANCIERO · SIN DINERO REAL',
+    translate('COMPROBANTE DE DEMOSTRACIÓN',language),
+    translate('SIN VALOR FINANCIERO · SIN DINERO REAL',language),
     '',
-    'Movimiento: ' + movement.label,
-    'Importe: ' + movement.sign + formatMWD(cents) + ' MWD ficticios',
-    'Dirección: ' + movement.direction,
-    'Fecha: ' + time.toLocaleString(),
-    'Referencia de prueba: ' + op.id,
+    translate('Movimiento:',language)+' '+ translate(movement.label,language),
+    translate('Importe:',language)+' '+movement.sign+formatMWD(cents)+' '+translate('MWD ficticios',language),
+    translate('Dirección:',language)+' '+translate(movement.direction,language),
+    translate('Fecha:',language)+' '+formatLocalizedDate(op.created_at,language),
+    translate('Referencia de prueba:',language)+' '+op.id,
     '',
-    'Registro interno de simulación. No es comprobante bancario',
-    'ni demuestra pago o transferencia de dinero real.',
+    translate('Registro interno de simulación. No es comprobante bancario',language),
+    translate('ni demuestra pago o transferencia de dinero real.',language),
   ].join('\n');
 }
