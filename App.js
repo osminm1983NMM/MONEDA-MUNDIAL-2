@@ -226,7 +226,8 @@ export default function App() {
     const pct = String(feePercent).trim().replace(',', '.');
     const minText = String(feeMinimum).trim().replace(',', '.');
     const min = minText === '0' || minText === '0.00' ? 0 : amountToCents(minText);
-    const bps = Number(pct) * 100;
+    const [wholePct, fractionalPct = ''] = pct.split('.');
+    const bps = Number(wholePct) * 100 + Number(fractionalPct.padEnd(2, '0'));
     if (!/^[0-9]{1,2}([.][0-9]{1,2})?$/.test(pct) ||
         !Number.isSafeInteger(bps) || bps < 10 || bps > 1000 ||
         min === null || min < 0 || min > 5000) {
