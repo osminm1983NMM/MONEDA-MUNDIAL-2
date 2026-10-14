@@ -14,6 +14,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentRequestId } from './src/demo-money.mjs';
+import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
 
 // CLAVE PUBLICABLE de Supabase. Nunca coloques claves secret/service_role en App.js.
 const SUPABASE_URL = 'https://egrsdrlpavrtbgxoyxvg.supabase.co';
@@ -95,6 +96,7 @@ export default function App() {
   const [screen, setScreen] = useState('Inicio');
   const [wallet, setWallet] = useState(null);
   const [operations, setOperations] = useState([]);
+  const [selectedReceiptId, setSelectedReceiptId] = useState(null);
   const [adminRole, setAdminRole] = useState(null);
   const [ownerSummary, setOwnerSummary] = useState(null);
   const [ownerLoading, setOwnerLoading] = useState(false);
@@ -183,6 +185,7 @@ export default function App() {
     if (!userId) {
       setWallet(null);
       setOperations([]);
+      setSelectedReceiptId(null);
       setAdminRole(null);
       setOwnerSummary(null);
       setMerchant(null);
@@ -555,6 +558,17 @@ export default function App() {
     setAmount('');
     setRecipientCode('');
     pendingRef.current = null;
+    setSelectedReceiptId(null);
+  }
+
+  async function shareReceipt(op) {
+    const receipt = formatDemoReceipt(op, userId);
+    if (!receipt) return message('Comprobante', 'No fue posible preparar esta operación.');
+    try {
+      await Share.share({ message: receipt });
+    } catch (error) {
+      message('Compartir comprobante', 'No fue posible abrir el menú para compartir.');
+    }
   }
 
   return (
@@ -781,16 +795,27 @@ export default function App() {
               <Text style={styles.heading}>Mis últimos movimientos</Text>
               {operations.length === 0 && <Text style={styles.muted}>Todavía no hay movimientos en línea.</Text>}
               {operations.map(op => {
-                const sent = op.kind === 'contribution' || op.source_user_id === userId;
-                const label = op.kind === 'contribution' ? 'Aportación ficticia' :
-                  op.is_merchant_payment
-                    ? (sent ? 'Pago ficticio a comercio' : 'Cobro ficticio de comercio')
-                    : (sent ? 'Transferencia enviada' : 'Transferencia recibida');
+                const movement = classifyDemoOperation(op, userId);
+                if (!movement) return null;
                 return (
                   <View style={styles.entry} key={op.id}>
-                    <Text style={styles.itemHeading}>{label}</Text>
-                    <Text style={styles.amount}>{sent ? '-' : '+'}{formatMWD(op.amount_cents)} MWD</Text>
+                    <Text style={styles.itemHeading}>{movement.label}</Text>
+                    <Text style={styles.amount}>{movement.sign}{formatMWD(op.amount_cents)} MWD</Text>
                     <Text style={styles.muted}>{new Date(op.created_at).toLocaleString()}</Text>
+                    <Btn title={selectedReceiptId === op.id ? 'Ocultar comprobante de prueba' : 'Ver comprobante de prueba'}
+                      secondary onPress={() => setSelectedReceiptId(selectedReceiptId === op.id ? null : op.id)} />
+                    {selectedReceiptId === op.id && (
+                      <View style={styles.panel}>
+                        <Text style={styles.small}>COMPROBANTE FICTICIO · SIN DINERO REAL</Text>
+                        <Text style={styles.muted}>Referencia:</Text>
+                        <Text selectable style={styles.code}>{op.id}</Text>
+                        <Text style={styles.muted}>Tipo: {movement.label}</Text>
+                        <Text style={styles.muted}>Monto: {movement.sign}{formatMWD(op.amount_cents)} MWD de prueba</Text>
+                        <Text style={styles.muted}>Fecha: {new Date(op.created_at).toLocaleString()}</Text>
+                        <Text style={styles.warning}>Este comprobante NO acredita ningún movimiento de dinero real.</Text>
+                        <Btn title="Compartir comprobante ficticio" secondary onPress={() => shareReceipt(op)} />
+                      </View>
+                    )}
                   </View>
                 );
               })}
