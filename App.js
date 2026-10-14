@@ -1115,6 +1115,7 @@ export default function App() {
                 <Text style={styles.balanceCaption}>Saldo disponible</Text>
                 <Text style={styles.balance}>{wallet ? formatMWD(wallet.balance_cents) : 'Consultando...'}</Text>
                 <Text style={styles.balanceUnit}>MWD · créditos ficticios</Text>
+                <Text style={styles.realMoneyLocked}>Saldo real: no habilitado. Los MWD de prueba no son dinero y no se pueden retirar.</Text>
                 <View style={styles.heroDivider} />
                 <Text style={styles.walletLabel}>TU IDENTIFICADOR DE BILLETERA</Text>
                 <Text selectable numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.65} style={styles.heroCode}>{wallet?.account_code || 'Preparando cuenta'}</Text>
@@ -1146,6 +1147,10 @@ export default function App() {
                 <Text style={styles.panelTitle}>Más opciones</Text>
                 <Btn title="Aportaciones de demostración" secondary onPress={() => navigate('Aportar')} disabled={!wallet} />
                 <Btn title="Mi comercio y solicitudes de cobro" secondary onPress={() => navigate('Comercio')} />
+                <Btn title="Agregar dinero a mi billetera (próximamente)"
+                  secondary onPress={() => navigate('AgregarDineroInformacion')} />
+                <Btn title="Enviar sin tener saldo (próximamente)"
+                  secondary onPress={() => navigate('EnviarSinSaldoInformacion')} />
                 <Btn title={syncing ? 'Actualizando cuenta...' : 'Actualizar saldo e historial'} secondary
                   onPress={() => refreshAccount()} disabled={syncing} />
                 <Btn title="Países del mundo y disponibilidad" secondary onPress={() => { navigate('PaisesMundo'); loadWorldCountries(); }} />
@@ -1160,6 +1165,45 @@ export default function App() {
                 </TouchableOpacity>
               </View>
             </>}
+
+            {screen === 'AgregarDineroInformacion' && <View style={styles.card}>
+              <Text style={styles.heading}>Agregar dinero a la billetera</Text>
+              <Text style={styles.warning}>FUNCIÓN FUTURA · NO DISPONIBLE · NO SE ACEPTA DINERO REAL</Text>
+              <Text style={styles.muted}>En el futuro, una billetera regulada permitirá añadir fondos con métodos autorizados. Hoy no puedes recargar ni retirar dinero.</Text>
+              <View style={styles.panel}>
+                <Text style={styles.panelTitle}>Cuenta bancaria autorizada</Text>
+                <Text style={styles.small}>Podrá utilizarse cuando un proveedor financiero confirme la titularidad, la operación y la disponibilidad de los fondos.</Text>
+              </View>
+              <View style={styles.panel}>
+                <Text style={styles.panelTitle}>Tarjeta de débito compatible</Text>
+                <Text style={styles.small}>Podrá utilizarse si un procesador autorizado admite la recarga en el país y confirma el pago.</Text>
+              </View>
+              <Text style={styles.realMoneyLocked}>Saldo real: todavía no existe una billetera financiera habilitada.</Text>
+              <Text style={styles.warning}>Los 10,000 MWD iniciales son créditos ficticios; no se transforman en dólares. No ingreses datos de tarjetas ni cuentas.</Text>
+              <Btn title="Recargar dinero real: no disponible" disabled onPress={() => {}} />
+              <Btn title="Ver mi billetera de prueba" secondary onPress={() => navigate('Inicio')} />
+            </View>}
+
+            {screen === 'EnviarSinSaldoInformacion' && <View style={styles.card}>
+              <Text style={styles.heading}>Enviar dinero sin recargar saldo</Text>
+              <Text style={styles.warning}>FUNCIÓN FUTURA · NO DISPONIBLE · SIN TRANSFERENCIAS REALES</Text>
+              <Text style={styles.muted}>Cuando tengamos autorizaciones y socios financieros, una persona podrá financiar un envío directamente sin mantener dinero almacenado en Moneda Mundial.</Text>
+              <View style={styles.panel}>
+                <Text style={styles.panelTitle}>Pagar desde cuenta bancaria</Text>
+                <Text style={styles.small}>El proveedor autorizado cobrará y verificará los fondos antes de procesar el envío.</Text>
+              </View>
+              <View style={styles.panel}>
+                <Text style={styles.panelTitle}>Pagar con tarjeta compatible</Text>
+                <Text style={styles.small}>El procesador tokenizará los datos sensibles de la tarjeta; Moneda Mundial no almacenará números completos ni CVV.</Text>
+              </View>
+              <View style={styles.panel}>
+                <Text style={styles.panelTitle}>Recibir en el país de destino</Text>
+                <Text style={styles.small}>Cuenta bancaria o tarjeta receptora elegible, únicamente en rutas activadas legalmente y por socios autorizados.</Text>
+              </View>
+              <Text style={styles.warning}>No hay rutas habilitadas para dinero real. El simulador solo calcula comisiones hipotéticas y no envía fondos.</Text>
+              <Btn title="Enviar dinero real: no disponible" disabled onPress={() => {}} />
+              <Btn title="Probar simulador internacional" secondary onPress={() => navigate('SimuladorInternacional')} />
+            </View>}
 
             {screen === 'Configuracion' && <View style={styles.card}>
               <Text style={styles.heading}>Configuración</Text>
@@ -1461,6 +1505,7 @@ const styles = StyleSheet.create({
   balanceCaption: { color: '#C2DBE2', fontSize: 14 },
   balance: { color: '#FFFFFF', fontSize: 39, fontWeight: '800', marginTop: 5, letterSpacing: -1.1 },
   balanceUnit: { color: '#BBD0D7', marginTop: 5, marginBottom: 12, fontSize: 13 },
+  realMoneyLocked: { color: '#F3D49A', fontSize: 12, lineHeight: 19, marginTop: 6, marginBottom: 12 },
   heroDivider: { borderBottomColor: '#517585', borderBottomWidth: 1, marginVertical: 17 },
   walletLabel: { color: '#C1D6DB', fontSize: 10, letterSpacing: 0.8, fontWeight: '700' },
   heroCode: { color: '#FFFFFF', fontSize: 15, marginTop: 8, marginBottom: 17, fontWeight: '700', letterSpacing: 0 },
