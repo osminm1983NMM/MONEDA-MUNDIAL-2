@@ -96,6 +96,8 @@ export default function App() {
   const [wallet, setWallet] = useState(null);
   const [operations, setOperations] = useState([]);
   const [adminRole, setAdminRole] = useState(null);
+  const [ownerSummary, setOwnerSummary] = useState(null);
+  const [ownerLoading, setOwnerLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [recipientCode, setRecipientCode] = useState('');
   const [amount, setAmount] = useState('');
@@ -182,6 +184,7 @@ export default function App() {
       setWallet(null);
       setOperations([]);
       setAdminRole(null);
+      setOwnerSummary(null);
       setMerchant(null);
       setMerchantRequests([]);
       setMerchantName('');
@@ -192,6 +195,20 @@ export default function App() {
     refreshAccount(userId);
     refreshMerchant(userId);
   }, [userId]);
+
+  async function refreshOwnerSummary() {
+    if (adminRole !== 'owner' || ownerLoading) return;
+    setOwnerLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('mwd_owner_summary_demo');
+      if (error) throw error;
+      setOwnerSummary(data);
+    } catch (error) {
+      message('Panel propietario', 'No fue posible cargar el resumen de demostración.');
+    } finally {
+      setOwnerLoading(false);
+    }
+  }
 
   async function refreshAccount(id = userId) {
     if (!id) return;
@@ -781,8 +798,25 @@ export default function App() {
 
             {screen === 'Admin' && <View style={styles.card}>
               <Text style={styles.heading}>Administración MWD</Text>
-              {adminRole ? (
-                <Text style={styles.muted}>Tu rol registrado es: {adminRole}. Las herramientas administrativas se implementarán por separado.</Text>
+              {adminRole === 'owner' ? (
+                <View>
+                  <Text style={styles.sectionEyebrow}>ACCESO DEL PROPIETARIO VERIFICADO</Text>
+                  <Text style={styles.muted}>Resumen global de demostración, sin información personal de otros usuarios.</Text>
+                  <Btn title={ownerLoading ? 'Consultando...' : 'Consultar resumen del propietario'}
+                    secondary disabled={ownerLoading} onPress={refreshOwnerSummary} />
+                  {ownerSummary && <View style={styles.panel}>
+                    <Text style={styles.panelTitle}>Resumen del sistema de prueba</Text>
+                    <Text style={styles.small}>Billeteras: {ownerSummary.cuentas}</Text>
+                    <Text style={styles.small}>Comercios: {ownerSummary.comercios}</Text>
+                    <Text style={styles.small}>Transferencias: {ownerSummary.transferencias}</Text>
+                    <Text style={styles.small}>Aportaciones: {ownerSummary.aportaciones}</Text>
+                    <Text style={styles.small}>Cobros pagados: {ownerSummary.cobros_pagados}</Text>
+                    <Text style={styles.small}>Saldo conjunto ficticio: {formatMWD(ownerSummary.saldo_demo_centavos)} MWD</Text>
+                  </View>}
+                  <Text style={styles.muted}>No se permite cambiar roles, saldos ni operaciones desde este panel.</Text>
+                </View>
+              ) : adminRole === 'support' ? (
+                <Text style={styles.muted}>Rol de soporte reconocido. Sin funciones administrativas habilitadas.</Text>
               ) : (
                 <Text style={styles.muted}>Esta cuenta no tiene permisos administrativos. Solo el propietario del proyecto podrá asignarlos desde un entorno seguro.</Text>
               )}
