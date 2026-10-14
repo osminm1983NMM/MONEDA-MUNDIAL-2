@@ -277,6 +277,10 @@ const COUNTRY_NAMES_EN = Object.freeze({
   "ZM": "Zambia",
   "ZW": "Zimbabwe"
 });
+function demoPaymentStatus(status, language = 'es') {
+  const labels = { pending: 'Pendiente de pago', paid: 'Pagado', cancelled: 'Cancelado', canceled: 'Cancelado' };
+  return translate(labels[status] || 'Estado desconocido', language);
+}
 function countryName(code, nameEs, language) {
   return language === 'en' ? (COUNTRY_NAMES_EN[code] || nameEs) : nameEs;
 }
@@ -1272,12 +1276,14 @@ export default function App() {
                 <Text style={styles.muted}>Todavía no hay solicitudes de cobro.</Text>}
               {merchantRequests.map(request => <View style={styles.entry} key={request.id}>
                 <Text style={styles.itemHeading}>{formatMWD(request.amount_cents)} MWD ficticios</Text>
-                <Text style={styles.small}>Estado: {request.status}</Text>
+                <Text style={styles.small}>Estado: {demoPaymentStatus(request.status, language)}</Text>
                 {request.description ? <Text style={styles.small}>{request.description}</Text> : null}
                 <Text selectable style={styles.code}>{request.id}</Text>
-                <Text style={styles.muted}>Comparte este código con el cliente de prueba.</Text>
-                <Btn title="Compartir código de cobro" secondary
-                  onPress={() => shareDemoCode('payment', request.id)} />
+                {request.status === 'pending' ? <>
+                  <Text style={styles.muted}>Comparte este código con el cliente de prueba.</Text>
+                  <Btn title="Compartir código de cobro" secondary
+                    onPress={() => shareDemoCode('payment', request.id)} />
+                </> : <Text style={styles.muted}>Esta solicitud ya no admite nuevos pagos ficticios.</Text>}
                 {request.status === 'pending' &&
                   <Btn title="Cancelar solicitud" secondary disabled={merchantBusy}
                     onPress={() => cancelMerchantRequest(request.id)} />}
@@ -1296,7 +1302,7 @@ export default function App() {
               {paymentPreview && <View>
                 <Text style={styles.itemHeading}>Comercio: {paymentPreview.business_name}</Text>
                 <Text style={styles.balance}>{formatMWD(paymentPreview.amount_cents)} MWD</Text>
-                <Text style={styles.muted}>Estado: {paymentPreview.status}</Text>
+                <Text style={styles.muted}>Estado: {demoPaymentStatus(paymentPreview.status, language)}</Text>
                 {paymentPreview.description &&
                   <Text style={styles.muted}>{paymentPreview.description}</Text>}
                 {paymentPreview.status === 'pending' &&
