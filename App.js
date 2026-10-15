@@ -579,10 +579,13 @@ export default function App() {
   }, [userId]);
 
   async function refreshDemoFeeCatalog() {
-    if (adminRole !== 'owner') return;
+    if (adminRole !== 'owner' || !userId) return;
+    const requestedUserId = userId;
     try {
       const {data,error} = await supabase.rpc('mwd_owner_demo_fee_catalog');
       if (error) throw error;
+      const { data: { session: activeSession } } = await supabase.auth.getSession();
+      if (!canApplySessionResponse(requestedUserId, activeSession)) return;
       const catalog = Array.isArray(data) ? data : [];
       setFeeCatalog(catalog);
       const selected = catalog.find(item => item.destination === feeCountry);
@@ -633,12 +636,15 @@ export default function App() {
   }
 
   async function loadWorldCountries() {
-    if (worldLoading) return;
+    if (worldLoading || !userId) return;
+    const requestedUserId = userId;
     setWorldLoading(true);
     try {
       const { data, error } = await supabase.rpc('mwd_world_countries_demo');
       if (error) throw error;
       if (!Array.isArray(data)) throw Error('Catálogo no disponible');
+      const { data: { session: activeSession } } = await supabase.auth.getSession();
+      if (!canApplySessionResponse(requestedUserId, activeSession)) return;
       setWorldCountries(data);
     } catch (error) {
       showMessage('Países del mundo', 'No se pudo consultar el catálogo mundial. Inténtalo nuevamente.');
@@ -648,6 +654,8 @@ export default function App() {
   }
 
   async function fetchDemoInternationalQuote() {
+    if (!userId || quoteBusy) return;
+    const requestedUserId = userId;
     const cents = amountToCents(demoAmount);
     if (cents === null || cents < 100 || cents > 10000000) {
       return showMessage('Cantidad', 'Introduce un importe entre 1 y 100,000 USD para esta simulación.');
@@ -664,6 +672,8 @@ export default function App() {
       if (data?.status !== 'simulation_only' || data?.realPaymentsEnabled !== false) {
         throw new Error('El servidor no devolvió una simulación válida.');
       }
+      const { data: { session: activeSession } } = await supabase.auth.getSession();
+      if (!canApplySessionResponse(requestedUserId, activeSession)) return;
       setInternationalQuote(data);
     } catch (error) {
       showMessage('Simulación', 'No fue posible calcular la cotización de prueba. Inténtalo otra vez.');
@@ -703,7 +713,8 @@ export default function App() {
       if (w.error) throw w.error;
       if (h.error) throw h.error;
       if (a.error) throw a.error;
-      if (supabase.auth.getUser && supabase.auth && id !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      const { data: { session: activeSession } } = await supabase.auth.getSession();
+      if (!canApplySessionResponse(id, activeSession)) return;
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
@@ -729,7 +740,7 @@ export default function App() {
       if (m.error) throw m.error;
       if (r.error) throw r.error;
       const { data: { session: activeSession } } = await supabase.auth.getSession();
-      if (activeSession?.user?.id !== id) return;
+      if (!canApplySessionResponse(id, activeSession)) return;
       setMerchant(m.data);
       setMerchantRequests(r.data || []);
       if (m.data) {
@@ -818,6 +829,8 @@ export default function App() {
   }
 
   async function lookupMerchantPayment() {
+    if (!userId) return;
+    const requestedUserId = userId;
     const id = normalizePaymentRequestId(paymentCode);
     if (!id) {
       return showMessage('Código', 'Introduce el identificador UUID de la solicitud.');
@@ -831,7 +844,11 @@ export default function App() {
         p_payment_id: id,
       });
       if (error) throw error;
-      if (!data || data.id !== id) throw new Error('No se encontró la solicitud.');
+      if (!data || data.id !== id || data.currency_code !== 'MWD') {
+        throw new Error('Solicitud de demostración no disponible.');
+      }
+      const { data: { session: activeSession } } = await supabase.auth.getSession();
+      if (!canApplySessionResponse(requestedUserId, activeSession)) return;
       setPaymentPreview(data);
     } catch (error) {
       showMessage('Consultar cobro', error.message || 'No se encontró el cobro.');
