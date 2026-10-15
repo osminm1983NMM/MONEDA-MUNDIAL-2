@@ -134,9 +134,7 @@ export default function App() {
         supabase.from('mwd_wallets')
           .select('user_id,account_code,balance_cents')
           .eq('user_id', id).single(),
-        supabase.from('mwd_operations')
-          .select('id,kind,source_user_id,destination_user_id,amount_cents,created_at')
-          .order('created_at', { ascending: false }).limit(50),
+        supabase.rpc('mwd_history_demo'),
         supabase.from('mwd_admin_roles').select('role').eq('user_id', id).maybeSingle(),
       ]);
       if (w.error) throw w.error;
@@ -332,8 +330,11 @@ export default function App() {
               {operations.length === 0 && <Text style={styles.muted}>Todavía no hay movimientos en línea.</Text>}
               {operations.map(op => {
                 const sent = op.kind === 'contribution' || op.source_user_id === userId;
-                const label = op.kind === 'contribution' ? 'Aportación ficticia' :
-                  sent ? 'Transferencia enviada' : 'Transferencia recibida';
+                const label = op.kind === 'contribution'
+                  ? 'Aportación ficticia'
+                  : op.is_merchant_payment
+                    ? (sent ? 'Pago a comercio (prueba)' : 'Cobro comercial recibido (prueba)')
+                    : (sent ? 'Transferencia enviada' : 'Transferencia recibida');
                 return (
                   <View style={styles.entry} key={op.id}>
                     <Text style={styles.itemHeading}>{label}</Text>
