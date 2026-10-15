@@ -13,15 +13,21 @@ fi
 
 echo "Verificando integridad de la APK..."
 unzip -tq "$APK_PATH" >smoke-results/integrity.txt
-unzip -Z1 "$APK_PATH" | grep -q '^assets/index.android.bundle$' || {
+# Evitar el código 141 de SIGPIPE: con pipefail, grep -q cierra
+# antes de que unzip termine de enumerar las entradas de la APK.
+unzip -Z1 "$APK_PATH" >smoke-results/apk-entries.txt
+if ! grep -qx 'assets/index.android.bundle' smoke-results/apk-entries.txt; then
   echo "::error::La APK no contiene el bundle JavaScript independiente."
   exit 1
-}
+fi
 
 echo "Instalando aplicación de demostración..."
 adb install -r "$APK_PATH" | tee smoke-results/install.txt
 adb shell pm path "$APP_ID" | tee smoke-results/package.txt
-adb shell pm path "$APP_ID" | grep -q '^package:'
+if ! grep -q '^package:' smoke-results/package.txt; then
+  echo "::error::Android no encuentra el paquete instalado."
+  exit 1
+fi
 
 echo "Abriendo la pantalla inicial..."
 adb shell am force-stop "$APP_ID" || true
