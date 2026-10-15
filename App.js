@@ -654,7 +654,7 @@ export default function App() {
             {screen === 'Simulador' && <View style={styles.card}>
               <Text style={styles.heading}>Simulador internacional</Text>
               <Text style={styles.warning}>COTIZACIONES ILUSTRATIVAS • SIN CAMBIO REAL DE DIVISAS</Text>
-              <Text style={styles.muted}>Origen: Estados Unidos (USD). Destino de ejemplo: CR, HN, MX, CO, GT.</Text>
+              <Text style={styles.muted}>Origen: Estados Unidos (USD). Rutas de simulación de ejemplo: CR, HN, CO, GT.</Text>
               <TextInput style={styles.input} placeholder="País de destino (CR)"
                 placeholderTextColor="#9fb1c8" maxLength={2}
                 autoCapitalize="characters" value={quoteCountry}
