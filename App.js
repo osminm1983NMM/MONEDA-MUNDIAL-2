@@ -23,6 +23,7 @@ import { isLatestRequest, isValidDemoQuoteResponse, isValidDemoPaymentPreview } 
 import { needsDemoFeeReview, demoFeeShortfallCents } from './src/quote-risk.mjs';
 import { maskEmail } from './src/privacy.mjs';
 import {searchDemoPayoutAgents} from './src/demo-payout-agents.mjs';
+import {makeDemoPartnerDraft,makeDemoBranchDraft,summarizeDemoPayoutAdmin,deleteDemoPartnerDraft} from './src/payout-admin-drafts.mjs';
 import { createCashPickupDemo, generateCashPickupSampleBytes, normalizeCashPickupCountries } from './src/cash-pickup-demo.mjs';
 
 // CLAVE PUBLICABLE de Supabase. Nunca coloques claves secret/service_role en App.js.
@@ -475,6 +476,15 @@ export default function App() {
   const [internationalQuote, setInternationalQuote] = useState(null);
   const [quoteBusy, setQuoteBusy] = useState(false);
   const [adminRole, setAdminRole] = useState(null);
+  const [draftPartners,setDraftPartners]=useState([]);
+  const [draftBranches,setDraftBranches]=useState([]);
+  const [draftPartnerName,setDraftPartnerName]=useState('');
+  const [draftPartnerCountry,setDraftPartnerCountry]=useState('NI');
+  const [draftPartnerType,setDraftPartnerType]=useState('bank');
+  const [draftBranchCity,setDraftBranchCity]=useState('');
+  const [draftBranchCurrency,setDraftBranchCurrency]=useState('NIO');
+  const [draftBranchHours,setDraftBranchHours]=useState('L-V 09:00-17:00');
+  const [draftSelectedPartner,setDraftSelectedPartner]=useState('');
   const [ownerSummary, setOwnerSummary] = useState(null);
   const [feeCatalog, setFeeCatalog] = useState(null);
   const [feeCountry, setFeeCountry] = useState('EC');
@@ -572,6 +582,11 @@ export default function App() {
     setOperations([]);
     setSelectedReceiptId(null);
     setAdminRole(null);
+    setDraftPartners([]);
+    setDraftBranches([]);
+    setDraftPartnerName('');
+    setDraftBranchCity('');
+    setDraftSelectedPartner('');
     setOwnerSummary(null);
     setFeeCatalog(null);
     setMerchant(null);
@@ -1081,6 +1096,23 @@ export default function App() {
     }
   }
 
+  function createPartnerDraft() {
+    if (adminRole!=='owner') return;
+    const draft=makeDemoPartnerDraft({name:draftPartnerName,countryCode:draftPartnerCountry,type:draftPartnerType},uniqueRequestId());
+    if(!draft)return showMessage('Registro de prueba','Comprueba el nombre, país y tipo de entidad ficticia.');
+    setDraftPartners(p=>[...p,draft]);
+    setDraftSelectedPartner(draft.id);
+    setDraftPartnerName('');
+  }
+
+  function createBranchDraft() {
+    if (adminRole!=='owner') return;
+    const draft=makeDemoBranchDraft({partnerId:draftSelectedPartner,city:draftBranchCity,currencyCode:draftBranchCurrency,hours:draftBranchHours},uniqueRequestId(),draftPartners);
+    if(!draft)return showMessage('Registro de prueba','Selecciona un socio ficticio e introduce ciudad, moneda y horario válidos.');
+    setDraftBranches(items=>[...items,draft]);
+    setDraftBranchCity('');
+  }
+
   function navigate(to) {
     setScreen(to);
     setAmount('');
@@ -1577,6 +1609,42 @@ export default function App() {
                       onPress={saveOwnerDemoFee} disabled={feeSaving} />
                     <Text style={styles.warning}>Solo modifica cotizaciones simuladas. Queda auditado en Supabase; no activa pagos.</Text>
                   </View>}
+                  <Text style={styles.sectionEyebrow}>FUTUROS BANCOS Y AGENTES · SOLO BORRADORES</Text>
+                  <View style={styles.panel}>
+                    <Text style={styles.warning}>PANEL DE PRUEBA. Los nombres son inventados y los registros solo existen mientras está abierta esta sesión de la aplicación. Ningún agente acepta dinero.</Text>
+                    <Text style={styles.small}>Socios ficticios: {summarizeDemoPayoutAdmin(draftPartners,draftBranches).partnersInDraft} · Sucursales ficticias: {draftBranches.length} · Agentes reales autorizados: 0</Text>
+                    <Text style={styles.muted}>Nombre ficticio de la entidad</Text>
+                    <TextInput style={styles.input} value={draftPartnerName} onChangeText={setDraftPartnerName} placeholder="Ejemplo: Banco de Prueba" placeholderTextColor="#9fb1c8" />
+                    <CountrySelector title="País del borrador" options={normalizeCashPickupCountries(worldCountries).map(c=>({code:c.code,label:countryName(c.code,c.name,language)}))}
+                      selectedCode={draftPartnerCountry} onChoose={setDraftPartnerCountry} />
+                    <Btn title={worldLoading?'Consultando países...':'Cargar catálogo mundial'} secondary disabled={worldLoading} onPress={loadWorldCountries} />
+                    <Btn title={draftPartnerType==='bank'?'✓ Banco ficticio':'Banco ficticio'} secondary={draftPartnerType!=='bank'} onPress={()=>setDraftPartnerType('bank')} />
+                    <Btn title={draftPartnerType==='remittance_operator'?'✓ Remesadora ficticia':'Remesadora ficticia'} secondary={draftPartnerType!=='remittance_operator'} onPress={()=>setDraftPartnerType('remittance_operator')} />
+                    <Btn title={draftPartnerType==='cash_agent_network'?'✓ Red de agentes ficticia':'Red de agentes ficticia'} secondary={draftPartnerType!=='cash_agent_network'} onPress={()=>setDraftPartnerType('cash_agent_network')} />
+                    <Btn title="Crear borrador de entidad ficticia" onPress={createPartnerDraft} disabled={!normalizeCashPickupCountries(worldCountries).some(c=>c.code===draftPartnerCountry)} />
+                    {draftPartners.map(p=><View key={p.id} style={styles.entry}>
+                      <Text style={styles.itemHeading}>{p.name} · {p.countryCode}</Text>
+                      <Text style={styles.small}>Tipo: {p.type} · Estado: BORRADOR SIN LICENCIA</Text>
+                      <Btn title="Seleccionar para crear sucursal" secondary onPress={()=>setDraftSelectedPartner(p.id)} />
+                      <Btn title="Eliminar borrador ficticio" secondary onPress={()=>{
+                        const next=deleteDemoPartnerDraft(draftPartners,draftBranches,p.id);
+                        setDraftPartners(next.partners);setDraftBranches(next.branches);
+                        if(draftSelectedPartner===p.id)setDraftSelectedPartner('');
+                      }} />
+                    </View>)}
+                    <Text style={styles.panelTitle}>Nueva sucursal ficticia</Text>
+                    <Text style={styles.small}>Socio seleccionado: {draftPartners.find(p=>p.id===draftSelectedPartner)?.name||'Ninguno'}</Text>
+                    <TextInput style={styles.input} value={draftBranchCity} onChangeText={setDraftBranchCity} placeholder="Ciudad de ejemplo" placeholderTextColor="#9fb1c8" />
+                    <TextInput style={styles.input} value={draftBranchCurrency} onChangeText={v=>setDraftBranchCurrency(v.toUpperCase())} placeholder="Moneda ISO: NIO" placeholderTextColor="#9fb1c8" autoCapitalize="characters" />
+                    <TextInput style={styles.input} value={draftBranchHours} onChangeText={setDraftBranchHours} placeholder="Horario ficticio" placeholderTextColor="#9fb1c8" />
+                    <Btn title="Crear sucursal ficticia" disabled={!draftSelectedPartner} onPress={createBranchDraft} />
+                    {draftBranches.map(b=><View key={b.id} style={styles.entry}>
+                      <Text style={styles.itemHeading}>Sucursal ficticia · {b.city} ({b.countryCode})</Text>
+                      <Text style={styles.small}>Moneda de ejemplo: {b.currencyCode} · Horario ficticio: {b.hours}</Text>
+                      <Text style={styles.warning}>BORRADOR · NUNCA AUTORIZADO PARA COBRAR</Text>
+                    </View>)}
+                    <Text style={styles.warning}>Sin conexión a bancos ni sistema de liquidación. La aplicación no permite activar estos registros ni generar códigos cobrables.</Text>
+                  </View>
                   <Text style={styles.muted}>No se permite cambiar roles, saldos ni operaciones desde este panel.</Text>
                 </View>
               ) : adminRole === 'support' ? (
