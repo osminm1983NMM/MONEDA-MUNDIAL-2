@@ -45,3 +45,25 @@ del generador criptográfico de Android. El código:
 `tests/cash-pickup-demo.test.mjs` verifica que la referencia de muestra
 no sea cobrable, no invente un tipo de cambio ni requiera información de identidad.
 No sustituye integraciones con socios financieros ni asesoría legal.
+
+## Arquitectura mundial: 249 países y territorios como destinos de DISEÑO
+- Se reutiliza `mwd_world_countries_demo` para ofrecer los 249 códigos de
+  catálogo ya presentes en Supabase, previa autenticación.
+- La pantalla permite seleccionar cualquier código del catálogo e imprimir
+  un ejemplo `DEMO-XX-...` no cobrable; el origen ficticio actual es US.
+- El catálogo mundial se prepara para incorporar otros orígenes en producción
+  mediante la combinación `origen ISO + destino ISO + moneda + socio + producto`;
+  no basta listar países para ofrecer servicio.
+- Ningún destino se habilita para cobro real al figurar en el catálogo.
+  No se reutiliza `demoAvailable` (simulador de comisiones) como
+  indicador de disponibilidad de retiro de efectivo.
+- Para producción: catálogo versionado de corredores y socios pagadores,
+  monedas, horarios, límites, identificación aplicable y bloqueos reguladores;
+  disponibilidad por país, localización, agente y fecha.
+- En nuevos mercados se exige un motor de elegibilidad servidor, no botones
+  del móvil, e integración verificada con agente autorizado.
+- Estados de referencia y libro mayor quedan en el servidor de pagos regulado;
+  la APK nunca acredita pagos ni activa retirada por cambiar el destino.
+
+**Estado comprobable:** alcance de diseño mundial incorporado; disponibilidad
+comercial y acuerdos con bancos/agentes: ninguna.
