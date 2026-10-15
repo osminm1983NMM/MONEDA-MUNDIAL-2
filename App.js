@@ -19,7 +19,7 @@ import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentReque
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
 import { canApplySessionResponse } from './src/session-guards.mjs';
-import { needsDemoFeeReview } from './src/quote-risk.mjs';
+import { needsDemoFeeReview, demoFeeShortfallCents } from './src/quote-risk.mjs';
 import { maskEmail } from './src/privacy.mjs';
 
 // CLAVE PUBLICABLE de Supabase. Nunca coloques claves secret/service_role en App.js.
@@ -1446,7 +1446,7 @@ export default function App() {
                   {adminRole === 'owner' && typeof q.illustrativeMarginCents === 'number' &&
                     <Text style={styles.small}>Margen parcial ilustrativo: {formatMWD(q.illustrativeMarginCents)} USD</Text>}
                   {adminRole === 'owner' && needsDemoFeeReview(q) &&
-                    <Text style={styles.warning}>ALERTA DE SIMULACIÓN: el costo ilustrativo supera la comisión. Margen negativo; revisar costos y tarifas antes de considerar este corredor. No es una cotización real.</Text>}
+                    <View><Text style={styles.warning}>ALERTA DE SIMULACIÓN: el costo ilustrativo supera la comisión. Margen negativo; revisar costos y tarifas antes de considerar este corredor. No es una cotización real.</Text><Text style={styles.warning}>Brecha de costos estimada: {formatMWD(demoFeeShortfallCents(q))} USD. Esta diferencia NO incluye otros costos ni es una tarifa sugerida.</Text></View>}
                   <Text style={styles.small}>{q.receiverAmountCents === null
                     ? 'Importe final no disponible: tipo de cambio real pendiente.'
                     : 'Recepción simulada: ' + formatMWD(q.receiverAmountCents) + ' USD'}</Text>
