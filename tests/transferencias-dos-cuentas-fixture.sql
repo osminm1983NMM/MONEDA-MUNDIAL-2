@@ -3,8 +3,15 @@
 -- para comprobar en aislamiento las mismas reglas que usa Android.
 -- NO USA USUARIOS REALES, CONTRASEÑAS, SUPABASE NI DINERO REAL.
 CREATE SCHEMA auth;
-CREATE ROLE anon NOLOGIN;
-CREATE ROLE authenticated NOLOGIN;
+DO $ensure_auth_roles$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN
+    CREATE ROLE anon NOLOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN
+    CREATE ROLE authenticated NOLOGIN;
+  END IF;
+END $ensure_auth_roles$;
 CREATE FUNCTION auth.uid() RETURNS uuid
   LANGUAGE sql STABLE AS $uid$
  SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid
