@@ -22,7 +22,7 @@ import { canApplySessionResponse } from './src/session-guards.mjs';
 import { isLatestRequest, isValidDemoQuoteResponse, isValidDemoPaymentPreview } from './src/async-demo-guards.mjs';
 import { needsDemoFeeReview, demoFeeShortfallCents } from './src/quote-risk.mjs';
 import { maskEmail } from './src/privacy.mjs';
-import { createCashPickupDemo, generateCashPickupSampleBytes } from './src/cash-pickup-demo.mjs';
+import { createCashPickupDemo, generateCashPickupSampleBytes, normalizeCashPickupCountries } from './src/cash-pickup-demo.mjs';
 
 // CLAVE PUBLICABLE de Supabase. Nunca coloques claves secret/service_role en App.js.
 const SUPABASE_URL = 'https://egrsdrlpavrtbgxoyxvg.supabase.co';
@@ -468,6 +468,7 @@ export default function App() {
   const [demoMethod, setDemoMethod] = useState('bank');
   const [demoAmount, setDemoAmount] = useState('100');
   const [pickupAmount, setPickupAmount] = useState('100');
+  const [pickupDestination, setPickupDestination] = useState('NI');
   const [pickupSample, setPickupSample] = useState(null);
   const [internationalQuote, setInternationalQuote] = useState(null);
   const [quoteBusy, setQuoteBusy] = useState(false);
@@ -1062,6 +1063,9 @@ export default function App() {
   }
 
   function prepareCashPickupSample() {
+    if (!worldCountries || !normalizeCashPickupCountries(worldCountries).some(c => c.code === pickupDestination)) {
+      return showMessage('Países del mundo', 'Primero carga el catálogo mundial y selecciona un país.');
+    }
     const cents = amountToCents(pickupAmount);
     setPickupSample(null);
     if (cents === null || cents < 100 || cents > 10000000) {
@@ -1069,7 +1073,7 @@ export default function App() {
     }
     try {
       const bytes = generateCashPickupSampleBytes(globalThis.crypto);
-      setPickupSample(createCashPickupDemo({ destination: 'NI', amountCents: cents }, bytes));
+      setPickupSample(createCashPickupDemo({ destination: pickupDestination, amountCents: cents, worldCatalog: worldCountries }, bytes));
     } catch (error) {
       showMessage('Simulación', 'No fue posible generar el código ficticio de muestra.');
     }
@@ -1215,7 +1219,7 @@ export default function App() {
                   onPress={() => refreshAccount()} disabled={syncing} />
                 <Btn title="Países del mundo y disponibilidad" secondary onPress={() => { navigate('PaisesMundo'); loadWorldCountries(); }} />
                 <Btn title="Simulador internacional de comisiones" secondary onPress={() => navigate('SimuladorInternacional')} />
-                <Btn title="Retiro de efectivo con código (demostración)" secondary onPress={() => navigate('RetiroEfectivoDemo')} />
+                <Btn title="Retiro de efectivo con código (demostración)" secondary onPress={() => { navigate('RetiroEfectivoDemo'); loadWorldCountries(); }} />
                 <Btn title="Configuración" secondary onPress={() => navigate('Configuracion')} />
                 <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
               </View>
@@ -1230,12 +1234,20 @@ export default function App() {
             {screen === 'RetiroEfectivoDemo' && <View style={styles.card}>
               <Text style={styles.heading}>Retiro de efectivo con código</Text>
               <Text style={styles.warning}>DEMOSTRACIÓN SIN VALOR · NO COBRABLE · NO ES UNA REMESA</Text>
-              <Text style={styles.muted}>Ejemplo: enviar desde Estados Unidos hacia Nicaragua sin que el destinatario tenga teléfono ni cuenta en la aplicación.</Text>
-              <Text style={styles.panelTitle}>País de destino: Nicaragua (NI)</Text>
+              <Text style={styles.muted}>Ejemplo: enviar desde Estados Unidos hacia cualquier destino del catálogo mundial sin que el destinatario tenga teléfono ni cuenta en la aplicación.</Text>
+              <Text style={styles.muted}>Alcance de diseño mundial. Ningún país tiene agentes ni pagos reales habilitados.</Text>
+              <CountrySelector title="País o territorio de destino (solo diseño)"
+                options={normalizeCashPickupCountries(worldCountries).map(item => ({code:item.code,label:countryName(item.code,item.name,language)}))}
+                selectedCode={pickupDestination}
+                onChoose={code => { setPickupDestination(code); setPickupSample(null); }} />
+              <Btn title={worldLoading ? 'Consultando catálogo...' : 'Actualizar catálogo mundial'} secondary
+                disabled={worldLoading} onPress={loadWorldCountries} />
+              <Text style={styles.small}>Destinos en catálogo: {normalizeCashPickupCountries(worldCountries).length}. Retiros reales habilitados: 0.</Text>
               <Text style={styles.muted}>Importe hipotético en dólares estadounidenses (USD)</Text>
               <TextInput style={styles.input} value={pickupAmount} placeholder="Ejemplo: 100.00" keyboardType="decimal-pad"
                 placeholderTextColor="#9fb1c8" onChangeText={value => { setPickupAmount(value); setPickupSample(null); }} />
-              <Btn title="Generar código ficticio de ejemplo" onPress={prepareCashPickupSample} />
+              <Btn title="Generar código ficticio de ejemplo" onPress={prepareCashPickupSample}
+                disabled={!normalizeCashPickupCountries(worldCountries).some(item => item.code === pickupDestination)} />
               {pickupSample && <View style={styles.panel}>
                 <Text style={styles.panelTitle}>Código de ejemplo · NO VÁLIDO PARA COBRAR</Text>
                 <Text selectable style={styles.pickupDemoCode}>{pickupSample.referenceCode}</Text>
@@ -1248,7 +1260,7 @@ export default function App() {
               <Text style={styles.small}>1. El remitente solicita un envío y recibe la confirmación del proveedor financiero autorizado.</Text>
               <Text style={styles.small}>2. El beneficiario acude a un agente asociado con la referencia real y su identificación válida.</Text>
               <Text style={styles.small}>3. El agente verifica identidad, fondos y cumplimiento antes de entregar dinero y anular la referencia para nuevos cobros.</Text>
-              <Text style={styles.warning}>Actualmente no tenemos agentes habilitados ni convenios de pago en Nicaragua. No introduzcas documentos de identidad ni pagues dinero en esta simulación.</Text>
+              <Text style={styles.warning}>Actualmente no tenemos agentes habilitados ni convenios de pago en ningún país. No introduzcas documentos de identidad ni pagues dinero en esta simulación.</Text>
             </View>}
 
             {screen === 'AgregarDineroInformacion' && <View style={styles.card}>
