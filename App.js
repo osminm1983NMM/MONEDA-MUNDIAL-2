@@ -95,6 +95,25 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
+  const [merchant, setMerchant] = useState(null);
+  const [merchantName, setMerchantName] = useState('');
+  const [merchantCountry, setMerchantCountry] = useState('US');
+  const [merchantRequests, setMerchantRequests] = useState([]);
+  const [merchantAmount, setMerchantAmount] = useState('');
+  const [merchantDescription, setMerchantDescription] = useState('');
+  const [commercialBusy, setCommercialBusy] = useState(false);
+  const [paymentCode, setPaymentCode] = useState('');
+  const [paymentPreview, setPaymentPreview] = useState(null);
+  const [worldCountries, setWorldCountries] = useState([]);
+  const [worldLoading, setWorldLoading] = useState(false);
+  const [countryFilter, setCountryFilter] = useState('');
+  const [quoteCountry, setQuoteCountry] = useState('CR');
+  const [quoteAmount, setQuoteAmount] = useState('');
+  const [quoteMethod, setQuoteMethod] = useState('bank');
+  const [quoteResult, setQuoteResult] = useState(null);
+  const [quoteBusy, setQuoteBusy] = useState(false);
+  const [ownerSummary, setOwnerSummary] = useState(null);
+  const [ownerLoading, setOwnerLoading] = useState(false);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -121,6 +140,13 @@ export default function App() {
       setWallet(null);
       setOperations([]);
       setAdminRole(null);
+      setMerchant(null);
+      setMerchantRequests([]);
+      setPaymentPreview(null);
+      setPaymentCode('');
+      setWorldCountries([]);
+      setQuoteResult(null);
+      setOwnerSummary(null);
       return;
     }
     refreshAccount(userId);
@@ -134,9 +160,7 @@ export default function App() {
         supabase.from('mwd_wallets')
           .select('user_id,account_code,balance_cents')
           .eq('user_id', id).single(),
-        supabase.from('mwd_operations')
-          .select('id,kind,source_user_id,destination_user_id,amount_cents,created_at')
-          .order('created_at', { ascending: false }).limit(50),
+        supabase.rpc('mwd_history_demo'),
         supabase.from('mwd_admin_roles').select('role').eq('user_id', id).maybeSingle(),
       ]);
       if (w.error) throw w.error;
@@ -245,6 +269,209 @@ export default function App() {
       () => executeOperation(type, cents, code));
   }
 
+  async function loadMerchant() {
+    if (!userId) return;
+    setCommercialBusy(true);
+    try {
+      const [m, requests] = await Promise.all([
+        supabase.from('mwd_merchants')
+          .select('owner_user_id,business_name,country_code')
+          .eq('owner_user_id', userId).maybeSingle(),
+        supabase.from('mwd_payment_requests')
+          .select('id,amount_cents,status,description,created_at')
+          .eq('merchant_user_id', userId)
+          .order('created_at', { ascending: false }).limit(30),
+      ]);
+      if (m.error) throw m.error;
+      if (requests.error) throw requests.error;
+      if (userId !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      setMerchant(m.data);
+      setMerchantName(m.data?.business_name || '');
+      setMerchantCountry(m.data?.country_code || 'US');
+      setMerchantRequests(requests.data || []);
+    } catch (error) {
+      message('Mi comercio', error.message || 'No se pudieron cargar los datos.');
+    } finally {
+      setCommercialBusy(false);
+    }
+  }
+
+  async function saveMerchant() {
+    const name = merchantName.trim();
+    const country = merchantCountry.trim().toUpperCase();
+    if (name.length < 2 || name.length > 120 || !/^[A-Z]{2}$/.test(country)) {
+      return message('Datos inválidos', 'Nombre de 2 a 120 letras y país ISO de 2 letras.');
+    }
+    if (!userId || commercialBusy) return;
+    setCommercialBusy(true);
+    try {
+      const { error } = await supabase.from('mwd_merchants').upsert({
+        owner_user_id: userId, business_name: name, country_code: country,
+      }, { onConflict: 'owner_user_id' });
+      if (error) throw error;
+      message('Comercio', 'Comercio de demostración guardado.');
+      await loadMerchant();
+    } catch (error) {
+      message('Mi comercio', error.message || 'No fue posible guardar.');
+    } finally {
+      setCommercialBusy(false);
+    }
+  }
+
+  async function createPaymentRequest() {
+    const cents = amountToCents(merchantAmount);
+    if (!merchant || commercialBusy) return;
+    if (cents === null || merchantDescription.length > 240) {
+      return message('Datos inválidos', 'Verifica el importe y la descripción (máximo 240 caracteres).');
+    }
+    setCommercialBusy(true);
+    try {
+      const { data, error } = await supabase.from('mwd_payment_requests')
+        .insert({
+          merchant_user_id: userId,
+          amount_cents: cents, currency_code: 'MWD', status: 'pending',
+          description: merchantDescription.trim(),
+        }).select('id').single();
+      if (error) throw error;
+      setMerchantAmount('');
+      setMerchantDescription('');
+      message('Cobro ficticio creado', 'Identificador para compartir: ' + data.id);
+      await loadMerchant();
+    } catch (error) {
+      message('Mi comercio', error.message || 'No se pudo crear el cobro.');
+    } finally {
+      setCommercialBusy(false);
+    }
+  }
+
+  function cancelPaymentRequest(id) {
+    confirmAction('Cancelar solicitud', '¿Cancelar esta solicitud ficticia?', async () => {
+      if (commercialBusy) return;
+      setCommercialBusy(true);
+      try {
+        const { error } = await supabase.rpc('mwd_cancel_payment_request_demo', { p_payment_id: id });
+        if (error) throw error;
+        await loadMerchant();
+      } catch (error) {
+        message('Cancelación', error.message || 'No se pudo cancelar.');
+      } finally {
+        setCommercialBusy(false);
+      }
+    });
+  }
+
+  async function lookupPayment() {
+    const code = paymentCode.trim().toLowerCase();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(code)) {
+      return message('Código incorrecto', 'Introduce un identificador válido de solicitud.');
+    }
+    if (commercialBusy) return;
+    setPaymentPreview(null);
+    setCommercialBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('mwd_get_payment_request_demo', { p_payment_id: code });
+      if (error) throw error;
+      if (data?.id !== code || data?.status !== 'pending' || data?.currency_code !== 'MWD') {
+        throw new Error('Solicitud ficticia no disponible.');
+      }
+      setPaymentPreview(data);
+    } catch (error) {
+      message('Consultar solicitud', error.message || 'No fue posible consultar.');
+    } finally {
+      setCommercialBusy(false);
+    }
+  }
+
+  function payMerchant() {
+    const request = paymentPreview;
+    if (!request || commercialBusy) return;
+    if (!wallet || request.amount_cents > wallet.balance_cents) {
+      return message('Saldo insuficiente', 'Actualiza tu saldo y comprueba los MWD ficticios.');
+    }
+    confirmAction('Pagar comercio (prueba)',
+      'Comercio: ' + request.business_name + '\nImporte: ' + formatMWD(request.amount_cents) + ' MWD ficticios.',
+      async () => {
+        if (commercialBusy) return;
+        setCommercialBusy(true);
+        try {
+          const { data, error } = await supabase.rpc('mwd_pay_merchant_demo', {
+            p_payment_id: request.id,
+          });
+          if (error) throw error;
+          if (!['ok', 'already_processed'].includes(data?.status)) {
+            throw new Error('Pago no confirmado.');
+          }
+          setPaymentPreview(null);
+          setPaymentCode('');
+          await refreshAccount();
+          message('Pago de prueba', 'Pago ficticio registrado. Puedes consultar tu historial.');
+        } catch (error) {
+          message('Pago no confirmado', error.message || 'No se pudo completar.');
+        } finally {
+          setCommercialBusy(false);
+        }
+      });
+  }
+
+  async function loadWorldCountries() {
+    if (!userId || worldLoading) return;
+    setWorldLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('mwd_world_countries_demo');
+      if (error) throw error;
+      if (!Array.isArray(data)) throw new Error('La lista de países no está disponible.');
+      if (userId !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      setWorldCountries(data);
+    } catch (error) {
+      message('Países del mundo', error.message || 'No se pudo cargar el catálogo.');
+    } finally {
+      setWorldLoading(false);
+    }
+  }
+
+  async function getInternationalQuote() {
+    const country = quoteCountry.trim().toUpperCase();
+    const cents = amountToCents(quoteAmount);
+    if (!/^[A-Z]{2}$/.test(country) || cents === null || cents < 100 || cents > 10000000) {
+      return message('Simulación', 'País ISO de dos letras y cantidad desde 1 hasta 100,000 USD.');
+    }
+    if (quoteBusy || !userId) return;
+    setQuoteBusy(true);
+    setQuoteResult(null);
+    try {
+      const { data, error } = await supabase.rpc('mwd_quote_international_demo', {
+        p_destination_country: country,
+        p_amount_cents: cents,
+        p_method: quoteMethod,
+      });
+      if (error) throw error;
+      if (data?.status !== 'simulation_only' || data?.realPaymentsEnabled !== false) {
+        throw new Error('Solo se permiten cotizaciones de demostración.');
+      }
+      if (userId !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      setQuoteResult(data);
+    } catch (error) {
+      message('Simulación internacional', error.message || 'Ruta de prueba no disponible.');
+    } finally {
+      setQuoteBusy(false);
+    }
+  }
+
+  async function loadOwnerSummary() {
+    if (!userId || adminRole !== 'owner' || ownerLoading) return;
+    setOwnerLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('mwd_owner_summary_demo');
+      if (error) throw error;
+      if (userId !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      setOwnerSummary(data);
+    } catch (error) {
+      message('Administración', error.message || 'No se pudo consultar el resumen.');
+    } finally {
+      setOwnerLoading(false);
+    }
+  }
+
   async function logout() {
     const { error } = await supabase.auth.signOut();
     if (error) message('Salida', error.message);
@@ -255,6 +482,11 @@ export default function App() {
     setAmount('');
     setRecipientCode('');
     pendingRef.current = null;
+    if (to === 'Comercio') loadMerchant();
+    if (to === 'Pagar') setPaymentPreview(null);
+    if (to === 'Paises') loadWorldCountries();
+    if (to === 'Simulador') setQuoteResult(null);
+    if (to === 'Admin' && adminRole === 'owner') loadOwnerSummary();
   }
 
   return (
@@ -293,6 +525,10 @@ export default function App() {
               <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet} />
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
+              <Btn title="Mi comercio y solicitudes de cobro" secondary onPress={() => navigate('Comercio')} />
+              <Btn title="Pagar solicitud comercial ficticia" secondary onPress={() => navigate('Pagar')} />
+              <Btn title="Países del mundo y disponibilidad" secondary onPress={() => navigate('Paises')} />
+              <Btn title="Simulador internacional de comisiones" secondary onPress={() => navigate('Simulador')} />
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
               <Btn title="Actualizar saldo e historial" secondary onPress={() => refreshAccount()} disabled={syncing} />
               <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
@@ -327,13 +563,137 @@ export default function App() {
               <Text style={styles.small}>Correo: {session.user.email}</Text>
             </View>}
 
+            {screen === 'Comercio' && <View style={styles.card}>
+              <Text style={styles.heading}>Mi comercio y solicitudes de cobro</Text>
+              <Text style={styles.warning}>SOLO CRÉDITOS FICTICIOS MWD</Text>
+              <TextInput style={styles.input} placeholder="Nombre comercial"
+                placeholderTextColor="#9fb1c8" maxLength={120}
+                value={merchantName} onChangeText={setMerchantName} />
+              <TextInput style={styles.input} placeholder="País ISO (US, CR, HN)"
+                placeholderTextColor="#9fb1c8" maxLength={2} autoCapitalize="characters"
+                value={merchantCountry} onChangeText={setMerchantCountry} />
+              <Btn title={merchant ? 'Actualizar comercio' : 'Registrar comercio'}
+                onPress={saveMerchant} disabled={commercialBusy} />
+              {merchant && <>
+                <Text style={styles.heading}>Crear solicitud</Text>
+                <TextInput style={styles.input} placeholder="Cantidad ficticia MWD"
+                  placeholderTextColor="#9fb1c8" keyboardType="decimal-pad"
+                  value={merchantAmount} onChangeText={setMerchantAmount} />
+                <TextInput style={styles.input} placeholder="Descripción del cobro"
+                  placeholderTextColor="#9fb1c8" maxLength={240}
+                  value={merchantDescription} onChangeText={setMerchantDescription} />
+                <Btn title="Crear cobro ficticio" disabled={commercialBusy}
+                  onPress={createPaymentRequest} />
+              </>}
+              <Text style={styles.heading}>Mis solicitudes</Text>
+              {merchantRequests.length === 0 && <Text style={styles.muted}>No hay solicitudes.</Text>}
+              {merchantRequests.map(req => (
+                <View key={req.id} style={styles.entry}>
+                  <Text style={styles.itemHeading}>{formatMWD(req.amount_cents)} MWD • {req.status}</Text>
+                  <Text style={styles.muted}>{req.description || 'Sin descripción'}</Text>
+                  <Text selectable style={styles.small}>Código: {req.id}</Text>
+                  {req.status === 'pending' && <Btn title="Cancelar solicitud" secondary
+                    disabled={commercialBusy} onPress={() => cancelPaymentRequest(req.id)} />}
+                </View>
+              ))}
+              <Btn title="Actualizar solicitudes" secondary onPress={loadMerchant} disabled={commercialBusy} />
+            </View>}
+
+            {screen === 'Pagar' && <View style={styles.card}>
+              <Text style={styles.heading}>Pagar a un comercio</Text>
+              <Text style={styles.warning}>PAGO EXCLUSIVAMENTE FICTICIO</Text>
+              <Text style={styles.muted}>Introduce el identificador de la solicitud que te compartió el comercio.</Text>
+              <TextInput style={styles.input} placeholder="Código de solicitud (UUID)"
+                placeholderTextColor="#9fb1c8" autoCapitalize="none"
+                autoCorrect={false} value={paymentCode}
+                onChangeText={v => { setPaymentCode(v); setPaymentPreview(null); }} />
+              <Btn title="Consultar solicitud" disabled={commercialBusy} onPress={lookupPayment} />
+              {paymentPreview && <View style={styles.entry}>
+                <Text style={styles.itemHeading}>{paymentPreview.business_name}</Text>
+                <Text style={styles.balance}>{formatMWD(paymentPreview.amount_cents)} MWD</Text>
+                <Text style={styles.muted}>{paymentPreview.description || 'Cobro de prueba'}</Text>
+                <Btn title="Confirmar pago ficticio" disabled={commercialBusy}
+                  onPress={payMerchant} />
+              </View>}
+            </View>}
+
+            {screen === 'Paises' && <View style={styles.card}>
+              <Text style={styles.heading}>Países del mundo</Text>
+              <Text style={styles.warning}>NINGÚN PAÍS TIENE PAGOS REALES ACTIVADOS</Text>
+              <Text style={styles.muted}>
+                Catálogo informativo de destinos. Una simulación disponible no significa autorización legal.
+              </Text>
+              <TextInput style={styles.input} placeholder="Buscar nombre o código de país"
+                placeholderTextColor="#9fb1c8" value={countryFilter}
+                onChangeText={setCountryFilter} autoCorrect={false} />
+              <Text style={styles.small}>Países registrados: {worldCountries.length}</Text>
+              <Btn title={worldLoading ? 'Cargando...' : 'Actualizar países'} secondary
+                onPress={loadWorldCountries} disabled={worldLoading} />
+              {worldCountries.filter(item =>
+                item.name.toLowerCase().includes(countryFilter.trim().toLowerCase()) ||
+                item.code.toLowerCase().includes(countryFilter.trim().toLowerCase())
+              ).slice(0, 30).map(item => (
+                <TouchableOpacity key={item.code} style={styles.entry}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setQuoteCountry(item.code);
+                    navigate('Simulador');
+                  }}>
+                  <Text style={styles.itemHeading}>{item.name} ({item.code})</Text>
+                  <Text style={styles.muted}>
+                    {item.demoAvailable ? 'Simulador disponible' : 'Simulador no disponible'}
+                    {' • '}Sin operaciones con dinero real
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              {worldCountries.length > 30 && <Text style={styles.muted}>
+                Se muestran hasta 30 resultados. Escribe un país para buscar otros destinos.
+              </Text>}
+            </View>}
+
+            {screen === 'Simulador' && <View style={styles.card}>
+              <Text style={styles.heading}>Simulador internacional</Text>
+              <Text style={styles.warning}>COTIZACIONES ILUSTRATIVAS • SIN CAMBIO REAL DE DIVISAS</Text>
+              <Text style={styles.muted}>Origen: Estados Unidos (USD). Rutas de simulación de ejemplo: CR, HN, CO, GT.</Text>
+              <TextInput style={styles.input} placeholder="País de destino (CR)"
+                placeholderTextColor="#9fb1c8" maxLength={2}
+                autoCapitalize="characters" value={quoteCountry}
+                onChangeText={v => { setQuoteCountry(v); setQuoteResult(null); }} />
+              <TextInput style={styles.input} placeholder="Cantidad en dólares (USD)"
+                placeholderTextColor="#9fb1c8" keyboardType="decimal-pad"
+                value={quoteAmount} onChangeText={v => { setQuoteAmount(v); setQuoteResult(null); }} />
+              <Text style={styles.itemHeading}>Método hipotético</Text>
+              <Btn title={quoteMethod === 'bank' ? '✓ Cuenta bancaria' : 'Cuenta bancaria'}
+                secondary onPress={() => { setQuoteMethod('bank'); setQuoteResult(null); }} />
+              <Btn title={quoteMethod === 'card' ? '✓ Tarjeta' : 'Tarjeta'}
+                secondary onPress={() => { setQuoteMethod('card'); setQuoteResult(null); }} />
+              <Btn title={quoteBusy ? 'Calculando...' : 'Calcular comisión de prueba'}
+                onPress={getInternationalQuote} disabled={quoteBusy} />
+              {quoteResult && <View style={styles.entry}>
+                <Text style={styles.itemHeading}>{quoteResult.country} ({quoteResult.destination})</Text>
+                <Text style={styles.small}>Envío hipotético: {formatMWD(quoteResult.amountCents)} USD</Text>
+                <Text style={styles.small}>Comisión ilustrativa: {formatMWD(quoteResult.feeCents)} USD</Text>
+                <Text style={styles.amount}>Total estimado: {formatMWD(quoteResult.totalPayCents)} USD</Text>
+                <Text style={styles.muted}>Moneda destino: {quoteResult.destinationCurrency}</Text>
+                <Text style={styles.warning}>
+                  {quoteResult.receiverAmountCents == null
+                    ? 'No existe una tasa de cambio real ni un monto confirmado a recibir.'
+                    : 'Monto hipotético a recibir: ' + formatMWD(quoteResult.receiverAmountCents) + ' USD'}
+                </Text>
+                <Text style={styles.muted}>No se ha reservado precio, ejecutado conversión ni enviado dinero.</Text>
+              </View>}
+            </View>}
+
             {screen === 'Historial' && <>
               <Text style={styles.heading}>Mis últimos movimientos</Text>
               {operations.length === 0 && <Text style={styles.muted}>Todavía no hay movimientos en línea.</Text>}
               {operations.map(op => {
                 const sent = op.kind === 'contribution' || op.source_user_id === userId;
-                const label = op.kind === 'contribution' ? 'Aportación ficticia' :
-                  sent ? 'Transferencia enviada' : 'Transferencia recibida';
+                const label = op.kind === 'contribution'
+                  ? 'Aportación ficticia'
+                  : op.is_merchant_payment
+                    ? (sent ? 'Pago a comercio (prueba)' : 'Cobro comercial recibido (prueba)')
+                    : (sent ? 'Transferencia enviada' : 'Transferencia recibida');
                 return (
                   <View style={styles.entry} key={op.id}>
                     <Text style={styles.itemHeading}>{label}</Text>
@@ -347,7 +707,22 @@ export default function App() {
             {screen === 'Admin' && <View style={styles.card}>
               <Text style={styles.heading}>Administración MWD</Text>
               {adminRole ? (
-                <Text style={styles.muted}>Tu rol registrado es: {adminRole}. Las herramientas administrativas se implementarán por separado.</Text>
+                <>
+                  <Text style={styles.muted}>Rol registrado: {adminRole}.</Text>
+                  {adminRole === 'owner' && <>
+                    <Btn title="Actualizar resumen de pruebas"
+                      secondary onPress={loadOwnerSummary} disabled={ownerLoading} />
+                    {ownerSummary && <View style={styles.entry}>
+                      <Text style={styles.itemHeading}>Datos de demostración</Text>
+                      <Text style={styles.small}>Cuentas de prueba: {ownerSummary.cuentas}</Text>
+                      <Text style={styles.small}>Comercios de prueba: {ownerSummary.comercios}</Text>
+                      <Text style={styles.small}>Transferencias ficticias: {ownerSummary.transferencias}</Text>
+                      <Text style={styles.small}>Aportaciones ficticias: {ownerSummary.aportaciones}</Text>
+                      <Text style={styles.small}>Cobros ficticios pagados: {ownerSummary.cobros_pagados}</Text>
+                      <Text style={styles.muted}>Saldo conjunto ficticio: {formatMWD(ownerSummary.saldo_demo_centavos)} MWD</Text>
+                    </View>}
+                  </>}
+                </>
               ) : (
                 <Text style={styles.muted}>Esta cuenta no tiene permisos administrativos. Solo el propietario del proyecto podrá asignarlos desde un entorno seguro.</Text>
               )}
