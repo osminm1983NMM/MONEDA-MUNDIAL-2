@@ -32,3 +32,22 @@ test('rechazar importes o destinos no configurados',()=>{
   assert.equal(quoteInternationalDemo({destination:'MX',amountCents:10000}),null);
   assert.equal(quoteInternationalDemo({origin:'ES',destination:'EC',amountCents:10000}),null);
 });
+
+test('todas las cotizaciones demo prohíben explícitamente pagos reales', () => {
+  for (const corridor of DEMO_CORRIDORS) {
+    for (const method of ['bank', 'card']) {
+      const result = quoteInternationalDemo({
+        destination: corridor.code, amountCents: 10000, method,
+      });
+      assert.equal(result.status, 'simulation_only');
+      assert.equal(result.realPaymentsEnabled, false);
+      assert.equal(result.destinationCurrency, corridor.currency);
+      assert.ok(Number.isSafeInteger(result.feeCents));
+      assert.equal(result.totalPayCents, result.amountCents + result.feeCents);
+      if (corridor.currency !== 'USD') {
+        assert.equal(result.receiverAmountCents, null);
+        assert.equal(result.fxRate, null);
+      }
+    }
+  }
+});
