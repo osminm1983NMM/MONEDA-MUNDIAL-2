@@ -95,6 +95,13 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
+  const [merchant, setMerchant] = useState(null);
+  const [merchantName, setMerchantName] = useState('');
+  const [merchantCountry, setMerchantCountry] = useState('US');
+  const [merchantRequests, setMerchantRequests] = useState([]);
+  const [merchantAmount, setMerchantAmount] = useState('');
+  const [merchantDescription, setMerchantDescription] = useState('');
+  const [commercialBusy, setCommercialBusy] = useState(false);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -121,6 +128,8 @@ export default function App() {
       setWallet(null);
       setOperations([]);
       setAdminRole(null);
+      setMerchant(null);
+      setMerchantRequests([]);
       return;
     }
     refreshAccount(userId);
@@ -243,6 +252,97 @@ export default function App() {
       () => executeOperation(type, cents, code));
   }
 
+  async function loadMerchant() {
+    if (!userId) return;
+    setCommercialBusy(true);
+    try {
+      const [m, requests] = await Promise.all([
+        supabase.from('mwd_merchants')
+          .select('owner_user_id,business_name,country_code')
+          .eq('owner_user_id', userId).maybeSingle(),
+        supabase.from('mwd_payment_requests')
+          .select('id,amount_cents,status,description,created_at')
+          .eq('merchant_user_id', userId)
+          .order('created_at', { ascending: false }).limit(30),
+      ]);
+      if (m.error) throw m.error;
+      if (requests.error) throw requests.error;
+      if (userId !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      setMerchant(m.data);
+      setMerchantName(m.data?.business_name || '');
+      setMerchantCountry(m.data?.country_code || 'US');
+      setMerchantRequests(requests.data || []);
+    } catch (error) {
+      message('Mi comercio', error.message || 'No se pudieron cargar los datos.');
+    } finally {
+      setCommercialBusy(false);
+    }
+  }
+
+  async function saveMerchant() {
+    const name = merchantName.trim();
+    const country = merchantCountry.trim().toUpperCase();
+    if (name.length < 2 || name.length > 120 || !/^[A-Z]{2}$/.test(country)) {
+      return message('Datos inválidos', 'Nombre de 2 a 120 letras y país ISO de 2 letras.');
+    }
+    if (!userId || commercialBusy) return;
+    setCommercialBusy(true);
+    try {
+      const { error } = await supabase.from('mwd_merchants').upsert({
+        owner_user_id: userId, business_name: name, country_code: country,
+      }, { onConflict: 'owner_user_id' });
+      if (error) throw error;
+      message('Comercio', 'Comercio de demostración guardado.');
+      await loadMerchant();
+    } catch (error) {
+      message('Mi comercio', error.message || 'No fue posible guardar.');
+    } finally {
+      setCommercialBusy(false);
+    }
+  }
+
+  async function createPaymentRequest() {
+    const cents = amountToCents(merchantAmount);
+    if (!merchant || commercialBusy) return;
+    if (cents === null || merchantDescription.length > 240) {
+      return message('Datos inválidos', 'Verifica el importe y la descripción (máximo 240 caracteres).');
+    }
+    setCommercialBusy(true);
+    try {
+      const { data, error } = await supabase.from('mwd_payment_requests')
+        .insert({
+          merchant_user_id: userId,
+          amount_cents: cents, currency_code: 'MWD', status: 'pending',
+          description: merchantDescription.trim(),
+        }).select('id').single();
+      if (error) throw error;
+      setMerchantAmount('');
+      setMerchantDescription('');
+      message('Cobro ficticio creado', 'Identificador para compartir: ' + data.id);
+      await loadMerchant();
+    } catch (error) {
+      message('Mi comercio', error.message || 'No se pudo crear el cobro.');
+    } finally {
+      setCommercialBusy(false);
+    }
+  }
+
+  function cancelPaymentRequest(id) {
+    confirmAction('Cancelar solicitud', '¿Cancelar esta solicitud ficticia?', async () => {
+      if (commercialBusy) return;
+      setCommercialBusy(true);
+      try {
+        const { error } = await supabase.rpc('mwd_cancel_payment_request_demo', { p_payment_id: id });
+        if (error) throw error;
+        await loadMerchant();
+      } catch (error) {
+        message('Cancelación', error.message || 'No se pudo cancelar.');
+      } finally {
+        setCommercialBusy(false);
+      }
+    });
+  }
+
   async function logout() {
     const { error } = await supabase.auth.signOut();
     if (error) message('Salida', error.message);
@@ -253,6 +353,7 @@ export default function App() {
     setAmount('');
     setRecipientCode('');
     pendingRef.current = null;
+    if (to === 'Comercio') loadMerchant();
   }
 
   return (
@@ -291,6 +392,7 @@ export default function App() {
               <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet} />
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
+              <Btn title="Mi comercio y solicitudes de cobro" secondary onPress={() => navigate('Comercio')} />
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
               <Btn title="Actualizar saldo e historial" secondary onPress={() => refreshAccount()} disabled={syncing} />
               <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
@@ -323,6 +425,42 @@ export default function App() {
               <Text selectable style={styles.code}>{wallet?.account_code}</Text>
               <Text style={styles.muted}>Comparte este identificador con otra cuenta de prueba. No compartas tu contraseña.</Text>
               <Text style={styles.small}>Correo: {session.user.email}</Text>
+            </View>}
+
+            {screen === 'Comercio' && <View style={styles.card}>
+              <Text style={styles.heading}>Mi comercio y solicitudes de cobro</Text>
+              <Text style={styles.warning}>SOLO CRÉDITOS FICTICIOS MWD</Text>
+              <TextInput style={styles.input} placeholder="Nombre comercial"
+                placeholderTextColor="#9fb1c8" maxLength={120}
+                value={merchantName} onChangeText={setMerchantName} />
+              <TextInput style={styles.input} placeholder="País ISO (US, CR, HN)"
+                placeholderTextColor="#9fb1c8" maxLength={2} autoCapitalize="characters"
+                value={merchantCountry} onChangeText={setMerchantCountry} />
+              <Btn title={merchant ? 'Actualizar comercio' : 'Registrar comercio'}
+                onPress={saveMerchant} disabled={commercialBusy} />
+              {merchant && <>
+                <Text style={styles.heading}>Crear solicitud</Text>
+                <TextInput style={styles.input} placeholder="Cantidad ficticia MWD"
+                  placeholderTextColor="#9fb1c8" keyboardType="decimal-pad"
+                  value={merchantAmount} onChangeText={setMerchantAmount} />
+                <TextInput style={styles.input} placeholder="Descripción del cobro"
+                  placeholderTextColor="#9fb1c8" maxLength={240}
+                  value={merchantDescription} onChangeText={setMerchantDescription} />
+                <Btn title="Crear cobro ficticio" disabled={commercialBusy}
+                  onPress={createPaymentRequest} />
+              </>}
+              <Text style={styles.heading}>Mis solicitudes</Text>
+              {merchantRequests.length === 0 && <Text style={styles.muted}>No hay solicitudes.</Text>}
+              {merchantRequests.map(req => (
+                <View key={req.id} style={styles.entry}>
+                  <Text style={styles.itemHeading}>{formatMWD(req.amount_cents)} MWD • {req.status}</Text>
+                  <Text style={styles.muted}>{req.description || 'Sin descripción'}</Text>
+                  <Text selectable style={styles.small}>Código: {req.id}</Text>
+                  {req.status === 'pending' && <Btn title="Cancelar solicitud" secondary
+                    disabled={commercialBusy} onPress={() => cancelPaymentRequest(req.id)} />}
+                </View>
+              ))}
+              <Btn title="Actualizar solicitudes" secondary onPress={loadMerchant} disabled={commercialBusy} />
             </View>}
 
             {screen === 'Historial' && <>
