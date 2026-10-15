@@ -554,19 +554,25 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!userId) {
-      setWallet(null);
-      setOperations([]);
-      setSelectedReceiptId(null);
-      setAdminRole(null);
-      setOwnerSummary(null);
-      setMerchant(null);
-      setMerchantRequests([]);
-      setMerchantName('');
-      setPaymentPreview(null);
-      setPaymentCode('');
-      return;
-    }
+    // No mantener información de la cuenta anterior mientras carga una nueva sesión.
+    // También se descartan formularios e identificadores de operación pendientes.
+    setWallet(null);
+    setOperations([]);
+    setSelectedReceiptId(null);
+    setAdminRole(null);
+    setOwnerSummary(null);
+    setFeeCatalog(null);
+    setMerchant(null);
+    setMerchantRequests([]);
+    setMerchantName('');
+    setMerchantCountry('US');
+    setMerchantAmount('');
+    setMerchantDescription('');
+    setPaymentPreview(null);
+    setPaymentCode('');
+    setInternationalQuote(null);
+    pendingRef.current = null;
+    if (!userId) return;
     refreshAccount(userId);
     refreshMerchant(userId);
   }, [userId]);
