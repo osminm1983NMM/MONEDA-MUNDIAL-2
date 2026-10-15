@@ -6,3 +6,13 @@ export function needsDemoFeeReview(quote) {
     Number.isSafeInteger(quote.illustrativeMarginCents) &&
     quote.illustrativeMarginCents < 0;
 }
+
+/** Diferencia ilustrativa para cubrir SOLO los costos variables cargados.
+ * No incluye impuestos, FX, cumplimiento, fraude ni autoriza cobrar dinero real.
+ */
+export function demoFeeShortfallCents(quote) {
+  if (!needsDemoFeeReview(quote)) return 0;
+  if (!Number.isSafeInteger(quote.costEstimateCents) ||
+      !Number.isSafeInteger(quote.feeCents)) return 0;
+  return Math.max(0, quote.costEstimateCents - quote.feeCents);
+}
