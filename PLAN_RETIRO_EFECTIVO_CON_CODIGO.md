@@ -67,3 +67,30 @@ No sustituye integraciones con socios financieros ni asesoría legal.
 
 **Estado comprobable:** alcance de diseño mundial incorporado; disponibilidad
 comercial y acuerdos con bancos/agentes: ninguna.
+
+## Modelo de red pagadora incorporado al repositorio (2026-10-15)
+- `scripts/PROPUESTA_RED_AGENTES_PAGADORES_NO_EJECUTAR.sql`: esquema
+  privado diseñado para socios (bancos, remesadoras, redes de agentes),
+  autorizaciones verificables por jurisdicción, sucursales y horarios,
+  monedas admitidas, corredores origen-destino y eventos de auditoría.
+  **No está instalado en Supabase** y no contiene socios reales.
+- `src/payout-network-demo.mjs` y `src/cash-pickup-network.mjs`:
+  evaluadores de requisitos en modo fail-closed. Incluso con un registro
+  aparentemente completo, nunca habilitan emisión de referencias
+  cobrables ni entrega de efectivo.
+- `tests/payout-network-demo.test.mjs`: pruebas del catálogo mundial y
+  del bloqueo de cobros reales cuando faltan autorizaciones y controles.
+
+### Reglas de lanzamiento por país
+Cada combinación de país de origen, país de destino, moneda, proveedor y
+sucursal requiere verificación independiente de autorización vigente,
+contrato ejecutado, KYC/AML/sanciones, liquidez, precios, horarios y
+acuerdos de compensación, conciliación, incidentes y reclamaciones.
+Los 249 destinos del catálogo son **cobertura técnica de diseño**, no
+249 corredores autorizados. Nunca anunciar un banco como pagador hasta
+que exista integración contractual y prueba operativa documentada.
+
+El siguiente trabajo pendiente es elaborar una instancia de prueba
+aislada con agentes inventados y demostrar que no es posible modificar
+estados desde un cliente; después diseñar integraciones de socios reales
+por corredor cuando los convenios estén firmados.
