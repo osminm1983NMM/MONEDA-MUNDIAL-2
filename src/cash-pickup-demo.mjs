@@ -1,22 +1,46 @@
-// Moneda Mundial 2.0 — vista previa educativa de retiro en efectivo.
-// Un código local de DEMOSTRACIÓN NO representa una remesa fondeada,
-// una autorización de cobro ni un instrumento válido para bancos o agentes.
-// Esta utilidad no consulta ni modifica Supabase y no almacena datos personales.
-export const CASH_PICKUP_DEMO_DESTINATIONS = Object.freeze([
-  Object.freeze({ code: 'NI', name: 'Nicaragua', partnerEnabled: false, realPaymentsEnabled: false }),
-]);
+// Moneda Mundial 2.0 — alcance mundial de la modalidad de retiro de efectivo.
+// Todos los países del catálogo son DESTINOS DE DISEÑO, no corredores habilitados.
+// Las referencias DEMO-* son ejemplos locales NO cobrables; no viajan a Supabase.
+const SAMPLE_BYTES = 12; // 96 bits; una referencia de prueba NO se usa para pagar.
+const COUNTRY_CODE = /^[A-Z]{2}$/;
 
-const BYTES_IN_SAMPLE_CODE = 12; // 96 bits aleatorios: solo para un ejemplo no cobrable.
+export function normalizeCashPickupCountries(worldCatalog) {
+  if (!Array.isArray(worldCatalog)) return [];
+  const seen = new Set();
+  const countries = [];
+  for (const entry of worldCatalog) {
+    const code = entry?.code;
+    const name = entry?.name;
+    if (typeof code !== 'string' || !COUNTRY_CODE.test(code) ||
+        typeof name !== 'string' || !name.trim() || seen.has(code)) continue;
+    seen.add(code);
+    // NO transportar el 'demoAvailable' del cotizador ni confundirlo con cash pickup.
+    // Ignorar cualquier aparente habilitación de pago real en datos cliente.
+    countries.push(Object.freeze({
+      code, name: name.trim(),
+      cashPickupDesignAvailable: true,
+      cashPickupRealEnabled: false,
+      partnerAvailable: false,
+    }));
+  }
+  return countries;
+}
 
-export function createCashPickupDemo({ destination = 'NI', amountCents } = {}, randomBytes) {
-  const country = CASH_PICKUP_DEMO_DESTINATIONS.find(item => item.code === destination);
-  if (!country || !Number.isSafeInteger(amountCents) ||
-      amountCents < 100 || amountCents > 10000000) return null;
-  // Nunca sustituir un generador criptográfico ausente por Math.random.
-  if (!(randomBytes instanceof Uint8Array) || randomBytes.length !== BYTES_IN_SAMPLE_CODE) {
+export function createCashPickupDemo({
+  origin = 'US', destination = 'NI', amountCents, worldCatalog,
+} = {}, randomBytes) {
+  if (origin !== 'US' || typeof destination !== 'string' ||
+      !COUNTRY_CODE.test(destination) ||
+      !Number.isSafeInteger(amountCents) || amountCents < 100 ||
+      amountCents > 10000000) return null;
+  // Sin catálogo mundial confirmado, NO emitir siquiera referencia de ejemplo.
+  const country = normalizeCashPickupCountries(worldCatalog)
+    .find(item => item.code === destination);
+  if (!country) return null;
+  if (!(randomBytes instanceof Uint8Array) || randomBytes.length !== SAMPLE_BYTES) {
     throw new Error('El generador seguro de códigos no está disponible.');
   }
-  const hex = Array.from(randomBytes, n => n.toString(16).padStart(2,'0')).join('').toUpperCase();
+  const hex = Array.from(randomBytes, b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
   return Object.freeze({
     kind: 'cash_pickup_demo',
     status: 'sample_not_redeemable',
@@ -44,5 +68,5 @@ export function generateCashPickupSampleBytes(cryptoSource) {
   if (!cryptoSource || typeof cryptoSource.getRandomValues !== 'function') {
     throw new Error('El generador seguro de códigos no está disponible.');
   }
-  return cryptoSource.getRandomValues(new Uint8Array(BYTES_IN_SAMPLE_CODE));
+  return cryptoSource.getRandomValues(new Uint8Array(SAMPLE_BYTES));
 }
