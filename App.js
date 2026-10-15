@@ -22,6 +22,7 @@ import { canApplySessionResponse } from './src/session-guards.mjs';
 import { isLatestRequest, isValidDemoQuoteResponse, isValidDemoPaymentPreview } from './src/async-demo-guards.mjs';
 import { needsDemoFeeReview, demoFeeShortfallCents } from './src/quote-risk.mjs';
 import { maskEmail } from './src/privacy.mjs';
+import { createCashPickupDemo, generateCashPickupSampleBytes } from './src/cash-pickup-demo.mjs';
 
 // CLAVE PUBLICABLE de Supabase. Nunca coloques claves secret/service_role en App.js.
 const SUPABASE_URL = 'https://egrsdrlpavrtbgxoyxvg.supabase.co';
@@ -466,6 +467,8 @@ export default function App() {
   const [worldLoading, setWorldLoading] = useState(false);
   const [demoMethod, setDemoMethod] = useState('bank');
   const [demoAmount, setDemoAmount] = useState('100');
+  const [pickupAmount, setPickupAmount] = useState('100');
+  const [pickupSample, setPickupSample] = useState(null);
   const [internationalQuote, setInternationalQuote] = useState(null);
   const [quoteBusy, setQuoteBusy] = useState(false);
   const [adminRole, setAdminRole] = useState(null);
@@ -1058,6 +1061,20 @@ export default function App() {
     if (error) showMessage('Salida', error.message);
   }
 
+  function prepareCashPickupSample() {
+    const cents = amountToCents(pickupAmount);
+    setPickupSample(null);
+    if (cents === null || cents < 100 || cents > 10000000) {
+      return showMessage('Cantidad', 'Introduce un importe entre 1 y 100,000 USD para esta simulación.');
+    }
+    try {
+      const bytes = generateCashPickupSampleBytes(globalThis.crypto);
+      setPickupSample(createCashPickupDemo({ destination: 'NI', amountCents: cents }, bytes));
+    } catch (error) {
+      showMessage('Simulación', 'No fue posible generar el código ficticio de muestra.');
+    }
+  }
+
   function navigate(to) {
     setScreen(to);
     setAmount('');
@@ -1198,6 +1215,7 @@ export default function App() {
                   onPress={() => refreshAccount()} disabled={syncing} />
                 <Btn title="Países del mundo y disponibilidad" secondary onPress={() => { navigate('PaisesMundo'); loadWorldCountries(); }} />
                 <Btn title="Simulador internacional de comisiones" secondary onPress={() => navigate('SimuladorInternacional')} />
+                <Btn title="Retiro de efectivo con código (demostración)" secondary onPress={() => navigate('RetiroEfectivoDemo')} />
                 <Btn title="Configuración" secondary onPress={() => navigate('Configuracion')} />
                 <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
               </View>
@@ -1208,6 +1226,30 @@ export default function App() {
                 </TouchableOpacity>
               </View>
             </>}
+
+            {screen === 'RetiroEfectivoDemo' && <View style={styles.card}>
+              <Text style={styles.heading}>Retiro de efectivo con código</Text>
+              <Text style={styles.warning}>DEMOSTRACIÓN SIN VALOR · NO COBRABLE · NO ES UNA REMESA</Text>
+              <Text style={styles.muted}>Ejemplo: enviar desde Estados Unidos hacia Nicaragua sin que el destinatario tenga teléfono ni cuenta en la aplicación.</Text>
+              <Text style={styles.panelTitle}>País de destino: Nicaragua (NI)</Text>
+              <Text style={styles.muted}>Importe hipotético en dólares estadounidenses (USD)</Text>
+              <TextInput style={styles.input} value={pickupAmount} placeholder="Ejemplo: 100.00" keyboardType="decimal-pad"
+                placeholderTextColor="#9fb1c8" onChangeText={value => { setPickupAmount(value); setPickupSample(null); }} />
+              <Btn title="Generar código ficticio de ejemplo" onPress={prepareCashPickupSample} />
+              {pickupSample && <View style={styles.panel}>
+                <Text style={styles.panelTitle}>Código de ejemplo · NO VÁLIDO PARA COBRAR</Text>
+                <Text selectable style={styles.pickupDemoCode}>{pickupSample.referenceCode}</Text>
+                <Text style={styles.small}>Importe simulado de origen: {formatMWD(pickupSample.amountCents)} USD</Text>
+                <Text style={styles.small}>Estado: SOLO MUESTRA, SIN FONDOS DEPOSITADOS</Text>
+                <Text style={styles.small}>Monto entregable, tipo de cambio y comisión: no disponibles.</Text>
+                <Text style={styles.warning}>Este código NO sirve en bancos, agencias ni comercios. No representa dinero ni un pago confirmado.</Text>
+              </View>}
+              <Text style={styles.panelTitle}>¿Cómo funcionará con socios autorizados?</Text>
+              <Text style={styles.small}>1. El remitente solicita un envío y recibe la confirmación del proveedor financiero autorizado.</Text>
+              <Text style={styles.small}>2. El beneficiario acude a un agente asociado con la referencia real y su identificación válida.</Text>
+              <Text style={styles.small}>3. El agente verifica identidad, fondos y cumplimiento antes de entregar dinero y anular la referencia para nuevos cobros.</Text>
+              <Text style={styles.warning}>Actualmente no tenemos agentes habilitados ni convenios de pago en Nicaragua. No introduzcas documentos de identidad ni pagues dinero en esta simulación.</Text>
+            </View>}
 
             {screen === 'AgregarDineroInformacion' && <View style={styles.card}>
               <Text style={styles.heading}>Agregar dinero a la billetera</Text>
@@ -1557,6 +1599,7 @@ const styles = StyleSheet.create({
   heroDivider: { borderBottomColor: '#517585', borderBottomWidth: 1, marginVertical: 17 },
   walletLabel: { color: '#C1D6DB', fontSize: 10, letterSpacing: 0.8, fontWeight: '700' },
   heroCode: { color: '#FFFFFF', fontSize: 15, marginTop: 8, marginBottom: 17, fontWeight: '700', letterSpacing: 0 },
+  pickupDemoCode: { color: '#8FE6D4', fontSize: 15, fontWeight: '800', marginVertical: 13 },
   sectionEyebrow: { color: '#7FE0CA', fontSize: 11, letterSpacing: 1.1, fontWeight: '700', marginBottom: 6 },
   sectionTitle: { color: '#FFFFFF', fontSize: 24, fontWeight: '800', marginBottom: 16 },
   quickRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 25, rowGap: 10 },
