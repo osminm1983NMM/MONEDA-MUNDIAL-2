@@ -1,0 +1,52 @@
+name: Validar RLS en PostgreSQL aislado
+on:
+  push:
+    branches:
+      - desarrollo-comercios-20261013
+    paths:
+      - 'tests/rls-core-*.sql'
+      - 'scripts/PROPUESTA_ACTIVAR_RLS_MWD_CORE_NO_EJECUTAR.sql'
+      - '.github/workflows/validar-rls-aislado.yml'
+      - 'tests/transferencias-dos-cuentas-*.sql'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ensayar-rls:
+    name: Verificar migración en base desechable
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: demo-temporary-ci-only
+          POSTGRES_DB: demo_rls
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d demo_rls"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 8
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: demo_rls
+      PGUSER: postgres
+      PGPASSWORD: demo-temporary-ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preparar la base aislada
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/rls-core-fixture.sql
+      - name: Ensayar el cambio preparado sin tocar Supabase
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/PROPUESTA_ACTIVAR_RLS_MWD_CORE_NO_EJECUTAR.sql
+      - name: Verificar bloqueos y lectura interna
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/rls-core-assertions.sql
+      - name: Preparar dos cuentas ficticias en la misma base de CI aislada
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/transferencias-dos-cuentas-fixture.sql
+      - name: Verificar transferencias, cobros, reintentos y RLS entre A y B
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/transferencias-dos-cuentas-assertions.sql

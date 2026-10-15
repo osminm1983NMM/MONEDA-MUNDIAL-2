@@ -1,0 +1,52 @@
+name: Probar APK instalada en Android
+on:
+  workflow_dispatch:
+  push:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'scripts/probar-apk-emulador.sh'
+      - '.github/workflows/probar-apk-emulador.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  apk-smoke:
+    name: Instalar y abrir APK en emulador
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preparar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Obtener última APK independiente comprobada
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 38773210924
+          name: moneda-mundial-2-demo-independiente
+          path: apk-test
+          github-token: ${{ github.token }}
+      - name: Mostrar APK y comprobar integridad
+        run: |
+          ls -lh apk-test/
+          unzip -l apk-test/app-release.apk | tail -n 5
+      - name: Ejecutar Android en emulador sin credenciales
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-boot-timeout: 900
+          disable-animations: true
+          script: bash scripts/probar-apk-emulador.sh
+      - name: Guardar resultados de arranque
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moneda-mundial-android-smoke-test
+          path: smoke-results/
+          if-no-files-found: warn
+          retention-days: 7

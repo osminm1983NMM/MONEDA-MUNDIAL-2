@@ -1,0 +1,46 @@
+name: Verificar Moneda Mundial
+
+on:
+  push:
+    branches:
+      - desarrollo-comercios-20261013
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validaciones:
+    name: Pruebas de validación monetaria
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verificar sintaxis de utilidades
+        run: node --check src/demo-money.mjs
+      - name: Ejecutar pruebas sin credenciales ni dinero real
+        run: node --test tests/*.test.mjs
+
+  compilacion-android:
+    name: Comprobar empaquetado Android (Expo)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+      - name: Verificar versiones Expo
+        run: npx expo install --check
+      - name: Generar paquete JavaScript Android
+        run: npx expo export --platform android --output-dir dist
