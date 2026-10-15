@@ -7,6 +7,7 @@ on:
       - 'tests/rls-core-*.sql'
       - 'scripts/PROPUESTA_ACTIVAR_RLS_MWD_CORE_NO_EJECUTAR.sql'
       - '.github/workflows/validar-rls-aislado.yml'
+      - 'tests/transferencias-dos-cuentas-*.sql'
   pull_request:
     branches:
       - main
@@ -45,3 +46,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/PROPUESTA_ACTIVAR_RLS_MWD_CORE_NO_EJECUTAR.sql
       - name: Verificar bloqueos y lectura interna
         run: psql -X -v ON_ERROR_STOP=1 -f tests/rls-core-assertions.sql
+      - name: Preparar dos cuentas ficticias en la misma base de CI aislada
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/transferencias-dos-cuentas-fixture.sql
+      - name: Verificar transferencias, cobros, reintentos y RLS entre A y B
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/transferencias-dos-cuentas-assertions.sql
