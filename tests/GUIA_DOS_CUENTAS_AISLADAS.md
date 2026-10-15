@@ -39,3 +39,15 @@ Es un ensayo secuencial; no verifica tráfico simultáneo ni dos dispositivos
 reales. No es auditoría de dinero real ni autoriza operar con pagos. La próxima
 etapa es ejecutar en CI aislada y documentar el resultado, luego validar
 las mismas pantallas de la APK con dos cuentas de prueba autenticadas.
+
+## Verificación adicional ejecutable sin PostgreSQL
+
+`tests/dos-cuentas-simulacion.test.mjs` describe con seis pruebas unitarias
+el comportamiento que esperamos de dos identidades A/B ficticias. GitHub
+Actions lo ejecuta con `node --test tests/*.test.mjs` junto con las pruebas
+anteriores.
+
+**Diferencia esencial:** es un modelo JavaScript en memoria para verificar
+reglas e idempotencia; no demuestra que las RPC de Supabase se hayan ejecutado.
+La suite PostgreSQL de arriba sigue siendo una prueba de integración
+**pendiente de ejecución** en entorno desechable.
