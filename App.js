@@ -22,6 +22,7 @@ import { canApplySessionResponse } from './src/session-guards.mjs';
 import { isLatestRequest, isValidDemoQuoteResponse, isValidDemoPaymentPreview } from './src/async-demo-guards.mjs';
 import { needsDemoFeeReview, demoFeeShortfallCents } from './src/quote-risk.mjs';
 import { maskEmail } from './src/privacy.mjs';
+import {searchDemoPayoutAgents} from './src/demo-payout-agents.mjs';
 import { createCashPickupDemo, generateCashPickupSampleBytes, normalizeCashPickupCountries } from './src/cash-pickup-demo.mjs';
 
 // CLAVE PUBLICABLE de Supabase. Nunca coloques claves secret/service_role en App.js.
@@ -469,6 +470,7 @@ export default function App() {
   const [demoAmount, setDemoAmount] = useState('100');
   const [pickupAmount, setPickupAmount] = useState('100');
   const [pickupDestination, setPickupDestination] = useState('NI');
+  const [agentSearch,setAgentSearch]=useState('');
   const [pickupSample, setPickupSample] = useState(null);
   const [internationalQuote, setInternationalQuote] = useState(null);
   const [quoteBusy, setQuoteBusy] = useState(false);
@@ -1243,6 +1245,19 @@ export default function App() {
               <Btn title={worldLoading ? 'Consultando catálogo...' : 'Actualizar catálogo mundial'} secondary
                 disabled={worldLoading} onPress={loadWorldCountries} />
               <Text style={styles.small}>Destinos en catálogo: {normalizeCashPickupCountries(worldCountries).length}. Retiros reales habilitados: 0.</Text>
+              <Text style={styles.panelTitle}>Sucursales totalmente ficticias para probar búsquedas</Text>
+              <Text style={styles.warning}>Estos establecimientos son INVENTADOS. No existen direcciones, bancos afiliados ni agentes autorizados.</Text>
+              <TextInput style={styles.input} placeholder="Buscar ciudad, agente o moneda" value={agentSearch}
+                placeholderTextColor="#9fb1c8" onChangeText={setAgentSearch} />
+              {searchDemoPayoutAgents(pickupDestination,agentSearch).map(agent=><View key={agent.id} style={styles.panel}>
+                <Text style={styles.itemHeading}>{agent.name}</Text>
+                <Text style={styles.small}>Ciudad de ejemplo: {agent.city} · {agent.countryCode}</Text>
+                <Text style={styles.small}>Monedas de ejemplo: {agent.currencies.join(', ')}</Text>
+                <Text style={styles.small}>Horario ficticio: {agent.hours}</Text>
+                <Text style={styles.warning}>NO DISPONIBLE PARA COBRAR · AGENTE INVENTADO</Text>
+              </View>)}
+              {searchDemoPayoutAgents(pickupDestination,agentSearch).length===0 &&
+                <Text style={styles.muted}>No hay sucursales ficticias de ejemplo para este destino o búsqueda. No implica disponibilidad real.</Text>}
               <Text style={styles.muted}>Importe hipotético en dólares estadounidenses (USD)</Text>
               <TextInput style={styles.input} value={pickupAmount} placeholder="Ejemplo: 100.00" keyboardType="decimal-pad"
                 placeholderTextColor="#9fb1c8" onChangeText={value => { setPickupAmount(value); setPickupSample(null); }} />
