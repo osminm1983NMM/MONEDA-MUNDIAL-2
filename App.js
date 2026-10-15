@@ -19,6 +19,7 @@ import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentReque
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
 import { canApplySessionResponse } from './src/session-guards.mjs';
+import { needsDemoFeeReview } from './src/quote-risk.mjs';
 
 // CLAVE PUBLICABLE de Supabase. Nunca coloques claves secret/service_role en App.js.
 const SUPABASE_URL = 'https://egrsdrlpavrtbgxoyxvg.supabase.co';
@@ -1170,7 +1171,7 @@ export default function App() {
                 </TouchableOpacity>
                 <TouchableOpacity accessibilityRole="button" accessibilityLabel="Ver actividad"
                   style={styles.quickAction} onPress={() => navigate('Historial')}>
-                  <Text style={styles.quickIcon}>≡</Text><Text style={styles.quickText}>Actividad</Text>
+                  <Text style={styles.quickIcon}>≡</Text><Text style={styles.quickText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.70}>Actividad</Text>
                 </TouchableOpacity>
               </View>
               <Text style={styles.sectionEyebrow}>SERVICIOS</Text>
@@ -1442,6 +1443,8 @@ export default function App() {
                     <Text style={styles.small}>Costo variable de ejemplo: {formatMWD(q.costEstimateCents)} USD</Text>}
                   {adminRole === 'owner' && typeof q.illustrativeMarginCents === 'number' &&
                     <Text style={styles.small}>Margen parcial ilustrativo: {formatMWD(q.illustrativeMarginCents)} USD</Text>}
+                  {adminRole === 'owner' && needsDemoFeeReview(q) &&
+                    <Text style={styles.warning}>ALERTA DE SIMULACIÓN: el costo ilustrativo supera la comisión. Margen negativo; revisar costos y tarifas antes de considerar este corredor. No es una cotización real.</Text>}
                   <Text style={styles.small}>{q.receiverAmountCents === null
                     ? 'Importe final no disponible: tipo de cambio real pendiente.'
                     : 'Recepción simulada: ' + formatMWD(q.receiverAmountCents) + ' USD'}</Text>
@@ -1547,7 +1550,7 @@ const styles = StyleSheet.create({
   quickRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30 },
   quickAction: { width: '23.5%', backgroundColor: '#122C3D', borderRadius: 15, paddingVertical: 17, paddingHorizontal: 3, alignItems: 'center', borderWidth: 1, borderColor: '#2A5260' },
   quickIcon: { color: '#8FE6D4', fontSize: 27, marginBottom: 8, fontWeight: '600' },
-  quickText: { color: '#EAF6F6', fontSize: 12, fontWeight: '700' },
+  quickText: { color: '#EAF6F6', fontSize: 12, fontWeight: '700', textAlign: 'center', flexShrink: 1 },
   panel: { backgroundColor: '#10293A', borderWidth: 1, borderColor: '#25495A', borderRadius: 17, padding: 16, marginBottom: 17 },
   panelTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', marginBottom: 14 },
   accountStrip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
