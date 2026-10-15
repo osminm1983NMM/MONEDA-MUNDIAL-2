@@ -104,6 +104,16 @@ export default function App() {
   const [commercialBusy, setCommercialBusy] = useState(false);
   const [paymentCode, setPaymentCode] = useState('');
   const [paymentPreview, setPaymentPreview] = useState(null);
+  const [worldCountries, setWorldCountries] = useState([]);
+  const [worldLoading, setWorldLoading] = useState(false);
+  const [countryFilter, setCountryFilter] = useState('');
+  const [quoteCountry, setQuoteCountry] = useState('CR');
+  const [quoteAmount, setQuoteAmount] = useState('');
+  const [quoteMethod, setQuoteMethod] = useState('bank');
+  const [quoteResult, setQuoteResult] = useState(null);
+  const [quoteBusy, setQuoteBusy] = useState(false);
+  const [ownerSummary, setOwnerSummary] = useState(null);
+  const [ownerLoading, setOwnerLoading] = useState(false);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -134,6 +144,9 @@ export default function App() {
       setMerchantRequests([]);
       setPaymentPreview(null);
       setPaymentCode('');
+      setWorldCountries([]);
+      setQuoteResult(null);
+      setOwnerSummary(null);
       return;
     }
     refreshAccount(userId);
@@ -400,6 +413,65 @@ export default function App() {
       });
   }
 
+  async function loadWorldCountries() {
+    if (!userId || worldLoading) return;
+    setWorldLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('mwd_world_countries_demo');
+      if (error) throw error;
+      if (!Array.isArray(data)) throw new Error('La lista de países no está disponible.');
+      if (userId !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      setWorldCountries(data);
+    } catch (error) {
+      message('Países del mundo', error.message || 'No se pudo cargar el catálogo.');
+    } finally {
+      setWorldLoading(false);
+    }
+  }
+
+  async function getInternationalQuote() {
+    const country = quoteCountry.trim().toUpperCase();
+    const cents = amountToCents(quoteAmount);
+    if (!/^[A-Z]{2}$/.test(country) || cents === null || cents < 100 || cents > 10000000) {
+      return message('Simulación', 'País ISO de dos letras y cantidad desde 1 hasta 100,000 USD.');
+    }
+    if (quoteBusy || !userId) return;
+    setQuoteBusy(true);
+    setQuoteResult(null);
+    try {
+      const { data, error } = await supabase.rpc('mwd_quote_international_demo', {
+        p_destination_country: country,
+        p_amount_cents: cents,
+        p_method: quoteMethod,
+      });
+      if (error) throw error;
+      if (data?.status !== 'simulation_only' || data?.realPaymentsEnabled !== false) {
+        throw new Error('Solo se permiten cotizaciones de demostración.');
+      }
+      if (userId !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      setQuoteResult(data);
+    } catch (error) {
+      message('Simulación internacional', error.message || 'Ruta de prueba no disponible.');
+    } finally {
+      setQuoteBusy(false);
+    }
+  }
+
+  async function loadOwnerSummary() {
+    if (!userId || adminRole !== 'owner' || ownerLoading) return;
+    setOwnerLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('mwd_owner_summary_demo');
+      if (error) throw error;
+      if (userId !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      setOwnerSummary(data);
+    } catch (error) {
+      message('Administración', error.message || 'No se pudo consultar el resumen.');
+    } finally {
+      setOwnerLoading(false);
+    }
+  }
+
   async function logout() {
     const { error } = await supabase.auth.signOut();
     if (error) message('Salida', error.message);
@@ -412,6 +484,9 @@ export default function App() {
     pendingRef.current = null;
     if (to === 'Comercio') loadMerchant();
     if (to === 'Pagar') setPaymentPreview(null);
+    if (to === 'Paises') loadWorldCountries();
+    if (to === 'Simulador') setQuoteResult(null);
+    if (to === 'Admin' && adminRole === 'owner') loadOwnerSummary();
   }
 
   return (
@@ -452,6 +527,8 @@ export default function App() {
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
               <Btn title="Mi comercio y solicitudes de cobro" secondary onPress={() => navigate('Comercio')} />
               <Btn title="Pagar solicitud comercial ficticia" secondary onPress={() => navigate('Pagar')} />
+              <Btn title="Países del mundo y disponibilidad" secondary onPress={() => navigate('Paises')} />
+              <Btn title="Simulador internacional de comisiones" secondary onPress={() => navigate('Simulador')} />
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
               <Btn title="Actualizar saldo e historial" secondary onPress={() => refreshAccount()} disabled={syncing} />
               <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
@@ -540,6 +617,73 @@ export default function App() {
               </View>}
             </View>}
 
+            {screen === 'Paises' && <View style={styles.card}>
+              <Text style={styles.heading}>Países del mundo</Text>
+              <Text style={styles.warning}>NINGÚN PAÍS TIENE PAGOS REALES ACTIVADOS</Text>
+              <Text style={styles.muted}>
+                Catálogo informativo de destinos. Una simulación disponible no significa autorización legal.
+              </Text>
+              <TextInput style={styles.input} placeholder="Buscar nombre o código de país"
+                placeholderTextColor="#9fb1c8" value={countryFilter}
+                onChangeText={setCountryFilter} autoCorrect={false} />
+              <Text style={styles.small}>Países registrados: {worldCountries.length}</Text>
+              <Btn title={worldLoading ? 'Cargando...' : 'Actualizar países'} secondary
+                onPress={loadWorldCountries} disabled={worldLoading} />
+              {worldCountries.filter(item =>
+                item.name.toLowerCase().includes(countryFilter.trim().toLowerCase()) ||
+                item.code.toLowerCase().includes(countryFilter.trim().toLowerCase())
+              ).slice(0, 30).map(item => (
+                <TouchableOpacity key={item.code} style={styles.entry}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setQuoteCountry(item.code);
+                    navigate('Simulador');
+                  }}>
+                  <Text style={styles.itemHeading}>{item.name} ({item.code})</Text>
+                  <Text style={styles.muted}>
+                    {item.demoAvailable ? 'Simulador disponible' : 'Simulador no disponible'}
+                    {' • '}Sin operaciones con dinero real
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              {worldCountries.length > 30 && <Text style={styles.muted}>
+                Se muestran hasta 30 resultados. Escribe un país para buscar otros destinos.
+              </Text>}
+            </View>}
+
+            {screen === 'Simulador' && <View style={styles.card}>
+              <Text style={styles.heading}>Simulador internacional</Text>
+              <Text style={styles.warning}>COTIZACIONES ILUSTRATIVAS • SIN CAMBIO REAL DE DIVISAS</Text>
+              <Text style={styles.muted}>Origen: Estados Unidos (USD). Destino de ejemplo: CR, HN, MX, CO, GT.</Text>
+              <TextInput style={styles.input} placeholder="País de destino (CR)"
+                placeholderTextColor="#9fb1c8" maxLength={2}
+                autoCapitalize="characters" value={quoteCountry}
+                onChangeText={v => { setQuoteCountry(v); setQuoteResult(null); }} />
+              <TextInput style={styles.input} placeholder="Cantidad en dólares (USD)"
+                placeholderTextColor="#9fb1c8" keyboardType="decimal-pad"
+                value={quoteAmount} onChangeText={v => { setQuoteAmount(v); setQuoteResult(null); }} />
+              <Text style={styles.itemHeading}>Método hipotético</Text>
+              <Btn title={quoteMethod === 'bank' ? '✓ Cuenta bancaria' : 'Cuenta bancaria'}
+                secondary onPress={() => { setQuoteMethod('bank'); setQuoteResult(null); }} />
+              <Btn title={quoteMethod === 'card' ? '✓ Tarjeta' : 'Tarjeta'}
+                secondary onPress={() => { setQuoteMethod('card'); setQuoteResult(null); }} />
+              <Btn title={quoteBusy ? 'Calculando...' : 'Calcular comisión de prueba'}
+                onPress={getInternationalQuote} disabled={quoteBusy} />
+              {quoteResult && <View style={styles.entry}>
+                <Text style={styles.itemHeading}>{quoteResult.country} ({quoteResult.destination})</Text>
+                <Text style={styles.small}>Envío hipotético: {formatMWD(quoteResult.amountCents)} USD</Text>
+                <Text style={styles.small}>Comisión ilustrativa: {formatMWD(quoteResult.feeCents)} USD</Text>
+                <Text style={styles.amount}>Total estimado: {formatMWD(quoteResult.totalPayCents)} USD</Text>
+                <Text style={styles.muted}>Moneda destino: {quoteResult.destinationCurrency}</Text>
+                <Text style={styles.warning}>
+                  {quoteResult.receiverAmountCents == null
+                    ? 'No existe una tasa de cambio real ni un monto confirmado a recibir.'
+                    : 'Monto hipotético a recibir: ' + formatMWD(quoteResult.receiverAmountCents) + ' USD'}
+                </Text>
+                <Text style={styles.muted}>No se ha reservado precio, ejecutado conversión ni enviado dinero.</Text>
+              </View>}
+            </View>}
+
             {screen === 'Historial' && <>
               <Text style={styles.heading}>Mis últimos movimientos</Text>
               {operations.length === 0 && <Text style={styles.muted}>Todavía no hay movimientos en línea.</Text>}
@@ -563,7 +707,22 @@ export default function App() {
             {screen === 'Admin' && <View style={styles.card}>
               <Text style={styles.heading}>Administración MWD</Text>
               {adminRole ? (
-                <Text style={styles.muted}>Tu rol registrado es: {adminRole}. Las herramientas administrativas se implementarán por separado.</Text>
+                <>
+                  <Text style={styles.muted}>Rol registrado: {adminRole}.</Text>
+                  {adminRole === 'owner' && <>
+                    <Btn title="Actualizar resumen de pruebas"
+                      secondary onPress={loadOwnerSummary} disabled={ownerLoading} />
+                    {ownerSummary && <View style={styles.entry}>
+                      <Text style={styles.itemHeading}>Datos de demostración</Text>
+                      <Text style={styles.small}>Cuentas de prueba: {ownerSummary.cuentas}</Text>
+                      <Text style={styles.small}>Comercios de prueba: {ownerSummary.comercios}</Text>
+                      <Text style={styles.small}>Transferencias ficticias: {ownerSummary.transferencias}</Text>
+                      <Text style={styles.small}>Aportaciones ficticias: {ownerSummary.aportaciones}</Text>
+                      <Text style={styles.small}>Cobros ficticios pagados: {ownerSummary.cobros_pagados}</Text>
+                      <Text style={styles.muted}>Saldo conjunto ficticio: {formatMWD(ownerSummary.saldo_demo_centavos)} MWD</Text>
+                    </View>}
+                  </>}
+                </>
               ) : (
                 <Text style={styles.muted}>Esta cuenta no tiene permisos administrativos. Solo el propietario del proyecto podrá asignarlos desde un entorno seguro.</Text>
               )}
