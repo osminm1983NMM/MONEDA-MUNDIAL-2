@@ -39,6 +39,8 @@ export function quoteInternationalDemo({ origin = 'US', destination, amountCents
     illustrativeMarginCents: feeCents - estimatedVariableCostCents,
     receiverAmountCents: corridor.currency === 'USD' ? amountCents : null,
     fxRate: corridor.fxRate,
+    // Bloqueo explícito: ninguna simulación autoriza operaciones financieras reales.
+    realPaymentsEnabled: false,
     status: 'simulation_only',
   };
 }
