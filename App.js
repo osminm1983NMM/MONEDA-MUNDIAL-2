@@ -19,6 +19,7 @@ import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentReque
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
 import { canApplySessionResponse } from './src/session-guards.mjs';
+import { isLatestRequest, isValidDemoQuoteResponse, isValidDemoPaymentPreview } from './src/async-demo-guards.mjs';
 import { needsDemoFeeReview, demoFeeShortfallCents } from './src/quote-risk.mjs';
 import { maskEmail } from './src/privacy.mjs';
 
@@ -490,6 +491,8 @@ export default function App() {
   const [paymentPreview, setPaymentPreview] = useState(null);
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
+  const quoteSequenceRef = useRef(0);
+  const paymentLookupSequenceRef = useRef(0);
   const recoveryInProgressRef = useRef(false);
   const userId = session?.user?.id;
 
@@ -571,6 +574,8 @@ export default function App() {
     setMerchantCountry('US');
     setMerchantAmount('');
     setMerchantDescription('');
+    paymentLookupSequenceRef.current += 1;
+    quoteSequenceRef.current += 1;
     setPaymentPreview(null);
     setPaymentCode('');
     setInternationalQuote(null);
@@ -658,7 +663,9 @@ export default function App() {
   async function fetchDemoInternationalQuote() {
     if (!userId || quoteBusy) return;
     const requestedUserId = userId;
-    const cents = amountToCents(demoAmount);
+    const quoteSequence = ++quoteSequenceRef.current;
+    const requestedQuote = { destination: demoDestination, method: demoMethod, amountCents: amountToCents(demoAmount) };
+    const cents = requestedQuote.amountCents;
     if (cents === null || cents < 100 || cents > 10000000) {
       return showMessage('Cantidad', 'Introduce un importe entre 1 y 100,000 USD para esta simulación.');
     }
@@ -671,11 +678,12 @@ export default function App() {
         p_method: demoMethod,
       });
       if (error) throw error;
-      if (data?.status !== 'simulation_only' || data?.realPaymentsEnabled !== false) {
+      if (!isValidDemoQuoteResponse(data, requestedQuote)) {
         throw new Error('El servidor no devolvió una simulación válida.');
       }
       const { data: { session: activeSession } } = await supabase.auth.getSession();
-      if (!canApplySessionResponse(requestedUserId, activeSession)) return;
+      if (!canApplySessionResponse(requestedUserId, activeSession) ||
+          !isLatestRequest(quoteSequence, quoteSequenceRef.current)) return;
       setInternationalQuote(data);
     } catch (error) {
       showMessage('Simulación', 'No fue posible calcular la cotización de prueba. Inténtalo otra vez.');
@@ -833,6 +841,7 @@ export default function App() {
   async function lookupMerchantPayment() {
     if (!userId) return;
     const requestedUserId = userId;
+    const lookupSequence = ++paymentLookupSequenceRef.current;
     const id = normalizePaymentRequestId(paymentCode);
     if (!id) {
       return showMessage('Código', 'Introduce el identificador UUID de la solicitud.');
@@ -846,11 +855,12 @@ export default function App() {
         p_payment_id: id,
       });
       if (error) throw error;
-      if (!data || data.id !== id || data.currency_code !== 'MWD') {
+      if (!isValidDemoPaymentPreview(data, id)) {
         throw new Error('Solicitud de demostración no disponible.');
       }
       const { data: { session: activeSession } } = await supabase.auth.getSession();
-      if (!canApplySessionResponse(requestedUserId, activeSession)) return;
+      if (!canApplySessionResponse(requestedUserId, activeSession) ||
+          !isLatestRequest(lookupSequence, paymentLookupSequenceRef.current)) return;
       setPaymentPreview(data);
     } catch (error) {
       showMessage('Consultar cobro', error.message || 'No se encontró el cobro.');
@@ -1326,7 +1336,7 @@ export default function App() {
               <TextInput style={styles.input} placeholder="Identificador de solicitud UUID"
                 placeholderTextColor="#9fb1c8" autoCapitalize="none"
                 autoCorrect={false} value={paymentCode}
-                onChangeText={value => { setPaymentCode(value); setPaymentPreview(null); }} />
+                onChangeText={value => { paymentLookupSequenceRef.current += 1; setPaymentCode(value); setPaymentPreview(null); }} />
               <Btn title={busy ? 'Consultando...' : 'Consultar cobro ficticio'}
                 disabled={busy} onPress={lookupMerchantPayment} />
               {paymentPreview && <View>
@@ -1407,7 +1417,7 @@ export default function App() {
                         : 'Pendiente de preparación y autorizaciones'}</Text>
                       <Text style={styles.muted}>Transferencias reales: no disponibles</Text>
                       {item.demoAvailable && <Btn title="Ver simulación de este destino" secondary
-                        onPress={() => { setDemoDestination(item.code); setInternationalQuote(null); navigate('SimuladorInternacional'); }} />}
+                        onPress={() => { quoteSequenceRef.current += 1; setDemoDestination(item.code); setInternationalQuote(null); navigate('SimuladorInternacional'); }} />}
                     </View>)}
                     {filtered.length === 0 && <Text style={styles.muted}>No encontramos ese nombre. Comprueba la escritura.</Text>}
                   </View>;
@@ -1422,15 +1432,15 @@ export default function App() {
               <CountrySelector title="País de destino"
                 options={DEMO_CORRIDORS.map(route => ({code: route.code, label: countryName(route.code, route.country, language)}))}
                 selectedCode={demoDestination}
-                onChoose={code => { setDemoDestination(code); setInternationalQuote(null); }} />
+                onChoose={code => { quoteSequenceRef.current += 1; setDemoDestination(code); setInternationalQuote(null); }} />
               <Text style={styles.panelTitle}>Método de origen simulado</Text>
               <Btn title={demoMethod === 'bank' ? '✓ Cuenta bancaria (simulada)' : 'Cuenta bancaria (simulada)'}
-                secondary={demoMethod !== 'bank'} onPress={() => { setDemoMethod('bank'); setInternationalQuote(null); }} />
+                secondary={demoMethod !== 'bank'} onPress={() => { quoteSequenceRef.current += 1; setDemoMethod('bank'); setInternationalQuote(null); }} />
               <Btn title={demoMethod === 'card' ? '✓ Tarjeta (simulada)' : 'Tarjeta (simulada)'}
-                secondary={demoMethod !== 'card'} onPress={() => { setDemoMethod('card'); setInternationalQuote(null); }} />
+                secondary={demoMethod !== 'card'} onPress={() => { quoteSequenceRef.current += 1; setDemoMethod('card'); setInternationalQuote(null); }} />
               <TextInput style={styles.input} value={demoAmount}
                 placeholder="Importe de ejemplo en USD" placeholderTextColor="#9fb1c8"
-                keyboardType="decimal-pad" onChangeText={value => { setDemoAmount(value); setInternationalQuote(null); }} />
+                keyboardType="decimal-pad" onChangeText={value => { quoteSequenceRef.current += 1; setDemoAmount(value); setInternationalQuote(null); }} />
               <Btn title={quoteBusy ? 'Calculando...' : 'Calcular cotización ficticia'}
                 disabled={quoteBusy} onPress={fetchDemoInternationalQuote} />
               {internationalQuote && (() => {
