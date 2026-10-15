@@ -102,6 +102,8 @@ export default function App() {
   const [merchantAmount, setMerchantAmount] = useState('');
   const [merchantDescription, setMerchantDescription] = useState('');
   const [commercialBusy, setCommercialBusy] = useState(false);
+  const [paymentCode, setPaymentCode] = useState('');
+  const [paymentPreview, setPaymentPreview] = useState(null);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -130,6 +132,8 @@ export default function App() {
       setAdminRole(null);
       setMerchant(null);
       setMerchantRequests([]);
+      setPaymentPreview(null);
+      setPaymentCode('');
       return;
     }
     refreshAccount(userId);
@@ -343,6 +347,59 @@ export default function App() {
     });
   }
 
+  async function lookupPayment() {
+    const code = paymentCode.trim().toLowerCase();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(code)) {
+      return message('Código incorrecto', 'Introduce un identificador válido de solicitud.');
+    }
+    if (commercialBusy) return;
+    setPaymentPreview(null);
+    setCommercialBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('mwd_get_payment_request_demo', { p_payment_id: code });
+      if (error) throw error;
+      if (data?.id !== code || data?.status !== 'pending' || data?.currency_code !== 'MWD') {
+        throw new Error('Solicitud ficticia no disponible.');
+      }
+      setPaymentPreview(data);
+    } catch (error) {
+      message('Consultar solicitud', error.message || 'No fue posible consultar.');
+    } finally {
+      setCommercialBusy(false);
+    }
+  }
+
+  function payMerchant() {
+    const request = paymentPreview;
+    if (!request || commercialBusy) return;
+    if (!wallet || request.amount_cents > wallet.balance_cents) {
+      return message('Saldo insuficiente', 'Actualiza tu saldo y comprueba los MWD ficticios.');
+    }
+    confirmAction('Pagar comercio (prueba)',
+      'Comercio: ' + request.business_name + '\nImporte: ' + formatMWD(request.amount_cents) + ' MWD ficticios.',
+      async () => {
+        if (commercialBusy) return;
+        setCommercialBusy(true);
+        try {
+          const { data, error } = await supabase.rpc('mwd_pay_merchant_demo', {
+            p_payment_id: request.id,
+          });
+          if (error) throw error;
+          if (!['ok', 'already_processed'].includes(data?.status)) {
+            throw new Error('Pago no confirmado.');
+          }
+          setPaymentPreview(null);
+          setPaymentCode('');
+          await refreshAccount();
+          message('Pago de prueba', 'Pago ficticio registrado. Puedes consultar tu historial.');
+        } catch (error) {
+          message('Pago no confirmado', error.message || 'No se pudo completar.');
+        } finally {
+          setCommercialBusy(false);
+        }
+      });
+  }
+
   async function logout() {
     const { error } = await supabase.auth.signOut();
     if (error) message('Salida', error.message);
@@ -354,6 +411,7 @@ export default function App() {
     setRecipientCode('');
     pendingRef.current = null;
     if (to === 'Comercio') loadMerchant();
+    if (to === 'Pagar') setPaymentPreview(null);
   }
 
   return (
@@ -393,6 +451,7 @@ export default function App() {
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
               <Btn title="Mi comercio y solicitudes de cobro" secondary onPress={() => navigate('Comercio')} />
+              <Btn title="Pagar solicitud comercial ficticia" secondary onPress={() => navigate('Pagar')} />
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
               <Btn title="Actualizar saldo e historial" secondary onPress={() => refreshAccount()} disabled={syncing} />
               <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
@@ -461,6 +520,24 @@ export default function App() {
                 </View>
               ))}
               <Btn title="Actualizar solicitudes" secondary onPress={loadMerchant} disabled={commercialBusy} />
+            </View>}
+
+            {screen === 'Pagar' && <View style={styles.card}>
+              <Text style={styles.heading}>Pagar a un comercio</Text>
+              <Text style={styles.warning}>PAGO EXCLUSIVAMENTE FICTICIO</Text>
+              <Text style={styles.muted}>Introduce el identificador de la solicitud que te compartió el comercio.</Text>
+              <TextInput style={styles.input} placeholder="Código de solicitud (UUID)"
+                placeholderTextColor="#9fb1c8" autoCapitalize="none"
+                autoCorrect={false} value={paymentCode}
+                onChangeText={v => { setPaymentCode(v); setPaymentPreview(null); }} />
+              <Btn title="Consultar solicitud" disabled={commercialBusy} onPress={lookupPayment} />
+              {paymentPreview && <View style={styles.entry}>
+                <Text style={styles.itemHeading}>{paymentPreview.business_name}</Text>
+                <Text style={styles.balance}>{formatMWD(paymentPreview.amount_cents)} MWD</Text>
+                <Text style={styles.muted}>{paymentPreview.description || 'Cobro de prueba'}</Text>
+                <Btn title="Confirmar pago ficticio" disabled={commercialBusy}
+                  onPress={payMerchant} />
+              </View>}
             </View>}
 
             {screen === 'Historial' && <>
