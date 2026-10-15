@@ -18,6 +18,7 @@ import { createClient } from '@supabase/supabase-js';
 import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentRequestId } from './src/demo-money.mjs';
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
+import { canApplySessionResponse } from './src/session-guards.mjs';
 
 // CLAVE PUBLICABLE de Supabase. Nunca coloques claves secret/service_role en App.js.
 const SUPABASE_URL = 'https://egrsdrlpavrtbgxoyxvg.supabase.co';
@@ -672,11 +673,14 @@ export default function App() {
   }
 
   async function refreshOwnerSummary() {
-    if (adminRole !== 'owner' || ownerLoading) return;
+    if (adminRole !== 'owner' || ownerLoading || !userId) return;
+    const requestedUserId = userId;
     setOwnerLoading(true);
     try {
       const { data, error } = await supabase.rpc('mwd_owner_summary_demo');
       if (error) throw error;
+      const { data: { session: activeSession } } = await supabase.auth.getSession();
+      if (!canApplySessionResponse(requestedUserId, activeSession)) return;
       setOwnerSummary(data);
     } catch (error) {
       showMessage('Panel propietario', 'No fue posible cargar el resumen de demostración.');
