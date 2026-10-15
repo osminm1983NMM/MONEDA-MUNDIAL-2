@@ -169,6 +169,7 @@ const EN = Object.freeze({
   'Total simulado:': 'Simulated total:',
   'Costo variable de ejemplo:': 'Example variable cost:',
   'Margen parcial ilustrativo:': 'Illustrative contribution margin:',
+  'ALERTA DE SIMULACIÓN: el costo ilustrativo supera la comisión. Margen negativo; revisar costos y tarifas antes de considerar este corredor. No es una cotización real.': 'DEMO ALERT: estimated costs exceed the fee. Negative illustrative margin; review costs and pricing before considering this corridor. Not a real quote.',
   'Importe final no disponible: tipo de cambio real pendiente.': 'Final amount unavailable: real exchange rate required.',
   'Recepción simulada:': 'Simulated receipt:',
   'La estimación omite costos regulatorios, fiscales, FX y otros. No constituye cotización real ni utilidad neta.': 'This estimate excludes regulatory, tax, FX and other costs. It is not a real quote or net profit.',
