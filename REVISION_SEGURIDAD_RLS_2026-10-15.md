@@ -50,3 +50,13 @@ El catálogo registra 249 países y 19 corredores **solo de simulación**, con 0
 https://supabase.com/docs/guides/database/postgres/row-level-security
 
 **Acción pendiente:** propietario confirma si las cuatro tablas se mantendrán 100 % privadas del cliente y autoriza una migración posterior de RLS con pruebas previas. No se debe ofrecer SQL como algo ya ejecutado.
+
+## Revisión complementaria de dependencias — 2026-10-15
+
+- Inspeccionadas funciones públicas y funciones internas: ninguna función definida bajo `public`, `mwd_finance_private` o `mwd_core` contiene una referencia directa explícita a `mwd_core.` en el cuerpo de su definición. **La búsqueda textual no descarta SQL dinámico ni dependencias indirectas; por ello no sustituye una prueba en staging.**
+- Las cuatro tablas son propiedad de `postgres`; los roles `anon`, `authenticated` y `service_role` no tienen permisos directos de tabla comprobados, y los dos primeros tampoco tienen USAGE en ese esquema.
+- Catálogo técnico observado: 3 monedas, 2 países, 2 combinaciones país-moneda y un corredor técnico; ninguno tiene estatus `authorized`. Hay 4 billeteras, 9 operaciones y 2 solicitudes de prueba. Cero rutas de dinero real habilitadas.
+- Guardadas dos herramientas de revisión en GitHub:
+  - `scripts/PROPUESTA_ACTIVAR_RLS_MWD_CORE_NO_EJECUTAR.sql`, con comprobaciones de permisos y cuatro sentencias `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` en transacción.
+  - `scripts/VALIDAR_RLS_MWD_CORE_READONLY.sql`, consultas no destructivas para antes/después de la migración.
+- La migración RLS **no se ejecutó**, porque requiere revisión de dependencias en staging y confirmación específica del cambio de control de acceso. La evidencia recopilada es revisión estática y consultas directas, no una prueba E2E autenticada.
