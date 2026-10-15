@@ -20,6 +20,7 @@ import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mj
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
 import { canApplySessionResponse } from './src/session-guards.mjs';
 import { needsDemoFeeReview } from './src/quote-risk.mjs';
+import { maskEmail } from './src/privacy.mjs';
 
 // CLAVE PUBLICABLE de Supabase. Nunca coloques claves secret/service_role en App.js.
 const SUPABASE_URL = 'https://egrsdrlpavrtbgxoyxvg.supabase.co';
@@ -1191,7 +1192,7 @@ export default function App() {
                 <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
               </View>
               <View style={styles.accountStrip}>
-                <Text style={styles.accountText} numberOfLines={1}>{session.user.email}</Text>
+                <Text style={styles.accountText} numberOfLines={1}>{maskEmail(session.user.email)}</Text>
                 <TouchableOpacity accessibilityRole="button" onPress={logout} style={styles.logoutButton}>
                   <Text style={styles.logoutText}>Cerrar sesión</Text>
                 </TouchableOpacity>
@@ -1253,7 +1254,8 @@ export default function App() {
             {screen === 'Transferir' && <View style={styles.card}>
               <Text style={styles.heading}>Transferencia de prueba</Text>
               <Text style={styles.muted}>Pide a la otra persona su código MWD para enviarle créditos de demostración.</Text>
-              <TextInput style={styles.input} placeholder="Ejemplo: MWD-0123456789ABCDEF"
+              <Text style={styles.muted}>Código de billetera del destinatario</Text>
+              <TextInput style={styles.input} placeholder="MWD-0123456789ABCDEF"
                 autoCapitalize="characters" autoCorrect={false} placeholderTextColor="#9fb1c8"
                 value={recipientCode} onChangeText={changeRecipient} />
               <TextInput style={styles.input} placeholder="Cantidad MWD" keyboardType="decimal-pad"
@@ -1345,7 +1347,7 @@ export default function App() {
               <Text style={styles.muted}>Comparte este identificador con otra cuenta de prueba. No compartas tu contraseña.</Text>
               <Btn title="Compartir código de billetera" secondary
                 onPress={() => shareDemoCode('wallet', wallet?.account_code)} disabled={!wallet} />
-              <Text style={styles.small}>Correo: {session.user.email}</Text>
+              <Text style={styles.small}>Correo: {maskEmail(session.user.email)}</Text>
             </View>}
 
             {screen === 'Historial' && <>
@@ -1547,10 +1549,10 @@ const styles = StyleSheet.create({
   heroCode: { color: '#FFFFFF', fontSize: 15, marginTop: 8, marginBottom: 17, fontWeight: '700', letterSpacing: 0 },
   sectionEyebrow: { color: '#7FE0CA', fontSize: 11, letterSpacing: 1.1, fontWeight: '700', marginBottom: 6 },
   sectionTitle: { color: '#FFFFFF', fontSize: 24, fontWeight: '800', marginBottom: 16 },
-  quickRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30 },
-  quickAction: { width: '23.5%', backgroundColor: '#122C3D', borderRadius: 15, paddingVertical: 17, paddingHorizontal: 3, alignItems: 'center', borderWidth: 1, borderColor: '#2A5260' },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 25, rowGap: 10 },
+  quickAction: { width: '48.5%', minHeight: 104, backgroundColor: '#122C3D', borderRadius: 15, paddingVertical: 15, paddingHorizontal: 9, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2A5260' },
   quickIcon: { color: '#8FE6D4', fontSize: 27, marginBottom: 8, fontWeight: '600' },
-  quickText: { color: '#EAF6F6', fontSize: 12, fontWeight: '700', textAlign: 'center', flexShrink: 1 },
+  quickText: { color: '#EAF6F6', fontSize: 15, fontWeight: '700', textAlign: 'center', flexShrink: 1 },
   panel: { backgroundColor: '#10293A', borderWidth: 1, borderColor: '#25495A', borderRadius: 17, padding: 16, marginBottom: 17 },
   panelTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', marginBottom: 14 },
   accountStrip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
