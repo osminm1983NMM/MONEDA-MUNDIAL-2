@@ -19,6 +19,7 @@ import PartnerRegistryScreen from './PartnerRegistryScreen';
 import RemittanceTrackingDemoScreen from './RemittanceTrackingDemoScreen';
 import PayoutCandidateLinkScreen from './PayoutCandidateLinkScreen';
 import DigitalMoneyConceptScreen from './DigitalMoneyConceptScreen';
+import WalletRemittanceConceptScreen from './WalletRemittanceConceptScreen';
 import MockAlertsAdminScreen from './MockAlertsAdminScreen';
 import MockAuditPreviewScreen from './MockAuditPreviewScreen';
 import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentRequestId } from './src/demo-money.mjs';
@@ -1259,6 +1260,7 @@ export default function App() {
                   onPress={() => refreshAccount()} disabled={syncing} />
                 <Btn title="Países del mundo y disponibilidad" secondary onPress={() => { navigate('PaisesMundo'); loadWorldCountries(); }} />
                 <Btn title="Simulador internacional de comisiones" secondary onPress={() => navigate('SimuladorInternacional')} />
+                <Btn title="Billetera → Remesa internacional (solo diseño)" secondary onPress={() => navigate('PuenteRemesasDemo')} />
                 <Btn title="Retiro de efectivo con código (demostración)" secondary onPress={() => { navigate('RetiroEfectivoDemo'); loadWorldCountries(); }} />
                 <Btn title="Moneda Mundial Digital · Opción C" secondary onPress={() => navigate('MonedaDigitalConcepto')} />
                 <Btn title="Configuración" secondary onPress={() => navigate('Configuracion')} />
@@ -1573,6 +1575,7 @@ export default function App() {
               })()}
             </View>}
 
+            {screen === 'PuenteRemesasDemo' && <WalletRemittanceConceptScreen walletBalanceCents={wallet?.balance_cents} />}
             {screen === 'MonedaDigitalConcepto' && <DigitalMoneyConceptScreen />}
 
             {screen === 'Admin' && <View style={styles.card}>
