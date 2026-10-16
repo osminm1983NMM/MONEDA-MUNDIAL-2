@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import PartnerComplianceReview from './PartnerComplianceReview';
 import PartnerExpiryDashboard from './PartnerExpiryDashboard';
+import PartnerEngagementTracker from './PartnerEngagementTracker';
 import PartnerCountryOverview from './PartnerCountryOverview';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { summarizeRegisteredPickupCandidates, projectRegisteredPickupDesign } from './src/registered-pickup-design.mjs';
@@ -221,6 +222,7 @@ export default function PartnerRegistryScreen({ supabase, onPreviewPickup }) {
       <Btn title="Guardar sucursal candidata" disabled={busy || !branchName.trim() || !city.trim()}
         onPress={saveLocation} />
 
+      <PartnerEngagementTracker supabase={supabase} partnerId={selectedId} />
       <PartnerComplianceReview supabase={supabase} partnerId={selectedId} />
       <Text style={[s.title, { marginTop: 17 }]}>Historial de modificaciones</Text>
       {audit.length === 0 && <Text style={s.dim}>No hay modificaciones registradas.</Text>}
