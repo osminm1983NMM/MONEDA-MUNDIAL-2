@@ -3,7 +3,7 @@
 // No crea fondos, cuentas, comisiones reales o referencias de cobro.
 import { createHmac, randomUUID, timingSafeEqual, createHash } from 'node:crypto';
 
-const ROUTES = Object.freeze(['US:HN']); // corredores de ENSAYO, ninguno habilitado
+const DEFAULT_DESIGN_COUNTRIES = Object.freeze(['HN', 'NI']); // ejemplos; el catálogo completo llega desde el servidor
 const DEMO_STATUSES = new Set(['sandbox_submitted', 'sandbox_pending', 'sandbox_completed', 'sandbox_failed']);
 const MONEY_RE = /^[A-Z]{3}$/;
 const MODE_ERROR='DINERO REAL BLOQUEADO: no hay proveedor contratado ni aprobación regulatoria.';
@@ -13,9 +13,9 @@ const auditSafe = (message) => new Error(message);
 function requireMockOnly(mode) {
   if (mode !== 'mock') throw auditSafe(MODE_ERROR);
 }
-function validateOrder(order) {
+function validateOrder(order, countries) {
   if (!order || typeof order !== 'object' || Array.isArray(order)) throw auditSafe('Orden de ensayo requerida');
-  if (order.origin !== 'US' || order.destination !== 'HN' ||
+  if (order.origin !== 'US' || !countries.has(order.destination) ||
       !MONEY_RE.test(order.sourceCurrency ?? '') || order.sourceCurrency !== 'USD' ||
       !Number.isSafeInteger(order.amountCents) || order.amountCents < 100 || order.amountCents > 10000000 ||
       !['bank_account', 'cash_pickup'].includes(order.payoutMethod)) {
@@ -27,7 +27,7 @@ function validateOrder(order) {
     throw auditSafe('Datos personales/bancarios prohibidos en el sandbox ficticio');
   }
   return {
-    origin:'US', destination:'HN',sourceCurrency:'USD',
+    origin:'US', destination:order.destination,sourceCurrency:'USD',
     amountCents:order.amountCents,payoutMethod:order.payoutMethod,
   };
 }
@@ -41,12 +41,16 @@ function constantTimeHex(a,b) {
   return timingSafeEqual(Buffer.from(a,'hex'),Buffer.from(b,'hex'));
 }
 export function createMockRegulatedProviderBridge({
- mode='mock', webhookSecret, clock=()=>Date.now(),
+ mode='mock', webhookSecret, clock=()=>Date.now(), countryCodes=DEFAULT_DESIGN_COUNTRIES,
 }={}) {
  requireMockOnly(mode);
  if(typeof webhookSecret!=='string' || webhookSecret.length<32)
    throw auditSafe('Se necesita una clave de ensayo secreta >=32 caracteres. Nunca incluirla en la app.');
  if(typeof clock!=='function')throw auditSafe('Reloj inválido');
+ if(!Array.isArray(countryCodes) || countryCodes.some(code=>!(/^[A-Z]{2}$/.test(code)) || code==='US'))
+   throw auditSafe('Catálogo de países de diseño inválido');
+ const countries=new Set(countryCodes);
+ const routes=Object.freeze([...countries].map(code=>'US:'+code).sort());
  const orders=new Map(); // sólo RAM de pruebas; nunca un ledger de producción
  const attempts=new Map();
  const events=new Set();
@@ -54,11 +58,12 @@ export function createMockRegulatedProviderBridge({
  const maybeLog = (type,reference) => audit.push(Object.freeze({type,reference})); // sin PII, sin secreto
  return Object.freeze({
   mode:'mock', providerConnected:false, moneyMovementEnabled:false,
-  supportedDesignRoutes:ROUTES,
+  priorityDesignRoute:'US:HN',
+  supportedDesignRoutes:routes, // SOLO países suministrados para simulación, NO rutas habilitadas
   quote(order) {
-   const normalized=validateOrder(order);
+   const normalized=validateOrder(order,countries);
    return Object.freeze({
-     route:'US:HN',amountCents:normalized.amountCents,sourceCurrency:'USD',
+     route:'US:'+normalized.destination,amountCents:normalized.amountCents,sourceCurrency:'USD',
      payoutMethod:normalized.payoutMethod,
      feeCents:null,fxRate:null,recipientAmountCents:null,
      quoteBinding:'mock-only',quoteValidForRealTransfer:false,
@@ -68,7 +73,7 @@ export function createMockRegulatedProviderBridge({
   submitSandboxTransfer({requestId,order}={}) {
    if(typeof requestId!=='string'||!/^[a-zA-Z0-9-]{12,90}$/.test(requestId))
      throw auditSafe('Identificador de reintento inválido');
-   const normalized=validateOrder(order),hash=digest(normalized);
+   const normalized=validateOrder(order,countries),hash=digest(normalized);
    const existing=attempts.get(requestId);
    if(existing) {
      if(existing.hash!==hash)throw auditSafe('Idempotency key reutilizada con datos diferentes');
