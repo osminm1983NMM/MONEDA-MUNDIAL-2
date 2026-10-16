@@ -1,0 +1,45 @@
+name: Verificar Android demo (sin APK)
+on:
+  push:
+    branches:
+      - 'mejora/conversion-coin-estable-demo-20261016'
+  pull_request:
+    paths:
+      - '*.js'
+      - 'package.json'
+      - 'app.json'
+      - 'eas.json'
+      - '.github/workflows/android-demo-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  expo-android-bundle:
+    name: Validar paquete JavaScript Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+      REAL_PAYMENTS_ENABLED: 'false'
+    steps:
+      - name: Obtener código
+        uses: actions/checkout@v4
+      - name: Node.js 20 compatible con Expo SDK 54
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: 'npm'
+          cache-dependency-path: package.json
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+      - name: Verificar configuración Expo
+        run: npx expo config --type public --json > /tmp/expo-config.json
+      - name: Verificar compatibilidad de dependencias
+        run: npx expo install --check
+      - name: Empaquetar JavaScript para Android (no crea APK)
+        run: npx expo export --platform android --output-dir dist
+      - name: Confirmar que se generaron archivos
+        run: test -d dist && test "$(find dist -type f | wc -l)" -gt 0
