@@ -9,6 +9,7 @@ import PartnerCountryOverview from './PartnerCountryOverview';
 import PartnerPrioritiesPanel from './PartnerPrioritiesPanel';
 import LaunchReadinessPanel from './LaunchReadinessPanel';
 import AdminDiagnosticsPanel from './AdminDiagnosticsPanel';
+import PartnerReadinessMatrix from './PartnerReadinessMatrix';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { summarizeRegisteredPickupCandidates, projectRegisteredPickupDesign } from './src/registered-pickup-design.mjs';
 
@@ -175,6 +176,7 @@ export default function PartnerRegistryScreen({ supabase, onPreviewPickup }) {
       <Text style={s.warn}>Bancos y sucursales habilitados para pagar: 0. Todos son únicamente candidatos; ningún código puede cobrarse.</Text>
     </View>
     <AdminDiagnosticsPanel supabase={supabase} />
+    <PartnerReadinessMatrix supabase={supabase} />
     <LaunchReadinessPanel />
     <PartnerPrioritiesPanel supabase={supabase} />
     <PartnerCountryOverview supabase={supabase} />
