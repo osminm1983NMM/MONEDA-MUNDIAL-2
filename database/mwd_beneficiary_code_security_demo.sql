@@ -44,10 +44,26 @@ comment on table mwd_remittance_demo_private.pickup_code_events is
 create index if not exists mwd_pickup_demo_events_sample
  on mwd_remittance_demo_private.pickup_code_events(sample_id,id);
 
+-- Idempotencia real de solicitudes de verificación: reintentar el mismo UUID
+-- nunca vuelve a consumir intentos, ni reproduce una respuesta de éxito diferente.
+-- Sólo se conserva el RESULTADO (sin texto de código, hash de prueba ni documentos).
+create table if not exists mwd_remittance_demo_private.pickup_code_attempts (
+ id bigint generated always as identity primary key,
+ sample_id uuid not null references mwd_remittance_demo_private.pickup_code_samples(id) on delete restrict,
+ request_id uuid not null,
+ result jsonb not null,
+ created_at timestamptz not null default clock_timestamp(),
+ unique(sample_id,request_id)
+);
+comment on table mwd_remittance_demo_private.pickup_code_attempts is
+ 'Resultados de reintento DEMO; prohíbe doble consumo de intentos. No almacena secretos ni datos del beneficiario.';
+
 alter table mwd_remittance_demo_private.pickup_code_samples enable row level security;
 alter table mwd_remittance_demo_private.pickup_code_events enable row level security;
+alter table mwd_remittance_demo_private.pickup_code_attempts enable row level security;
 revoke all on mwd_remittance_demo_private.pickup_code_samples,
- mwd_remittance_demo_private.pickup_code_events from public,anon,authenticated;
+ mwd_remittance_demo_private.pickup_code_events,
+ mwd_remittance_demo_private.pickup_code_attempts from public,anon,authenticated;
 revoke all on all sequences in schema mwd_remittance_demo_private from public,anon,authenticated;
 
 -- Devuelve el código NO COBRABLE únicamente en la creación; no se guarda en claro.
@@ -121,7 +137,7 @@ begin
  where o.id=p_order_id for update of c;
  if not found then raise exception 'Código ficticio inexistente' using errcode='22023'; end if;
  if v_sample.identity_check_request_id=p_request_id
- then return jsonb_build_object('status',v_sample.status,'already_processed',true,
+ then return jsonb_build_object('status',case when v_sample.status='active' and now()>=v_sample.expires_at then 'expired' else v_sample.status end,'already_processed',true,
     'identity_real_verified',false,'identity_check_simulated',true,
     'real_payments_enabled',false,'redeemable',false); end if;
  if v_sample.status<>'active' or now()>=v_sample.expires_at then
@@ -145,6 +161,8 @@ create or replace function public.mwd_owner_try_pickup_code_demo(
 declare
  v_actor uuid;
  v_sample mwd_remittance_demo_private.pickup_code_samples%rowtype;
+ v_cached jsonb;
+ v_result jsonb;
  v_hash text;
  v_tries integer;
  v_new_status text;
@@ -157,11 +175,12 @@ begin
  join mwd_remittance_demo_private.pickup_code_samples c on c.assignment_id=a.id
  where o.id=p_order_id for update of c;
  if not found then raise exception 'No existe código ficticio' using errcode='22023'; end if;
- if v_sample.status='consumed' and v_sample.consume_request_id=p_request_id then
-   return jsonb_build_object('status','consumed','already_processed',true,
-     'sample_completed',true,'money_paid',false,'real_payments_enabled',false,
-     'redeemable',false);
- end if;
+ -- La fila se bloquea FOR UPDATE antes del chequeo, serializando solicitudes
+ -- simultáneas. Un reintento exacto no suma un segundo intento fallido.
+ select a.result into v_cached
+ from mwd_remittance_demo_private.pickup_code_attempts a
+ where a.sample_id=v_sample.id and a.request_id=p_request_id;
+ if found then return v_cached || jsonb_build_object('already_processed',true); end if;
  if v_sample.status<>'active' then
    return jsonb_build_object('status',v_sample.status,'accepted',false,
      'real_payments_enabled',false,'redeemable',false);
@@ -194,12 +213,18 @@ begin
      insert into mwd_remittance_demo_private.pickup_code_events(sample_id,actor_id,action)
      values(v_sample.id,v_actor,'locked');
    end if;
-   return jsonb_build_object('status',v_new_status,'accepted',false,
+   v_result:=jsonb_build_object('status',v_new_status,'accepted',false,
      'remaining_attempts',5-v_tries,'real_payments_enabled',false,'redeemable',false);
+   insert into mwd_remittance_demo_private.pickup_code_attempts(sample_id,request_id,result)
+   values(v_sample.id,p_request_id,v_result);
+   return v_result;
  end if;
  if v_sample.identity_check_simulated_at is null then
-   return jsonb_build_object('status','identity_demo_pending','accepted',false,
+   v_result:=jsonb_build_object('status','identity_demo_pending','accepted',false,
      'identity_real_verified',false,'real_payments_enabled',false,'redeemable',false);
+   insert into mwd_remittance_demo_private.pickup_code_attempts(sample_id,request_id,result)
+   values(v_sample.id,p_request_id,v_result);
+   return v_result;
  end if;
 
  update mwd_remittance_demo_private.pickup_code_samples
@@ -208,9 +233,12 @@ begin
  insert into mwd_remittance_demo_private.pickup_code_events(sample_id,actor_id,action)
  values(v_sample.id,v_actor,'consumed');
  -- La simulación NO cambia el libro contable ni registra pagos de efectivo.
- return jsonb_build_object('status','consumed','accepted',true,
+ v_result:=jsonb_build_object('status','consumed','accepted',true,
    'sample_completed',true,'identity_real_verified',false,
    'money_paid',false,'real_payments_enabled',false,'redeemable',false);
+ insert into mwd_remittance_demo_private.pickup_code_attempts(sample_id,request_id,result)
+ values(v_sample.id,p_request_id,v_result);
+ return v_result;
 end; $$;
 
 create or replace function public.mwd_owner_cancel_pickup_code_demo(p_order_id uuid)
@@ -227,6 +255,14 @@ begin
  if v_sample.status='cancelled' then
     return jsonb_build_object('status','cancelled','already_processed',true,
      'real_payments_enabled',false,'redeemable',false); end if;
+ if v_sample.status='active' and now()>=v_sample.expires_at then
+    update mwd_remittance_demo_private.pickup_code_samples
+    set status='expired',closed_at=now() where id=v_sample.id;
+    insert into mwd_remittance_demo_private.pickup_code_events(sample_id,actor_id,action)
+    values(v_sample.id,v_actor,'expired');
+    return jsonb_build_object('status','expired','accepted',false,
+     'real_payments_enabled',false,'redeemable',false);
+ end if;
  if v_sample.status<>'active' then
     raise exception 'No se puede cancelar un código cerrado' using errcode='22023'; end if;
  update mwd_remittance_demo_private.pickup_code_samples
