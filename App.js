@@ -16,6 +16,7 @@ import { getLocales } from 'expo-localization';
 import { resolveAppLanguage, translate, LANGUAGE_SETTING_KEY, formatLocalizedDate } from './src/i18n.mjs';
 import { createClient } from '@supabase/supabase-js';
 import PartnerRegistryScreen from './PartnerRegistryScreen';
+import RemittanceTrackingDemoScreen from './RemittanceTrackingDemoScreen';
 import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentRequestId } from './src/demo-money.mjs';
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
@@ -1649,6 +1650,8 @@ export default function App() {
                   <Text style={styles.sectionEyebrow}>REGISTRO PERMANENTE DE CANDIDATOS FINANCIEROS</Text>
                   <Text style={styles.muted}>Los borradores anteriores son temporales. Este registro nuevo guarda los candidatos en Supabase, restringidos al propietario, con historial de modificaciones.</Text>
                   <PartnerRegistryScreen supabase={supabase} onPreviewPickup={code => { setPickupDestination(code); setPickupSample(null); setAgentSearch(''); navigate('RetiroEfectivoDemo'); loadWorldCountries(); }} />
+                  <Text style={styles.sectionEyebrow}>SEGUIMIENTO DE REMESAS FICTICIAS Y ANTIDUPLICADOS</Text>
+                  <RemittanceTrackingDemoScreen supabase={supabase} />
                   <Text style={styles.muted}>No se permite cambiar roles, saldos ni operaciones desde este panel.</Text>
                 </View>
               ) : adminRole === 'support' ? (
