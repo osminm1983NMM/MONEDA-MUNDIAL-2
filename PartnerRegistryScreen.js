@@ -2,6 +2,7 @@
 // Las llamadas RPC comprueban el rol propietario en Supabase; ocultar esta pantalla no es una barrera de seguridad.
 import React, { useEffect, useState } from 'react';
 import PartnerComplianceReview from './PartnerComplianceReview';
+import PartnerExpiryDashboard from './PartnerExpiryDashboard';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { summarizeRegisteredPickupCandidates, projectRegisteredPickupDesign } from './src/registered-pickup-design.mjs';
 
@@ -167,6 +168,7 @@ export default function PartnerRegistryScreen({ supabase, onPreviewPickup }) {
       <Text style={s.text}>Países con candidatos: {networkSummary.countriesWithCandidates}</Text>
       <Text style={s.warn}>Bancos y sucursales habilitados para pagar: 0. Todos son únicamente candidatos; ningún código puede cobrarse.</Text>
     </View>
+    <PartnerExpiryDashboard supabase={supabase} />
     <View style={s.card}>
       <Text style={s.title}>Registrar futuro socio</Text>
       <Field label="Nombre de la entidad" value={name} onChangeText={setName} placeholder="Nombre legal de ejemplo o candidato" />
