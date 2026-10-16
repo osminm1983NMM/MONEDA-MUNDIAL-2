@@ -53,7 +53,7 @@ export function createMockRegulatedProviderBridge({
  const routes=Object.freeze([...countries].map(code=>'US:'+code).sort());
  const orders=new Map(); // sólo RAM de pruebas; nunca un ledger de producción
  const attempts=new Map();
- const events=new Set();
+ const events=new Map(); // evento de TEST ligado a su contenido exacto (anti-replay)
  const audit=[];
  const maybeLog = (type,reference) => audit.push(Object.freeze({type,reference})); // sin PII, sin secreto
  return Object.freeze({
@@ -98,10 +98,17 @@ export function createMockRegulatedProviderBridge({
    let event;
    try {event=JSON.parse(rawBody)} catch {throw auditSafe('JSON inválido');}
    if(!event||typeof event!=='object'||Array.isArray(event)||
+      Object.keys(event).sort().join('|')!==['id','status','transferId'].sort().join('|')||
       typeof event.id!=='string'||!/^[a-zA-Z0-9-]{12,90}$/.test(event.id)||
       typeof event.transferId!=='string'||!DEMO_STATUSES.has(event.status))
      throw auditSafe('Esquema del evento inválido');
-   if(events.has(event.id))return Object.freeze({alreadyProcessed:true,accepted:true,moneyPaid:false});
+   const eventFingerprint=createHash('sha256').update(rawBody).digest('hex');
+   if(events.has(event.id)){
+     if(events.get(event.id)!==eventFingerprint)
+       throw auditSafe('Identificador de evento reutilizado con otro contenido');
+     return Object.freeze({alreadyProcessed:true,accepted:true,moneyPaid:false,
+       realPaymentsEnabled:false});
+   }
    const stored=orders.get(event.transferId);
    if(!stored)throw auditSafe('Orden de simulación inexistente');
    const allowed={
@@ -112,7 +119,7 @@ export function createMockRegulatedProviderBridge({
    if(!allowed[stored.status]?.includes(event.status))
      throw auditSafe('Transición de estado de ensayo inválida');
    stored.status=event.status;
-   events.add(event.id);
+   events.set(event.id,eventFingerprint);
    maybeLog('mock_webhook_accepted',event.transferId);
    return Object.freeze({accepted:true,alreadyProcessed:false,status:stored.status,
      moneyPaid:false,realPaymentsEnabled:false});
