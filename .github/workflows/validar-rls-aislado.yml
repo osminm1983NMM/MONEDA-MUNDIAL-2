@@ -12,6 +12,8 @@ on:
       - 'database/mwd_secure_partner_registry_demo.sql'
       - 'database/mwd_partner_due_diligence_demo.sql'
       - 'tests/partner-due-diligence-assertions.sql'
+      - 'database/mwd_partner_expiry_dashboard_demo.sql'
+      - 'tests/partner-expiry-dashboard-assertions.sql'
   pull_request:
     branches:
       - main
@@ -89,3 +91,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_partner_due_diligence_demo.sql
       - name: Probar persistencia, privacidad, cambios y archivo
         run: psql -X -v ON_ERROR_STOP=1 -f tests/partner-due-diligence-assertions.sql
+      - name: Instalar tablero de vencimientos interno
+        run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_partner_expiry_dashboard_demo.sql
+      - name: Verificar alertas 30 60 90 dias y seguridad
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/partner-expiry-dashboard-assertions.sql
