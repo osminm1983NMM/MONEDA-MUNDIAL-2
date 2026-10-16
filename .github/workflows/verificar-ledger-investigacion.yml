@@ -1,0 +1,39 @@
+name: Libro mayor aislado de investigacion
+on:
+  push:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'research/ledger/**'
+      - '.github/workflows/verificar-ledger-investigacion.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ledger-postgres-ci:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ledger-ci-fixture-only
+          POSTGRES_DB: ledger_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ledger_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 8
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: ledger_test
+      PGUSER: postgres
+      PGPASSWORD: ledger-ci-fixture-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar esquema aislado sin fondos
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/postgres-double-entry-research.sql
+      - name: Probar partida doble y conciliación ficticia
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/ledger-assertions.sql
