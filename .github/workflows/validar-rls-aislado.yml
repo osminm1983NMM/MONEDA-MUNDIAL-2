@@ -14,6 +14,9 @@ on:
       - 'tests/partner-due-diligence-assertions.sql'
       - 'database/mwd_partner_expiry_dashboard_demo.sql'
       - 'tests/partner-expiry-dashboard-assertions.sql'
+      - 'database/mwd_partner_engagement_demo.sql'
+      - 'database/mwd_partner_activities_demo.sql'
+      - 'tests/partner-activities-assertions.sql'
   pull_request:
     branches:
       - main
@@ -95,3 +98,9 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_partner_expiry_dashboard_demo.sql
       - name: Verificar alertas 30 60 90 dias y seguridad
         run: psql -X -v ON_ERROR_STOP=1 -f tests/partner-expiry-dashboard-assertions.sql
+      - name: Instalar seguimiento ficticio de contactos
+        run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_partner_engagement_demo.sql
+      - name: Instalar agenda ficticia de compromisos
+        run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_partner_activities_demo.sql
+      - name: Verificar agenda, privilegios y auditoria
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/partner-activities-assertions.sql
