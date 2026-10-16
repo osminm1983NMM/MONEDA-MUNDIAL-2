@@ -27,6 +27,7 @@ import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentReque
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
 import { canApplySessionResponse } from './src/session-guards.mjs';
+import {parseRecoveryDeepLink,validateRecoveryPassword} from './src/auth/recovery-link.mjs';
 import { isLatestRequest, isValidDemoQuoteResponse, isValidDemoPaymentPreview } from './src/async-demo-guards.mjs';
 import { needsDemoFeeReview, demoFeeShortfallCents } from './src/quote-risk.mjs';
 import { maskEmail } from './src/privacy.mjs';
@@ -518,6 +519,7 @@ export default function App() {
   const quoteSequenceRef = useRef(0);
   const paymentLookupSequenceRef = useRef(0);
   const recoveryInProgressRef = useRef(false);
+  const recoveryUserIdRef = useRef(null);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -535,11 +537,18 @@ export default function App() {
       setSession(nextSession);
       setAuthLoading(false);
       if (event === 'SIGNED_OUT') {
-        recoveryInProgressRef.current = false;
+        recoveryInProgressRef.current=false;
+        recoveryUserIdRef.current=null;
+        setNewPassword('');setConfirmNewPassword('');
         setScreen('Inicio');
-      } else if (event === 'PASSWORD_RECOVERY' ||
-                 (recoveryInProgressRef.current && nextSession)) {
+      } else if (event === 'PASSWORD_RECOVERY' && nextSession?.user?.id) {
+        recoveryInProgressRef.current=true;
+        recoveryUserIdRef.current=nextSession.user.id;
         setScreen('NuevaContrasena');
+      } else if (recoveryInProgressRef.current && nextSession?.user?.id) {
+        // Sólo la cuenta de recuperación original puede continuar.
+        if(recoveryUserIdRef.current===null)recoveryUserIdRef.current=nextSession.user.id;
+        if(recoveryUserIdRef.current===nextSession.user.id)setScreen('NuevaContrasena');
       } else if (event === 'SIGNED_IN') {
         setScreen('Inicio');
       }
@@ -551,31 +560,28 @@ export default function App() {
   useEffect(() => {
     let active = true;
     async function onRecoveryUrl(url) {
-      if (!active || typeof url !== 'string' ||
-          !url.startsWith(RECOVERY_REDIRECT_URL)) return;
-      try {
-        const parsed = new URL(url);
-        if (parsed.protocol !== 'monedamundial:' || parsed.hostname !== 'auth' ||
-            parsed.pathname !== '/recovery') return;
-        const params = new URLSearchParams(parsed.hash.slice(1));
-        if (params.has('error') || params.has('error_code')) {
-          throw new Error('Enlace caducado o inválido. Solicita otro.');
-        }
-        const access_token = params.get('access_token');
-        const refresh_token = params.get('refresh_token');
-        if (params.get('type') !== 'recovery' || !access_token || !refresh_token) {
-          throw new Error('Enlace incompleto.');
-        }
-        recoveryInProgressRef.current = true;
-        const { data, error } = await supabase.auth.setSession({
-          access_token, refresh_token,
+      if(!active)return;
+      const link=parseRecoveryDeepLink(url);
+      if(!link.recognized)return;
+      if(!link.valid){
+        showMessage('Recuperación','Enlace inválido o caducado. Solicita otro.');
+        return;
+      }
+      try{
+        // Supabase Auth valida tokens; nunca mostrarlos en UI o logs.
+        const {data,error}=await supabase.auth.setSession({
+          access_token:link.accessToken,refresh_token:link.refreshToken,
         });
-        if (error) throw error;
-        if (!data?.session) throw new Error('No se pudo confirmar la sesión.');
-        if (active) setScreen('NuevaContrasena');
-      } catch (error) {
-        recoveryInProgressRef.current = false;
-        if (active) showMessage('Recuperación', error.message || 'Solicita otro enlace.');
+        if(error||!data?.session?.user?.id)throw Error('invalid');
+        if(active){
+          recoveryInProgressRef.current=true;
+          recoveryUserIdRef.current=data.session.user.id;
+          setScreen('NuevaContrasena');
+        }
+      }catch{
+        recoveryInProgressRef.current=false;
+        recoveryUserIdRef.current=null;
+        if(active)showMessage('Recuperación','No se pudo verificar el enlace. Solicita uno nuevo.');
       }
     }
     Linking.getInitialURL().then(onRecoveryUrl).catch(() => {});
@@ -964,20 +970,29 @@ export default function App() {
   }
 
   async function saveNewPassword() {
-    if (newPassword.length < 12) {
-      return showMessage('Contraseña', 'Utiliza al menos 12 caracteres para tu nueva contraseña.');
-    }
-    if (newPassword !== confirmNewPassword) {
-      return showMessage('Contraseña', 'Las dos contraseñas no coinciden.');
-    }
-    if (recoveryBusy || !session) return;
+    if(recoveryBusy)return;
+    const policy=validateRecoveryPassword({
+      recoveryActive:recoveryInProgressRef.current,
+      recoveryUserId:recoveryUserIdRef.current,
+      sessionUserId:session?.user?.id,
+      password:newPassword,confirmation:confirmNewPassword,
+    });
+    if(!policy.allowed)return showMessage('Recuperación',
+      policy.reason==='password_length'?'Utiliza una contraseña entre 12 y 256 caracteres.':
+      policy.reason==='password_mismatch'?'Las contraseñas no coinciden.':
+      'Abre un enlace de recuperación válido antes de continuar.');
     setRecoveryBusy(true);
-    try {
+    try{
+      const {data:current,error:sessionError}=await supabase.auth.getSession();
+      if(sessionError||!recoveryInProgressRef.current||
+        current?.session?.user?.id!==recoveryUserIdRef.current)
+        throw Error('session_changed');
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       setNewPassword('');
       setConfirmNewPassword('');
       recoveryInProgressRef.current = false;
+      recoveryUserIdRef.current = null;
       const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' });
       if (signOutError) throw signOutError;
       setEmail(recoveryEmail);
