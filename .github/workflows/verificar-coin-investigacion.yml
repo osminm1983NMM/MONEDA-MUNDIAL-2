@@ -1,0 +1,27 @@
+name: Contrato Coin abstracto (solo investigación)
+on:
+  push:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'research/coin-contract/**'
+      - '.github/workflows/verificar-coin-investigacion.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contrato-no-desplegable:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: research/coin-contract
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar compilador y OpenZeppelin con versiones exactas
+        run: npm install --no-audit --no-fund --save-exact
+      - name: Verificar compilación y ausencia de bytecode desplegable
+        run: npm run check
+      - name: Probar invariantes de prototipo abstracto
+        run: npm test
