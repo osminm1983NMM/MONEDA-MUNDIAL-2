@@ -14,6 +14,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import PartnerRegistryScreen from './PartnerRegistryScreen';
+import PickupWithoutPhoneDemo from './PickupWithoutPhoneDemo';
 
 // CLAVE PUBLICABLE de Supabase. Nunca coloques claves secret/service_role en App.js.
 const SUPABASE_URL = 'https://egrsdrlpavrtbgxoyxvg.supabase.co';
@@ -296,6 +297,7 @@ export default function App() {
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
               <Btn title="Actualizar saldo e historial" secondary onPress={() => refreshAccount()} disabled={syncing} />
+              <Btn title="Entrega sin teléfono (DEMO)" secondary onPress={() => navigate('Entrega')} />
               <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
               <Btn title="Cerrar sesión" secondary onPress={logout} />
             </>}
@@ -345,6 +347,7 @@ export default function App() {
               })}
             </>}
 
+            {screen === 'Entrega' && <PickupWithoutPhoneDemo supabase={supabase} isOwner={adminRole === 'owner'} />}
             {screen === 'Admin' && <View style={styles.card}>
               <Text style={styles.heading}>Administración MWD</Text>
               {adminRole === 'owner' ? (
