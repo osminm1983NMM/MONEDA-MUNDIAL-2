@@ -44,3 +44,27 @@ test('Honduras y Nicaragua se conservan como destinos de diseño, nunca rutas re
  assert.equal(all.quote({...order,destination:'CR'}).redeemable,false);
  assert.equal(all.providerConnected,false);
 });
+
+test('reutilizar un id de notificación con otro estado u orden NO se trata como duplicado válido',()=>{
+ const m=make();
+ const a=m.submitSandboxTransfer({requestId:'request-replay-aaaa01',order});
+ const b=m.submitSandboxTransfer({requestId:'request-replay-bbbb01',order:{...order,destination:'NI'}});
+ const first=m.makeMockWebhook({id:'event-shared-replay-123',transferId:a.id,status:'sandbox_pending'});
+ assert.equal(m.verifyAndApplyWebhook(first).status,'sandbox_pending');
+ const otherStatus=m.makeMockWebhook({id:'event-shared-replay-123',transferId:a.id,status:'sandbox_completed'});
+ assert.throws(()=>m.verifyAndApplyWebhook(otherStatus),/reutilizado/);
+ const otherOrder=m.makeMockWebhook({id:'event-shared-replay-123',transferId:b.id,status:'sandbox_pending'});
+ assert.throws(()=>m.verifyAndApplyWebhook(otherOrder),/reutilizado/);
+ assert.equal(m.verifyAndApplyWebhook(first).alreadyProcessed,true);
+ assert.equal(m.getSandboxTransfer(b.id).status,'sandbox_submitted');
+ assert.equal(m.getSanitizedAudit().length,3);
+});
+test('notificación de laboratorio rechaza campos ajenos aunque estén firmados con clave de TEST',()=>{
+ const m=make(),a=m.submitSandboxTransfer({requestId:'request-field-test-01',order});
+ const signed=m.makeMockWebhook({id:'event-valid-test-4444',transferId:a.id,status:'sandbox_pending'});
+ const {createHmac}=await import('node:crypto');
+ const rawBody=JSON.stringify({...JSON.parse(signed.rawBody),accountNumber:'1234'});
+ const signature=createHmac('sha256',secret).update(String(signed.timestamp)+'.'+rawBody).digest('hex');
+ assert.throws(()=>m.verifyAndApplyWebhook({rawBody,timestamp:signed.timestamp,signature}),/Esquema/);
+ assert.equal(m.getSandboxTransfer(a.id).status,'sandbox_submitted');
+});
