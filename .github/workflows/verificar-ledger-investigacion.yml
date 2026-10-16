@@ -53,3 +53,7 @@ jobs:
         run: bash research/ledger/tests/forced-transaction-rollback.sh
       - name: Backup y restauración en base PostgreSQL desechable separada
         run: bash research/ledger/tests/backup-restore-isolated.sh
+      - name: Preparar permisos de bancos y agentes ficticios con RLS
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/mock-partner-access-rls.sql
+      - name: Verificar aislamiento multi-entidad y bitácora de prueba
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/mock-partner-access-rls-assertions.sql
