@@ -31,13 +31,28 @@ export const OWNER_READ_ONLY_CHECKS = Object.freeze([
   }),
 ]);
 
+const ACCESS_DENIED_CODES = new Set(['42501', 'PGRST301']);
+const RPC_MISSING_CODES = new Set(['PGRST202', '42883']);
+
+// Nunca devolver detalles internos del backend, SQL o credenciales a la interfaz.
+// Un fallo de red NO equivale a una RPC pendiente de instalación.
+export function classifyAdminDiagnosticError(check, error) {
+  const code = typeof error?.code === 'string' ? error.code : '';
+  const httpStatus = Number(error?.status ?? error?.statusCode);
+  if (ACCESS_DENIED_CODES.has(code) || httpStatus === 401 || httpStatus === 403) {
+    return 'sin_permiso';
+  }
+  if (check?.optional && RPC_MISSING_CODES.has(code)) return 'pendiente';
+  return 'error';
+}
+
 export function summarizeAdminDiagnostic(check, response) {
   if (!check || !OWNER_READ_ONLY_CHECKS.some(x=>x.id===check.id && x.rpc===check.rpc)) {
     return Object.freeze({status:'error',count:null});
   }
   if (!response || response.error) {
     return Object.freeze({
-      status:check.optional?'pendiente':'error',
+      status:classifyAdminDiagnosticError(check, response?.error),
       count:null,
     });
   }
@@ -55,9 +70,9 @@ export async function runAdminReadOnlyChecks(rpc) {
       return Object.freeze({
         id:check.id,name:check.name,...summarizeAdminDiagnostic(check,response),
       });
-    } catch {
+    } catch (error) {
       return Object.freeze({
-        id:check.id,name:check.name,status:check.optional?'pendiente':'error',
+        id:check.id,name:check.name,status:classifyAdminDiagnosticError(check,error),
         count:null,
       });
     }
