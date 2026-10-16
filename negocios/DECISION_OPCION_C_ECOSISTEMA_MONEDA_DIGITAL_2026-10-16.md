@@ -47,3 +47,9 @@
 5. Obtener aprobación formal para operar por corredor, moneda y método. 
 
 **Conclusión:** NO crear dos aplicaciones que confundan usuarios ni mezclar sus saldos. SÍ crear en el mismo ecosistema Moneda Mundial un **subproyecto criptográfico con desarrollo, controles, finanzas y evaluación legal independientes**. La política de emisión se programa y gobierna de forma transparente; el mercado determina el precio variable; ninguno de los dos garantiza rentabilidad o adopción.
+
+## Implementación inicial — 16 de octubre de 2026
+- Módulo independiente `src/digital-money/design-and-comparison.mjs`: clasificación de tres saldos/activos, todos deshabilitados para compra y venta; no hay paridad, ticker, oferta ni precio de lanzamiento.
+- Pantalla `DigitalMoneyConceptScreen.js` desde menú principal de Android; cálculo puramente manual de equivalencia de precio local/US dólar y escenarios hipotéticos de monedas digitales. No consulta mercados ni acepta fondos.
+- Pruebas `tests/digital-money-design.test.mjs` para impedir ventas y verificar cálculos. Pendiente de resultado CI al momento de registrar.
+- **Próximos requisitos:** estudiar tokenomics, whitepaper preliminar, cadena de testnet, requisitos de emisor de moneda estable y contratos de cotización de terceros. No iniciar una venta ni usar saldo MWD demo como moneda real.
