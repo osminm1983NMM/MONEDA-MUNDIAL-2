@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createMockRegulatedProviderBridge} from '../src/server/mock-regulated-provider-bridge.mjs';
 const secret='this-secret-is-only-for-testing-never-production';
-const order={origin:'US',destination:'NI',sourceCurrency:'USD',amountCents:10000,payoutMethod:'cash_pickup'};
+const order={origin:'US',destination:'HN',sourceCurrency:'USD',amountCents:10000,payoutMethod:'cash_pickup'};
 const make=()=>createMockRegulatedProviderBridge({webhookSecret:secret,clock:()=>1700000000000});
 test('el mock no admite operaciones reales',()=>{
  assert.throws(()=>createMockRegulatedProviderBridge({mode:'live',webhookSecret:secret}),/BLOQUEADO/);
