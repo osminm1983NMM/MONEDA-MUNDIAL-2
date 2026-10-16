@@ -65,10 +65,9 @@ BEGIN
   PERFORM public.mwd_owner_complete_payout_sample_demo(order_id,'10000000-0000-4000-8000-000000000009');
   RAISE EXCEPTION 'Permitió completar dos veces';
  EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
- SELECT count(*) INTO count_events FROM mwd_remittance_demo_private.payout_events
- WHERE assignment_id=(a->>'id')::uuid;
- IF count_events<>2 THEN RAISE EXCEPTION 'Eventos inesperados: %',count_events; END IF;
  b:=public.mwd_owner_payout_design_summary_demo(order_id);
+ count_events:=(b->>'events')::integer;
+ IF count_events<>2 THEN RAISE EXCEPTION 'Eventos inesperados: %',count_events; END IF;
  IF b->>'funds_disbursed'<>'false' OR b->>'status'<>'sample_completed'
  THEN RAISE EXCEPTION 'Resumen inconsistente'; END IF;
 END $$;
