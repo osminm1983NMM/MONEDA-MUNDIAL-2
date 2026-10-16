@@ -1,15 +1,18 @@
 import React,{useState} from 'react';
 import {View,Text,TextInput} from 'react-native';
 import {compareInternationalPriceDemo} from './src/digital-money/design-and-comparison.mjs';
+import {previewCoinToDigitalScenario} from './src/digital-money/coin-to-digital-design.mjs';
 const s={panel:{backgroundColor:'#152b42',borderRadius:12,padding:14,marginVertical:9},text:{color:'#e1edf4',marginVertical:6},warning:{color:'#f3c887',marginVertical:8},input:{color:'#fff',backgroundColor:'#28465c',borderRadius:7,padding:11,marginVertical:7}};
 export default function DigitalMoneyConceptScreen(){
  const [currency,setCurrency]=useState('PEN'),[price,setPrice]=useState(''),[rate,setRate]=useState(''),[seller,setSeller]=useState(''),[hypothesis,setHypothesis]=useState('');
+ const [coinUnits,setCoinUnits]=useState(''),[coinUsd,setCoinUsd]=useState(''),[digitalUsd,setDigitalUsd]=useState('');
+ const swap=previewCoinToDigitalScenario({coinUnits,coinUsdScenario:coinUsd,digitalUsdScenario:digitalUsd});
  const q=compareInternationalPriceDemo({localCurrency:currency,localPrice:price,localUnitsPerUsd:rate,sellerUsd:seller,tokenUsdExample:hypothesis});
  return <View style={s.panel}>
   <Text style={s.text}>MONEDA MUNDIAL DIGITAL · OPCIÓN C</Text>
   <Text style={s.text}>MWD actuales: créditos de prueba sin valor financiero. NO son criptomonedas.</Text>
-  <Text style={s.text}>Pago estable: propuesta futura con emisor autorizado. Paridad no operativa.</Text>
-  <Text style={s.text}>Moneda Mundial Coin: propuesta de criptomoneda de precio variable. Sin emisión, oferta total, cotización ni blockchain elegidos.</Text>
+  <Text style={s.text}>Moneda Mundial Digital: concepto de moneda estable para pagos, sujeto a emisor autorizado. Paridad NO operativa.</Text>
+  <Text style={s.text}>Moneda Mundial Coin: concepto de criptomoneda de valor variable. Sin emisión, oferta total, cotización ni blockchain elegidos.</Text>
   <Text style={s.warning}>NO SE PUEDE COMPRAR, VENDER, EMITIR NI TRANSFERIR CRIPTOMONEDAS AQUÍ.</Text>
   <Text style={s.text}>Comparador educativo de productos · valores manuales no verificados</Text>
   <Text style={s.text}>Moneda local ISO (PEN, HNL, NIO...)</Text>
@@ -28,6 +31,20 @@ export default function DigitalMoneyConceptScreen(){
     <Text style={s.text}>Diferencia: {(q.differenceUsdCents/100).toFixed(2)} USD</Text>
     {q.hypotheticalCoinUnits!==null&&<Text style={s.text}>Unidades de moneda imaginaria a ese precio: {q.hypotheticalCoinUnits}</Text>}
   </View>:<Text style={s.text}>Introduce los importes válidos para comparar.</Text>}
+  <View style={s.panel}>
+   <Text style={s.text}>COIN → DIGITAL · CONVERSIÓN HIPOTÉTICA (NO OPERATIVA)</Text>
+   <Text style={s.text}>Cantidad imaginaria de Coin</Text>
+   <TextInput style={s.input} keyboardType="decimal-pad" value={coinUnits} onChangeText={setCoinUnits} placeholder="Ejemplo: 10" placeholderTextColor="#aec5cf"/>
+   <Text style={s.text}>Precio en USD imaginario por Coin</Text>
+   <TextInput style={s.input} keyboardType="decimal-pad" value={coinUsd} onChangeText={setCoinUsd} placeholder="Sin cotización real" placeholderTextColor="#aec5cf"/>
+   <Text style={s.text}>Precio en USD imaginario por Digital (NO paridad aprobada)</Text>
+   <TextInput style={s.input} keyboardType="decimal-pad" value={digitalUsd} onChangeText={setDigitalUsd} placeholder="Ejemplo educativo: 1" placeholderTextColor="#aec5cf"/>
+   {swap ? <View>
+     <Text style={s.text}>Valor comparado: {swap.hypotheticalUsdValue} USD imaginarios</Text>
+     <Text style={s.text}>Unidades Digital hipotéticas: {swap.hypotheticalNetDigitalUnits}</Text>
+     <Text style={s.warning}>Comisiones de red, impuestos, mercado y liquidez no incluidos. NO existe mercado ni botón para intercambiar.</Text>
+   </View> : <Text style={s.text}>Rellena los campos para calcular un escenario ficticio.</Text>}
+  </View>
   <Text style={s.warning}>La conversión no garantiza ahorro ni determina el precio del producto. No incluye comisiones, impuestos ni tipo de cambio verificado. Requiere aceptación del vendedor.</Text>
  </View>;
 }
