@@ -1,0 +1,47 @@
+name: Verificar seguridad de códigos de retiro DEMO
+on:
+  push:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'database/mwd_beneficiary_code_security_demo.sql'
+      - 'tests/beneficiary-code-demo-assertions.sql'
+      - '.github/workflows/test-beneficiary-code-demo.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  seguridad-codigos-demo:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: demo-only
+          POSTGRES_DB: beneficiary_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d beneficiary_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 8
+    env:
+      PGHOST: localhost
+      PGDATABASE: beneficiary_test
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: demo-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preparar cuentas y catálogo ficticios
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/partner-registry-fixture.sql
+      - name: Instalar candidatos ficticios
+        run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_secure_partner_registry_demo.sql
+      - name: Instalar seguimiento de remesas DEMO
+        run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_owner_remittance_tracking_demo.sql
+      - name: Instalar asociación DEMO de sucursales
+        run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_payout_candidate_link_demo.sql
+      - name: Instalar seguridad de códigos DEMO
+        run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_beneficiary_code_security_demo.sql
+      - name: Probar código de uso único y verificación ficticia
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/beneficiary-code-demo-assertions.sql
