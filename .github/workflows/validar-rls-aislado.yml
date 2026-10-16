@@ -10,6 +10,8 @@ on:
       - 'tests/transferencias-dos-cuentas-*.sql'
       - 'tests/partner-registry-*.sql'
       - 'database/mwd_secure_partner_registry_demo.sql'
+      - 'database/mwd_partner_due_diligence_demo.sql'
+      - 'tests/partner-due-diligence-assertions.sql'
   pull_request:
     branches:
       - main
@@ -83,3 +85,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_secure_partner_registry_demo.sql
       - name: Verificar propietario, RLS, estados y auditoría
         run: psql -X -v ON_ERROR_STOP=1 -f tests/partner-registry-assertions.sql
+      - name: Instalar expediente de cumplimiento ficticio
+        run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_partner_due_diligence_demo.sql
+      - name: Probar persistencia, privacidad, cambios y archivo
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/partner-due-diligence-assertions.sql
