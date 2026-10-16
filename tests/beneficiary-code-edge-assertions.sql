@@ -53,7 +53,8 @@ BEGIN
  JOIN mwd_remittance_demo_private.orders o ON o.id=a.order_id
  ORDER BY c.created_at DESC,c.id DESC LIMIT 1;
  UPDATE mwd_remittance_demo_private.pickup_code_samples
- SET expires_at=now()-interval '1 second'
+ SET created_at=now()-interval '2 minutes',
+     expires_at=now()-interval '1 minute'
  WHERE id=v_sample AND status='active';
  PERFORM set_config('test.expired_order',v_order::text,false);
 END $$;
