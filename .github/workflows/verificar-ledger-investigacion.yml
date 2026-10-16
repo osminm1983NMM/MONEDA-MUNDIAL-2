@@ -61,3 +61,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/mock-institution-staff.sql
       - name: Verificar activación y revocación de personal ficticio
         run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/mock-institution-staff-assertions.sql
+      - name: Crear sesiones persistentes institucionales DEMO
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/mock-persistent-institution-sessions.sql
+      - name: Probar alcance, caducidad y revocación de sesiones
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/mock-persistent-institution-sessions-assertions.sql
