@@ -20,6 +20,7 @@ import RemittanceTrackingDemoScreen from './RemittanceTrackingDemoScreen';
 import PayoutCandidateLinkScreen from './PayoutCandidateLinkScreen';
 import DigitalMoneyConceptScreen from './DigitalMoneyConceptScreen';
 import MockAlertsAdminScreen from './MockAlertsAdminScreen';
+import MockAuditPreviewScreen from './MockAuditPreviewScreen';
 import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentRequestId } from './src/demo-money.mjs';
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
@@ -1658,6 +1659,7 @@ export default function App() {
                   <PartnerRegistryScreen supabase={supabase} onPreviewPickup={code => { setPickupDestination(code); setPickupSample(null); setAgentSearch(''); navigate('RetiroEfectivoDemo'); loadWorldCountries(); }} />
                   <Text style={styles.sectionEyebrow}>ALERTAS FINANCIERAS · CASOS INVENTADOS</Text>
                   <MockAlertsAdminScreen />
+                  <MockAuditPreviewScreen />
                   <Text style={styles.sectionEyebrow}>SEGUIMIENTO DE REMESAS FICTICIAS Y ANTIDUPLICADOS</Text>
                   <RemittanceTrackingDemoScreen supabase={supabase} />
                   <Text style={styles.sectionEyebrow}>VINCULAR AGENTES CANDIDATOS · SIN COBROS REALES</Text>
