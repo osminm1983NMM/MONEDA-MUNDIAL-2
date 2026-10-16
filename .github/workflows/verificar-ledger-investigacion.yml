@@ -33,6 +33,8 @@ jobs:
       PGPASSWORD: ledger-ci-fixture-only
     steps:
       - uses: actions/checkout@v4
+      - name: Crear roles cliente ficticios para aislamiento
+        run: psql -X -v ON_ERROR_STOP=1 -c 'CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN;'
       - name: Instalar esquema aislado sin fondos
         run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/postgres-double-entry-research.sql
       - name: Probar partida doble y conciliación ficticia
