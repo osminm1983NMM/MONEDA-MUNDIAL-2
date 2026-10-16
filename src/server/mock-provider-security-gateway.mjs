@@ -83,6 +83,7 @@ export function createMockProviderSecurityGateway({
    realSignatureVerified:false,realProviderConnected:false,
    bankFundsConfirmed:false,payoutConfirmed:false,
    manualLedgerPostingPermitted:false,liveMoneyMovementEnabled:false,
+   realFundsEnabled:false,
   });
  }
  return Object.freeze({
