@@ -122,8 +122,10 @@ export function createMockAuditTrail(){
    if(!Array.isArray(items)||items.length!==rows.length)return false;
    let h='0'.repeat(64);
    for(const row of items){
+    if(!row||Object.keys(row).sort().join('|')!==
+       ['eventId','orderId','kind','status','previousHash','hash'].sort().join('|'))return false;
     let e;
-    try{e=shape(row)}catch{return false}
+    try{e=shape({eventId:row.eventId,orderId:row.orderId,kind:row.kind,status:row.status})}catch{return false}
     if(row.previousHash!==h||row.hash!==sha(h+JSON.stringify(e)))return false;
     h=row.hash;
    }
