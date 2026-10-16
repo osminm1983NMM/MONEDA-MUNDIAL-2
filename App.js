@@ -473,7 +473,7 @@ export default function App() {
   const [demoMethod, setDemoMethod] = useState('bank');
   const [demoAmount, setDemoAmount] = useState('100');
   const [pickupAmount, setPickupAmount] = useState('100');
-  const [pickupDestination, setPickupDestination] = useState('NI');
+  const [pickupDestination, setPickupDestination] = useState('HN');
   const [agentSearch,setAgentSearch]=useState('');
   const [pickupSample, setPickupSample] = useState(null);
   const [internationalQuote, setInternationalQuote] = useState(null);
