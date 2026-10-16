@@ -27,10 +27,10 @@ jobs:
     steps:
       - name: Obtener código
         uses: actions/checkout@v4
-      - name: Node.js 20 compatible con Expo SDK 54
+      - name: Node.js 22 compatible con Expo SDK 54
         uses: actions/setup-node@v4
         with:
-          node-version: '20.19.0'
+          node-version: '22'
       - name: Instalar dependencias
         run: npm install --no-audit --no-fund
       - name: Verificar configuración Expo
