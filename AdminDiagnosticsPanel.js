@@ -22,7 +22,7 @@ export default function AdminDiagnosticsPanel({supabase}){
   </TouchableOpacity>
   {!!error&&<Text style={{color:'#ffb2b2',marginTop:8}}>{error}</Text>}
   {rows.map(row=><Text key={row.id} style={{color:row.status==='disponible'?'#b1f3ce':'#ffe0ad',marginTop:9}}>
-   {row.name}: {row.status}{row.count!==null?' · '+row.count+' registros':''}
+   {row.name}: {row.status==='sin_permiso'?'sin permiso o sesión caducada':row.status==='error'?'error de consulta':row.status==='pendiente'?'pendiente de instalación':row.status}{row.count!==null?' · '+row.count+' registros':''}
   </Text>)}
   <Text style={{color:'#f8d9a0',marginTop:9}}>Retiros y pagos reales habilitados: 0.</Text>
  </View>;
