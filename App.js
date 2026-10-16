@@ -360,12 +360,12 @@ export default function App() {
               })}
             </>}
 
-            {screen === 'Conversión' && <CoinStableDemoScreen supabase={supabase} />}
-            {screen === 'Entrega' && <PickupWithoutPhoneDemo supabase={supabase} isOwner={adminRole === 'owner'} />}
+            {screen === 'Conversión' && <CoinStableDemoScreen supabase={supabase} language={language} />}
+            {screen === 'Entrega' && <PickupWithoutPhoneDemo supabase={supabase} language={language} isOwner={adminRole === 'owner'} />}
             {screen === 'Admin' && <View style={styles.card}>
               <Text style={styles.heading}>{tr('Administración MWD')}</Text>
               {adminRole === 'owner' ? (
-                <><PartnerRegistryScreen supabase={supabase} /><ConversionAdminDemoScreen supabase={supabase} /><AgentAccessAdminDemo supabase={supabase} /></>
+                <><PartnerRegistryScreen supabase={supabase} /><ConversionAdminDemoScreen supabase={supabase} language={language} /><AgentAccessAdminDemo supabase={supabase} language={language} /></>
               ) : adminRole ? (
                 <Text style={styles.muted}>Tu rol es: {adminRole}. El registro de socios requiere permisos de propietario.</Text>
               ) : (
