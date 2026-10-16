@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - 'mejora/conversion-coin-estable-demo-20261016'
+      - 'integracion/demo-unificada-20261016'
   pull_request:
     paths:
       - '*.js'
