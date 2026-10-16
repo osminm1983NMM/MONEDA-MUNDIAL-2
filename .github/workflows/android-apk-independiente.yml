@@ -6,7 +6,7 @@ on:
     branches:
       - desarrollo-comercios-20261013
     paths:
-      - 'App.js'
+      - '*.js' # Incluye App.js y las pantallas administrativas del directorio raíz.
       - 'app.json'
       - 'package.json'
       - 'src/**'
