@@ -1,3 +1,5 @@
+> **ACTUALIZACIÓN 16-10-2026:** primer destino aprobado como *objetivo de evaluación*: **Honduras (US→HN)**, sustituyendo Nicaragua. Véase `negocios/DECISION_PILOTO_US_HONDURAS_2026-10-16.md`. Referencias US→NI de este documento son históricas, no la prioridad vigente. Ningún corredor está habilitado.
+
 # Seguimiento ejecutivo — 4 frentes para el primer dólar real
 Fecha: 2026-10-16. Estado: **ningún corredor habilitado**.
 
