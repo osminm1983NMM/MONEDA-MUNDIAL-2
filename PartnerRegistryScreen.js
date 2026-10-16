@@ -2,6 +2,7 @@
 // Las llamadas RPC comprueban el rol propietario en Supabase; ocultar esta pantalla no es una barrera de seguridad.
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { summarizeRegisteredPickupCandidates, projectRegisteredPickupDesign } from './src/registered-pickup-design.mjs';
 
 const KIND = [
   ['bank', 'Banco'],
@@ -48,7 +49,7 @@ function Field({ label, value, onChangeText, placeholder }) {
     autoCorrect={false} placeholder={placeholder} placeholderTextColor="#b3c5d9" /></View>;
 }
 
-export default function PartnerRegistryScreen({ supabase }) {
+export default function PartnerRegistryScreen({ supabase, onPreviewPickup }) {
   const [partners, setPartners] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [locations, setLocations] = useState([]);
@@ -65,6 +66,8 @@ export default function PartnerRegistryScreen({ supabase }) {
   const [notice, setNotice] = useState('');
 
   const selected = partners.find(p => p.id === selectedId);
+  const networkSummary = summarizeRegisteredPickupCandidates(partners);
+  const design = projectRegisteredPickupDesign(selected, locations);
   async function request(name, params) {
     const { data, error: dbError } = await supabase.rpc(name, params);
     if (dbError) throw dbError;
@@ -158,6 +161,12 @@ export default function PartnerRegistryScreen({ supabase }) {
     {busy && <ActivityIndicator color="#99c4ff" />}
 
     <View style={s.card}>
+      <Text style={s.title}>Preparación de la red de retiros</Text>
+      <Text style={s.text}>Socios candidatos: {networkSummary.activeCandidateCount} · Archivados: {networkSummary.archivedCandidateCount}</Text>
+      <Text style={s.text}>Países con candidatos: {networkSummary.countriesWithCandidates}</Text>
+      <Text style={s.warn}>Bancos y sucursales habilitados para pagar: 0. Todos son únicamente candidatos; ningún código puede cobrarse.</Text>
+    </View>
+    <View style={s.card}>
       <Text style={s.title}>Registrar futuro socio</Text>
       <Field label="Nombre de la entidad" value={name} onChangeText={setName} placeholder="Nombre legal de ejemplo o candidato" />
       <Field label="País (código de 2 letras)" value={country} onChangeText={setCountry} placeholder="NI, CR, HN..." />
@@ -185,6 +194,14 @@ export default function PartnerRegistryScreen({ supabase }) {
       <Text style={s.title}>{selected.legal_name}</Text>
       <Text style={s.dim}>Estado: {LABELS[selected.review_status] || selected.review_status}</Text>
       <Text style={s.warn}>“Documentación revisada” no equivale a licencia, contrato ni autorización operativa.</Text>
+      {design && <View>
+        <Text style={s.text}>País de destino para el diseño: {design.destinationCountry}</Text>
+        <Text style={s.text}>Sucursales propuestas: {design.branchDraftCount} · Monedas sugeridas: {design.suggestedCurrencies.join(', ') || 'Ninguna'}</Text>
+        <Text style={s.warn}>Estado: NO AUTORIZADO PARA PAGAR. La consulta siguiente solo abre el simulador ficticio.</Text>
+        {design.canPreviewFictionalScenario && typeof onPreviewPickup === 'function' &&
+          <Btn title={'Ver simulación de retiro a ' + design.destinationCountry}
+            secondary disabled={busy} onPress={() => onPreviewPickup(design.destinationCountry)} />}
+      </View>}
       {(NEXT[selected.review_status] || []).map(([status, label]) =>
         <Btn key={status} title={label} secondary disabled={busy} onPress={() => setStatus(status)} />)}
 
