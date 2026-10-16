@@ -1,0 +1,42 @@
+name: Comprobar remesas ficticias aisladas
+on:
+  push:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'database/mwd_owner_remittance_tracking_demo.sql'
+      - 'tests/remittance-tracking-*.sql'
+      - '.github/workflows/test-remittance-demo.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probar-remesas:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test-only
+          POSTGRES_DB: remittance_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d remittance_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 8
+    env:
+      PGHOST: localhost
+      PGDATABASE: remittance_test
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: test-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preparar cuentas ficticias
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/remittance-tracking-fixture.sql
+      - name: Instalar SQL en PostgreSQL desechable
+        run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_owner_remittance_tracking_demo.sql
+      - name: Verificar permisos y evitar estados duplicados
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/remittance-tracking-assertions.sql
