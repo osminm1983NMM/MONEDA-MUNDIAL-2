@@ -7,6 +7,7 @@ import PartnerEngagementTracker from './PartnerEngagementTracker';
 import PartnerActivityAgenda from './PartnerActivityAgenda';
 import PartnerCountryOverview from './PartnerCountryOverview';
 import PartnerPrioritiesPanel from './PartnerPrioritiesPanel';
+import LaunchReadinessPanel from './LaunchReadinessPanel';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { summarizeRegisteredPickupCandidates, projectRegisteredPickupDesign } from './src/registered-pickup-design.mjs';
 
@@ -172,6 +173,7 @@ export default function PartnerRegistryScreen({ supabase, onPreviewPickup }) {
       <Text style={s.text}>Países con candidatos: {networkSummary.countriesWithCandidates}</Text>
       <Text style={s.warn}>Bancos y sucursales habilitados para pagar: 0. Todos son únicamente candidatos; ningún código puede cobrarse.</Text>
     </View>
+    <LaunchReadinessPanel />
     <PartnerPrioritiesPanel supabase={supabase} />
     <PartnerCountryOverview supabase={supabase} />
     <PartnerExpiryDashboard supabase={supabase} />
