@@ -57,3 +57,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/mock-partner-access-rls.sql
       - name: Verificar aislamiento multi-entidad y bitácora de prueba
         run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/mock-partner-access-rls-assertions.sql
+      - name: Crear membresías de personal institucional ficticio
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/mock-institution-staff.sql
+      - name: Verificar activación y revocación de personal ficticio
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/mock-institution-staff-assertions.sql
