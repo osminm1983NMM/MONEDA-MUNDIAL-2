@@ -7,7 +7,7 @@ export const DIGITAL_ASSET_DESIGNS = Object.freeze([
     marketPriceUsd:null,supply:null,canBuy:false,canSell:false,canSpendReal:false,
   }),
   Object.freeze({
-    id:'stable_payment_concept',label:'Pago estable (concepto)',
+    id:'moneda_mundial_digital_concept',label:'Moneda Mundial Digital (estable; concepto)',
     category:'third_party_regulated_stablecoin_candidate',isCrypto:true,
     marketPriceUsd:null,issuerSelected:false,redeemable:false,canBuy:false,canSell:false,canSpendReal:false,
   }),
