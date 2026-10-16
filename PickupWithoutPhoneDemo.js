@@ -7,11 +7,11 @@ function uuid(){if(!globalThis.crypto?.getRandomValues)throw Error('Aleatoriedad
 function confirm(title,body,act){if(Platform.OS==='web'){if(window.confirm(title+'\n'+body))act();return;}Alert.alert(title,body,[{text:'No',style:'cancel'},{text:'Sí, simular',onPress:act}]);}
 export default function PickupWithoutPhoneDemo({supabase,isOwner=false}){
 const [country,setCountry]=useState('NI'),[amount,setAmount]=useState('100'),[orders,setOrders]=useState([]),[ownerOrders,setOwnerOrders]=useState([]);
-const [code,setCode]=useState(null),[selected,setSelected]=useState(''),[claim,setClaim]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+const [code,setCode]=useState(null),[selected,setSelected]=useState(''),[claim,setClaim]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[security,setSecurity]=useState(null);
 const requestRef=useRef(null);
 async function load(){
  const [{data,error:e},admin]=await Promise.all([supabase.rpc('mwd_pickup_my_orders_demo'),isOwner?supabase.rpc('mwd_owner_pickup_orders_demo'):Promise.resolve(null)]);
- if(e)throw e;if(admin?.error)throw admin.error;setOrders(data||[]);if(admin)setOwnerOrders(admin.data||[]);
+ if(e)throw e;if(admin?.error)throw admin.error;setOrders(data||[]);if(admin){setOwnerOrders(admin.data||[]);const report=await supabase.rpc('mwd_owner_pickup_security_demo');if(report.error)throw report.error;setSecurity(report.data);}
 }
 useEffect(()=>{load().catch(e=>setError(e.message));},[supabase,isOwner]);
 async function create(){
@@ -32,8 +32,8 @@ async function create(){
 async function cancel(orderId){if(busy)return;setBusy(true);setError('');try{const {error:e}=await supabase.rpc('mwd_pickup_cancel_demo',{p_order_id:orderId});if(e)throw e;await load();}catch(e){setError(e.message);}finally{setBusy(false);}}
 async function collect(){
  if(busy||!selected)return;setBusy(true);setError('');
- try{const {error:e}=await supabase.rpc('mwd_owner_pickup_simulate_demo',{p_order_id:selected,p_pickup_code:claim.trim().toUpperCase()});
- if(e)throw e;setClaim('');await load();
+ try{const {data,error:e}=await supabase.rpc('mwd_owner_pickup_simulate_demo',{p_order_id:selected,p_pickup_code:claim.trim().toUpperCase()});
+ if(e)throw e;setClaim('');await load();if(data?.status!=='simulated_collected')setError('Sin entrega: '+(data?.message||data?.status||'no confirmado'));
  }catch(e){setError(e.message||'No se completó la simulación');}finally{setBusy(false);}
 }
 return <View style={css.card}>
@@ -54,6 +54,7 @@ return <View style={css.card}>
  <Text style={css.title}>Simulación de agente pagador (solo dueño)</Text>
  {ownerOrders.map(o=><Btn key={o.orderId} disabled={busy} label={o.destinationCountry+' · '+o.status+' · '+o.orderId.slice(0,8)} onPress={()=>setSelected(o.orderId)}/>)}
  <Text selectable style={css.text}>Orden seleccionada: {selected||'ninguna'}</Text>
+ {security&&<Text style={css.alert}>Seguridad: {security.invalidAttemptsLastHour} intentos incorrectos en la última hora; {security.temporarilyBlockedOrders} órdenes bloqueadas temporalmente.</Text>}
  <TextInput style={css.input} value={claim} onChangeText={setClaim} placeholder="Código SIM-..." placeholderTextColor="#b5c7dc" autoCapitalize="characters"/>
  <Btn label="Registrar entrega FICTICIA" disabled={busy||!selected} onPress={()=>confirm('Simulación únicamente','No se entregará efectivo.',collect)}/>
  </View>}
