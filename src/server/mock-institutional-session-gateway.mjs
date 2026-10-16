@@ -125,6 +125,14 @@ export function createMockInstitutionSessionGateway({
     allowed:false,reason:'cross_institution_denied',...noLive});
    return auth;
   },
+  // Consulta interna del fixture: no verifica identidades reales ni
+  // concede privilegios; sirve para invalidar propuestas cuando se revoca
+  // a quien las inició. No exponer como endpoint de una app.
+  isMockMemberActiveForReview({memberId,institutionId}={}){
+   const member=registry.get(memberId);
+   return Boolean(member&&member.state==='active_mock'&&
+     member.institutionId===institutionId);
+  },
   logoutMockSession({sessionToken}={}){
    if(typeof sessionToken!=='string')return copy({revoked:false,...noLive});
    const hash=digest(sessionToken),revoked=sessions.delete(hash);
