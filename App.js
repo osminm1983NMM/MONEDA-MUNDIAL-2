@@ -16,6 +16,8 @@ import { createClient } from '@supabase/supabase-js';
 import PartnerRegistryScreen from './PartnerRegistryScreen';
 import CoinStableDemoScreen from './CoinStableDemoScreen';
 import ConversionAdminDemoScreen from './ConversionAdminDemoScreen';
+import PickupWithoutPhoneDemo from './PickupWithoutPhoneDemo';
+import AgentAccessAdminDemo from './AgentAccessAdminDemo';
 
 // CLAVE PUBLICABLE de Supabase. Nunca coloques claves secret/service_role en App.js.
 const SUPABASE_URL = 'https://egrsdrlpavrtbgxoyxvg.supabase.co';
@@ -299,6 +301,7 @@ export default function App() {
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
               <Btn title="Actualizar saldo e historial" secondary onPress={() => refreshAccount()} disabled={syncing} />
               <Btn title="Convertir Coin ↔ Estable (prueba)" secondary onPress={() => navigate('Conversión')} />
+              <Btn title="Entrega sin teléfono (DEMO)" secondary onPress={() => navigate('Entrega')} />
               <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
               <Btn title="Cerrar sesión" secondary onPress={logout} />
             </>}
@@ -349,10 +352,11 @@ export default function App() {
             </>}
 
             {screen === 'Conversión' && <CoinStableDemoScreen supabase={supabase} />}
+            {screen === 'Entrega' && <PickupWithoutPhoneDemo supabase={supabase} isOwner={adminRole === 'owner'} />}
             {screen === 'Admin' && <View style={styles.card}>
               <Text style={styles.heading}>Administración MWD</Text>
               {adminRole === 'owner' ? (
-                <><PartnerRegistryScreen supabase={supabase} /><ConversionAdminDemoScreen supabase={supabase} /></>
+                <><PartnerRegistryScreen supabase={supabase} /><ConversionAdminDemoScreen supabase={supabase} /><AgentAccessAdminDemo supabase={supabase} /></>
               ) : adminRole ? (
                 <Text style={styles.muted}>Tu rol es: {adminRole}. El registro de socios requiere permisos de propietario.</Text>
               ) : (
