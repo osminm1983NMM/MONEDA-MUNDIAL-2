@@ -10,6 +10,7 @@ import PartnerPrioritiesPanel from './PartnerPrioritiesPanel';
 import LaunchReadinessPanel from './LaunchReadinessPanel';
 import AdminDiagnosticsPanel from './AdminDiagnosticsPanel';
 import PartnerReadinessMatrix from './PartnerReadinessMatrix';
+import RemittanceMonitorDemoPanel from './RemittanceMonitorDemoPanel';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { summarizeRegisteredPickupCandidates, projectRegisteredPickupDesign } from './src/registered-pickup-design.mjs';
 
@@ -177,6 +178,7 @@ export default function PartnerRegistryScreen({ supabase, onPreviewPickup }) {
     </View>
     <AdminDiagnosticsPanel supabase={supabase} />
     <PartnerReadinessMatrix supabase={supabase} />
+    <RemittanceMonitorDemoPanel supabase={supabase} />
     <LaunchReadinessPanel />
     <PartnerPrioritiesPanel supabase={supabase} />
     <PartnerCountryOverview supabase={supabase} />
