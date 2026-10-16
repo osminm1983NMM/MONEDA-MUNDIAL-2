@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {REAL_MONEY_GATES,assessRealMoneyLaunchReadiness} from '../src/real-money-launch-gates.mjs';
-const route={origin:'US',destination:'NI',sourceCurrency:'USD',destinationCurrency:'NIO'};
+const route={origin:'US',destination:'HN',sourceCurrency:'USD',destinationCurrency:'HNL'};
 test('nunca habilita pagos reales con todos los requisitos falsos',()=>{
  const r=assessRealMoneyLaunchReadiness({corridor:route});
  assert.equal(r.missingRequirements.length,REAL_MONEY_GATES.length);
