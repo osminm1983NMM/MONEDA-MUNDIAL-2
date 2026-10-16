@@ -23,7 +23,7 @@ abstract contract MonedaMundialCoinResearch is ERC20 {
     error InvalidResearchSupply();
 
     constructor(address hypotheticalDistributionVault, uint256 hypotheticalBaseUnitSupply)
-        ERC20("Moneda Mundial Coin — INVESTIGACIÓN", "MWD-RESEARCH")
+        ERC20("Moneda Mundial Coin RESEARCH", "MWD-RESEARCH")
     {
         if (hypotheticalDistributionVault == address(0)) {
             revert InvalidResearchRecipient();
