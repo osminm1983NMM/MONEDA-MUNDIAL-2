@@ -22,6 +22,11 @@ CREATE TABLE mwd_ledger_research.journals(
   created_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
 
+-- Un mismo evento externo no puede crear dos diarios por cambiar el request_key.
+-- En producción, la referencia deberá incluir identidad autenticada del proveedor.
+CREATE UNIQUE INDEX research_unique_event_reference
+ ON mwd_ledger_research.journals(event_type,external_reference);
+
 CREATE TABLE mwd_ledger_research.journal_lines(
   journal_id bigint NOT NULL REFERENCES mwd_ledger_research.journals(id) ON DELETE RESTRICT,
   line_no smallint NOT NULL CHECK (line_no BETWEEN 1 AND 12),
