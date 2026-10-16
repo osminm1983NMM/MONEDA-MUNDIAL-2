@@ -1,0 +1,61 @@
+// Prototipo de retiros sin telefono. SIN DINERO REAL.
+import React,{useEffect,useRef,useState} from 'react';
+import {View,Text,TextInput,TouchableOpacity,Alert,Platform} from 'react-native';
+const css={card:{padding:16,backgroundColor:'#142a45',borderRadius:12,marginVertical:10},title:{color:'#fff',fontWeight:'bold',fontSize:20,marginBottom:10},text:{color:'#dbe8f8',marginBottom:9},alert:{color:'#ffdc96',marginBottom:12},input:{backgroundColor:'#263c58',padding:12,color:'#fff',borderRadius:8,marginVertical:7},btn:{backgroundColor:'#2867e8',padding:12,borderRadius:8,marginVertical:6},btntxt:{color:'#fff',fontWeight:'bold',textAlign:'center'}};
+function Btn({label,onPress,disabled}){return <TouchableOpacity accessibilityRole="button" disabled={disabled} onPress={onPress} style={[css.btn,disabled&&{opacity:.45}]}><Text style={css.btntxt}>{label}</Text></TouchableOpacity>;}
+function uuid(){if(!globalThis.crypto?.getRandomValues)throw Error('Aleatoriedad segura no disponible');const b=new Uint8Array(16);globalThis.crypto.getRandomValues(b);b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;const h=Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');return [h.slice(0,8),h.slice(8,12),h.slice(12,16),h.slice(16,20),h.slice(20)].join('-');}
+function confirm(title,body,act){if(Platform.OS==='web'){if(window.confirm(title+'\n'+body))act();return;}Alert.alert(title,body,[{text:'No',style:'cancel'},{text:'Sí, simular',onPress:act}]);}
+export default function PickupWithoutPhoneDemo({supabase,isOwner=false}){
+const [country,setCountry]=useState('NI'),[amount,setAmount]=useState('100'),[orders,setOrders]=useState([]),[ownerOrders,setOwnerOrders]=useState([]);
+const [code,setCode]=useState(null),[selected,setSelected]=useState(''),[claim,setClaim]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+const requestRef=useRef(null);
+async function load(){
+ const [{data,error:e},admin]=await Promise.all([supabase.rpc('mwd_pickup_my_orders_demo'),isOwner?supabase.rpc('mwd_owner_pickup_orders_demo'):Promise.resolve(null)]);
+ if(e)throw e;if(admin?.error)throw admin.error;setOrders(data||[]);if(admin)setOwnerOrders(admin.data||[]);
+}
+useEffect(()=>{load().catch(e=>setError(e.message));},[supabase,isOwner]);
+async function create(){
+ if(busy)return;setError('');setBusy(true);
+ try{
+ const v=amount.trim().replace(',','.');
+ if(!/^\d+(\.\d{1,2})?$/.test(v))throw Error('Importe inválido');
+ const cents=Math.round(Number(v)*100),destination=country.trim().toUpperCase();
+ if(!Number.isSafeInteger(cents)||cents<100||cents>100000||!/^[A-Z]{2}$/.test(destination))throw Error('Usa un país de dos letras y un importe de 1 a 1000');
+ const signature=destination+'|'+cents;
+ if(requestRef.current?.signature!==signature)requestRef.current={signature,id:uuid()};
+ const {data,error:e}=await supabase.rpc('mwd_pickup_create_demo',{p_destination_country:destination,p_amount_cents:cents,p_request_id:requestRef.current.id});
+ if(e)throw e;
+ setCode(data?.pickupCode||null);requestRef.current=null;await load();
+ }catch(e){setError(e.message||'No se creó la orden');}
+ finally{setBusy(false);}
+}
+async function cancel(orderId){if(busy)return;setBusy(true);setError('');try{const {error:e}=await supabase.rpc('mwd_pickup_cancel_demo',{p_order_id:orderId});if(e)throw e;await load();}catch(e){setError(e.message);}finally{setBusy(false);}}
+async function collect(){
+ if(busy||!selected)return;setBusy(true);setError('');
+ try{const {error:e}=await supabase.rpc('mwd_owner_pickup_simulate_demo',{p_order_id:selected,p_pickup_code:claim.trim().toUpperCase()});
+ if(e)throw e;setClaim('');await load();
+ }catch(e){setError(e.message||'No se completó la simulación');}finally{setBusy(false);}
+}
+return <View style={css.card}>
+ <Text style={css.title}>Entrega sin teléfono (DEMO)</Text>
+ <Text style={css.alert}>No es una remesa. No reserva saldos, ni permite canjear códigos por dinero. No introduzcas datos personales ni documentos.</Text>
+ <Text style={css.text}>País destino (NI, CR, HN...)</Text>
+ <TextInput style={css.input} value={country} maxLength={2} autoCapitalize="characters" onChangeText={v=>{setCountry(v);requestRef.current=null;setCode(null);}}/>
+ <Text style={css.text}>Importe ficticio expresado en USD</Text>
+ <TextInput style={css.input} keyboardType="decimal-pad" value={amount} onChangeText={v=>{setAmount(v);requestRef.current=null;setCode(null);}}/>
+ <Btn label={busy?'Procesando...':'Generar código de PRUEBA'} disabled={busy} onPress={create}/>
+ {code&&<Text selectable style={css.alert}>CÓDIGO SIMULADO (se muestra una sola vez): {code}</Text>}
+ {!!error&&<Text style={css.alert}>{error}</Text>}
+ <Btn label="Actualizar solicitudes" disabled={busy} onPress={()=>load().catch(e=>setError(e.message))}/>
+ <Text style={css.title}>Mis solicitudes</Text>
+ {orders.length===0&&<Text style={css.text}>Sin solicitudes de prueba.</Text>}
+ {orders.map(o=><View key={o.orderId} style={css.card}><Text style={css.text}>{o.destinationCountry} · {(o.amountCents/100).toFixed(2)} USD ficticios · {o.status}</Text><Text selectable style={css.text}>{o.orderId}</Text>{o.status==='pending'&&<Btn label="Cancelar" disabled={busy} onPress={()=>confirm('Cancelar demostración','No se moverá dinero.',()=>cancel(o.orderId))}/>}</View>)}
+ {isOwner&&<View style={css.card}>
+ <Text style={css.title}>Simulación de agente pagador (solo dueño)</Text>
+ {ownerOrders.map(o=><Btn key={o.orderId} disabled={busy} label={o.destinationCountry+' · '+o.status+' · '+o.orderId.slice(0,8)} onPress={()=>setSelected(o.orderId)}/>)}
+ <Text selectable style={css.text}>Orden seleccionada: {selected||'ninguna'}</Text>
+ <TextInput style={css.input} value={claim} onChangeText={setClaim} placeholder="Código SIM-..." placeholderTextColor="#b5c7dc" autoCapitalize="characters"/>
+ <Btn label="Registrar entrega FICTICIA" disabled={busy||!selected} onPress={()=>confirm('Simulación únicamente','No se entregará efectivo.',collect)}/>
+ </View>}
+</View>;
+}
