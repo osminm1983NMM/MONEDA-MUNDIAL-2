@@ -51,6 +51,7 @@ BEGIN
  FROM mwd_remittance_demo_private.pickup_code_samples c
  JOIN mwd_remittance_demo_private.payout_assignments a ON a.id=c.assignment_id
  JOIN mwd_remittance_demo_private.orders o ON o.id=a.order_id
+ WHERE c.status='active'
  ORDER BY c.created_at DESC,c.id DESC LIMIT 1;
  UPDATE mwd_remittance_demo_private.pickup_code_samples
  SET created_at=now()-interval '2 minutes',
