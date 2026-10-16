@@ -1,0 +1,130 @@
+// Moneda Mundial 2.0 — ADAPTADOR DE CONTRATO en servidor.
+// Este módulo NO se importa en React Native: sólo permite pruebas y no contacta bancos.
+// No crea fondos, cuentas, comisiones reales o referencias de cobro.
+import { createHmac, randomUUID, timingSafeEqual, createHash } from 'node:crypto';
+
+const ROUTES = Object.freeze(['US:NI']); // corredores de ENSAYO, ninguno habilitado
+const DEMO_STATUSES = new Set(['sandbox_submitted', 'sandbox_pending', 'sandbox_completed', 'sandbox_failed']);
+const MONEY_RE = /^[A-Z]{3}$/;
+const MODE_ERROR='DINERO REAL BLOQUEADO: no hay proveedor contratado ni aprobación regulatoria.';
+const jsonClone = value => JSON.parse(JSON.stringify(value));
+const auditSafe = (message) => new Error(message);
+
+function requireMockOnly(mode) {
+  if (mode !== 'mock') throw auditSafe(MODE_ERROR);
+}
+function validateOrder(order) {
+  if (!order || typeof order !== 'object' || Array.isArray(order)) throw auditSafe('Orden de ensayo requerida');
+  if (order.origin !== 'US' || order.destination !== 'NI' ||
+      !MONEY_RE.test(order.sourceCurrency ?? '') || order.sourceCurrency !== 'USD' ||
+      !Number.isSafeInteger(order.amountCents) || order.amountCents < 100 || order.amountCents > 10000000 ||
+      !['bank_account', 'cash_pickup'].includes(order.payoutMethod)) {
+    throw auditSafe('Ruta o importe de ensayo inválido');
+  }
+  // Nunca insertar información sensible de clientes reales en el mock.
+  if (['bankAccount', 'beneficiaryName', 'beneficiaryDocument', 'cardNumber', 'cvv',
+      'iban', 'routingNumber', 'personalId'].some(key => Object.hasOwn(order,key))) {
+    throw auditSafe('Datos personales/bancarios prohibidos en el sandbox ficticio');
+  }
+  return {
+    origin:'US', destination:'NI',sourceCurrency:'USD',
+    amountCents:order.amountCents,payoutMethod:order.payoutMethod,
+  };
+}
+function digest(value) {return createHash('sha256').update(JSON.stringify(value)).digest('hex');}
+function signature(secret,timestamp,rawBody) {
+  return createHmac('sha256',secret).update(String(timestamp)+'.'+rawBody).digest('hex');
+}
+function constantTimeHex(a,b) {
+  if(typeof a!=='string'||typeof b!=='string'||!/^[0-9a-f]{64}$/.test(a)||!/^[0-9a-f]{64}$/.test(b))
+    return false;
+  return timingSafeEqual(Buffer.from(a,'hex'),Buffer.from(b,'hex'));
+}
+export function createMockRegulatedProviderBridge({
+ mode='mock', webhookSecret, clock=()=>Date.now(),
+}={}) {
+ requireMockOnly(mode);
+ if(typeof webhookSecret!=='string' || webhookSecret.length<32)
+   throw auditSafe('Se necesita una clave de ensayo secreta >=32 caracteres. Nunca incluirla en la app.');
+ if(typeof clock!=='function')throw auditSafe('Reloj inválido');
+ const orders=new Map(); // sólo RAM de pruebas; nunca un ledger de producción
+ const attempts=new Map();
+ const events=new Set();
+ const audit=[];
+ const maybeLog = (type,reference) => audit.push(Object.freeze({type,reference})); // sin PII, sin secreto
+ return Object.freeze({
+  mode:'mock', providerConnected:false, moneyMovementEnabled:false,
+  supportedDesignRoutes:ROUTES,
+  quote(order) {
+   const normalized=validateOrder(order);
+   return Object.freeze({
+     route:'US:NI',amountCents:normalized.amountCents,sourceCurrency:'USD',
+     payoutMethod:normalized.payoutMethod,
+     feeCents:null,fxRate:null,recipientAmountCents:null,
+     quoteBinding:'mock-only',quoteValidForRealTransfer:false,
+     redeemable:false,moneyMovementEnabled:false,
+   });
+  },
+  submitSandboxTransfer({requestId,order}={}) {
+   if(typeof requestId!=='string'||!/^[a-zA-Z0-9-]{12,90}$/.test(requestId))
+     throw auditSafe('Identificador de reintento inválido');
+   const normalized=validateOrder(order),hash=digest(normalized);
+   const existing=attempts.get(requestId);
+   if(existing) {
+     if(existing.hash!==hash)throw auditSafe('Idempotency key reutilizada con datos diferentes');
+     return Object.freeze({...jsonClone(existing.result),alreadyProcessed:true});
+   }
+   const id=randomUUID(), result={
+     id,requestId,status:'sandbox_submitted',source:'mock_memory_only',
+     fundingConfirmed:false,recipientPaid:false,redeemable:false,
+     realPaymentsEnabled:false,providerConnected:false,
+   };
+   orders.set(id,{...result,...normalized});
+   attempts.set(requestId,{hash,result});
+   maybeLog('mock_transfer_created',id);
+   return Object.freeze(jsonClone({...result,alreadyProcessed:false}));
+  },
+  verifyAndApplyWebhook({rawBody,timestamp,signature:incomingSignature}={}) {
+   if(typeof rawBody!=='string'||Buffer.byteLength(rawBody,'utf8')>8192||
+      !Number.isSafeInteger(timestamp)||Math.abs(clock()-timestamp)>5*60*1000)
+     throw auditSafe('Notificación de ensayo inválida o vencida');
+   if(!constantTimeHex(signature(webhookSecret,timestamp,rawBody),incomingSignature))
+     throw auditSafe('Firma de notificación inválida');
+   let event;
+   try {event=JSON.parse(rawBody)} catch {throw auditSafe('JSON inválido');}
+   if(!event||typeof event!=='object'||Array.isArray(event)||
+      typeof event.id!=='string'||!/^[a-zA-Z0-9-]{12,90}$/.test(event.id)||
+      typeof event.transferId!=='string'||!DEMO_STATUSES.has(event.status))
+     throw auditSafe('Esquema del evento inválido');
+   if(events.has(event.id))return Object.freeze({alreadyProcessed:true,accepted:true,moneyPaid:false});
+   const stored=orders.get(event.transferId);
+   if(!stored)throw auditSafe('Orden de simulación inexistente');
+   const allowed={
+     sandbox_submitted:['sandbox_pending','sandbox_failed'],
+     sandbox_pending:['sandbox_completed','sandbox_failed'],
+     sandbox_completed:[],sandbox_failed:[],
+   };
+   if(!allowed[stored.status]?.includes(event.status))
+     throw auditSafe('Transición de estado de ensayo inválida');
+   stored.status=event.status;
+   events.add(event.id);
+   maybeLog('mock_webhook_accepted',event.transferId);
+   return Object.freeze({accepted:true,alreadyProcessed:false,status:stored.status,
+     moneyPaid:false,realPaymentsEnabled:false});
+  },
+  // Sólo para CI/local: genera una notificación HMAC falsa.
+  makeMockWebhook({id=randomUUID(),transferId,status}={}) {
+    const rawBody=JSON.stringify({id,transferId,status});
+    const timestamp=clock();
+    return Object.freeze({rawBody,timestamp,signature:signature(webhookSecret,timestamp,rawBody)});
+  },
+  getSandboxTransfer(id) {
+    const row=orders.get(id);
+    if(!row)return null;
+    return Object.freeze({id,status:row.status,payoutMethod:row.payoutMethod,
+     fundingConfirmed:false,recipientPaid:false,realPaymentsEnabled:false,
+     redeemable:false,providerConnected:false});
+  },
+  getSanitizedAudit(){return Object.freeze(audit.map(e=>({...e})));},
+ });
+}
