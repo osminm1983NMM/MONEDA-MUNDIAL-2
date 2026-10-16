@@ -31,3 +31,8 @@ Fecha: 2026-10-16. Estado: **ningún corredor habilitado**.
 - `PLAN_INTEGRACION_PROVEEDOR_REGULADO_2026-10-16.md`
 
 **Estado real:** material preparado, cero contactos enviados y cero proveedores contratados.
+
+## Avance adicional de preparación empresarial
+- Revisado 16-oct-2026: `negocios/PLAN_CONSTITUCION_CUMPLIMIENTO_2026-10-16.md` incorpora secuencia de constitución, EIN, privacidad, asesoría US→NI y cambio legal federal BOI 2026.
+- Estado, tipo de entidad, firma, EIN y cuenta corporativa: **pendientes**; no registrar sin decisión empresarial ni asesoría.
+- Entidad estadounidense normalmente exenta del reporte federal BOI conforme a regla FinCEN de agosto 2026; entidades extranjeras y obligaciones bancarias KYB requieren evaluación separada. La exención BOI no significa licencia financiera.
