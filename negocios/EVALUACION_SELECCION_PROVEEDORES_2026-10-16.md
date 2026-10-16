@@ -1,3 +1,5 @@
+> **HISTÓRICO, NO VIGENTE PARA EL PILOTO.** Este análisis cubrió Nicaragua (US→NI). El fundador decidió cambiar el objetivo inicial a **Honduras (US→HN)** el 16-10-2026. La posición de TerraPay basada en Banpro Nicaragua NO constituye evidencia para Honduras. Ver `negocios/DECISION_PILOTO_US_HONDURAS_2026-10-16.md`. Ningún proveedor está elegido para US→HN.
+
 # Moneda Mundial 2.0 — evaluación inicial y selección CONDICIONAL de proveedores
 **Fecha de investigación:** 16 de octubre de 2026 · **Corredor candidato:** EE. UU. (USD) → Nicaragua.  
 **Alcance:** información pública oficial y relevancia preliminar. No hay llamadas a proveedores, respuesta de ventas, cuentas registradas, credenciales sandbox, contrato, autorización, pago real ni due diligence de licencias finalizada.
