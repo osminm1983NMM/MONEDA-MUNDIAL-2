@@ -43,3 +43,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/durable-mock-inbox.sql
       - name: Probar persistencia y anti-duplicación
         run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/durable-mock-inbox-assertions.sql
+      - name: Evento previo y fallo transaccional
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/recovery-first-session.sql
+      - name: Recuperación en sesión PostgreSQL nueva
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/recovery-second-session.sql
