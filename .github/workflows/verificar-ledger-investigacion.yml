@@ -65,3 +65,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/mock-persistent-institution-sessions.sql
       - name: Probar alcance, caducidad y revocación de sesiones
         run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/mock-persistent-institution-sessions-assertions.sql
+      - name: Crear auditoría persistente de revisiones DEMO
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/mock-durable-dual-review-audit.sql
+      - name: Verificar integridad e idempotencia de bitácora de revisiones
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/mock-durable-dual-review-audit-assertions.sql
