@@ -1,7 +1,7 @@
 // Vinculación administrativa de remesas de prueba con sucursales candidatas.
 // CERO pagos reales. Sólo el servidor permite los cambios de simulación.
 import React,{useEffect,useState,useRef} from 'react';
-import {View,Text,TouchableOpacity} from 'react-native';
+import {View,Text,TouchableOpacity,TextInput} from 'react-native';
 const style={
  card:{backgroundColor:'#182d46',padding:14,borderRadius:11,marginVertical:8},
  text:{color:'#dce9f5',marginVertical:6},
@@ -25,6 +25,9 @@ export default function PayoutCandidateLinkScreen({supabase}){
  const [partnerId,setPartnerId]=useState('');
  const [locationId,setLocationId]=useState('');
  const [summary,setSummary]=useState(null);
+ const [codeSummary,setCodeSummary]=useState(null);
+ const [oneTimeCode,setOneTimeCode]=useState('');
+ const [codeInput,setCodeInput]=useState('');
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
  const [notice,setNotice]=useState('');
@@ -51,10 +54,12 @@ export default function PayoutCandidateLinkScreen({supabase}){
  const eligible=partners.filter(p=>p.review_status==='documented'&&p.country_code===order?.destination_country);
  const selectedPartner=eligible.find(p=>p.id===partnerId);
  async function chooseOrder(id){
-  setOrderId(id);setPartnerId('');setLocationId('');setBranches([]);setSummary(null);pending.current=null;
-  await readSummary(id);
+  setOrderId(id);setPartnerId('');setLocationId('');setBranches([]);setSummary(null);
+  setCodeInput('');setOneTimeCode('');setCodeSummary(null);pending.current=null;
+  await readSummary(id);await readCodeSummary(id);
  }
  async function readSummary(id){setSummary(await rpc('mwd_owner_payout_design_summary_demo',{p_order_id:id}));}
+ async function readCodeSummary(id){setCodeSummary(await rpc('mwd_owner_pickup_code_summary_demo',{p_order_id:id}));}
  async function choosePartner(id){
   setPartnerId(id);setLocationId('');pending.current=null;
   setBranches(await rpc('mwd_owner_partner_locations_demo',{p_partner_id:id})||[]);
@@ -70,13 +75,32 @@ export default function PayoutCandidateLinkScreen({supabase}){
   pending.current=null;await readSummary(orderId);
   setNotice(res.already_processed?'Asignación ficticia ya registrada':'Sucursal candidata asociada; ningún dinero fue enviado');
  });}
- function finish(){run(async()=>{
-  if(!orderId)throw Error('Selecciona la remesa');
-  const signature='finish:'+orderId;
+ function issue(){run(async()=>{
+  if(!orderId)throw Error('Selecciona una remesa');
+  const signature='issue:'+orderId;
   if(!pending.current||pending.current.signature!==signature)pending.current={signature,id:nextRequestId()};
-  const res=await rpc('mwd_owner_complete_payout_sample_demo',{p_order_id:orderId,p_request_id:pending.current.id});
-  pending.current=null;await readSummary(orderId);await reload();
-  setNotice(res.already_processed?'Ensayo ya completado':'Ensayo de entrega marcado, SIN cobro real');
+  const res=await rpc('mwd_owner_issue_pickup_code_demo',{p_order_id:orderId,p_request_id:pending.current.id});
+  pending.current=null;setOneTimeCode(res.demo_code_once||'');
+  await readCodeSummary(orderId);
+  setNotice('Código DEMO generado una sola vez; NO es válido en bancos y no se puede cobrar.');
+ });}
+ function mockIdentity(){run(async()=>{
+  await rpc('mwd_owner_mock_beneficiary_check_demo',{p_order_id:orderId,p_request_id:nextRequestId()});
+  await readCodeSummary(orderId);setNotice('Comprobación de identidad SIMULADA, no verifica personas reales.');
+ });}
+ function tryCode(){run(async()=>{
+  const signature='try:'+orderId+':'+codeInput;
+  if(!pending.current||pending.current.signature!==signature)pending.current={signature,id:nextRequestId()};
+  const res=await rpc('mwd_owner_try_pickup_code_demo',{
+   p_order_id:orderId,p_demo_code:codeInput.trim(),p_request_id:pending.current.id
+  });
+  pending.current=null;setCodeInput('');setOneTimeCode('');await readCodeSummary(orderId);
+  setNotice('Estado del ensayo: '+res.status+'. DINERO ENTREGADO: 0.');
+ });}
+ function cancelCode(){run(async()=>{
+  await rpc('mwd_owner_cancel_pickup_code_demo',{p_order_id:orderId});
+  setCodeInput('');setOneTimeCode('');await readCodeSummary(orderId);
+  setNotice('Código ficticio cancelado y no utilizable.');
  });}
  return <View style={style.card}>
   <Text style={style.warning}>ASOCIACIÓN DEMO DE AGENTES · SIN FONDOS NI CÓDIGOS COBRABLES</Text>
@@ -97,8 +121,26 @@ export default function PayoutCandidateLinkScreen({supabase}){
    </View>}
    {summary?.status==='unassigned'&&order.status==='review'&&
     <Btn title="Asociar sucursal candidata (sin pagar)" disabled={busy||!locationId} onPress={assign}/>}
-   {summary?.status==='planned'&&order.status==='simulated'&&
-    <Btn title="Finalizar ensayo ficticio (NO PAGAR)" disabled={busy} onPress={finish}/>}
+   {summary?.status==='planned'&&order.status==='simulated'&&<View style={style.card}>
+     <Text style={style.warning}>VERIFICACIÓN DE BENEFICIARIO Y CÓDIGO • SOLO FICTICIA</Text>
+     <Text style={style.text}>Estado del código: {codeSummary?.status||'consultando'}</Text>
+     {codeSummary?.status==='not_issued'&&
+       <Btn title="Emitir código DEMO de 30 minutos (no cobrable)" disabled={busy} onPress={issue}/>}
+     {!!oneTimeCode&&<Text selectable style={style.warning}>CÓDIGO DE MUESTRA · NO COBRABLE: {oneTimeCode}</Text>}
+     {codeSummary?.status==='active'&&<View>
+       <Text style={style.text}>Intentos restantes: {codeSummary.remaining_attempts}. La verificación de identidad REAL no está disponible.</Text>
+       {!codeSummary.identity_check_simulated&&
+         <Btn title="Simular revisión de identidad (NO verifica a nadie)" disabled={busy} onPress={mockIdentity}/>}
+       <TextInput accessibilityLabel="Código ficticio de demostración" value={codeInput}
+         onChangeText={setCodeInput} placeholder="DEMO-..."
+         autoCapitalize="characters" style={{backgroundColor:'#28455e',color:'white',padding:11}}/>
+       <Btn title="Probar código y anular muestra (sin pagar)" disabled={busy||!codeInput.trim()} onPress={tryCode}/>
+       <Btn title="Cancelar código de muestra" disabled={busy} onPress={cancelCode}/>
+     </View>}
+     {codeSummary?.status==='consumed'&&<Text style={style.warning}>Código consumido una sola vez. No hubo entrega de dinero.</Text>}
+     {['expired','cancelled','locked'].includes(codeSummary?.status)&&
+      <Text style={style.warning}>Código cerrado: {codeSummary.status}. No se puede utilizar.</Text>}
+   </View>}
    {summary?.status!=='unassigned'&&<Text style={style.text}>
      Sucursal asociada: {summary?.location_name||'—'} · Estado: {summary?.status||'—'}
    </Text>}
