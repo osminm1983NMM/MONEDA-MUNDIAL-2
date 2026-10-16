@@ -49,7 +49,7 @@ CREATE OR REPLACE FUNCTION mwd_access_research.mock_review_hash(
  SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
    pg_catalog.jsonb_build_array(p_seq,p_event::text,p_review::text,p_case,
      p_institution,p_actor,p_kind,p_action,p_state,
-     pg_catalog.extract(epoch FROM p_time),p_previous)::text,
+     EXTRACT(EPOCH FROM p_time),p_previous)::text,
    'UTF8')), 'hex')
 $$;
 
