@@ -3,6 +3,7 @@ import 'react-native-get-random-values';
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 
+const {translateText}=require('./i18n');
 const MICRO = 1000000;
 const MAX = 10000;
 const s = {
@@ -37,7 +38,8 @@ function Btn({label,onPress,disabled=false}) {
     <Text style={s.buttonText}>{label}</Text>
   </TouchableOpacity>;
 }
-export default function CoinStableDemoScreen({supabase}) {
+export default function CoinStableDemoScreen({supabase,language='es'}){
+const tr=(v)=>translateText(v,language);
   const [wallet,setWallet]=useState(null);
   const [asset,setAsset]=useState('COIN');
   const [amount,setAmount]=useState('1');
@@ -89,13 +91,13 @@ export default function CoinStableDemoScreen({supabase}) {
   const expired=quote&&Date.parse(quote.expiresAt)<=now;
   return <View style={s.card}>
     <Text style={s.title}>Coin ↔ Estable</Text>
-    <Text style={s.warning}>SOLO SIMULACIÓN. Precio sintético, sin cotización de mercado, reservas ni retiros. Los saldos no son dinero y no se mezclan con MWD.</Text>
+    <Text style={s.warning}>{tr('SOLO SIMULACIÓN. Precio sintético, sin cotización de mercado, reservas ni retiros. Los saldos no son dinero y no se mezclan con MWD.')}</Text>
     <Text style={s.text}>Coin ficticia: {wallet?fmt(wallet.coinMicro):'...'} COIN</Text>
     <Text style={s.text}>Estable ficticia: {wallet?fmt(wallet.stableMicro):'...'} STABLE</Text>
     <Btn label={asset==='COIN'?'Origen: COIN → STABLE':'Origen: STABLE → COIN'}
       disabled={busy} onPress={()=>{setAsset(a=>a==='COIN'?'STABLE':'COIN');reset();}} />
     <TextInput accessibilityLabel="Cantidad ficticia" style={s.input}
-      placeholder="Importe de prueba" placeholderTextColor="#b3c5d9"
+      placeholder={tr('Importe de prueba')} placeholderTextColor="#b3c5d9"
       keyboardType="decimal-pad" value={amount}
       onChangeText={v=>{setAmount(v);reset();}} />
     <Btn label={busy?'Procesando...':'Obtener cotización de prueba'}
@@ -105,7 +107,7 @@ export default function CoinStableDemoScreen({supabase}) {
       <Text style={s.text}>Comisión simulada: {fmt(quote.feeOutMicro)} {quote.toAsset}</Text>
       <Text style={s.text}>Precio sintético: 1 COIN = {quote.stablePerCoin} STABLE</Text>
       <Text style={s.warning}>{expired?'Cotización vencida. Solicita otra.':'Válida durante 90 segundos desde su emisión.'}</Text>
-      <Btn label="Confirmar conversión FICTICIA" disabled={busy||!!expired||quote.status==='executed'} onPress={()=>{
+      <Btn label={tr('Confirmar conversión FICTICIA')} disabled={busy||!!expired||quote.status==='executed'} onPress={()=>{
         Alert.alert('Solo demostración','No representa dinero ni monedas negociables.',[
           {text:'Cancelar',style:'cancel'},{text:'Confirmar prueba',onPress:confirm}
         ]);
@@ -113,9 +115,9 @@ export default function CoinStableDemoScreen({supabase}) {
     </View>}
     {!!error&&<Text style={s.warning}>{error}</Text>}
     {!!notice&&<Text style={s.text}>{notice}</Text>}
-    <Btn label="Actualizar saldos e historial" disabled={busy} onPress={()=>load().catch(e=>setError(e.message))}/>
-    <Text style={s.title}>Últimas conversiones ficticias</Text>
-    {(wallet?.history||[]).length===0&&<Text style={s.text}>Sin conversiones registradas.</Text>}
+    <Btn label={tr('Actualizar saldos e historial')} disabled={busy} onPress={()=>load().catch(e=>setError(e.message))}/>
+    <Text style={s.title}>{tr('Últimas conversiones ficticias')}</Text>
+    {(wallet?.history||[]).length===0&&<Text style={s.text}>{tr('Sin conversiones registradas.')}</Text>}
     {(wallet?.history||[]).map(op=><View key={op.id} style={s.item}>
       <Text style={s.text}>{fmt(op.amountInMicro)} {op.fromAsset} → {fmt(op.amountOutMicro)} {op.toAsset}</Text>
       <Text style={s.text}>{new Date(op.settledAt).toLocaleString()}</Text>
