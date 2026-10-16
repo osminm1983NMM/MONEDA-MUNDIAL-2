@@ -1,7 +1,7 @@
 name: Verificar modulo retiro demo
 on:
   push:
-    branches: ['mejora/retiro-sin-app-demo-20261016']
+    branches: ['mejora/retiro-sin-app-demo-20261016','integracion/demo-unificada-20261016']
     paths: ['pickupDemoRules.js','tests/**','.github/workflows/pickup-demo-tests.yml']
   pull_request:
     paths: ['pickupDemoRules.js','tests/**','.github/workflows/pickup-demo-tests.yml']
