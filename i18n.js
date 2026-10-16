@@ -108,6 +108,10 @@ const translations = {
   }
 };
 
+const extraTranslations = require('./i18nScreens');
+Object.assign(translations.en, extraTranslations.en);
+Object.assign(translations.pt, extraTranslations.pt);
+
 const LANGUAGES = ['es','en','pt'];
 const LANGUAGE_OPTIONS = [
   { id: 'auto', label: 'Auto' },
