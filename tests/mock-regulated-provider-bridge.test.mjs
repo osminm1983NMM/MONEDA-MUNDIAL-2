@@ -31,3 +31,16 @@ test('firma HMAC rechaza alteración, vence, replay e impide saltarse estados',(
  assert.throws(()=>m.verifyAndApplyWebhook(m.makeMockWebhook({id:'event-extra-123456',transferId:r.id,status:'sandbox_completed'})),/Transición/);
  assert.equal(m.getSandboxTransfer(r.id).recipientPaid,false);
 });
+
+test('Honduras y Nicaragua se conservan como destinos de diseño, nunca rutas reales',()=>{
+ const m=make();
+ assert.deepEqual(m.supportedDesignRoutes,['US:HN','US:NI']);
+ assert.equal(m.priorityDesignRoute,'US:HN');
+ const n={...order,destination:'NI'};
+ assert.equal(m.quote(n).route,'US:NI');
+ assert.equal(m.submitSandboxTransfer({requestId:'request-nicaragua-01',order:n}).realPaymentsEnabled,false);
+ assert.throws(()=>m.quote({...order,destination:'CR'}),/Ruta/);
+ const all=createMockRegulatedProviderBridge({webhookSecret:secret,countryCodes:['HN','NI','CR']});
+ assert.equal(all.quote({...order,destination:'CR'}).redeemable,false);
+ assert.equal(all.providerConnected,false);
+});
