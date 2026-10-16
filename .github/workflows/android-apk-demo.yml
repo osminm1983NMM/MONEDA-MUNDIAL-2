@@ -1,0 +1,63 @@
+name: Compilar APK Android de demostración
+on:
+  workflow_dispatch:
+  push:
+    branches: ['integracion/demo-unificada-20261016']
+    paths:
+      - 'App.js'
+      - '*.js'
+      - 'app.json'
+      - 'package.json'
+      - '.github/workflows/android-apk-demo.yml'
+permissions:
+  contents: read
+jobs:
+  android-demo-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_REAL_PAYMENTS_ENABLED: 'false'
+      REAL_PAYMENTS_ENABLED: 'false'
+      NODE_ENV: production
+    steps:
+      - name: Obtener código de la rama de demostración
+        uses: actions/checkout@v4
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Java 17 para compilar Android
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Instalar dependencias del proyecto
+        run: npm install --no-audit --no-fund
+      - name: Comprobar paquetes compatibles con Expo SDK 54
+        run: npx expo install --check
+      - name: Identificar APK como aplicación SOLO DEMO
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+          app.expo.name = 'Moneda Mundial DEMO';
+          app.expo.android = { ...(app.expo.android || {}), package: 'com.monedamundial.demo' };
+          fs.writeFileSync('app.json', JSON.stringify(app, null, 2));
+          NODE
+      - name: Generar proyecto Android temporal
+        run: npx expo prebuild --platform android --non-interactive --no-install
+      - name: Compilar APK con firma de pruebas (nunca producción)
+        working-directory: android
+        run: ./gradlew --no-daemon --stacktrace :app:assembleRelease
+      - name: Verificar salida
+        run: test -s android/app/build/outputs/apk/release/app-release.apk
+      - name: Publicar APK para pruebas sin claves financieras
+        uses: actions/upload-artifact@v4
+        with:
+          name: moneda-mundial-demo-android-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
