@@ -40,10 +40,9 @@ BEGIN
  IF b->>'already_processed'<>'true' THEN RAISE EXCEPTION 'Reintento duplicó consumo'; END IF;
  b:=public.mwd_owner_try_pickup_code_demo(o,code,'20000000-0000-4000-8000-000000000010');
  IF b->>'accepted'<>'false' THEN RAISE EXCEPTION 'Un segundo cobro fue aceptado'; END IF;
- IF (SELECT count(*) FROM mwd_remittance_demo_private.pickup_code_samples)<>1
- THEN RAISE EXCEPTION 'Duplicó token'; END IF;
- IF (SELECT count(*) FROM mwd_remittance_demo_private.pickup_code_events WHERE action='consumed')<>1
- THEN RAISE EXCEPTION 'Duplicó consumo'; END IF;
+ b:=public.mwd_owner_pickup_code_summary_demo(o);
+ IF b->>'status'<>'consumed' OR (b->>'events')::integer<>4
+ THEN RAISE EXCEPTION 'Historial o consumo incorrecto'; END IF;
 END $$;
 RESET ROLE; RESET request.jwt.claim.sub;
 SELECT 'Prueba de código DEMO sin pago: OK' AS result;
