@@ -47,3 +47,5 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/recovery-first-session.sql
       - name: Recuperación en sesión PostgreSQL nueva
         run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/recovery-second-session.sql
+      - name: Dos clientes PostgreSQL concurrentes - solo laboratorio
+        run: bash research/ledger/tests/concurrency-two-clients.sh
