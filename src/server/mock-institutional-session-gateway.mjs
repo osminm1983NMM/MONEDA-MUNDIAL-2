@@ -95,29 +95,35 @@ export function createMockInstitutionSessionGateway({
       institutionId:member.institutionId}));
    return copy({sessionToken,expiresAt,expiresInSeconds:900,...noLive});
   },
-  inspectMockSession({sessionToken,institutionId,action}={}){
-   // Nunca aceptar rol ni país como privilegio enviado por el cliente:
-   // la institución y el miembro se derivan de la sesión del servidor.
+  authorizeMockSession({sessionToken,action}={}){
+   // Backend de laboratorio: institución y alcance se derivan del token,
+   // nunca del role/country/entityId que envíe un cliente.
    if(typeof sessionToken!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(sessionToken))
      return copy({allowed:false,reason:'invalid_token',...noLive});
-   const session=sessions.get(digest(sessionToken)),now=time(clock);
+   const tokenHash=digest(sessionToken);
+   const session=sessions.get(tokenHash),now=time(clock);
    if(!session)return copy({allowed:false,reason:'unknown_or_revoked',...noLive});
    const member=status(session.memberId);
    if(now>=session.expiresAt||member.revision!==session.membershipRevision||
       member.state!=='active_mock'){
-     sessions.delete(digest(sessionToken));
+     sessions.delete(tokenHash);
      return copy({allowed:false,reason:'expired_or_revoked',...noLive});
    }
-   if(institutionId!==session.institutionId)return copy({
-    allowed:false,reason:'cross_institution_denied',...noLive});
    if(!['read_mock_cases','request_mock_review'].includes(action))
-    return copy({allowed:false,reason:'action_not_authorized',...noLive});
+     return copy({allowed:false,reason:'action_not_authorized',...noLive});
    const inst=INSTITUTIONS[session.institutionId];
    return copy({allowed:true,reason:'scoped_mock_access',
     memberId:session.memberId,institutionId:session.institutionId,
     institutionKind:inst.kind,country:inst.country,
     availableAction:action,...noLive,
    });
+  },
+  inspectMockSession({sessionToken,institutionId,action}={}){
+   const auth=this.authorizeMockSession({sessionToken,action});
+   if(!auth.allowed)return auth;
+   if(auth.institutionId!==institutionId)return copy({
+    allowed:false,reason:'cross_institution_denied',...noLive});
+   return auth;
   },
   logoutMockSession({sessionToken}={}){
    if(typeof sessionToken!=='string')return copy({revoked:false,...noLive});
