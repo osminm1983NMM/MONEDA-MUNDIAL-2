@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import PartnerComplianceReview from './PartnerComplianceReview';
 import PartnerExpiryDashboard from './PartnerExpiryDashboard';
+import PartnerCountryOverview from './PartnerCountryOverview';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { summarizeRegisteredPickupCandidates, projectRegisteredPickupDesign } from './src/registered-pickup-design.mjs';
 
@@ -168,6 +169,7 @@ export default function PartnerRegistryScreen({ supabase, onPreviewPickup }) {
       <Text style={s.text}>Países con candidatos: {networkSummary.countriesWithCandidates}</Text>
       <Text style={s.warn}>Bancos y sucursales habilitados para pagar: 0. Todos son únicamente candidatos; ningún código puede cobrarse.</Text>
     </View>
+    <PartnerCountryOverview supabase={supabase} />
     <PartnerExpiryDashboard supabase={supabase} />
     <View style={s.card}>
       <Text style={s.title}>Registrar futuro socio</Text>
