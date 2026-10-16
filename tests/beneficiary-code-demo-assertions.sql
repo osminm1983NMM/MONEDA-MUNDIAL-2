@@ -34,6 +34,9 @@ BEGIN
  PERFORM public.mwd_owner_mock_beneficiary_check_demo(o,'20000000-0000-4000-8000-000000000007');
  a:=public.mwd_owner_try_pickup_code_demo(o,'DEMO-FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF','20000000-0000-4000-8000-000000000008');
  IF a->>'remaining_attempts'<>'4' THEN RAISE EXCEPTION 'Intento incorrecto no contado'; END IF;
+ b:=public.mwd_owner_try_pickup_code_demo(o,'DEMO-FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF','20000000-0000-4000-8000-000000000008');
+ IF b->>'already_processed'<>'true' OR b->>'remaining_attempts'<>'4'
+ THEN RAISE EXCEPTION 'Reintento erróneo consumió otro intento'; END IF;
  a:=public.mwd_owner_try_pickup_code_demo(o,code,'20000000-0000-4000-8000-000000000009');
  IF a->>'status'<>'consumed' OR a->>'money_paid'<>'false' THEN RAISE EXCEPTION 'Consumo ficticio falló'; END IF;
  b:=public.mwd_owner_try_pickup_code_demo(o,code,'20000000-0000-4000-8000-000000000009');
