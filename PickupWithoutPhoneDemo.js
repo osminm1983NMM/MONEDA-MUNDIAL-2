@@ -1,6 +1,7 @@
 // Prototipo de retiros sin telefono. SIN DINERO REAL.
 import React,{useEffect,useRef,useState} from 'react';
 import {View,Text,TextInput,TouchableOpacity,Alert,Platform} from 'react-native';
+const {parseDemoAmountCents,normalizeDemoCountry,claimDemoFeedback}=require('./pickupDemoRules');
 const css={card:{padding:16,backgroundColor:'#142a45',borderRadius:12,marginVertical:10},title:{color:'#fff',fontWeight:'bold',fontSize:20,marginBottom:10},text:{color:'#dbe8f8',marginBottom:9},alert:{color:'#ffdc96',marginBottom:12},input:{backgroundColor:'#263c58',padding:12,color:'#fff',borderRadius:8,marginVertical:7},btn:{backgroundColor:'#2867e8',padding:12,borderRadius:8,marginVertical:6},btntxt:{color:'#fff',fontWeight:'bold',textAlign:'center'}};
 function Btn({label,onPress,disabled}){return <TouchableOpacity accessibilityRole="button" disabled={disabled} onPress={onPress} style={[css.btn,disabled&&{opacity:.45}]}><Text style={css.btntxt}>{label}</Text></TouchableOpacity>;}
 function uuid(){if(!globalThis.crypto?.getRandomValues)throw Error('Aleatoriedad segura no disponible');const b=new Uint8Array(16);globalThis.crypto.getRandomValues(b);b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;const h=Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');return [h.slice(0,8),h.slice(8,12),h.slice(12,16),h.slice(16,20),h.slice(20)].join('-');}
@@ -17,10 +18,8 @@ useEffect(()=>{load().catch(e=>setError(e.message));},[supabase,isOwner]);
 async function create(){
  if(busy)return;setError('');setBusy(true);
  try{
- const v=amount.trim().replace(',','.');
- if(!/^\d+(\.\d{1,2})?$/.test(v))throw Error('Importe inválido');
- const cents=Math.round(Number(v)*100),destination=country.trim().toUpperCase();
- if(!Number.isSafeInteger(cents)||cents<100||cents>100000||!/^[A-Z]{2}$/.test(destination))throw Error('Usa un país de dos letras y un importe de 1 a 1000');
+ const cents=parseDemoAmountCents(amount),destination=normalizeDemoCountry(country);
+ if(cents===null||destination===null)throw Error('Usa un país de dos letras y un importe de 1 a 1000');
  const signature=destination+'|'+cents;
  if(requestRef.current?.signature!==signature)requestRef.current={signature,id:uuid()};
  const {data,error:e}=await supabase.rpc('mwd_pickup_create_demo',{p_destination_country:destination,p_amount_cents:cents,p_request_id:requestRef.current.id});
@@ -33,7 +32,7 @@ async function cancel(orderId){if(busy)return;setBusy(true);setError('');try{con
 async function collect(){
  if(busy||!selected)return;setBusy(true);setError('');
  try{const {data,error:e}=await supabase.rpc('mwd_owner_pickup_simulate_demo',{p_order_id:selected,p_pickup_code:claim.trim().toUpperCase()});
- if(e)throw e;setClaim('');await load();if(data?.status!=='simulated_collected')setError('Sin entrega: '+(data?.message||data?.status||'no confirmado'));
+ if(e)throw e;setClaim('');await load();const outcome=claimDemoFeedback(data);if(!outcome.ok)setError(outcome.message);
  }catch(e){setError(e.message||'No se completó la simulación');}finally{setBusy(false);}
 }
 return <View style={css.card}>
