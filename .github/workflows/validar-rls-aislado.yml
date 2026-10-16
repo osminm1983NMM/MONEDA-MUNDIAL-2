@@ -52,9 +52,34 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f tests/transferencias-dos-cuentas-fixture.sql
       - name: Verificar transferencias, cobros, reintentos y RLS entre A y B
         run: psql -X -v ON_ERROR_STOP=1 -f tests/transferencias-dos-cuentas-assertions.sql
+  ensayar-socios:
+    name: Verificar registro de futuros bancos en PostgreSQL aislado
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: demo-temporary-ci-only
+          POSTGRES_DB: demo_partners
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d demo_partners"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 8
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: demo_partners
+      PGUSER: postgres
+      PGPASSWORD: demo-temporary-ci-only
+    steps:
+      - uses: actions/checkout@v4
       - name: Preparar usuarios y catálogo ficticio de socios
         run: psql -X -v ON_ERROR_STOP=1 -f tests/partner-registry-fixture.sql
-      - name: Instalar registro real de socios en PostgreSQL aislado
+      - name: Instalar registro de socios en PostgreSQL aislado
         run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_secure_partner_registry_demo.sql
-      - name: Verificar acceso por propietario, RLS, estados y auditoría
+      - name: Verificar propietario, RLS, estados y auditoría
         run: psql -X -v ON_ERROR_STOP=1 -f tests/partner-registry-assertions.sql
