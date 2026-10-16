@@ -59,7 +59,7 @@ test('reutilizar un id de notificación con otro estado u orden NO se trata como
  assert.equal(m.getSandboxTransfer(b.id).status,'sandbox_submitted');
  assert.equal(m.getSanitizedAudit().length,3);
 });
-test('notificación de laboratorio rechaza campos ajenos aunque estén firmados con clave de TEST',()=>{
+test('notificación de laboratorio rechaza campos ajenos aunque estén firmados con clave de TEST',async()=>{
  const m=make(),a=m.submitSandboxTransfer({requestId:'request-field-test-01',order});
  const signed=m.makeMockWebhook({id:'event-valid-test-4444',transferId:a.id,status:'sandbox_pending'});
  const {createHmac}=await import('node:crypto');
