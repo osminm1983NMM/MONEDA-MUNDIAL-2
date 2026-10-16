@@ -12,6 +12,7 @@ import {
   StyleSheet, Alert, Platform, StatusBar, ActivityIndicator
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+const {LANGUAGE_OPTIONS,detectDeviceLanguage,normalizeLanguagePreference,resolveLanguage,translateText}=require('./i18n');
 import { createClient } from '@supabase/supabase-js';
 import PartnerRegistryScreen from './PartnerRegistryScreen';
 import CoinStableDemoScreen from './CoinStableDemoScreen';
@@ -85,6 +86,12 @@ function Btn({ title, onPress, secondary = false, disabled = false }) {
 }
 
 export default function App() {
+  const [languagePreference,setLanguagePreference]=useState('auto');
+  const [deviceLanguage]=useState(detectDeviceLanguage);
+  const language=resolveLanguage(languagePreference,deviceLanguage);
+  const tr=label=>translateText(label,language);
+  useEffect(()=>{let live=true;AsyncStorage.getItem('mwd_language_preference').then(value=>{if(live&&value!==null)setLanguagePreference(normalizeLanguagePreference(value));}).catch(()=>{});return()=>{live=false;};},[]);
+  function chooseLanguage(next){setLanguagePreference(next);AsyncStorage.setItem('mwd_language_preference',next).catch(()=>{});}
   const [authLoading, setAuthLoading] = useState(true);
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState('');
@@ -267,76 +274,78 @@ export default function App() {
       <StatusBar barStyle="light-content" backgroundColor="#07111f" />
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <Text style={styles.logo}>🌐 MONEDA MUNDIAL</Text>
+        <Text style={styles.muted}>{tr('Idioma de la aplicación')} · {language.toUpperCase()}</Text>
+        <View style={{flexDirection:'row',flexWrap:'wrap',marginBottom:8}}>{LANGUAGE_OPTIONS.map(opt=><TouchableOpacity key={opt.id} accessibilityRole="button" onPress={()=>chooseLanguage(opt.id)} style={[styles.buttonSecondary,{padding:9,marginRight:7,marginBottom:7,borderRadius:8},languagePreference===opt.id&&{backgroundColor:'#276af1'}]}><Text style={styles.buttonText}>{opt.id==='auto'?tr('Detectar automáticamente'):opt.label}</Text></TouchableOpacity>)}</View>
         <Text style={styles.sub}>MWD • Versión 2.0 • Supabase</Text>
-        <Text style={styles.warning}>SOLO DEMOSTRACIÓN • SIN DINERO REAL</Text>
+        <Text style={styles.warning}>{tr('SOLO DEMOSTRACIÓN • SIN DINERO REAL')}</Text>
 
         {authLoading ? <ActivityIndicator color="#4a8dff" size="large" /> : !session ? (
           <View style={styles.card}>
-            <Text style={styles.heading}>Accede a Moneda Mundial</Text>
-            <Text style={styles.muted}>Crea una cuenta de prueba o inicia sesión.</Text>
-            <TextInput style={styles.input} placeholder="Correo electrónico"
+            <Text style={styles.heading}>{tr('Accede a Moneda Mundial')}</Text>
+            <Text style={styles.muted}>{tr('Crea una cuenta de prueba o inicia sesión.')}</Text>
+            <TextInput style={styles.input} placeholder={tr('Correo electrónico')}
               placeholderTextColor="#9fb1c8" keyboardType="email-address"
               autoCapitalize="none" autoCorrect={false} value={email} onChangeText={setEmail} />
-            <TextInput style={styles.input} placeholder="Contraseña (8 caracteres mínimo)"
+            <TextInput style={styles.input} placeholder={tr('Contraseña (8 caracteres mínimo)')}
               placeholderTextColor="#9fb1c8" autoCapitalize="none"
               secureTextEntry value={password} onChangeText={setPassword} />
             <Btn title={authBusy ? 'Espera...' : 'Iniciar sesión'} onPress={() => authenticate('login')} disabled={authBusy} />
-            <Btn title="Crear cuenta de prueba" secondary onPress={() => authenticate('register')} disabled={authBusy} />
-            <Text style={styles.muted}>Cada cuenta nueva recibe 10,000 MWD ficticios. Si Supabase solicita confirmar el correo, revisa tu bandeja de entrada.</Text>
+            <Btn title={tr('Crear cuenta de prueba')} secondary onPress={() => authenticate('register')} disabled={authBusy} />
+            <Text style={styles.muted}>{tr('Cada cuenta nueva recibe 10,000 MWD ficticios. Si Supabase solicita confirmar el correo, revisa tu bandeja de entrada.')}</Text>
           </View>
         ) : (
           <>
-            {screen !== 'Inicio' && <Btn title="← Volver al inicio" secondary onPress={() => navigate('Inicio')} disabled={busy} />}
+            {screen !== 'Inicio' && <Btn title={tr('← Volver al inicio')} secondary onPress={() => navigate('Inicio')} disabled={busy} />}
             {screen === 'Inicio' && <>
               <View style={styles.card}>
-                <Text style={styles.muted}>TU CUENTA PERSONAL DE PRUEBA</Text>
+                <Text style={styles.muted}>{tr('TU CUENTA PERSONAL DE PRUEBA')}</Text>
                 <Text style={styles.small}>{session.user.email}</Text>
                 <Text style={styles.balance}>{wallet ? formatMWD(wallet.balance_cents) : '...'} MWD</Text>
-                <Text style={styles.muted}>Saldo ficticio en Supabase</Text>
+                <Text style={styles.muted}>{tr('Saldo ficticio en Supabase')}</Text>
                 <Text selectable style={styles.code}>{wallet?.account_code || 'Cargando identificador...'}</Text>
               </View>
-              <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet} />
-              <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
-              <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
-              <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
-              <Btn title="Actualizar saldo e historial" secondary onPress={() => refreshAccount()} disabled={syncing} />
-              <Btn title="Convertir Coin ↔ Estable (prueba)" secondary onPress={() => navigate('Conversión')} />
-              <Btn title="Entrega sin teléfono (DEMO)" secondary onPress={() => navigate('Entrega')} />
-              <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
-              <Btn title="Cerrar sesión" secondary onPress={logout} />
+              <Btn title={tr('Transferir MWD entre usuarios')} onPress={() => navigate('Transferir')} disabled={!wallet} />
+              <Btn title={tr('Registrar aportación ficticia')} onPress={() => navigate('Aportar')} disabled={!wallet} />
+              <Btn title={tr('Mis movimientos')} secondary onPress={() => navigate('Historial')} />
+              <Btn title={tr('Mi cuenta / recibir')} secondary onPress={() => navigate('Cuenta')} />
+              <Btn title={tr('Actualizar saldo e historial')} secondary onPress={() => refreshAccount()} disabled={syncing} />
+              <Btn title={tr('Convertir Coin ↔ Estable (prueba)')} secondary onPress={() => navigate('Conversión')} />
+              <Btn title={tr('Entrega sin teléfono (DEMO)')} secondary onPress={() => navigate('Entrega')} />
+              <Btn title={tr('Administración')} secondary onPress={() => navigate('Admin')} />
+              <Btn title={tr('Cerrar sesión')} secondary onPress={logout} />
             </>}
 
             {screen === 'Transferir' && <View style={styles.card}>
-              <Text style={styles.heading}>Transferencia de prueba</Text>
-              <Text style={styles.muted}>Pide a la otra persona su código MWD para enviarle créditos de demostración.</Text>
-              <TextInput style={styles.input} placeholder="Ejemplo: MWD-0123456789ABCDEF"
+              <Text style={styles.heading}>{tr('Transferencia de prueba')}</Text>
+              <Text style={styles.muted}>{tr('Pide a la otra persona su código MWD para enviarle créditos de demostración.')}</Text>
+              <TextInput style={styles.input} placeholder={tr('Ejemplo: MWD-0123456789ABCDEF')}
                 autoCapitalize="characters" autoCorrect={false} placeholderTextColor="#9fb1c8"
                 value={recipientCode} onChangeText={changeRecipient} />
-              <TextInput style={styles.input} placeholder="Cantidad MWD" keyboardType="decimal-pad"
+              <TextInput style={styles.input} placeholder={tr('Cantidad MWD')} keyboardType="decimal-pad"
                 placeholderTextColor="#9fb1c8" value={amount} onChangeText={changeAmount} />
               <Btn title={busy ? 'Procesando...' : 'Confirmar transferencia ficticia'}
                 onPress={() => prepareOperation('transfer')} disabled={busy} />
             </View>}
 
             {screen === 'Aportar' && <View style={styles.card}>
-              <Text style={styles.heading}>Aportación de prueba</Text>
-              <Text style={styles.muted}>La cantidad se descontará de tu saldo ficticio y quedará en el historial. No se recibirá dinero real.</Text>
-              <TextInput style={styles.input} placeholder="Cantidad MWD" keyboardType="decimal-pad"
+              <Text style={styles.heading}>{tr('Aportación de prueba')}</Text>
+              <Text style={styles.muted}>{tr('La cantidad se descontará de tu saldo ficticio y quedará en el historial. No se recibirá dinero real.')}</Text>
+              <TextInput style={styles.input} placeholder={tr('Cantidad MWD')} keyboardType="decimal-pad"
                 placeholderTextColor="#9fb1c8" value={amount} onChangeText={changeAmount} />
               <Btn title={busy ? 'Procesando...' : 'Confirmar aportación ficticia'}
                 onPress={() => prepareOperation('contribution')} disabled={busy} />
             </View>}
 
             {screen === 'Cuenta' && <View style={styles.card}>
-              <Text style={styles.heading}>Mi identificador para recibir</Text>
+              <Text style={styles.heading}>{tr('Mi identificador para recibir')}</Text>
               <Text selectable style={styles.code}>{wallet?.account_code}</Text>
-              <Text style={styles.muted}>Comparte este identificador con otra cuenta de prueba. No compartas tu contraseña.</Text>
+              <Text style={styles.muted}>{tr('Comparte este identificador con otra cuenta de prueba. No compartas tu contraseña.')}</Text>
               <Text style={styles.small}>Correo: {session.user.email}</Text>
             </View>}
 
             {screen === 'Historial' && <>
-              <Text style={styles.heading}>Mis últimos movimientos</Text>
-              {operations.length === 0 && <Text style={styles.muted}>Todavía no hay movimientos en línea.</Text>}
+              <Text style={styles.heading}>{tr('Mis últimos movimientos')}</Text>
+              {operations.length === 0 && <Text style={styles.muted}>{tr('Todavía no hay movimientos en línea.')}</Text>}
               {operations.map(op => {
                 const sent = op.kind === 'contribution' || op.source_user_id === userId;
                 const label = op.kind === 'contribution' ? 'Aportación ficticia' :
@@ -354,19 +363,19 @@ export default function App() {
             {screen === 'Conversión' && <CoinStableDemoScreen supabase={supabase} />}
             {screen === 'Entrega' && <PickupWithoutPhoneDemo supabase={supabase} isOwner={adminRole === 'owner'} />}
             {screen === 'Admin' && <View style={styles.card}>
-              <Text style={styles.heading}>Administración MWD</Text>
+              <Text style={styles.heading}>{tr('Administración MWD')}</Text>
               {adminRole === 'owner' ? (
                 <><PartnerRegistryScreen supabase={supabase} /><ConversionAdminDemoScreen supabase={supabase} /><AgentAccessAdminDemo supabase={supabase} /></>
               ) : adminRole ? (
                 <Text style={styles.muted}>Tu rol es: {adminRole}. El registro de socios requiere permisos de propietario.</Text>
               ) : (
-                <Text style={styles.muted}>Esta cuenta no tiene permisos administrativos. Solo el propietario del proyecto podrá asignarlos desde un entorno seguro.</Text>
+                <Text style={styles.muted}>{tr('Esta cuenta no tiene permisos administrativos. Solo el propietario del proyecto podrá asignarlos desde un entorno seguro.')}</Text>
               )}
-              <Text style={styles.warning}>Nunca se puede asignar el rol de administrador desde esta pantalla.</Text>
+              <Text style={styles.warning}>{tr('Nunca se puede asignar el rol de administrador desde esta pantalla.')}</Text>
             </View>}
           </>
         )}
-        <Text style={styles.footer}>Moneda Mundial • Prototipo conectado a Supabase • No es un servicio financiero</Text>
+        <Text style={styles.footer}>{tr('Moneda Mundial • Prototipo conectado a Supabase • No es un servicio financiero')}</Text>
       </ScrollView>
     </View>
   );
