@@ -1,6 +1,7 @@
 // Registro permanente de candidatos a socios financieros (solo modo demostración).
 // Las llamadas RPC comprueban el rol propietario en Supabase; ocultar esta pantalla no es una barrera de seguridad.
 import React, { useEffect, useState } from 'react';
+import PartnerComplianceReview from './PartnerComplianceReview';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { summarizeRegisteredPickupCandidates, projectRegisteredPickupDesign } from './src/registered-pickup-design.mjs';
 
@@ -216,6 +217,7 @@ export default function PartnerRegistryScreen({ supabase, onPreviewPickup }) {
       <Btn title="Guardar sucursal candidata" disabled={busy || !branchName.trim() || !city.trim()}
         onPress={saveLocation} />
 
+      <PartnerComplianceReview supabase={supabase} partnerId={selectedId} />
       <Text style={[s.title, { marginTop: 17 }]}>Historial de modificaciones</Text>
       {audit.length === 0 && <Text style={s.dim}>No hay modificaciones registradas.</Text>}
       {audit.map((a, i) => <Text key={i} style={s.dim}>
