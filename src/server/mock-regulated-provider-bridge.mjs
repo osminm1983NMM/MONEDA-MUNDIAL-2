@@ -3,7 +3,7 @@
 // No crea fondos, cuentas, comisiones reales o referencias de cobro.
 import { createHmac, randomUUID, timingSafeEqual, createHash } from 'node:crypto';
 
-const ROUTES = Object.freeze(['US:NI']); // corredores de ENSAYO, ninguno habilitado
+const ROUTES = Object.freeze(['US:HN']); // corredores de ENSAYO, ninguno habilitado
 const DEMO_STATUSES = new Set(['sandbox_submitted', 'sandbox_pending', 'sandbox_completed', 'sandbox_failed']);
 const MONEY_RE = /^[A-Z]{3}$/;
 const MODE_ERROR='DINERO REAL BLOQUEADO: no hay proveedor contratado ni aprobación regulatoria.';
@@ -15,7 +15,7 @@ function requireMockOnly(mode) {
 }
 function validateOrder(order) {
   if (!order || typeof order !== 'object' || Array.isArray(order)) throw auditSafe('Orden de ensayo requerida');
-  if (order.origin !== 'US' || order.destination !== 'NI' ||
+  if (order.origin !== 'US' || order.destination !== 'HN' ||
       !MONEY_RE.test(order.sourceCurrency ?? '') || order.sourceCurrency !== 'USD' ||
       !Number.isSafeInteger(order.amountCents) || order.amountCents < 100 || order.amountCents > 10000000 ||
       !['bank_account', 'cash_pickup'].includes(order.payoutMethod)) {
@@ -27,7 +27,7 @@ function validateOrder(order) {
     throw auditSafe('Datos personales/bancarios prohibidos en el sandbox ficticio');
   }
   return {
-    origin:'US', destination:'NI',sourceCurrency:'USD',
+    origin:'US', destination:'HN',sourceCurrency:'USD',
     amountCents:order.amountCents,payoutMethod:order.payoutMethod,
   };
 }
@@ -58,7 +58,7 @@ export function createMockRegulatedProviderBridge({
   quote(order) {
    const normalized=validateOrder(order);
    return Object.freeze({
-     route:'US:NI',amountCents:normalized.amountCents,sourceCurrency:'USD',
+     route:'US:HN',amountCents:normalized.amountCents,sourceCurrency:'USD',
      payoutMethod:normalized.payoutMethod,
      feeCents:null,fxRate:null,recipientAmountCents:null,
      quoteBinding:'mock-only',quoteValidForRealTransfer:false,
