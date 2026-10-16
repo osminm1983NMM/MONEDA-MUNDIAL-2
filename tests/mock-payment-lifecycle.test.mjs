@@ -63,3 +63,28 @@ test('reintentos son idempotentes y no modifican órdenes anteriores',()=>{
 test('rechaza acceso a modo producción',()=>{
  assert.throws(()=>createMockPaymentLifecycle({mode:'live',webhookSecret:secret}),/DESHABILITADAS/);
 });
+
+test('cancelar orden no financiada evita notificaciones de fondeo posteriores',()=>{
+ const m=make(),o=create(m);
+ const first=m.cancelMockBeforeFunding({orderId:o.orderId,requestId:'cancel-before-funds-0001'});
+ assert.equal(first.status,'cancelled_mock');
+ assert.equal(first.realMoneyEnabled,false);
+ assert.equal(m.cancelMockBeforeFunding({orderId:o.orderId,requestId:'cancel-before-funds-0001'}).alreadyProcessed,true);
+ assert.throws(()=>m.cancelMockBeforeFunding({orderId:o.orderId,requestId:'cancel-before-funds-0002'}),/prohibida/);
+ assert.throws(()=>emit(m,o,'funding_settled_mock','after-cancel'),/prohibida/);
+ assert.throws(()=>m.requestMockRefund({orderId:o.orderId,requestId:'refund-after-cancel-001'}),/No hay/);
+ assert.equal(m.getAccountingProposals(o.orderId).length,0);
+ assert.equal(m.getAuditLog().filter(x=>x.type==='order_cancelled_unfunded_mock').length,1);
+});
+test('una orden pagada o en salida pendiente no se cancela unilateralmente',()=>{
+ const m=make(),o=create(m,'NI');
+ emit(m,o,'funding_settled_mock','before-payout');
+ assert.throws(()=>m.cancelMockBeforeFunding({orderId:o.orderId,requestId:'cancel-after-funds-0001'}),/prohibida/);
+ m.requestMockPayout({orderId:o.orderId,requestId:'payout-before-cancel-01'});
+ assert.throws(()=>m.cancelMockBeforeFunding({orderId:o.orderId,requestId:'cancel-payout-pending-01'}),/prohibida/);
+ assert.throws(()=>m.requestMockRefund({orderId:o.orderId,requestId:'refund-payout-pending-01'}),/No hay/);
+ emit(m,o,'payout_settled_mock','already-paid');
+ assert.throws(()=>m.cancelMockBeforeFunding({orderId:o.orderId,requestId:'cancel-already-paid-01'}),/prohibida/);
+ assert.throws(()=>m.requestMockRefund({orderId:o.orderId,requestId:'refund-already-paid-001'}),/No hay/);
+ assert.equal(m.inspectMockOrder(o.orderId).status,'paid_mock');
+});

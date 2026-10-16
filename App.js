@@ -22,6 +22,7 @@ import DigitalMoneyConceptScreen from './DigitalMoneyConceptScreen';
 import WalletRemittanceConceptScreen from './WalletRemittanceConceptScreen';
 import MockAlertsAdminScreen from './MockAlertsAdminScreen';
 import MockAuditPreviewScreen from './MockAuditPreviewScreen';
+import MockRefundCancellationGuide from './MockRefundCancellationGuide';
 import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentRequestId } from './src/demo-money.mjs';
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
@@ -1665,6 +1666,7 @@ export default function App() {
                   <MockAuditPreviewScreen />
                   <Text style={styles.sectionEyebrow}>SEGUIMIENTO DE REMESAS FICTICIAS Y ANTIDUPLICADOS</Text>
                   <RemittanceTrackingDemoScreen supabase={supabase} />
+                  <MockRefundCancellationGuide />
                   <Text style={styles.sectionEyebrow}>VINCULAR AGENTES CANDIDATOS · SIN COBROS REALES</Text>
                   <PayoutCandidateLinkScreen supabase={supabase} />
                   <Text style={styles.muted}>No se permite cambiar roles, saldos ni operaciones desde este panel.</Text>

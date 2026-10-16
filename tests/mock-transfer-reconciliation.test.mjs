@@ -69,3 +69,28 @@ test('hash auditado de ejemplo detecta alteración y repetición conflictiva',()
  assert.equal(x.previousHash,'0'.repeat(64));
  assert.equal(a.realAuditEnabled,false);
 });
+
+test('cancelación antes de financiación cierra SIN extracto ni entradas contables',()=>{
+ const m=setup(),o=sample(m,'NI');
+ m.cancelMockBeforeFunding({orderId:o.orderId,requestId:'cancel-reconciliation-001'});
+ const state=m.inspectMockOrder(o.orderId);
+ const r=reconcileMockTransfer({order:state,proposals:[],statementRows:[],
+ statementId:'statement-unfunded-cancel-001'});
+ assert.equal(r.status,'closed_without_funds_mock');
+ assert.equal(r.expectedEvents,0);
+ assert.equal(r.realLedgerPosted,false);
+ assert.equal(r.eligibleForRealPayout,false);
+ const audit=createMockAuditTrail();
+ audit.append({eventId:'audit-cancel-example-001',orderId:o.orderId,kind:'reconciliation_mock',status:r.status});
+ assert.equal(audit.verify(),true);
+});
+test('una orden cancelada con extracto ficticio inesperado requiere revisión',()=>{
+ const m=setup(),o=sample(m);
+ m.cancelMockBeforeFunding({orderId:o.orderId,requestId:'cancel-reconciliation-002'});
+ const state=m.inspectMockOrder(o.orderId);
+ const fake=statements(state,['funding_settled_mock']);
+ const r=reconcileMockTransfer({order:state,proposals:[],statementRows:fake,
+ statementId:'statement-cancel-conflict-002'});
+ assert.equal(r.status,'manual_review_mock');
+ assert.ok(r.issues.includes('unexpected_statement_record'));
+});

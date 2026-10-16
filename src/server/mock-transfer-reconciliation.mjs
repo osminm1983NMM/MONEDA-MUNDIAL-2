@@ -3,7 +3,7 @@
 import {createHash} from 'node:crypto';
 const P=['funding_settled_mock','payout_settled_mock','refund_settled_mock'];
 const STATES=['created_mock','funded_mock','payout_pending_mock','payout_failed_mock',
- 'refund_pending_mock','refund_failed_mock','paid_mock','refunded_mock'];
+ 'refund_pending_mock','refund_failed_mock','paid_mock','refunded_mock','cancelled_mock'];
 const UUID=/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const ID=/^[a-zA-Z0-9_-]{12,90}$/;
 const sha=x=>createHash('sha256').update(x).digest('hex');
@@ -27,7 +27,7 @@ function orderOk(o){
  bad('Orden de prueba inválida');
 }
 function expected(status){
- if(status==='created_mock')return [];
+ if(['created_mock','cancelled_mock'].includes(status))return [];
  if(status==='paid_mock')return [P[0],P[1]];
  if(status==='refunded_mock')return [P[0],P[2]];
  return [P[0]];
@@ -87,7 +87,7 @@ export function reconcileMockTransfer({order,proposals,statementRows,statementId
    issues.push('unexpected_statement_record');
  const completed=['paid_mock','refunded_mock'].includes(order.status);
  return safe({statementId,orderId:order.orderId,
-  status:issues.length?'manual_review_mock':completed?'matched_mock':'pending_mock',
+  status:issues.length?'manual_review_mock':order.status==='cancelled_mock'?'closed_without_funds_mock':completed?'matched_mock':'pending_mock',
   mockOrderStatus:order.status,expectedEvents:phases.length,
   receivedEvents:statementRows.length,issues:safe(issues),
   requiresHumanReview:issues.length>0,realMoneyEnabled:false,
@@ -102,7 +102,7 @@ export function createMockAuditTrail(){
   if(!keys(e,['eventId','orderId','kind','status'])||
    !ID.test(e.eventId||'')||!UUID.test(e.orderId||'')||
    !['reconciliation_mock','payout_review_mock','refund_review_mock'].includes(e.kind)||
-   !['matched_mock','manual_review_mock','pending_mock'].includes(e.status))
+   !['matched_mock','manual_review_mock','pending_mock','closed_without_funds_mock'].includes(e.status))
     bad('Evento no permitido');
   return {eventId:e.eventId,orderId:e.orderId,kind:e.kind,status:e.status};
  };

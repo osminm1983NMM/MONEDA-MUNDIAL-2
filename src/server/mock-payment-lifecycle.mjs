@@ -8,7 +8,7 @@ const STATE = Object.freeze({
   created:'created_mock', funded:'funded_mock',
   payoutPending:'payout_pending_mock', payoutFailed:'payout_failed_mock',
   refundPending:'refund_pending_mock', refundFailed:'refund_failed_mock',
-  paid:'paid_mock', refunded:'refunded_mock',
+  paid:'paid_mock', refunded:'refunded_mock', cancelled:'cancelled_mock',
 });
 const PHASES = Object.freeze({
   funding:'funding_settled_mock', payout:'payout_settled_mock',
@@ -110,6 +110,12 @@ export function createMockPaymentLifecycle({
   },
   requestMockPayout({orderId,requestId}={}){
    return action('payout_requested_mock',orderId,requestId,STATE.funded,STATE.payoutPending);
+  },
+  // Sólo se puede cancelar una orden de prueba ANTES de cualquier supuesto
+  // fondeo. Tras fondeo se requiere el flujo separado de reembolso ficticio.
+  cancelMockBeforeFunding({orderId,requestId}={}){
+   return action('order_cancelled_unfunded_mock',orderId,requestId,
+     STATE.created,STATE.cancelled);
   },
   requestMockRefund({orderId,requestId}={}){
    const o=get(orderId);
