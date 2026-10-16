@@ -18,6 +18,7 @@ import { createClient } from '@supabase/supabase-js';
 import PartnerRegistryScreen from './PartnerRegistryScreen';
 import RemittanceTrackingDemoScreen from './RemittanceTrackingDemoScreen';
 import PayoutCandidateLinkScreen from './PayoutCandidateLinkScreen';
+import DigitalMoneyConceptScreen from './DigitalMoneyConceptScreen';
 import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentRequestId } from './src/demo-money.mjs';
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
@@ -1257,6 +1258,7 @@ export default function App() {
                 <Btn title="Países del mundo y disponibilidad" secondary onPress={() => { navigate('PaisesMundo'); loadWorldCountries(); }} />
                 <Btn title="Simulador internacional de comisiones" secondary onPress={() => navigate('SimuladorInternacional')} />
                 <Btn title="Retiro de efectivo con código (demostración)" secondary onPress={() => { navigate('RetiroEfectivoDemo'); loadWorldCountries(); }} />
+                <Btn title="Moneda Mundial Digital · Opción C" secondary onPress={() => navigate('MonedaDigitalConcepto')} />
                 <Btn title="Configuración" secondary onPress={() => navigate('Configuracion')} />
                 <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
               </View>
@@ -1568,6 +1570,8 @@ export default function App() {
                 </View>;
               })()}
             </View>}
+
+            {screen === 'MonedaDigitalConcepto' && <DigitalMoneyConceptScreen />}
 
             {screen === 'Admin' && <View style={styles.card}>
               <Text style={styles.heading}>Administración MWD</Text>
