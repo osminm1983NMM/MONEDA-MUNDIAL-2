@@ -1,0 +1,45 @@
+name: Verificar vínculo de sucursales y remesas ficticias
+on:
+  push:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'database/mwd_payout_candidate_link_demo.sql'
+      - 'tests/payout-candidate-link-assertions.sql'
+      - '.github/workflows/test-payout-candidate-link.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verificar-vinculo:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: demo-only
+          POSTGRES_DB: payout_link_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d payout_link_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 8
+    env:
+      PGHOST: localhost
+      PGDATABASE: payout_link_test
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: demo-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preparar propietario y catálogo aislados
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/partner-registry-fixture.sql
+      - name: Instalar registro de futuros socios
+        run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_secure_partner_registry_demo.sql
+      - name: Instalar registro de remesas ficticias
+        run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_owner_remittance_tracking_demo.sql
+      - name: Instalar asignación no cobrable
+        run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_payout_candidate_link_demo.sql
+      - name: Probar bloqueos de doble entrega y autorización
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/payout-candidate-link-assertions.sql
