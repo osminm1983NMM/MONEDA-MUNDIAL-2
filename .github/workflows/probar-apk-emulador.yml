@@ -21,13 +21,38 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Obtener última APK independiente comprobada
+      - name: Identificar última compilación independiente aprobada
+        id: latest-apk
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api_path="repos/$GH_REPO/actions/workflows/android-apk-independiente.yml/runs?branch=desarrollo-comercios-20261013&status=success&per_page=1"
+          result="$(gh api "$api_path")"
+          run_id="$(echo "$result" | jq -r '.workflow_runs[0].id // empty')"
+          build_sha="$(echo "$result" | jq -r '.workflow_runs[0].head_sha // empty')"
+          if [ -z "$run_id" ] || [ -z "$build_sha" ]; then
+            echo "::error::No hay APK independiente aprobada para probar"
+            exit 1
+          fi
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "build_sha=$build_sha" >> "$GITHUB_OUTPUT"
+          echo "APK de prueba: run $run_id, commit $build_sha"
+          echo "Nota: se verifica la última APK aprobada, no necesariamente el último commit."
+      - name: Obtener APK independiente aprobada
         uses: actions/download-artifact@v4
         with:
-          run-id: 38773210924
+          run-id: ${{ steps.latest-apk.outputs.run_id }}
           name: moneda-mundial-2-demo-independiente
           path: apk-test
           github-token: ${{ github.token }}
+      - name: Registrar procedencia de APK verificada
+        run: |
+          mkdir -p smoke-results
+          echo "GitHub run: ${{ steps.latest-apk.outputs.run_id }}" > smoke-results/compilacion-probada.txt
+          echo "Commit APK: ${{ steps.latest-apk.outputs.build_sha }}" >> smoke-results/compilacion-probada.txt
       - name: Mostrar APK y comprobar integridad
         run: |
           ls -lh apk-test/
