@@ -1,6 +1,4 @@
 -- PostgreSQL efímero CI, no Supabase real.
-CREATE ROLE anon NOLOGIN;
-CREATE ROLE authenticated NOLOGIN;
 INSERT INTO mwd_ledger_research.accounts(code,currency,category) VALUES
  ('BANK_CLEARING_USD','USD','asset'),
  ('CUSTOMER_PAYABLE_USD','USD','liability'),
