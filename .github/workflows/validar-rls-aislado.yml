@@ -8,6 +8,8 @@ on:
       - 'scripts/PROPUESTA_ACTIVAR_RLS_MWD_CORE_NO_EJECUTAR.sql'
       - '.github/workflows/validar-rls-aislado.yml'
       - 'tests/transferencias-dos-cuentas-*.sql'
+      - 'tests/partner-registry-*.sql'
+      - 'database/mwd_secure_partner_registry_demo.sql'
   pull_request:
     branches:
       - main
@@ -50,3 +52,9 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f tests/transferencias-dos-cuentas-fixture.sql
       - name: Verificar transferencias, cobros, reintentos y RLS entre A y B
         run: psql -X -v ON_ERROR_STOP=1 -f tests/transferencias-dos-cuentas-assertions.sql
+      - name: Preparar usuarios y catálogo ficticio de socios
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/partner-registry-fixture.sql
+      - name: Instalar registro real de socios en PostgreSQL aislado
+        run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_secure_partner_registry_demo.sql
+      - name: Verificar acceso por propietario, RLS, estados y auditoría
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/partner-registry-assertions.sql
