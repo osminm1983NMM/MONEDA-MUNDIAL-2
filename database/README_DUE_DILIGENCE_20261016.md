@@ -1,0 +1,11 @@
+-- Expediente de cumplimiento de socios: migración de referencia.
+-- Ya aplicada a Supabase. Solo para revisión, nunca ejecutar sobre datos reales.
+-- Tablas/RPC: mwd_partners_private.due_diligence_reviews,
+-- public.mwd_owner_partner_due_diligence_demo,
+-- public.mwd_owner_partner_due_diligence_save_demo.
+-- Las RPC verifican rol owner y nunca habilitan dinero real.
+-- Estados internos: not_started, requested, received_unverified,
+-- needs_changes, reviewed_internal. No introducir documentos personales.
+-- La auditoría integra los cambios en due_diligence_reviews.
+-- Versión 2026-10-16. Para SQL reproducible de CI ver
+-- research/ledger/ y tests/partner-registry-assertions.sql.
