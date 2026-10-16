@@ -29,7 +29,7 @@ export default function RemittanceTrackingDemoScreen({supabase}){
  const [orders,setOrders]=useState([]);
  const [selected,setSelected]=useState(null);
  const [events,setEvents]=useState([]);
- const [destination,setDestination]=useState('NI');
+ const [destination,setDestination]=useState('HN');
  const [amount,setAmount]=useState('100.00');
  const [error,setError]=useState('');
  const [notice,setNotice]=useState('');
@@ -96,7 +96,7 @@ export default function RemittanceTrackingDemoScreen({supabase}){
   {!!notice&&<Text style={s.text}>{notice}</Text>}
   <View style={s.panel}>
    <Text style={s.text}>Crear orden de seguimiento simulada</Text>
-   <Text style={s.text}>País ISO de destino (ejemplo: NI)</Text>
+   <Text style={s.text}>País ISO de destino (ejemplo: HN)</Text>
    <TextInput accessibilityLabel="País de destino" style={s.input} value={destination}
     autoCapitalize="characters" onChangeText={v=>{setDestination(v.toUpperCase());requestRef.current=null}} maxLength={2}/>
    <Text style={s.text}>Importe hipotético USD</Text>
