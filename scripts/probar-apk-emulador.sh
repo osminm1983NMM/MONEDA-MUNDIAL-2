@@ -40,6 +40,11 @@ adb exec-out screencap -p > smoke-results/initial-screen.png || true
 adb shell uiautomator dump /sdcard/moneda-mundial-ui.xml >smoke-results/ui-dump-output.txt 2>&1 || true
 adb pull /sdcard/moneda-mundial-ui.xml smoke-results/ui.xml >/dev/null 2>&1 || true
 adb logcat -d -s AndroidRuntime:E ReactNativeJS:E >smoke-results/runtime-errors.txt || true
+adb shell dumpsys window >smoke-results/window-state.txt 2>&1 || true
+if grep -Eqi "Application Not Responding|isn.t responding|is not responding|not responding" smoke-results/window-state.txt; then
+  echo "::error::El sistema Android informa ventana ANR, no es una prueba válida."
+  exit 1
+fi
 
 # Comprobación básica de instalación y apertura; no certifica flujos autenticados.
 if ! adb shell pidof "$APP_ID" >/dev/null 2>&1; then
