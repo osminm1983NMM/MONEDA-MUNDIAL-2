@@ -79,15 +79,15 @@ BEGIN
     RAISE EXCEPTION 'Closure with % code incorrectly accepted',scenario;
   EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
  END LOOP;
-END $;
+END $$;
 RESET ROLE;
 RESET request.jwt.claim.sub;
 -- Private audit only under the isolated CI administrator role, never the mobile user.
-DO $
+DO $$
 BEGIN
  IF (SELECT count(*) FROM mwd_remittance_demo_private.payout_assignments
      WHERE status='sample_completed')<>1 THEN
    RAISE EXCEPTION 'Unexpected extra mock payout closure';
  END IF;
-END $;
+END $$;
 SELECT 'Mock payout closure requires consumed token, owner and idempotency' AS result;
