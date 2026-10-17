@@ -1,11 +1,8 @@
 name: Probar APK instalada en Android
 on:
   workflow_dispatch:
-  push:
-    branches: [desarrollo-comercios-20261013]
-    paths:
-      - 'scripts/probar-apk-emulador.sh'
-      - '.github/workflows/probar-apk-emulador.yml'
+# Manual only: trigger after a successful independent APK build for this exact
+# commit. Do not auto-smoke an older artifact after an unrelated code push.
 permissions:
   contents: read
   actions: read
@@ -21,11 +18,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Identificar última compilación independiente aprobada
+      - name: Identificar APK aprobada del mismo commit que se prueba
         id: latest-apk
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          EXPECTED_SHA: ${{ github.sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -37,10 +35,14 @@ jobs:
             echo "::error::No hay APK independiente aprobada para probar"
             exit 1
           fi
+          if [ "$build_sha" != "$EXPECTED_SHA" ]; then
+            echo "::error::La última APK aprobada ($build_sha) NO corresponde al commit actual ($EXPECTED_SHA). Compila esa versión antes de ejecutar la prueba en emulador."
+            exit 1
+          fi
           echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
           echo "build_sha=$build_sha" >> "$GITHUB_OUTPUT"
           echo "APK de prueba: run $run_id, commit $build_sha"
-          echo "Nota: se verifica la última APK aprobada, no necesariamente el último commit."
+          echo "Se verificará exclusivamente la APK de este mismo commit."
       - name: Obtener APK independiente aprobada
         uses: actions/download-artifact@v4
         with:
@@ -53,6 +55,7 @@ jobs:
           mkdir -p smoke-results
           echo "GitHub run: ${{ steps.latest-apk.outputs.run_id }}" > smoke-results/compilacion-probada.txt
           echo "Commit APK: ${{ steps.latest-apk.outputs.build_sha }}" >> smoke-results/compilacion-probada.txt
+          echo "Commit esperado: ${{ github.sha }}" >> smoke-results/compilacion-probada.txt
       - name: Mostrar APK y comprobar integridad
         run: |
           ls -lh apk-test/
