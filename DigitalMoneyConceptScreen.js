@@ -2,14 +2,36 @@ import React,{useState} from 'react';
 import {View,Text,TextInput} from 'react-native';
 import {compareInternationalPriceDemo} from './src/digital-money/design-and-comparison.mjs';
 import {previewCoinToDigitalScenario} from './src/digital-money/coin-to-digital-design.mjs';
+import {CRYPTO_CONCEPT_OPTIONS,getCryptoConceptCard} from './src/digital-money/crypto-ui-state.mjs';
 const s={panel:{backgroundColor:'#152b42',borderRadius:12,padding:14,marginVertical:9},text:{color:'#e1edf4',marginVertical:6},warning:{color:'#f3c887',marginVertical:8},input:{color:'#fff',backgroundColor:'#28465c',borderRadius:7,padding:11,marginVertical:7}};
 export default function DigitalMoneyConceptScreen(){
  const [currency,setCurrency]=useState('PEN'),[price,setPrice]=useState(''),[rate,setRate]=useState(''),[seller,setSeller]=useState(''),[hypothesis,setHypothesis]=useState('');
  const [coinUnits,setCoinUnits]=useState(''),[coinUsd,setCoinUsd]=useState(''),[digitalUsd,setDigitalUsd]=useState('');
+ const [selectedAsset,setSelectedAsset]=useState('coin');
+ const selectedCard=getCryptoConceptCard(selectedAsset);
  const swap=previewCoinToDigitalScenario({coinUnits,coinUsdScenario:coinUsd,digitalUsdScenario:digitalUsd});
  const q=compareInternationalPriceDemo({localCurrency:currency,localPrice:price,localUnitsPerUsd:rate,sellerUsd:seller,tokenUsdExample:hypothesis});
  return <View style={s.panel}>
-  <Text style={s.text}>MONEDA MUNDIAL DIGITAL · OPCIÓN C</Text>
+  <Text style={s.text}>MONEDA MUNDIAL · DOS FUTUROS ACTIVOS CRIPTO</Text>
+  <Text style={s.warning}>INVESTIGACIÓN: no hay tokens emitidos ni cotizaciones oficiales.</Text>
+  <View style={{flexDirection:'row',marginVertical:5}}>
+    {CRYPTO_CONCEPT_OPTIONS.map(key=><Text key={key} accessibilityRole="button"
+      accessibilityLabel={'Ver '+getCryptoConceptCard(key).title}
+      onPress={()=>setSelectedAsset(key)}
+      style={[s.text,{flex:1,textAlign:'center',padding:12,borderRadius:8,
+       backgroundColor:selectedAsset===key?'#275c82':'#28465c'}]}>
+      {key==='coin'?'Coin · variable':'Digital · estable deseada'}
+    </Text>)}
+  </View>
+  {selectedCard&&<View style={s.panel}>
+    <Text style={s.text}>{selectedCard.title}</Text>
+    <Text style={s.text}>{selectedCard.subtitle}</Text>
+    <Text style={s.warning}>{selectedCard.status} · {selectedCard.reference}</Text>
+    <Text style={s.text}>{selectedCard.description}</Text>
+    <Text style={s.text}>{selectedCard.heading}:</Text>
+    {selectedCard.highlights.map(line=><Text key={line} style={s.text}>• {line}</Text>)}
+    <Text style={s.warning}>Saldo real: ninguno · Comprar, vender, convertir y pagar: NO disponibles.</Text>
+  </View>}
   <Text style={s.text}>MWD actuales: créditos de prueba sin valor financiero. NO son criptomonedas.</Text>
   <Text style={s.text}>Moneda Mundial Digital: concepto de moneda estable para pagos, sujeto a emisor autorizado. Paridad NO operativa.</Text>
   <Text style={s.text}>Moneda Mundial Coin: concepto de criptomoneda de valor variable. Sin emisión, oferta total, cotización ni blockchain elegidos.</Text>
