@@ -2,11 +2,25 @@
 // Exclusivamente planificación del backend: NO integra APIs, no verifica
 // licencias por sí misma, NO usa PII, no custodia ni mueve dinero.
 // Ninguna combinación de evidencia habilita pagos reales.
+// La validación de documentos no implica verificación legal ni de su autenticidad.
 const TWO=/^[A-Z]{2}$/;
 const THREE=/^[A-Z]{3}$/;
 const DATE=/^\d{4}-\d{2}-\d{2}$/;
 const REF=/^[A-Za-z0-9][A-Za-z0-9._:/#-]{7,119}$/;
-const SOURCES=new Set(['regulator_record','signed_contract','provider_documentation','internal_policy']);
+// Identificador opaco del candidato; no usar nombre, cuenta, email ni PII.
+const PROVIDER_ID=/^[A-Za-z0-9][A-Za-z0-9._-]{7,79}$/;
+// Una nota interna nunca basta para contar como evidencia externa.
+const EXTERNAL_SOURCES=new Set(['regulator_record','signed_contract','provider_documentation']);
+const REGULATOR_RECORD_REQUIRED=new Set([
+ 'origin_licensing_model_and_state_scope',
+ 'destination_licensing_and_partner_scope',
+ 'licensed_cash_pickup_agent_network',
+]);
+const SIGNED_CONTRACT_REQUIRED=new Set([
+ 'signed_regulated_provider_agreement',
+ 'funds_safeguarding_and_settlement_responsibility',
+ 'kyc_aml_sanctions_responsibility_matrix',
+]);
 const COMMON=Object.freeze([
  'provider_legal_identity',
  'origin_licensing_model_and_state_scope',
@@ -41,19 +55,25 @@ function plainObject(value) {
  return value!==null&&typeof value==='object'&&!Array.isArray(value)&&
    (Object.getPrototypeOf(value)===Object.prototype||Object.getPrototypeOf(value)===null);
 }
-function validRecord(record,scope,asOf) {
+function sourceMatchesRequirement(requirement,source){
+ if(REGULATOR_RECORD_REQUIRED.has(requirement))return source==='regulator_record';
+ if(SIGNED_CONTRACT_REQUIRED.has(requirement))return source==='signed_contract';
+ return EXTERNAL_SOURCES.has(source);
+}
+function validRecord(record,scope,asOf,requirement) {
  // Una referencia opaca no equivale a una licencia verificada. Evitar
  // exposición de nombres, credenciales, tarjetas y documentos personales.
  if(!plainObject(record)||
     Object.keys(record).sort().join('|')!=='expiresOn|reference|reviewedOn|scope|source')return false;
  return record.scope===scope&&
   typeof record.reference==='string'&&REF.test(record.reference)&&
-  SOURCES.has(record.source)&&isoDate(record.reviewedOn)&&
+  sourceMatchesRequirement(requirement,record.source)&&isoDate(record.reviewedOn)&&
   isoDate(record.expiresOn)&&record.reviewedOn<=asOf&&
   record.expiresOn>=asOf&&record.expiresOn>=record.reviewedOn;
 }
-export function assessProviderCorridorDiligence({corridor,evidence={},asOf}={}) {
- const valid=plainObject(corridor)&&
+export function assessProviderCorridorDiligence({corridor,candidateProviderId,evidence={},asOf}={}) {
+ const providerValid=typeof candidateProviderId==='string'&&PROVIDER_ID.test(candidateProviderId);
+ const valid=providerValid&&plainObject(corridor)&&
   Object.keys(corridor).sort().join('|')==='destination|destinationCurrency|origin|payoutMethod|sourceCurrency'&&
   TWO.test(corridor.origin||'')&&TWO.test(corridor.destination||'')&&
   corridor.origin!==corridor.destination&&
@@ -61,17 +81,17 @@ export function assessProviderCorridorDiligence({corridor,evidence={},asOf}={}) 
   Object.hasOwn(PER_METHOD,corridor.payoutMethod);
  const dateOK=isoDate(asOf);
  const scope=valid?[
-  corridor.origin,corridor.destination,corridor.sourceCurrency,
+  candidateProviderId,corridor.origin,corridor.destination,corridor.sourceCurrency,
   corridor.destinationCurrency,corridor.payoutMethod,
  ].join(':'):null;
  const requirements=valid?[...COMMON,...PER_METHOD[corridor.payoutMethod]]:[];
  const goodEvidence=plainObject(evidence)?evidence:{};
  const missing=(!valid||!dateOK)?requirements:
-   requirements.filter(key=>!validRecord(goodEvidence[key],scope,asOf));
+   requirements.filter(key=>!validRecord(goodEvidence[key],scope,asOf,key));
  const recordsCompleted=valid&&dateOK?requirements.length-missing.length:0;
  const complete=valid&&dateOK&&missing.length===0;
  return Object.freeze({
-  corridorValid:Boolean(valid),dateValid:dateOK,
+  corridorValid:Boolean(valid),candidateProviderValid:providerValid,dateValid:dateOK,
   evidenceScope:scope,requirementsCount:requirements.length,
   documentsCurrentCount:recordsCompleted,
   missingOrInvalidRequirements:Object.freeze(missing),
