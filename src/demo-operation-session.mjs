@@ -26,3 +26,10 @@ export function claimDemoOperationLock(busyRef) {
   busyRef.current = true;
   return true;
 }
+
+// Al perder confirmación por red/auth, conservar el UUID para reintento
+// solo mientras no haya ocurrido un cambio de sesión.
+export function retainPendingDemoRequest(expectedEpoch, currentEpoch) {
+  return Number.isSafeInteger(expectedEpoch) && expectedEpoch >= 0 &&
+    expectedEpoch === currentEpoch;
+}

@@ -28,7 +28,7 @@ import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentReque
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
 import { canApplySessionResponse } from './src/session-guards.mjs';
-import { canReusePendingDemoOperation, demoOperationStillBelongsToUser, claimDemoOperationLock } from './src/demo-operation-session.mjs';
+import { canReusePendingDemoOperation, demoOperationStillBelongsToUser, claimDemoOperationLock, retainPendingDemoRequest } from './src/demo-operation-session.mjs';
 import {parseRecoveryDeepLink,validateRecoveryPassword} from './src/auth/recovery-link.mjs';
 import { isLatestRequest, isValidDemoQuoteResponse, isValidDemoPaymentPreview } from './src/async-demo-guards.mjs';
 import { needsDemoFeeReview, demoFeeShortfallCents } from './src/quote-risk.mjs';
@@ -1079,7 +1079,8 @@ export default function App() {
           sessionEpochRef.current !== requestedEpoch) {
         // The DEMO server could have recorded the request, but do not show
         // another user's result or erase an unverified pending request.
-        pendingRef.current = null;
+        if (!retainPendingDemoRequest(requestedEpoch, sessionEpochRef.current))
+          pendingRef.current = null;
         return;
       }
       if (response.error) throw response.error;
@@ -1100,7 +1101,8 @@ export default function App() {
           sessionEpochRef.current === requestedEpoch)
         showMessage('Operación no confirmada',
           (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
-      else pendingRef.current = null;
+      else if (!retainPendingDemoRequest(requestedEpoch, sessionEpochRef.current))
+        pendingRef.current = null;
     } finally {
       busyRef.current = false;
       setBusy(false);
