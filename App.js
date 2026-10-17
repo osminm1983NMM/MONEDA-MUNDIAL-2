@@ -22,6 +22,7 @@ import DemoTourScreen from './DemoTourScreen';
 import DigitalMoneyConceptScreen from './DigitalMoneyConceptScreen';
 import WalletRemittanceConceptScreen from './WalletRemittanceConceptScreen';
 import FullMoneyJourneyScreen from './FullMoneyJourneyScreen';
+import ProjectLaunchStatusScreen from './ProjectLaunchStatusScreen';
 import MockAlertsAdminScreen from './MockAlertsAdminScreen';
 import MockAuditPreviewScreen from './MockAuditPreviewScreen';
 import MockRefundCancellationGuide from './MockRefundCancellationGuide';
@@ -1322,6 +1323,7 @@ export default function App() {
                 <Btn title="Simulador internacional de comisiones" secondary onPress={() => navigate('SimuladorInternacional')} />
                 <Btn title="Billetera → Remesa internacional (solo diseño)" secondary onPress={() => navigate('PuenteRemesasDemo')} />
                 <Btn title="Recorrido completo · Billetera, Coin, Digital y Remesa (DEMO)" secondary onPress={() => navigate('RecorridoCompletoDemo')} />
+                <Btn title="Estado real del proyecto y requisitos pendientes" secondary onPress={() => navigate('EstadoLanzamientoDemo')} />
                 <Btn title="Retiro de efectivo con código (demostración)" secondary onPress={() => { navigate('RetiroEfectivoDemo'); loadWorldCountries(); }} />
                 <Btn title="Moneda Mundial Digital · Opción C" secondary onPress={() => navigate('MonedaDigitalConcepto')} />
                 <Btn title="Configuración" secondary onPress={() => navigate('Configuracion')} />
@@ -1638,6 +1640,7 @@ export default function App() {
 
             {screen === 'PuenteRemesasDemo' && <WalletRemittanceConceptScreen walletBalanceCents={wallet?.balance_cents} />}
             {screen === 'RecorridoCompletoDemo' && <FullMoneyJourneyScreen />}
+            {screen === 'EstadoLanzamientoDemo' && <ProjectLaunchStatusScreen />}
             {screen === 'MonedaDigitalConcepto' && <DigitalMoneyConceptScreen />}
 
             {screen === 'Admin' && <View style={styles.card}>
