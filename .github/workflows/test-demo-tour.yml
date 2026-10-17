@@ -1,0 +1,26 @@
+name: Validar recorrido público DEMO sin cuenta
+on:
+  push:
+    branches: [feature/recorrido-demo-sin-cuenta-20261017]
+    paths:
+      - 'App.js'
+      - 'DemoTourScreen.js'
+      - 'src/demo-tour.mjs'
+      - 'tests/demo-tour.test.mjs'
+      - '.github/workflows/test-demo-tour.yml'
+permissions:
+  contents: read
+jobs:
+  guest-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirmar que la vista no ejecuta pagos
+        run: node --test tests/demo-tour.test.mjs
+      - name: Validar exportación de Android
+        run: |
+          npm install --no-audit --no-fund
+          CI=1 npx expo export --platform android --output-dir dist
