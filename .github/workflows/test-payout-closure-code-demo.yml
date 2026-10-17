@@ -1,9 +1,25 @@
 name: Verificar cierre de entrega DEMO con código consumido
 on:
   push:
-    branches: [fix/payout-demo-backend-gate-20261017]
+    branches: [desarrollo-comercios-20261013]
     paths:
       - 'database/mwd_payout_closure_requires_code_demo.sql'
+      - 'database/mwd_beneficiary_code_security_demo.sql'
+      - 'database/mwd_pickup_code_idempotency_demo.sql'
+      - 'database/mwd_payout_candidate_link_demo.sql'
+      - 'database/mwd_owner_remittance_tracking_demo.sql'
+      - 'database/mwd_secure_partner_registry_demo.sql'
+      - 'tests/partner-registry-fixture.sql'
+  pull_request:
+    branches: [desarrollo-comercios-20261013, main]
+    paths:
+      - 'database/mwd_payout_closure_requires_code_demo.sql'
+      - 'database/mwd_beneficiary_code_security_demo.sql'
+      - 'database/mwd_pickup_code_idempotency_demo.sql'
+      - 'database/mwd_payout_candidate_link_demo.sql'
+      - 'database/mwd_owner_remittance_tracking_demo.sql'
+      - 'database/mwd_secure_partner_registry_demo.sql'
+      - 'tests/partner-registry-fixture.sql'
       - 'tests/payout-closure-code-assertions.sql'
       - 'tests/payout-closure-capability-assertions.sql'
       - 'PayoutCandidateLinkScreen.js'
