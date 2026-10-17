@@ -1,0 +1,29 @@
+name: Verificar FX manual DEMO
+on:
+  pull_request:
+    branches: [desarrollo-comercios-20261013, main]
+    paths:
+      - 'src/digital-money/wallet-remittance-preview.mjs'
+      - 'tests/manual-fx-remittance-preview.test.mjs'
+      - 'WalletRemittanceConceptScreen.js'
+      - '.github/workflows/test-manual-fx-remittance.yml'
+  push:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'src/digital-money/wallet-remittance-preview.mjs'
+      - 'tests/manual-fx-remittance-preview.test.mjs'
+      - 'WalletRemittanceConceptScreen.js'
+      - '.github/workflows/test-manual-fx-remittance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-math:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/manual-fx-remittance-preview.test.mjs
+      - run: node --test tests/*.test.mjs
