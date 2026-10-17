@@ -33,12 +33,37 @@ echo "Abriendo la pantalla inicial..."
 adb shell am force-stop "$APP_ID" || true
 adb logcat -c || true
 adb shell am start -W -n "$APP_ID/.MainActivity" | tee smoke-results/launch.txt
+# Un lanzamiento que agotó tiempo no puede considerarse una prueba aprobada,
+# aunque un proceso Android continúe ejecutándose en segundo plano.
+if grep -Eqi 'Status: timeout|Error type|Unable to resolve|Activity not started' smoke-results/launch.txt; then
+  echo "::error::El arranque de Android falló o agotó el tiempo permitido."
+  exit 1
+fi
 sleep 24
 
 echo "Capturando evidencias sin iniciar sesión..."
 adb exec-out screencap -p > smoke-results/initial-screen.png || true
-adb shell uiautomator dump /sdcard/moneda-mundial-ui.xml >smoke-results/ui-dump-output.txt 2>&1 || true
-adb pull /sdcard/moneda-mundial-ui.xml smoke-results/ui.xml >/dev/null 2>&1 || true
+
+# El emulador lento puede crear el archivo XML pero fallar en el primer
+# adb pull. Reintentar sin aprobar falsamente una pantalla no comprobada.
+ui_ok=false
+for attempt in 1 2 3; do
+  echo "Lectura de accesibilidad Android, intento $attempt de 3"
+  adb shell uiautomator dump /sdcard/moneda-mundial-ui.xml >smoke-results/ui-dump-output.txt 2>&1 || true
+  if adb pull /sdcard/moneda-mundial-ui.xml smoke-results/ui.xml >>smoke-results/ui-pull-log.txt 2>&1 &&
+     [ -s smoke-results/ui.xml ]; then
+    ui_ok=true
+    break
+  fi
+  sleep 3
+done
+if [ "$ui_ok" != "true" ]; then
+  echo "::error::Android no entregó el árbol accesible después de 3 intentos."
+  adb shell ls -l /sdcard/moneda-mundial-ui.xml || true
+  cat smoke-results/ui-dump-output.txt || true
+  cat smoke-results/ui-pull-log.txt || true
+  exit 1
+fi
 adb logcat -d -s AndroidRuntime:E ReactNativeJS:E >smoke-results/runtime-errors.txt || true
 adb shell dumpsys window >smoke-results/window-state.txt 2>&1 || true
 if grep -Eqi "Application Not Responding|isn.t responding|is not responding|not responding" smoke-results/window-state.txt; then

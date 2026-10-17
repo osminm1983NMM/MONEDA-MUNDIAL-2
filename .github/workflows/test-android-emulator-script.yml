@@ -1,0 +1,19 @@
+name: Validar diagnóstico Android CI con adb simulado
+on:
+  push:
+    branches: [fix/android-ui-dump-retry-20261017]
+    paths:
+      - 'scripts/probar-apk-emulador.sh'
+      - 'tests/android-emulator-smoke-script.test.mjs'
+      - '.github/workflows/test-android-emulator-script.yml'
+permissions:
+  contents: read
+jobs:
+  smoke-script-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/android-emulator-smoke-script.test.mjs
