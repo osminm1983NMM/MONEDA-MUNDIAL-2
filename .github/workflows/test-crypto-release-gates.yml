@@ -5,6 +5,9 @@ on:
     paths:
       - 'src/digital-money/crypto-release-gates.mjs'
       - 'tests/crypto-release-gates.test.mjs'
+      - 'src/digital-money/crypto-ui-state.mjs'
+      - 'tests/crypto-ui-state.test.mjs'
+      - 'DigitalMoneyConceptScreen.js'
       - '.github/workflows/test-crypto-release-gates.yml'
   push:
     branches: [desarrollo-comercios-20261013]
@@ -23,5 +26,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test tests/crypto-release-gates.test.mjs
+      - run: node --test tests/crypto-release-gates.test.mjs tests/crypto-ui-state.test.mjs
       - run: node --test tests/*.test.mjs
+      - run: npm install --no-audit --no-fund
+      - run: CI=1 npx expo export --platform android --output-dir dist
