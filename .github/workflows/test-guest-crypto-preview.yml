@@ -1,0 +1,39 @@
+name: Verificar vista pública Coin y Digital DEMO
+on:
+  pull_request:
+    branches: [desarrollo-comercios-20261013, main]
+    paths:
+      - 'DemoTourScreen.js'
+      - 'GuestCryptoPreviewScreen.js'
+      - 'src/guest-crypto-preview.mjs'
+      - 'src/digital-money/crypto-ui-state.mjs'
+      - 'tests/guest-crypto-preview.test.mjs'
+      - '.github/workflows/test-guest-crypto-preview.yml'
+  push:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'DemoTourScreen.js'
+      - 'GuestCryptoPreviewScreen.js'
+      - 'src/guest-crypto-preview.mjs'
+      - 'tests/guest-crypto-preview.test.mjs'
+      - '.github/workflows/test-guest-crypto-preview.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  safe-public-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Comprobar estado de Coin Digital y vista pública sin fondos
+        run: node --test tests/guest-crypto-preview.test.mjs tests/demo-tour.test.mjs tests/crypto-ui-state.test.mjs
+      - name: Probar todas las funciones de demostración
+        run: node --test tests/*.test.mjs
+      - name: Exportar paquete Android con vista pública
+        run: |
+          npm install --no-audit --no-fund
+          CI=1 npx expo export --platform android --output-dir dist
