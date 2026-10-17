@@ -1,0 +1,27 @@
+name: Verificar revisión documental de corredores DEMO
+on:
+  pull_request:
+    branches: [desarrollo-comercios-20261013, main]
+    paths:
+      - 'src/server/provider-corridor-diligence.mjs'
+      - 'tests/provider-corridor-diligence.test.mjs'
+      - '.github/workflows/test-provider-corridor-diligence.yml'
+  push:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'src/server/provider-corridor-diligence.mjs'
+      - 'tests/provider-corridor-diligence.test.mjs'
+      - '.github/workflows/test-provider-corridor-diligence.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/provider-corridor-diligence.test.mjs
+      - run: node --test tests/*.test.mjs
