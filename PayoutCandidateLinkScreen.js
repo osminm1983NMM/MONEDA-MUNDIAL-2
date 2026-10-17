@@ -2,6 +2,7 @@
 // CERO pagos reales. Sólo el servidor permite los cambios de simulación.
 import React,{useEffect,useState,useRef} from 'react';
 import {View,Text,TouchableOpacity,TextInput} from 'react-native';
+import {canCloseMockPayout,isSafeMockPayoutClosureResponse} from './src/payout-demo-closure-guards.mjs';
 const style={
  card:{backgroundColor:'#182d46',padding:14,borderRadius:11,marginVertical:8},
  text:{color:'#dce9f5',marginVertical:6},
@@ -33,6 +34,7 @@ export default function PayoutCandidateLinkScreen({supabase}){
  const [notice,setNotice]=useState('');
  const inFlight=useRef(false);
  const pending=useRef(null);
+ const closePending=useRef(null);
  async function rpc(name,params){const {data,error:e}=await supabase.rpc(name,params);if(e)throw e;return data;}
  async function run(callback){
   if(inFlight.current)return;inFlight.current=true;setBusy(true);setError('');setNotice('');
@@ -55,7 +57,7 @@ export default function PayoutCandidateLinkScreen({supabase}){
  const selectedPartner=eligible.find(p=>p.id===partnerId);
  async function chooseOrder(id){
   setOrderId(id);setPartnerId('');setLocationId('');setBranches([]);setSummary(null);
-  setCodeInput('');setOneTimeCode('');setCodeSummary(null);pending.current=null;
+  setCodeInput('');setOneTimeCode('');setCodeSummary(null);pending.current=null;closePending.current=null;
   await readSummary(id);await readCodeSummary(id);
  }
  async function readSummary(id){setSummary(await rpc('mwd_owner_payout_design_summary_demo',{p_order_id:id}));}
@@ -96,6 +98,24 @@ export default function PayoutCandidateLinkScreen({supabase}){
   });
   pending.current=null;setCodeInput('');setOneTimeCode('');await readCodeSummary(orderId);
   setNotice('Estado del ensayo: '+res.status+'. DINERO ENTREGADO: 0.');
+ });}
+ function closeMockPayout(){run(async()=>{
+  if(!canCloseMockPayout({orderStatus:order?.status,assignmentStatus:summary?.status,
+     codeStatus:codeSummary?.status,identityCheckSimulated:codeSummary?.identity_check_simulated})){
+    throw Error('Primero consume un código ficticio válido tras la revisión SIMULADA de identidad');
+  }
+  if(!closePending.current||closePending.current.orderId!==orderId){
+    closePending.current={orderId,id:nextRequestId()};
+  }
+  const response=await rpc('mwd_owner_complete_payout_sample_demo',
+     {p_order_id:orderId,p_request_id:closePending.current.id});
+  if(!isSafeMockPayoutClosureResponse(response)){
+    throw Error('Respuesta del servidor no válida para cierre de simulación; no se acredita ningún pago');
+  }
+  closePending.current=null;
+  await readSummary(orderId);
+  await readCodeSummary(orderId);
+  setNotice('Cierre de ensayo completado. Pago bancario o efectivo: 0.');
  });}
  function cancelCode(){run(async()=>{
   await rpc('mwd_owner_cancel_pickup_code_demo',{p_order_id:orderId});
@@ -138,6 +158,10 @@ export default function PayoutCandidateLinkScreen({supabase}){
        <Btn title="Cancelar código de muestra" disabled={busy} onPress={cancelCode}/>
      </View>}
      {codeSummary?.status==='consumed'&&<Text style={style.warning}>Código consumido una sola vez. No hubo entrega de dinero.</Text>}
+     {canCloseMockPayout({orderStatus:order.status,assignmentStatus:summary?.status,
+       codeStatus:codeSummary?.status,identityCheckSimulated:codeSummary?.identity_check_simulated})&&
+       <Btn title="Cerrar simulación (NO entregar dinero)" disabled={busy} onPress={closeMockPayout}/>}
+
      {['expired','cancelled','locked'].includes(codeSummary?.status)&&
       <Text style={style.warning}>Código cerrado: {codeSummary.status}. No se puede utilizar.</Text>}
    </View>}
