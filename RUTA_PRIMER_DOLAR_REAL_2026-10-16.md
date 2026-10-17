@@ -1,11 +1,13 @@
 # Moneda Mundial 2.0 — ruta ejecutable al primer dólar REAL
-Fecha: 2026-10-16. Estado: **plan de lanzamiento y control; NO habilitado**.
+Fecha: 2026-10-16. Actualizado: 2026-10-17. Estado: **plan de lanzamiento y control; NO habilitado**.
 
 ## Objetivo comercial inequívoco
 No terminar en una simulación. El producto final debe aceptar fondos reales, transferirlos y pagar al beneficiario a través de contrapartes autorizadas, con registros bancarios conciliados, derechos del consumidor, transparencia de tarifas y protección contra fraude. Los saldos MWD de demostración NUNCA serán fondos reales ni convertibles.
 
+Nicaragua y todos los otros países se mantienen en el catálogo de diseño y podrán evaluarse por corredor, sin habilitar dinero real automáticamente.
+
 ## Primera ruta de evaluación
-Evaluar un piloto **Estados Unidos (USD) → Nicaragua (NIO/USD según posibilidad legal y bancaria)** de envío a cuenta y retiro en efectivo sin aplicación del beneficiario. Esto no implica que Nicaragua esté autorizado, contratado o habilitado. Si la evaluación legal/comercial no lo permite, escoger una ruta viable sin deshacer la arquitectura internacional.
+Evaluar un piloto **Estados Unidos (USD) → Honduras (HNL/USD según posibilidad legal y bancaria)** de envío a cuenta y retiro en efectivo sin aplicación del beneficiario. Esto no implica que Honduras esté autorizado, contratado o habilitado. Si la evaluación legal/comercial no lo permite, escoger una ruta viable sin deshacer la arquitectura internacional.
 
 ## Condiciones previas para aceptar el primer dólar
 1. Entidad jurídica establecida, identidad de beneficiarios finales, cuenta de empresa y obligaciones fiscales identificadas.
