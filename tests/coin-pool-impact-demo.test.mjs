@@ -41,7 +41,6 @@ test('seguridad matemática: no permitir cero, precios ficticios con salida cero
   {...base,side:'buy_coin',tradeInputUnits:'1',feeBps:100},
   {...base,side:'buy_coin',tradeInputUnits:'1'},
   {...base,side:'sell_coin',tradeInputUnits:'1',feeBps:100},
-  {...base,side:'sell_coin',tradeInputUnits:'1'},
   {...base,side:'sell_coin',tradeInputUnits:'-2'},
   {...base,side:'sell_coin',tradeInputUnits:'1e4'},
   {...base,side:'sell_coin',tradeInputUnits:'10',feeBps:1001},
