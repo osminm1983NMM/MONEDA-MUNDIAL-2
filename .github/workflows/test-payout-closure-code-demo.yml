@@ -5,6 +5,9 @@ on:
     paths:
       - 'database/mwd_payout_closure_requires_code_demo.sql'
       - 'tests/payout-closure-code-assertions.sql'
+      - 'PayoutCandidateLinkScreen.js'
+      - 'src/payout-demo-closure-guards.mjs'
+      - 'tests/payout-demo-closure-guards.test.mjs'
       - '.github/workflows/test-payout-closure-code-demo.yml'
   workflow_dispatch:
 permissions:
@@ -33,6 +36,11 @@ jobs:
       PGPASSWORD: demo-only
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar controles de la interfaz DEMO
+        run: node --test tests/payout-demo-closure-guards.test.mjs
       - name: Preparar personas ficticias
         run: psql -X -v ON_ERROR_STOP=1 -f tests/partner-registry-fixture.sql
       - name: Cargar socios y remesas DEMO
