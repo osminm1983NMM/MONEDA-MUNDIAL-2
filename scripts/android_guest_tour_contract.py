@@ -49,8 +49,10 @@ def entry_coordinates(xml_path):
     raise ValueError("No se encontró botón DEMO accesible y pulsable")
 
 
-def verify_tour(xml_path):
-    ns = nodes(xml_path)
+def verify_tour(*xml_paths):
+    # ScrollView can expose only visible children in each UI snapshot.
+    # Validate the tour across both top and bottom screenshots, not just one.
+    ns = [node for path in xml_paths for node in nodes(path)]
     missing = []
     for name, phrases in [
         ("cabecera", TOUR_TITLE),
@@ -65,6 +67,21 @@ def verify_tour(xml_path):
         raise ValueError("Recorrido sin contenidos o controles: " + ", ".join(missing))
 
 
+def return_button_coordinates(xml_path):
+    for n in nodes(xml_path):
+        if n.get("clickable") != "true":
+            continue
+        if not any(term in strings(n) for term in TOUR_BACK):
+            continue
+        match = BOUNDS.fullmatch(n.get("bounds", ""))
+        if not match:
+            continue
+        x1,y1,x2,y2 = map(int, match.groups())
+        if x2>x1 and y2>y1 and x1>=0 and y1>=0:
+            return (x1+x2)//2,(y1+y2)//2
+    raise ValueError("No se encontró botón visible para volver al inicio")
+
+
 def verify_return(xml_path):
     ns = nodes(xml_path)
     if not contains_any(ns, ("moneda mundial",)):
@@ -76,15 +93,22 @@ def verify_return(xml_path):
 
 
 def main(argv):
-    if len(argv) != 3 or argv[1] not in ("locate", "tour", "return"):
-        raise ValueError("Uso: helper.py locate|tour|return ui.xml")
-    action, path = argv[1:]
-    if action == "locate":
+    if len(argv)<3 or argv[1] not in ("locate", "tour", "return", "return-button"):
+        raise ValueError("Uso: helper.py locate|tour|return|return-button ui.xml [bottom.xml]")
+    action, path = argv[1:3]
+    if action == "tour":
+        if len(argv)<4:
+            raise ValueError("Verificación tour requiere capturas superior e inferior")
+        verify_tour(*argv[2:])
+        print("OK: recorrido de demostración visible en pantallas superior e inferior")
+    elif len(argv)!=3:
+        raise ValueError("Acción requiere un solo XML")
+    elif action == "locate":
         x, y = entry_coordinates(path)
         print(f"{x} {y}")
-    elif action == "tour":
-        verify_tour(path)
-        print("OK: recorrido de demostración visible")
+    elif action == "return-button":
+        x, y = return_button_coordinates(path)
+        print(f"{x} {y}")
     else:
         verify_return(path)
         print("OK: volvió al inicio sin autenticación")
