@@ -2,6 +2,7 @@ import React,{useState} from 'react';
 import {View,Text,TextInput} from 'react-native';
 import {previewWatchOnlyTransferResearch} from './src/digital-money/watch-only-transfer-preview.mjs';
 import {RESEARCH_CHAINS} from './src/digital-money/watch-only-wallet-policy.mjs';
+import {compareRecipientPublicAddresses} from './src/digital-money/recipient-address-comparison.mjs';
 
 // Solo revisión local de formato de direcciones públicas. No hay wallet, RPC,
 // firma, permisos de cámara, AsyncStorage, Supabase, transacción ni saldo.
@@ -17,12 +18,14 @@ const s={
 export default function WalletSafetyPreviewScreen(){
  const [sender,setSender]=useState('');
  const [recipient,setRecipient]=useState('');
+ const [independentConfirmation,setIndependentConfirmation]=useState('');
  const [amount,setAmount]=useState('');
  const data=previewWatchOnlyTransferResearch({
   asset:'moneda_mundial_coin_research',
   chainId:RESEARCH_CHAINS.baseSepolia.chainId,
   senderAddress:sender,recipientAddress:recipient,amountUnits:amount,
  });
+ const comparison=compareRecipientPublicAddresses({chainId:84532,recipientAddress:recipient,independentlyConfirmedAddress:independentConfirmation});
  return <View style={s.card}>
    <Text style={s.title}>BILLETERA COIN · REVISIÓN EDUCATIVA EN TESTNET</Text>
    <Text style={s.warn}>No conectamos una billetera. No envíes monedas a estas direcciones usando esta pantalla.</Text>
@@ -38,6 +41,15 @@ export default function WalletSafetyPreviewScreen(){
      placeholder="0x... (no reutilizar la misma)"
      placeholderTextColor="#abc1d0" autoCorrect={false}
      autoCapitalize="none" maxLength={42} />
+   <Text style={s.title}>DOBLE CONFIRMACIÓN DE DIRECCIÓN PÚBLICA</Text>
+   <Text style={s.warn}>Comprueba la dirección COMPLETA con tu destinatario mediante una fuente independiente y confiable. Copiarla dos veces desde el mismo mensaje no es una comprobación independiente.</Text>
+   <Text style={s.text}>Dirección pública comprobada por otra vía</Text>
+   <TextInput style={s.input} value={independentConfirmation} onChangeText={setIndependentConfirmation}
+     placeholder="Dirección 0x obtenida por otra vía" placeholderTextColor="#abc1d0"
+     autoCorrect={false} autoCapitalize="none" maxLength={42}/>
+   {comparison.fullAddressMatch
+     ?<Text style={s.warn}>Ambas direcciones coinciden exactamente. No hemos verificado identidad, propiedad ni que la segunda fuente sea independiente. NO autoriza enviar.</Text>
+     :<Text style={s.warn}>Sin coincidencia completa verificada. Comprueba ambas direcciones; no envíes monedas.</Text>}
    <Text style={s.text}>Cantidad ficticia entera de Coin (sin valor real)</Text>
    <TextInput style={s.input} value={amount} onChangeText={setAmount}
      keyboardType="number-pad" placeholder="Ejemplo: 100"
