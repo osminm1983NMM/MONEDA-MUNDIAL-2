@@ -13,3 +13,10 @@ export function isSafeMockPayoutClosureResponse(value) {
     value.redeemable===false &&
     value.money_paid===false;
 }
+
+export function isVerifiedMockPayoutCapability(value) {
+  return value!==null && typeof value==='object' && !Array.isArray(value) &&
+    value.version===1 && value.demo_only===true &&
+    value.closure_requires_consumed_code===true &&
+    value.real_payments_enabled===false;
+}
