@@ -20,6 +20,7 @@ on:
   pull_request:
     branches:
       - main
+      - desarrollo-comercios-20261013
   workflow_dispatch:
 permissions:
   contents: read
