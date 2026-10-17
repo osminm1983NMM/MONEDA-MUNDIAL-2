@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - desarrollo-comercios-20261013
-      - qa/aislar-dos-cuentas-sql-20261017
     paths:
       - 'tests/rls-core-*.sql'
       - 'scripts/PROPUESTA_ACTIVAR_RLS_MWD_CORE_NO_EJECUTAR.sql'
@@ -21,6 +20,7 @@ on:
   pull_request:
     branches:
       - main
+      - desarrollo-comercios-20261013
   workflow_dispatch:
 permissions:
   contents: read
