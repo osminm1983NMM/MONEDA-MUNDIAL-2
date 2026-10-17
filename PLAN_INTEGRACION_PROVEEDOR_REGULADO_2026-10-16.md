@@ -1,11 +1,13 @@
 # Moneda Mundial 2.0 — integración con un proveedor financiero regulado
-Fecha: 2026-10-16. Estado: **adaptador mock probado en CI; ningún proveedor contratado o conectado**.
+Fecha: 2026-10-16. Actualizado: 2026-10-17. Estado: **adaptador mock probado en CI; ningún proveedor contratado o conectado**.
+
+**Ruta inicial prioritaria para evaluar: EE. UU.→Honduras.** Nicaragua y los demás países permanecen en el catálogo mundial; no se afirma servicio disponible para ninguno.
 
 ## Los cuatro frentes se ejecutan EN PARALELO
 | Frente | Entregable verificable | Situación |
 | --- | --- | --- |
 | 1. Constitución | LLC/estructura elegida tras asesoría legal; registros y cuenta empresarial | Pendiente de constitución y asesoría |
-| 2. Proveedor regulado | Diligencia comercial, contrato, cobertura US→NI y credenciales sandbox otorgadas oficialmente | Candidatos por evaluar; ningún contrato |
+| 2. Proveedor regulado | Diligencia comercial, contrato, cobertura US→HN y credenciales sandbox otorgadas oficialmente | Candidatos por evaluar; ningún contrato |
 | 3. Cumplimiento normativo | Opinión jurídica por jurisdicción, responsabilidades FinCEN/estatales y país destino, KYC/AML, OFAC, consumidor | Pendiente |
 | 4. Integración financiera | Adaptador de servidor, simulación con webhooks firmados, ledger real, conciliación, reembolsos, entorno sandbox externo y pruebas | Adaptador mock en GitHub; conexiones reales pendientes |
 
@@ -18,7 +20,7 @@ Fecha: 2026-10-16. Estado: **adaptador mock probado en CI; ningún proveedor con
 - Ningún método puede mover o custodiar fondos, emitir un código cobrable o afirmar que un proveedor externo ha pagado.
 
 ## Elección de socio: verificación indispensable
-Solicitar por escrito a cada potencial proveedor: entidad jurídica y licencia donde opere, cobertura real de fondeo en EE. UU., destinos Nicaragua, método de retiro en efectivo sin app, divisas, contrato y obligaciones KYC/AML, programa bancario, sandbox/API/documentación y webhooks, comisión y FX, reembolsos, responsabilidades regulatorias, integración de conciliación. **No asumir que una API internacional soporta la ruta US→NI, cash pickup o patrocinio de licencias.**
+Solicitar por escrito a cada potencial proveedor: entidad jurídica y licencia donde opere, cobertura real de fondeo en EE. UU., destinos Honduras, método de retiro en efectivo sin app, divisas, contrato y obligaciones KYC/AML, programa bancario, sandbox/API/documentación y webhooks, comisión y FX, reembolsos, responsabilidades regulatorias, integración de conciliación. **No asumir que una API internacional soporta la ruta US→HN, cash pickup o patrocinio de licencias.**
 
 Empresas a evaluar mediante solicitudes empresariales (no se declara afiliación): redes y proveedores transfronterizos como Nium, Thunes o TerraPay, sujeto a confirmación escrita de cobertura, modelo, país y aceptación de Moneda Mundial.
 
@@ -31,8 +33,8 @@ Empresas a evaluar mediante solicitudes empresariales (no se declara afiliación
 6. Piloto controlado únicamente con visto bueno jurídico, técnico, financiero y del socio, en corredor expresamente habilitado.
 
 ## Material preparado para un correo comercial
-Asunto: Consulta de integración API y cobertura de remesas US → Nicaragua
+Asunto: Consulta de integración API y cobertura de remesas US → Honduras
 
-Somos el proyecto Moneda Mundial 2.0. Evaluamos proveedores licenciados para remesas internacionales desde EE. UU. hacia Centroamérica, empezando por estudiar Nicaragua, con depósito bancario y retiro en efectivo sin teléfono. Buscamos programa regulado, alcance legal de cada entidad, obligaciones KYC/AML, documentación API/sandbox, webhooks, conciliación, reembolsos y cotización comercial. ¿Pueden confirmar por escrito cobertura real US→NI, entidades licenciadas y condiciones para evaluar una alianza? La aplicación está en desarrollo; no captamos ni movemos fondos reales.
+Somos el proyecto Moneda Mundial 2.0. Evaluamos proveedores licenciados para remesas internacionales desde EE. UU. hacia Centroamérica, empezando por estudiar Honduras, con depósito bancario y retiro en efectivo sin teléfono. Buscamos programa regulado, alcance legal de cada entidad, obligaciones KYC/AML, documentación API/sandbox, webhooks, conciliación, reembolsos y cotización comercial. ¿Pueden confirmar por escrito cobertura real US→HN, entidades licenciadas y condiciones para evaluar una alianza? La aplicación está en desarrollo; no captamos ni movemos fondos reales.
 
 **Regla de lanzamiento:** sin contrato, licencias/cobertura verificadas, auditoría, y autorización del socio, ningún código o interruptor convierte pruebas en operaciones reales.
