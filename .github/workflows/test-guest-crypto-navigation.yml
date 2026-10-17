@@ -1,0 +1,26 @@
+name: Probar navegación pública Coin Digital sin fondos
+on:
+  pull_request:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'scripts/android_guest_tour_contract.py'
+      - 'tests/test_android_guest_crypto_navigation.py'
+      - '.github/workflows/test-guest-crypto-navigation.yml'
+  push:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'scripts/android_guest_tour_contract.py'
+      - 'tests/test_android_guest_crypto_navigation.py'
+      - '.github/workflows/test-guest-crypto-navigation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  guest-nav-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar XML de navegación Android Coin/Digital e invitado
+        run: |
+          python3 -m unittest discover -s tests -p test_android_guest_crypto_navigation.py -v
+          python3 -m unittest discover -s tests -p test_android_guest_tour_contract.py -v
