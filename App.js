@@ -28,6 +28,7 @@ import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentReque
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
 import { canApplySessionResponse } from './src/session-guards.mjs';
+import { canReusePendingDemoOperation, demoOperationStillBelongsToUser } from './src/demo-operation-session.mjs';
 import {parseRecoveryDeepLink,validateRecoveryPassword} from './src/auth/recovery-link.mjs';
 import { isLatestRequest, isValidDemoQuoteResponse, isValidDemoPaymentPreview } from './src/async-demo-guards.mjs';
 import { needsDemoFeeReview, demoFeeShortfallCents } from './src/quote-risk.mjs';
@@ -1043,12 +1044,17 @@ export default function App() {
 
   async function executeOperation(type, cents, code = '') {
     if (busyRef.current) return;
+    const requestedUserId = userId;
+    if (!await demoOperationStillBelongsToUser(supabase.auth, requestedUserId)) {
+      showMessage('Sesión', 'Inicia sesión nuevamente antes de realizar una operación ficticia.');
+      return;
+    }
     busyRef.current = true;
     setBusy(true);
     try {
-      const pending = pendingRef.current;
-      if (!pending || pending.type !== type || pending.cents !== cents || pending.code !== code) {
-        pendingRef.current = { type, cents, code, id: uniqueRequestId() };
+      const requested = {userId:requestedUserId,type,cents,code};
+      if (!canReusePendingDemoOperation(pendingRef.current, requested)) {
+        pendingRef.current = { ...requested, id: uniqueRequestId() };
       }
       const requestId = pendingRef.current.id;
       const response = type === 'transfer'
@@ -1058,6 +1064,12 @@ export default function App() {
         : await supabase.rpc('mwd_contribute_demo', {
           p_amount_cents: cents, p_request_id: requestId,
         });
+      if (!await demoOperationStillBelongsToUser(supabase.auth, requestedUserId)) {
+        // The DEMO server could have recorded the request, but do not show
+        // another user's result or erase an unverified pending request.
+        pendingRef.current = null;
+        return;
+      }
       if (response.error) throw response.error;
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
@@ -1071,8 +1083,10 @@ export default function App() {
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
     } catch (error) {
-      showMessage('Operación no confirmada',
-        (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
+      if (await demoOperationStillBelongsToUser(supabase.auth, requestedUserId))
+        showMessage('Operación no confirmada',
+          (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
+      else pendingRef.current = null;
     } finally {
       busyRef.current = false;
       setBusy(false);
