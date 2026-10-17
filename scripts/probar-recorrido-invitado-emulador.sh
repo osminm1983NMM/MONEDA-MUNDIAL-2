@@ -33,10 +33,36 @@ sleep 2
 read_accessibility guest-tour-bottom
 python3 scripts/android_guest_tour_contract.py tour smoke-results/guest-tour.xml smoke-results/guest-tour-bottom.xml
 
-read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py return-button smoke-results/guest-tour-bottom.xml)"
+# Explore newly added crypto research screen WITHOUT signing in or transacting.
+# The tour was scrolled to the bottom, where its Coin/Digital button is visible.
+read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py crypto-entry smoke-results/guest-tour-bottom.xml)"
+echo "Abriendo sección pública Coin y Digital (sin cuenta)..."
+adb shell input tap "$x" "$y"
+sleep 3
+adb exec-out screencap -p >smoke-results/guest-crypto.png || true
+read_accessibility guest-crypto
+# Android ScrollView may expose content in either top or bottom viewport.
+adb shell input swipe 550 1900 550 700 500
+sleep 2
+read_accessibility guest-crypto-bottom
+python3 scripts/android_guest_tour_contract.py crypto smoke-results/guest-crypto.xml smoke-results/guest-crypto-bottom.xml
+
+read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py crypto-back smoke-results/guest-crypto-bottom.xml)"
+echo "Regresando desde Coin/Digital al recorrido de invitado..."
+adb shell input tap "$x" "$y"
+sleep 3
+# Do not accept returning straight to login or another unintended screen.
+read_accessibility guest-after-crypto
+python3 scripts/android_guest_tour_contract.py tour smoke-results/guest-tour.xml smoke-results/guest-after-crypto.xml
+
+# Tour's return-to-login button can be below the visible viewport.
+adb shell input swipe 550 1900 550 700 500
+sleep 2
+read_accessibility guest-tour-return-ready
+read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py return-button smoke-results/guest-tour-return-ready.xml)"
 echo "Volviendo a la pantalla pública de inicio..."
 adb shell input tap "$x" "$y"
 sleep 3
 read_accessibility guest-return
 python3 scripts/android_guest_tour_contract.py return smoke-results/guest-return.xml
-echo "OK: navegación invitado → recorrido informativo → inicio, sin cuenta ni dinero."
+echo "OK: invitado → recorrido → Coin/Digital → recorrido → inicio, sin cuenta ni dinero."
