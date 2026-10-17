@@ -10,6 +10,8 @@ on:
       - 'app.json'
       - 'package.json'
       - 'src/**'
+      - 'scripts/probar-apk-emulador.sh'
+      - 'scripts/verificar-pantalla-acceso-demo.sh'
       - '.github/workflows/android-apk-independiente.yml'
       - '.github/workflows/probar-apk-emulador.yml' # Rebuild after modifying APK provenance checks.
 
