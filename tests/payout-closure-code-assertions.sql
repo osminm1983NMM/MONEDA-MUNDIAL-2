@@ -1,4 +1,6 @@
 -- Isolated PostgreSQL QA for DEMO-only closing with consumed code.
+-- Extend CI's minimal mock catalog with Honduras (no production access).
+INSERT INTO mwd_finance_private.world_country_catalog(country_code) VALUES ('HN');
 SET request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 SET ROLE authenticated;
 DO $$ BEGIN
