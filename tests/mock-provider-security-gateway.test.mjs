@@ -52,3 +52,36 @@ test('permite NI como ejemplo sin afirmar autorizaciones para corredores',()=>{
  assert.equal(accepted.realProviderConnected,false);
  assert.equal(g.safeAudit()[0].source,'mock_test_only');
 });
+
+test('reintentar evento anterior devuelve su estado original sin retroceder la orden',()=>{
+ const g=make(),orderId='mock-order-replay-stage';
+ g.registerMockOrder({provider:alpha,orderId,country:'HN',currency:'USD',amountCents:10000});
+ const funding=g.makeSyntheticSignedEvent({provider:alpha,payload:payload(orderId,'event-replay-funding-123')});
+ const pending=g.makeSyntheticSignedEvent({provider:alpha,payload:payload(orderId,'event-replay-pending-123','payout_pending_mock')});
+ const paid=g.makeSyntheticSignedEvent({provider:alpha,payload:payload(orderId,'event-replay-paid-123','payout_settled_mock')});
+ assert.equal(g.receiveSyntheticWebhook(funding).stage,'funding_settled_mock');
+ assert.equal(g.receiveSyntheticWebhook(pending).stage,'payout_pending_mock');
+ assert.equal(g.receiveSyntheticWebhook(paid).stage,'payout_settled_mock');
+ const duplicate=g.receiveSyntheticWebhook(funding);
+ assert.equal(duplicate.duplicate,true);
+ assert.equal(duplicate.stage,'funding_settled_mock');
+ assert.equal(g.inspectMockOrder({provider:alpha,orderId}).stage,'payout_settled_mock');
+ assert.equal(g.safeAudit().length,3);
+ assert.equal(duplicate.realFundsEnabled,false);
+});
+
+test('rechaza reutilizar un eventId firmado para otra etapa u orden',()=>{
+ const g=make();
+ for(const orderId of ['mock-order-replay-one','mock-order-replay-two'])
+  g.registerMockOrder({provider:alpha,orderId,country:'HN',currency:'USD',amountCents:10000});
+ const first=g.makeSyntheticSignedEvent({provider:alpha,payload:payload('mock-order-replay-one','same-event-id-123456')});
+ g.receiveSyntheticWebhook(first);
+ for(const change of [
+  payload('mock-order-replay-one','same-event-id-123456','funding_pending_mock'),
+  payload('mock-order-replay-two','same-event-id-123456')
+ ]){
+  const reSigned=g.makeSyntheticSignedEvent({provider:alpha,payload:change});
+  assert.throws(()=>g.receiveSyntheticWebhook(reSigned),/reutilizado/);
+ }
+ assert.equal(g.safeAudit().length,1);
+});

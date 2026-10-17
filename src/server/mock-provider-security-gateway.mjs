@@ -142,12 +142,14 @@ export function createMockProviderSecurityGateway({
    const previous=events.get(eventKey);
    if(previous){
     if(previous.hash!==hash)fail('Identificador de evento reutilizado con otros datos');
-    return response(mapped,order.stage,true);
+    // En un reintento devolvemos la etapa que se aceptó para ESTE evento,
+    // no la etapa posterior de la orden. Sin volver a aplicar transiciones.
+    return response(mapped,previous.stage,true);
    }
    if(!transitions[order.stage]?.includes(mapped.normalizedStatus))
     fail('Estado de proveedor fuera de orden o incompatible');
    order.stage=mapped.normalizedStatus;
-   events.set(eventKey,{hash,orderId:mapped.orderId});
+   events.set(eventKey,{hash,orderId:mapped.orderId,stage:order.stage});
    audit.push(Object.freeze({provider,eventId:mapped.eventId,orderId:mapped.orderId,
      stage:order.stage,source:'mock_test_only'}));
    return response(mapped,order.stage,false);
