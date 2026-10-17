@@ -1,7 +1,7 @@
 name: Verificar cierre de entrega DEMO con código consumido
 on:
   push:
-    branches: [fix/cierre-retiro-demo-20261017]
+    branches: [fix/payout-demo-backend-gate-20261017]
     paths:
       - 'database/mwd_payout_closure_requires_code_demo.sql'
       - 'tests/payout-closure-code-assertions.sql'
@@ -51,6 +51,9 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f database/mwd_beneficiary_code_security_demo.sql
           psql -X -v ON_ERROR_STOP=1 -f database/mwd_pickup_code_idempotency_demo.sql
           psql -X -v ON_ERROR_STOP=1 -f database/mwd_payout_closure_requires_code_demo.sql
+      - name: Confirmar capacidad del servidor solo con sesion
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -c "SET ROLE anon; SELECT has_function_privilege('anon','public.mwd_demo_payout_closure_capability()','EXECUTE') AS anon_can_use; RESET ROLE;"
       - name: Probar propietario, consumo e idempotencia
         run: psql -X -v ON_ERROR_STOP=1 -f tests/payout-closure-code-assertions.sql
 
