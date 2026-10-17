@@ -1,0 +1,27 @@
+name: Verificar evidencia externa cripto DEMO
+on:
+  pull_request:
+    branches: [desarrollo-comercios-20261013, main]
+    paths:
+      - 'src/digital-money/crypto-release-gates.mjs'
+      - 'tests/crypto-release-gates.test.mjs'
+      - '.github/workflows/test-crypto-evidence-sources.yml'
+  push:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'src/digital-money/crypto-release-gates.mjs'
+      - 'tests/crypto-release-gates.test.mjs'
+      - '.github/workflows/test-crypto-evidence-sources.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  evidence-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/crypto-release-gates.test.mjs
+      - run: node --test tests/*.test.mjs
