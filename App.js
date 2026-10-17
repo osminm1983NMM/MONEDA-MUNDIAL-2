@@ -517,6 +517,7 @@ export default function App() {
   const [merchantBusy, setMerchantBusy] = useState(false);
   const [paymentCode, setPaymentCode] = useState('');
   const [paymentPreview, setPaymentPreview] = useState(null);
+  const sessionEpochRef = useRef(0);
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
   const quoteSequenceRef = useRef(0);
@@ -537,6 +538,7 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
+      if (event === 'SIGNED_OUT' || event === 'SIGNED_IN' || event === 'USER_DELETED') sessionEpochRef.current += 1;
       setSession(nextSession);
       setAuthLoading(false);
       if (event === 'SIGNED_OUT') {
@@ -1045,7 +1047,9 @@ export default function App() {
   async function executeOperation(type, cents, code = '') {
     if (busyRef.current) return;
     const requestedUserId = userId;
-    if (!await demoOperationStillBelongsToUser(supabase.auth, requestedUserId)) {
+    const requestedEpoch = sessionEpochRef.current;
+    if (!await demoOperationStillBelongsToUser(supabase.auth, requestedUserId) ||
+        sessionEpochRef.current !== requestedEpoch) {
       showMessage('Sesión', 'Inicia sesión nuevamente antes de realizar una operación ficticia.');
       return;
     }
@@ -1064,7 +1068,9 @@ export default function App() {
         : await supabase.rpc('mwd_contribute_demo', {
           p_amount_cents: cents, p_request_id: requestId,
         });
-      if (!await demoOperationStillBelongsToUser(supabase.auth, requestedUserId)) {
+      if (sessionEpochRef.current !== requestedEpoch ||
+          !await demoOperationStillBelongsToUser(supabase.auth, requestedUserId) ||
+          sessionEpochRef.current !== requestedEpoch) {
         // The DEMO server could have recorded the request, but do not show
         // another user's result or erase an unverified pending request.
         pendingRef.current = null;
@@ -1083,7 +1089,9 @@ export default function App() {
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
     } catch (error) {
-      if (await demoOperationStillBelongsToUser(supabase.auth, requestedUserId))
+      if (sessionEpochRef.current === requestedEpoch &&
+          await demoOperationStillBelongsToUser(supabase.auth, requestedUserId) &&
+          sessionEpochRef.current === requestedEpoch)
         showMessage('Operación no confirmada',
           (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
       else pendingRef.current = null;
