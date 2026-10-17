@@ -1,5 +1,6 @@
 import React,{useState} from 'react';
 import {View,Text,TextInput} from 'react-native';
+import WalletSafetyPreviewScreen from './WalletSafetyPreviewScreen';
 import {compareInternationalPriceDemo} from './src/digital-money/design-and-comparison.mjs';
 import {previewCoinToDigitalScenario,previewDigitalToCoinScenario} from './src/digital-money/coin-to-digital-design.mjs';
 import {CRYPTO_CONCEPT_OPTIONS,getCryptoConceptCard} from './src/digital-money/crypto-ui-state.mjs';
@@ -182,6 +183,7 @@ export default function DigitalMoneyConceptScreen(){
       <Text style={s.warning}>Sin liquidez, paridad, precio ni emisión verificadas. Ninguna compra está habilitada.</Text>
     </View>:<Text style={s.text}>Introduce Digital y los dos precios hipotéticos para realizar el cálculo inverso.</Text>}
   </View>
+  <WalletSafetyPreviewScreen />
   <Text style={s.warning}>La conversión no garantiza ahorro ni determina el precio del producto. No incluye comisiones, impuestos ni tipo de cambio verificado. Requiere aceptación del vendedor.</Text>
  </View>;
 }
