@@ -1,0 +1,61 @@
+name: Revisar separación y fases cripto DEMO
+on:
+  pull_request:
+    branches: [desarrollo-comercios-20261013, main]
+    paths:
+      - 'src/digital-money/crypto-release-gates.mjs'
+      - 'tests/crypto-release-gates.test.mjs'
+      - 'src/digital-money/coin-market-demo.mjs'
+      - 'tests/coin-market-demo.test.mjs'
+      - 'src/digital-money/coin-launch-economics.mjs'
+      - 'tests/coin-launch-economics.test.mjs'
+      - 'src/digital-money/coin-launch-presets.mjs'
+      - 'tests/coin-launch-presets.test.mjs'
+      - 'src/digital-money/coin-unlock-scenarios.mjs'
+      - 'tests/coin-unlock-scenarios.test.mjs'
+      - 'src/digital-money/coin-pool-impact-demo.mjs'
+      - 'tests/coin-pool-impact-demo.test.mjs'
+      - 'src/digital-money/watch-only-transfer-preview.mjs'
+      - 'tests/watch-only-transfer-preview.test.mjs'
+      - 'src/digital-money/recipient-address-comparison.mjs'
+      - 'tests/recipient-address-comparison.test.mjs'
+      - 'src/digital-money/crypto-ui-state.mjs'
+      - 'tests/crypto-ui-state.test.mjs'
+      - 'DigitalMoneyConceptScreen.js'
+      - 'WalletSafetyPreviewScreen.js'
+      - '.github/workflows/test-crypto-release-gates.yml'
+  push:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'src/digital-money/crypto-release-gates.mjs'
+      - 'tests/crypto-release-gates.test.mjs'
+      - 'src/digital-money/coin-market-demo.mjs'
+      - 'tests/coin-market-demo.test.mjs'
+      - 'src/digital-money/coin-launch-economics.mjs'
+      - 'tests/coin-launch-economics.test.mjs'
+      - 'src/digital-money/coin-launch-presets.mjs'
+      - 'tests/coin-launch-presets.test.mjs'
+      - 'src/digital-money/coin-unlock-scenarios.mjs'
+      - 'tests/coin-unlock-scenarios.test.mjs'
+      - 'src/digital-money/coin-pool-impact-demo.mjs'
+      - 'tests/coin-pool-impact-demo.test.mjs'
+      - 'src/digital-money/watch-only-transfer-preview.mjs'
+      - 'tests/watch-only-transfer-preview.test.mjs'
+      - 'src/digital-money/recipient-address-comparison.mjs'
+      - 'tests/recipient-address-comparison.test.mjs'
+      - '.github/workflows/test-crypto-release-gates.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  security-design-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/crypto-release-gates.test.mjs tests/crypto-ui-state.test.mjs tests/coin-market-demo.test.mjs tests/coin-launch-economics.test.mjs tests/coin-launch-presets.test.mjs tests/coin-unlock-scenarios.test.mjs tests/coin-pool-impact-demo.test.mjs tests/watch-only-transfer-preview.test.mjs tests/recipient-address-comparison.test.mjs
+      - run: node --test tests/*.test.mjs
+      - run: npm install --no-audit --no-fund
+      - run: CI=1 npx expo export --platform android --output-dir dist
