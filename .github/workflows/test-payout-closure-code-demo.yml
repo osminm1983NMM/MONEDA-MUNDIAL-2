@@ -1,0 +1,73 @@
+name: Verificar cierre de entrega DEMO con código consumido
+on:
+  push:
+    branches: [fix/cierre-retiro-demo-20261017]
+    paths:
+      - 'database/mwd_payout_closure_requires_code_demo.sql'
+      - 'tests/payout-closure-code-assertions.sql'
+      - 'PayoutCandidateLinkScreen.js'
+      - 'src/payout-demo-closure-guards.mjs'
+      - 'tests/payout-demo-closure-guards.test.mjs'
+      - '.github/workflows/test-payout-closure-code-demo.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cierre-codigo-demo:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: demo-only
+          POSTGRES_DB: payout_closure_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d payout_closure_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 8
+    env:
+      PGHOST: localhost
+      PGDATABASE: payout_closure_test
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: demo-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar controles de la interfaz DEMO
+        run: node --test tests/payout-demo-closure-guards.test.mjs
+      - name: Preparar personas ficticias
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/partner-registry-fixture.sql
+      - name: Cargar socios y remesas DEMO
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f database/mwd_secure_partner_registry_demo.sql
+          psql -X -v ON_ERROR_STOP=1 -f database/mwd_owner_remittance_tracking_demo.sql
+          psql -X -v ON_ERROR_STOP=1 -f database/mwd_payout_candidate_link_demo.sql
+          psql -X -v ON_ERROR_STOP=1 -f database/mwd_beneficiary_code_security_demo.sql
+          psql -X -v ON_ERROR_STOP=1 -f database/mwd_pickup_code_idempotency_demo.sql
+          psql -X -v ON_ERROR_STOP=1 -f database/mwd_payout_closure_requires_code_demo.sql
+      - name: Probar propietario, consumo e idempotencia
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/payout-closure-code-assertions.sql
+
+  android-ui-export:
+    name: Validar pantalla Android y bundle JS del DEMO
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias Expo para pruebas
+        run: npm install --no-audit --no-fund
+      - name: Comprobar versiones Expo
+        run: npx expo install --check
+      - name: Ejecutar tests Node sin fondos reales
+        run: node --test tests/*.test.mjs
+      - name: Exportar bundle Android de demostracion
+        run: CI=1 npx expo export --platform android --output-dir dist
