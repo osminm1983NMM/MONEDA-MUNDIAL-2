@@ -44,3 +44,12 @@ test('system UI ANR overlay fails even with login text present',()=>{
    assert.notEqual(check({xml}).status,0,dialog);
  }
 });
+
+test('English phone login UI renders as valid demo login',()=>{
+ const xml='<hierarchy><node text="MONEDA MUNDIAL"/><node text="Sign in to Moneda Mundial"/><node text="Create demo account"/></hierarchy>';
+ const r=check({xml});assert.equal(r.status,0,r.stderr+' '+r.stdout);
+});
+test('Brand-only or invalid English overlay is still rejected',()=>{
+ assert.notEqual(check({xml:'<hierarchy text="MONEDA MUNDIAL" hint="Your world, one wallet"/>'}).status,0);
+ assert.notEqual(check({xml:'<hierarchy text="MONEDA MUNDIAL" hint="System UI is not responding · Sign in"/>'}).status,0);
+});
