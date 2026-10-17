@@ -1173,7 +1173,15 @@ export default function App() {
           <Text style={styles.demoBannerText}>MODO DEMOSTRACIÓN · SIN DINERO REAL</Text>
         </View>
 
-        {authLoading ? <Text style={styles.loadingText}>Estamos preparando tu cuenta</Text> : !session && screen === 'RecuperarAcceso' ? (
+        {!session && showGuestTour ? (
+          <DemoTourScreen language={language} onClose={()=>setShowGuestTour(false)} />
+        ) : authLoading ? (
+          <View style={styles.card}>
+            <Text style={styles.loadingText}>Estamos preparando tu cuenta</Text>
+            <Btn title={language === 'en' ? 'Explore without an account (demo only)' : 'Conocer sin cuenta (solo demostración)'}
+              secondary onPress={()=>setShowGuestTour(true)} />
+          </View>
+        ) : !session && screen === 'RecuperarAcceso' ? (
           <View style={styles.card}>
             <Text style={styles.heading}>Recuperar mi contraseña</Text>
             <Text style={styles.muted}>Introduce tu correo. Recibirás un enlace seguro de recuperación para abrir en este teléfono.</Text>
@@ -1210,8 +1218,6 @@ export default function App() {
               disabled={recoveryBusy} onPress={saveNewPassword} />
             <Text style={styles.muted}>Nunca compartas tu código ni contraseña con otras personas.</Text>
           </View>
-        ) : !session && showGuestTour ? (
-          <DemoTourScreen language={language} onClose={()=>setShowGuestTour(false)} />
         ) : !session ? (
           <View style={styles.card}>
             <Text style={styles.heading}>Accede a Moneda Mundial</Text>
@@ -1224,7 +1230,7 @@ export default function App() {
               secureTextEntry value={password} onChangeText={setPassword} />
             <Btn title={authBusy ? 'Espera...' : 'Iniciar sesión'} onPress={() => authenticate('login')} disabled={authBusy} />
             <Btn title="Crear cuenta de prueba" secondary onPress={() => authenticate('register')} disabled={authBusy} />
-            <Btn title="Conocer la aplicación sin cuenta (solo demostración)" secondary onPress={()=>setShowGuestTour(true)} disabled={authBusy} />
+            <Btn title={language === 'en' ? 'Explore without an account (demo only)' : 'Conocer la aplicación sin cuenta (solo demostración)'} secondary onPress={()=>setShowGuestTour(true)} disabled={authBusy} />
             <Btn title="¿Olvidaste tu contraseña?" secondary disabled={authBusy}
               onPress={() => { setRecoveryEmail(email.trim().toLowerCase()); setScreen('RecuperarAcceso'); }} />
             <Text style={styles.muted}>Cada cuenta nueva recibe 10,000 MWD ficticios. Si Supabase solicita confirmar el correo, revisa tu bandeja de entrada.</Text>
