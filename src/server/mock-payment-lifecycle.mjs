@@ -159,8 +159,10 @@ export function createMockPaymentLifecycle({
    const digest=hash(rawBody);
    const previous=eventIds.get(e.eventId);
    if(previous){
-     if(previous!==digest)fail('Identificador de evento reutilizado con otro contenido');
-     return Object.freeze({accepted:true,duplicate:true,status:o.status,
+     if(previous.digest!==digest)fail('Identificador de evento reutilizado con otro contenido');
+     // El reintento representa el evento ORIGINAL, no la etapa posterior
+     // de la orden. No propone nuevos asientos ni cambia saldo alguno.
+     return Object.freeze({accepted:true,duplicate:true,status:previous.acceptedStatus,
        realMoneyEnabled:false,ledgerAutomaticallyPosted:false});
    }
    const transitions={
@@ -173,7 +175,7 @@ export function createMockPaymentLifecycle({
    const [from,to]=transitions[e.phase];
    if(o.status!==from)fail('Transición de liquidación ficticia prohibida');
    o.status=to;
-   eventIds.set(e.eventId,digest);
+   eventIds.set(e.eventId,{digest,acceptedStatus:to});
    propose(o,e.phase);
    log(e.phase,o);
    return Object.freeze({accepted:true,duplicate:false,status:o.status,
