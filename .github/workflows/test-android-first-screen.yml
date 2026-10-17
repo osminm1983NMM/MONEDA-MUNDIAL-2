@@ -1,0 +1,27 @@
+name: Probar comprobaciones de pantalla Android DEMO
+on:
+  pull_request:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'scripts/verificar-pantalla-acceso-demo.sh'
+      - 'tests/android-first-screen-assertions.test.mjs'
+      - '.github/workflows/test-android-first-screen.yml'
+  push:
+    branches: [qa/verify-android-first-screen-20261017]
+    paths:
+      - 'scripts/verificar-pantalla-acceso-demo.sh'
+      - 'tests/android-first-screen-assertions.test.mjs'
+      - '.github/workflows/test-android-first-screen.yml'
+permissions:
+  contents: read
+jobs:
+  ui-contract:
+    name: Rechazar inicio en blanco o ajeno a la demo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar verificador de pantalla DEMO con datos falsos
+        run: node --test tests/android-first-screen-assertions.test.mjs

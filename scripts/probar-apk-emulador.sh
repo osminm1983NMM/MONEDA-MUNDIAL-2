@@ -53,4 +53,6 @@ if grep -Eq 'FATAL EXCEPTION|Unable to load script|Invariant Violation|Uncaught 
   exit 1
 fi
 
-echo "RESULTADO: APK instalada y proceso abierto en emulador. Flujos de cuentas pendientes de prueba manual."
+bash scripts/verificar-pantalla-acceso-demo.sh smoke-results/ui.xml smoke-results/initial-screen.png
+
+echo "RESULTADO: APK abierta y pantalla de acceso DEMO detectada. Flujos de cuentas pendientes de prueba manual."
