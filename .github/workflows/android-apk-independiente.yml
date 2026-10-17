@@ -156,6 +156,10 @@ jobs:
           test -s smoke-results/ui.xml
           test -s smoke-results/guest-tour.xml
           test -s smoke-results/guest-tour-bottom.xml
+          test -s smoke-results/guest-crypto.xml
+          test -s smoke-results/guest-crypto-bottom.xml
+          test -s smoke-results/guest-after-crypto.xml
+          test -s smoke-results/guest-tour-return-ready.xml
           test -s smoke-results/guest-return.xml
           echo "Run: ${{ github.run_id }}, commit: ${{ github.sha }}"
       - name: Publicar APK Android DEMO verificada por el emulador
