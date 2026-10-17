@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {canReusePendingDemoOperation,demoOperationStillBelongsToUser,claimDemoOperationLock} from '../src/demo-operation-session.mjs';
+import {canReusePendingDemoOperation,demoOperationStillBelongsToUser,claimDemoOperationLock,retainPendingDemoRequest} from '../src/demo-operation-session.mjs';
 
 const session=(id)=>({getSession:async()=>({data:{session:id?{user:{id}}:null},error:null})});
 test('misma cuenta e importe reutiliza UUID ficticio para reintentos',()=>{
@@ -36,4 +36,11 @@ test('doble pulsación concurrente solo obtiene un bloqueo antes de esperar sesi
 test('bloqueo falla cerrado si no existe referencia válida',()=>{
  assert.equal(claimDemoOperationLock(null),false);
  assert.equal(claimDemoOperationLock({current:true}),false);
+});
+
+test('respuesta incierta conserva identificador de reintento solo en misma sesión',()=>{
+ assert.equal(retainPendingDemoRequest(8,8),true);
+ assert.equal(retainPendingDemoRequest(8,9),false);
+ assert.equal(retainPendingDemoRequest(8,7),false);
+ assert.equal(retainPendingDemoRequest(undefined,undefined),false);
 });
