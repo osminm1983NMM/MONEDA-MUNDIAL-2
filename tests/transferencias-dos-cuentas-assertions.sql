@@ -178,6 +178,38 @@ BEGIN
 END $test$;
 RESET ROLE;
 
+-- 6b: un UUID de transferencia/pago no puede reutilizarse como aportación.
+-- Esto comprueba que un reintento con tipo alterado no genere otro débito.
+SET ROLE authenticated;
+SET request.jwt.claim.sub = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+DO $test$
+DECLARE v_denied boolean := false;
+BEGIN
+  BEGIN
+    PERFORM public.mwd_contribute_demo(25,
+      '20000000-0000-4000-8000-000000000001'::uuid);
+  EXCEPTION WHEN OTHERS THEN v_denied := true; END;
+  IF NOT v_denied THEN
+    RAISE EXCEPTION 'A reutilizo UUID de transferencia como aportacion';
+  END IF;
+END $test$;
+RESET ROLE;
+
+SET ROLE authenticated;
+SET request.jwt.claim.sub = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+DO $test$
+DECLARE v_denied boolean := false;
+BEGIN
+  BEGIN
+    PERFORM public.mwd_contribute_demo(25,
+      '10000000-0000-4000-8000-000000000001'::uuid);
+  EXCEPTION WHEN OTHERS THEN v_denied := true; END;
+  IF NOT v_denied THEN
+    RAISE EXCEPTION 'B reutilizo UUID de pago como aportacion';
+  END IF;
+END $test$;
+RESET ROLE;
+
 -- 7: comprobación de integridad como administrador del servidor DESECHABLE.
 DO $test$
 DECLARE
