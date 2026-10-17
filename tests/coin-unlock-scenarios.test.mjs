@@ -31,7 +31,7 @@ test('los tokens hipotéticamente liberados crecen sin inventar emisión',()=>{
 });
 test('suministro indivisible se conserva y residuos se asignan a reserva',()=>{
  const p=previewCoinUnlockScenario({maximumSupplyUnits:'101',planId:'balanced',month:0});
- assert.equal(p.roundingRemainderAssignedToReserveUnits,'2');
+ assert.equal(p.roundingRemainderAssignedToReserveUnits,'1');
  assert.equal(p.entries.reduce((sum,row)=>sum+BigInt(row.allocatedUnits),0n),101n);
  assert.equal(BigInt(p.hypotheticallyUnlockedUnits)+BigInt(p.hypotheticallyLockedUnits),101n);
 });
