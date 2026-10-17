@@ -15,6 +15,7 @@ SET ROLE authenticated;
 DO $$
 DECLARE
  p uuid; l uuid; o uuid; token text; r jsonb; s jsonb;
+ scenario text; attempt_no integer;
 BEGIN
  r:=public.mwd_owner_partner_save_demo('QA banco simulacion','bank','HN');
  p:=(r->>'id')::uuid;
@@ -38,6 +39,10 @@ BEGIN
   RAISE EXCEPTION 'Closure with unconsumed code incorrectly accepted';
  EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
  perform public.mwd_owner_mock_beneficiary_check_demo(o,gen_random_uuid());
+ BEGIN
+  PERFORM public.mwd_owner_complete_payout_sample_demo(o,gen_random_uuid());
+  RAISE EXCEPTION 'Closure without code consumption after mock ID check incorrectly accepted';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
  r:=public.mwd_owner_try_pickup_code_demo(o,token,gen_random_uuid());
  IF r->>'status'<>'consumed' or r->>'money_paid'<>'false' THEN
    RAISE EXCEPTION 'Invalid fake code consumption'; END IF;
@@ -50,7 +55,35 @@ BEGIN
   PERFORM public.mwd_owner_complete_payout_sample_demo(o,gen_random_uuid());
   RAISE EXCEPTION 'Duplicate mock payout closure accepted';
  EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
-END $$;
+
+ -- Reject closed samples even if a remittance is marked 'simulated'.
+ FOR scenario IN SELECT unnest(array['cancelled','locked']) LOOP
+  r:=public.mwd_owner_remittance_create_demo('HN',10000,gen_random_uuid());
+  o:=(r->>'id')::uuid;
+  perform public.mwd_owner_remittance_transition_demo(o,'review',gen_random_uuid());
+  perform public.mwd_owner_assign_payout_design_demo(o,p,l,gen_random_uuid());
+  perform public.mwd_owner_remittance_transition_demo(o,'simulated',gen_random_uuid());
+  r:=public.mwd_owner_issue_pickup_code_demo(o,gen_random_uuid());
+  IF scenario='cancelled' THEN
+    r:=public.mwd_owner_cancel_pickup_code_demo(o);
+    IF r->>'status'<>'cancelled' THEN RAISE EXCEPTION 'Cancel fixture failed'; END IF;
+  ELSE
+    FOR attempt_no IN 1..5 LOOP
+      r:=public.mwd_owner_try_pickup_code_demo(
+        o,'DEMO-FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',gen_random_uuid());
+    END LOOP;
+    IF r->>'status'<>'locked' THEN RAISE EXCEPTION 'Lock fixture failed'; END IF;
+  END IF;
+  BEGIN
+    PERFORM public.mwd_owner_complete_payout_sample_demo(o,gen_random_uuid());
+    RAISE EXCEPTION 'Closure with % code incorrectly accepted',scenario;
+  EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
+ END LOOP;
+ IF (SELECT count(*) FROM mwd_remittance_demo_private.payout_assignments
+     WHERE status='sample_completed')<>1 THEN
+   RAISE EXCEPTION 'Unexpected extra mock payout closure';
+ END IF;
+END $;
 RESET ROLE;
 RESET request.jwt.claim.sub;
 SELECT 'Mock payout closure requires consumed token, owner and idempotency' AS result;
