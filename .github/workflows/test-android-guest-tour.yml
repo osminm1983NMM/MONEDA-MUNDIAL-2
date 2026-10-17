@@ -1,0 +1,18 @@
+name: Probar recorrido de invitado sin cuenta
+on:
+  push:
+    branches: [qa/android-recorrido-invitado-end-to-end-20261017]
+    paths:
+      - 'scripts/android_guest_tour_contract.py'
+      - 'scripts/probar-recorrido-invitado-emulador.sh'
+      - 'tests/test_android_guest_tour_contract.py'
+      - '.github/workflows/test-android-guest-tour.yml'
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar contrato ES/EN sin acceso a cuentas
+        run: python3 -m unittest discover -s tests -p test_android_guest_tour_contract.py -v
