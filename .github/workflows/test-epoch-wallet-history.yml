@@ -1,0 +1,20 @@
+name: Validar historial y sesión Android
+on:
+  push:
+    branches: [fix/epoch-wallet-history-refresh-20261017]
+permissions:
+  contents: read
+jobs:
+  verificacion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pruebas de cuentas, sesiones, saldos ficticios
+        run: node --test tests/session-guards.test.mjs tests/demo-operation-session.test.mjs tests/dos-cuentas-simulacion.test.mjs
+      - name: Dependencias Android
+        run: npm install --no-audit --no-fund
+      - name: Verificar empaquetado Android
+        run: CI=1 npx expo export --platform android --output-dir dist

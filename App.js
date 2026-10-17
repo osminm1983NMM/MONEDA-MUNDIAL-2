@@ -751,6 +751,7 @@ export default function App() {
 
   async function refreshAccount(id = userId) {
     if (!id) return;
+    const requestedEpoch = sessionEpochRef.current;
     setSyncing(true);
     try {
       const [w, h, a] = await Promise.all([
@@ -764,19 +765,22 @@ export default function App() {
       if (h.error) throw h.error;
       if (a.error) throw a.error;
       const { data: { session: activeSession } } = await supabase.auth.getSession();
-      if (!canApplySessionResponse(id, activeSession)) return;
+      if (!canApplySessionResponse(id, activeSession) ||
+          sessionEpochRef.current !== requestedEpoch) return;
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
     } catch (error) {
-      showMessage('Sincronización', error.message || 'No se pudo consultar Supabase.');
+      if (sessionEpochRef.current === requestedEpoch)
+        showMessage('Sincronización', error.message || 'No se pudo consultar Supabase.');
     } finally {
-      setSyncing(false);
+      if (sessionEpochRef.current === requestedEpoch) setSyncing(false);
     }
   }
 
   async function refreshMerchant(id = userId) {
     if (!id) return;
+    const requestedEpoch = sessionEpochRef.current;
     try {
       const [m, r] = await Promise.all([
         supabase.from('mwd_merchants')
@@ -790,7 +794,8 @@ export default function App() {
       if (m.error) throw m.error;
       if (r.error) throw r.error;
       const { data: { session: activeSession } } = await supabase.auth.getSession();
-      if (!canApplySessionResponse(id, activeSession)) return;
+      if (!canApplySessionResponse(id, activeSession) ||
+          sessionEpochRef.current !== requestedEpoch) return;
       setMerchant(m.data);
       setMerchantRequests(r.data || []);
       if (m.data) {
@@ -798,7 +803,8 @@ export default function App() {
         setMerchantCountry(m.data.country_code);
       }
     } catch (error) {
-      showMessage('Comercios', error.message || 'No se pudo consultar el comercio.');
+      if (sessionEpochRef.current === requestedEpoch)
+        showMessage('Comercios', error.message || 'No se pudo consultar el comercio.');
     }
   }
 
