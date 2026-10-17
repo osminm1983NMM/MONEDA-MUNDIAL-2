@@ -106,6 +106,21 @@ jobs:
           mkdir -p smoke-results
           echo "Commit APK: ${{ github.sha }}" > smoke-results/compilacion-probada.txt
           echo "Run: ${{ github.run_id }}" >> smoke-results/compilacion-probada.txt
+      # Habilitar KVM según la guía de reactivecircus/android-emulator-runner.
+      # Sin aceleración hardware, el arranque puede tardar más de 15 minutos
+      # y el sistema Android puede mostrar errores de falta de respuesta.
+      - name: Habilitar aceleración KVM para el emulador
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -e /dev/kvm ]; then
+            echo "::error::Este runner no ofrece KVM; no es apto para la prueba automatizada."
+            exit 1
+          fi
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -r /dev/kvm && test -w /dev/kvm
       - name: Emulador Android sin credenciales ni dinero real
         timeout-minutes: 35
         uses: reactivecircus/android-emulator-runner@v2

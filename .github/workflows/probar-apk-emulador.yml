@@ -60,6 +60,18 @@ jobs:
         run: |
           ls -lh apk-test/
           unzip -l apk-test/app-release.apk | tail -n 5
+      - name: Habilitar aceleración KVM para el emulador
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -e /dev/kvm ]; then
+            echo "::error::El runner no ofrece KVM"
+            exit 1
+          fi
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -r /dev/kvm && test -w /dev/kvm
       - name: Ejecutar Android en emulador sin credenciales
         uses: reactivecircus/android-emulator-runner@v2
         with:
