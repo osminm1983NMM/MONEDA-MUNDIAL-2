@@ -5,15 +5,18 @@ import {previewCoinToDigitalScenario,previewDigitalToCoinScenario} from './src/d
 import {CRYPTO_CONCEPT_OPTIONS,getCryptoConceptCard} from './src/digital-money/crypto-ui-state.mjs';
 import {previewCoinTradeScenario} from './src/digital-money/coin-market-demo.mjs';
 import {getCoinLaunchExample,previewCoinLaunchFromDollars} from './src/digital-money/coin-launch-presets.mjs';
+import {previewCoinUnlockScenario} from './src/digital-money/coin-unlock-scenarios.mjs';
 const s={panel:{backgroundColor:'#152b42',borderRadius:12,padding:14,marginVertical:9},text:{color:'#e1edf4',marginVertical:6},warning:{color:'#f3c887',marginVertical:8},input:{color:'#fff',backgroundColor:'#28465c',borderRadius:7,padding:11,marginVertical:7}};
 export default function DigitalMoneyConceptScreen(){
  const [currency,setCurrency]=useState('PEN'),[price,setPrice]=useState(''),[rate,setRate]=useState(''),[seller,setSeller]=useState(''),[hypothesis,setHypothesis]=useState('');
  const [coinUnits,setCoinUnits]=useState(''),[digitalUnits,setDigitalUnits]=useState(''),[coinUsd,setCoinUsd]=useState(''),[digitalUsd,setDigitalUsd]=useState('');
  const [tradeSide,setTradeSide]=useState('buy'),[tradeUnits,setTradeUnits]=useState(''),[tradeFee,setTradeFee]=useState('0');
  const [launchExample,setLaunchExample]=useState('100m');
+ const [distributionPlan,setDistributionPlan]=useState('balanced'),[unlockMonth,setUnlockMonth]=useState('0');
  const [selectedAsset,setSelectedAsset]=useState('coin');
  const selectedCard=getCryptoConceptCard(selectedAsset);
  const launch=previewCoinLaunchFromDollars(getCoinLaunchExample(launchExample));
+ const vesting=launch?previewCoinUnlockScenario({maximumSupplyUnits:launch.maximumSupplyUnits,planId:distributionPlan,month:Number(unlockMonth)}):null;
  const trade=previewCoinTradeScenario({side:tradeSide,coinUnits:tradeUnits,coinUsdScenario:coinUsd,feeBps:Number(tradeFee)});
  const swap=previewCoinToDigitalScenario({coinUnits,coinUsdScenario:coinUsd,digitalUsdScenario:digitalUsd});
  const reverseSwap=previewDigitalToCoinScenario({digitalUnits,coinUsdScenario:coinUsd,digitalUsdScenario:digitalUsd});
@@ -84,6 +87,29 @@ export default function DigitalMoneyConceptScreen(){
     <Text style={s.text}>Referencia matemática por Coin: {launch.hypotheticalOpeningReferencePriceUsd} USD</Text>
     <Text style={s.warning}>No es precio justo, cotización ejecutable, capital recaudado ni garantía de liquidez.</Text>
    </View>}
+  </View>
+  <View style={s.panel}>
+    <Text style={s.text}>COIN · DISTRIBUCIÓN Y DESBLOQUEO (EJEMPLOS)</Text>
+    <Text style={s.warning}>No son monedas emitidas ni cantidades oficialmente reservadas.</Text>
+    <View style={{flexDirection:'row'}}>
+      {['balanced','broad_distribution'].map((id)=><Text key={id}
+       accessibilityRole="button" onPress={()=>setDistributionPlan(id)}
+       style={[s.text,{flex:1,padding:10,textAlign:'center',
+        backgroundColor:distributionPlan===id?'#275c82':'#28465c'}]}>
+       {id==='balanced'?'Plan A':'Plan B'}
+      </Text>)}
+    </View>
+    <Text style={s.text}>Mes hipotético desde el lanzamiento (0 a 120)</Text>
+    <TextInput style={s.input} value={unlockMonth} onChangeText={setUnlockMonth}
+      keyboardType="number-pad" placeholder="Ejemplo 12" placeholderTextColor="#aec5cf"/>
+    {vesting?<View>
+      <Text style={s.text}>Monedas hipotéticamente desbloqueadas: {vesting.hypotheticallyUnlockedUnits}</Text>
+      <Text style={s.text}>Monedas hipotéticamente bloqueadas: {vesting.hypotheticallyLockedUnits}</Text>
+      {vesting.entries.map(row=><Text key={row.bucket} style={s.text}>
+        {row.bucket}: {row.allocationPercent}% asignación; {row.hypotheticallyUnlockedUnits} desbloqueadas de ejemplo
+      </Text>)}
+      <Text style={s.warning}>Desbloqueadas NO significa circulantes, vendibles ni garantizadas.</Text>
+    </View>:<Text style={s.warning}>Indica un mes entero entre 0 y 120.</Text>}
   </View>
   <Text style={s.text}>MWD actuales: créditos de prueba sin valor financiero. NO son criptomonedas.</Text>
   <Text style={s.text}>Moneda Mundial Digital: concepto de moneda estable para pagos, sujeto a emisor autorizado. Paridad NO operativa.</Text>
