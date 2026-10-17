@@ -4,13 +4,16 @@ import {compareInternationalPriceDemo} from './src/digital-money/design-and-comp
 import {previewCoinToDigitalScenario,previewDigitalToCoinScenario} from './src/digital-money/coin-to-digital-design.mjs';
 import {CRYPTO_CONCEPT_OPTIONS,getCryptoConceptCard} from './src/digital-money/crypto-ui-state.mjs';
 import {previewCoinTradeScenario} from './src/digital-money/coin-market-demo.mjs';
+import {getCoinLaunchExample,previewCoinLaunchFromDollars} from './src/digital-money/coin-launch-presets.mjs';
 const s={panel:{backgroundColor:'#152b42',borderRadius:12,padding:14,marginVertical:9},text:{color:'#e1edf4',marginVertical:6},warning:{color:'#f3c887',marginVertical:8},input:{color:'#fff',backgroundColor:'#28465c',borderRadius:7,padding:11,marginVertical:7}};
 export default function DigitalMoneyConceptScreen(){
  const [currency,setCurrency]=useState('PEN'),[price,setPrice]=useState(''),[rate,setRate]=useState(''),[seller,setSeller]=useState(''),[hypothesis,setHypothesis]=useState('');
  const [coinUnits,setCoinUnits]=useState(''),[digitalUnits,setDigitalUnits]=useState(''),[coinUsd,setCoinUsd]=useState(''),[digitalUsd,setDigitalUsd]=useState('');
  const [tradeSide,setTradeSide]=useState('buy'),[tradeUnits,setTradeUnits]=useState(''),[tradeFee,setTradeFee]=useState('0');
+ const [launchExample,setLaunchExample]=useState('100m');
  const [selectedAsset,setSelectedAsset]=useState('coin');
  const selectedCard=getCryptoConceptCard(selectedAsset);
+ const launch=previewCoinLaunchFromDollars(getCoinLaunchExample(launchExample));
  const trade=previewCoinTradeScenario({side:tradeSide,coinUnits:tradeUnits,coinUsdScenario:coinUsd,feeBps:Number(tradeFee)});
  const swap=previewCoinToDigitalScenario({coinUnits,coinUsdScenario:coinUsd,digitalUsdScenario:digitalUsd});
  const reverseSwap=previewDigitalToCoinScenario({digitalUnits,coinUsdScenario:coinUsd,digitalUsdScenario:digitalUsd});
@@ -61,6 +64,26 @@ export default function DigitalMoneyConceptScreen(){
       <Text style={s.text}>{tradeSide==='buy'?'Costo total hipotético':'Ingreso hipotético de venta'}: {tradeSide==='buy'?trade.hypotheticalBuyerTotalUsd:trade.hypotheticalSellerProceedsUsd} USD</Text>
       <Text style={s.warning}>No incluye spreads, comisiones de red, impuestos ni conversión bancaria. Ninguna operación puede ejecutarse.</Text>
     </View>:<Text style={s.warning}>Ingresa cantidades válidas y un precio ficticio de Coin.</Text>}
+  </View>
+  <View style={s.panel}>
+   <Text style={s.text}>OFERTA Y PRECIO INICIAL · EJEMPLOS NO OFICIALES</Text>
+   <Text style={s.warning}>Sin emisión, sin pool, sin mercado. Ninguna cifra representa dinero disponible.</Text>
+   <View style={{flexDirection:'row'}}>
+    {['100m','1000m'].map(id=><Text key={id} accessibilityRole="button"
+     accessibilityLabel={id==='100m'?'Estudiar 100 millones':'Estudiar mil millones'}
+     onPress={()=>setLaunchExample(id)}
+     style={[s.text,{flex:1,textAlign:'center',padding:10,
+      backgroundColor:launchExample===id?'#275c82':'#28465c'}]}>
+     {id==='100m'?'100 millones':'1,000 millones'}
+    </Text>)}
+   </View>
+   {launch&&<View>
+    <Text style={s.text}>Oferta máxima hipotética: {launch.maximumSupplyUnits} Coin</Text>
+    <Text style={s.text}>Circulación inicial hipotética: {launch.initiallyCirculatingUnits} Coin</Text>
+    <Text style={s.text}>Liquidez ficticia del ejemplo: {launch.poolQuoteUsdScenario} USD frente a {launch.illustrativePoolCoinUnits} Coin</Text>
+    <Text style={s.text}>Referencia matemática por Coin: {launch.hypotheticalOpeningReferencePriceUsd} USD</Text>
+    <Text style={s.warning}>No es precio justo, cotización ejecutable, capital recaudado ni garantía de liquidez.</Text>
+   </View>}
   </View>
   <Text style={s.text}>MWD actuales: créditos de prueba sin valor financiero. NO son criptomonedas.</Text>
   <Text style={s.text}>Moneda Mundial Digital: concepto de moneda estable para pagos, sujeto a emisor autorizado. Paridad NO operativa.</Text>
