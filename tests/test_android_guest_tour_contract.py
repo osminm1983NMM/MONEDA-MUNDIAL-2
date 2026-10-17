@@ -1,7 +1,7 @@
 import unittest
 import tempfile
 from pathlib import Path
-from scripts.android_guest_tour_contract import entry_coordinates, verify_tour, verify_return
+from scripts.android_guest_tour_contract import entry_coordinates, verify_tour, verify_return, return_button_coordinates
 
 def node(text='', desc='', clickable=False, bounds='[10,20][110,120]'):
     return (f'<node text="{text}" content-desc="{desc}" '
@@ -33,7 +33,7 @@ class GuestTourContractTest(unittest.TestCase):
             node(text='International transfers'),node(text='Digital and Coin'),
             node(desc='Back to sign in',clickable=True)
         ]))
-        try: verify_tour(p)
+        try: verify_tour(p,p)
         finally: p.unlink()
     def test_spanish_tour(self):
         p=write_xml(''.join([
@@ -41,7 +41,7 @@ class GuestTourContractTest(unittest.TestCase):
             node(text='Transferencias internacionales'),node(text='Digital y Coin'),
             node(desc='Volver a iniciar sesión',clickable=True)
         ]))
-        try: verify_tour(p)
+        try: verify_tour(p,p)
         finally: p.unlink()
     def test_tour_fails_without_warning(self):
         p=write_xml(''.join([
@@ -64,3 +64,18 @@ class GuestTourContractTest(unittest.TestCase):
 
 if __name__=='__main__':
     unittest.main()
+
+    def test_scrolled_tour_content_combined(self):
+        top=write_xml(node(text='Explore Moneda Mundial')+node(text='DEMO ONLY')+node(text='International transfers'))
+        bottom=write_xml(node(text='Digital and Coin')+node(desc='Back to sign in',clickable=True))
+        try:
+            verify_tour(top,bottom)
+            self.assertEqual(return_button_coordinates(bottom),(60,70))
+        finally:
+            top.unlink()
+            bottom.unlink()
+    def test_not_clickable_return_fails(self):
+        bottom=write_xml(node(text='Back to sign in'))
+        try:
+            with self.assertRaises(ValueError): return_button_coordinates(bottom)
+        finally: bottom.unlink()
