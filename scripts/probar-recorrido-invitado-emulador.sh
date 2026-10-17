@@ -26,25 +26,14 @@ read_accessibility() {
 
 adb exec-out screencap -p >smoke-results/guest-tour.png || true
 read_accessibility guest-tour
-python3 scripts/android_guest_tour_contract.py tour smoke-results/guest-tour.xml
+# A long ScrollView may expose only a subset of its children; scroll down
+# and read a second accessibility snapshot before evaluating tour content.
+adb shell input swipe 550 1900 550 700 550
+sleep 2
+read_accessibility guest-tour-bottom
+python3 scripts/android_guest_tour_contract.py tour smoke-results/guest-tour.xml smoke-results/guest-tour-bottom.xml
 
-# Find return button in the accessible screen; the exact language is irrelevant.
-read -r x y < <(python3 - smoke-results/guest-tour.xml <<'PY'
-import re,sys,xml.etree.ElementTree as E
-p=sys.argv[1]
-for n in E.parse(p).iter("node"):
- a=n.attrib
- txt=(a.get('text','')+' '+a.get('content-desc','')).lower()
- if a.get('clickable')=='true' and ('back to sign in' in txt or 'volver a iniciar sesión' in txt):
-  m=re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]',a.get('bounds',''))
-  if m:
-   x0,y0,x1,y1=map(int,m.groups())
-   if x1>x0 and y1>y0:
-    print((x0+x1)//2,(y0+y1)//2)
-    sys.exit(0)
-sys.exit('No se encontró botón de regreso del recorrido DEMO')
-PY
-)
+read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py return-button smoke-results/guest-tour-bottom.xml)"
 echo "Volviendo a la pantalla pública de inicio..."
 adb shell input tap "$x" "$y"
 sleep 3
