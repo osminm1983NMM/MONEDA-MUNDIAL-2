@@ -62,8 +62,6 @@ class GuestTourContractTest(unittest.TestCase):
             with self.assertRaises(ValueError): verify_return(p)
         finally: p.unlink()
 
-if __name__=='__main__':
-    unittest.main()
 
     def test_scrolled_tour_content_combined(self):
         top=write_xml(node(text='Explore Moneda Mundial')+node(text='DEMO ONLY')+node(text='International transfers'))
@@ -79,3 +77,6 @@ if __name__=='__main__':
         try:
             with self.assertRaises(ValueError): return_button_coordinates(bottom)
         finally: bottom.unlink()
+
+if __name__=='__main__':
+    unittest.main()
