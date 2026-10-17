@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CRYPTO_ASSETS,CRYPTO_RELEASE_PHASES,assessCryptoReleasePhase,getCryptoProductSeparation}
+import {CRYPTO_ASSETS,CRYPTO_RELEASE_PHASES,CRYPTO_EVIDENCE_SOURCES,assessCryptoReleasePhase,getCryptoProductSeparation}
  from '../src/digital-money/crypto-release-gates.mjs';
 const asOf='2026-10-17';
 const evidenceFor=phase=>Object.fromEntries(CRYPTO_RELEASE_PHASES[phase].map((key,i)=>
  [key,{scope:phase,reference:'DOC-RESEARCH-'+String(i).padStart(3,'0'),
-   reviewedOn:'2026-10-01',expiresOn:'2026-12-31',source:'internal_design'}]));
+   reviewedOn:'2026-10-01',expiresOn:'2026-12-31',source:CRYPTO_EVIDENCE_SOURCES[key][0]}]));
 test('créditos ficticios no son criptomoneda ni canjeables',()=>{
  const p=getCryptoProductSeparation();
  assert.equal(CRYPTO_ASSETS.demo.isCrypto,false);
@@ -67,4 +67,28 @@ test('no acepta secretos, campos adicionales, fechas futuras o valores engañoso
  assert.equal(assessCryptoReleasePhase({phase,asOf:'2026-13-01',evidence:evidenceFor(phase)}).dateValid,false);
  assert.equal(assessCryptoReleasePhase({phase:'issue_anything',asOf}).reviewStatus,'invalid_input');
  assert.equal(assessCryptoReleasePhase({phase,asOf,evidence:null}).documentsCollected,false);
+});
+
+test('no permite usar un diseño interno para fingir dictamen, auditoría, contrato o registro',()=>{
+ for(const phase of Object.keys(CRYPTO_RELEASE_PHASES)){
+  for(const requirement of CRYPTO_RELEASE_PHASES[phase]){
+   if(CRYPTO_EVIDENCE_SOURCES[requirement].includes('internal_design'))continue;
+   const evidence=evidenceFor(phase);
+   evidence[requirement].source='internal_design';
+   const result=assessCryptoReleasePhase({phase,asOf,evidence});
+   assert.equal(result.documentsCollected,false,phase+':'+requirement);
+   assert.ok(result.missingEvidence.includes(requirement));
+   assert.equal(result.realFundsEnabled,false);
+   assert.equal(result.contractDeployAllowed,false);
+  }
+ }
+});
+test('no acepta una fuente documental externa equivocada ni auto-activa crypto',()=>{
+ const phase='digital_stablecoin',key='regulated_issuer_or_partner_contract';
+ const evidence=evidenceFor(phase);
+ evidence[key].source='provider_documentation';
+ const result=assessCryptoReleasePhase({phase,asOf,evidence});
+ assert.ok(result.missingEvidence.includes(key));
+ assert.equal(result.stablecoinIssued,false);
+ assert.equal(result.stablecoinRedeemable,false);
 });
