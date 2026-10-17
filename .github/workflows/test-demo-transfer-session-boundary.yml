@@ -1,0 +1,17 @@
+name: Verificar transferencias DEMO ligadas a sesión
+on:
+  push:
+    branches: [fix/demo-transfer-session-boundary-20261017]
+permissions:
+  contents: read
+jobs:
+  sesion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/demo-operation-session.test.mjs tests/session-guards.test.mjs
+      - run: npm install --no-audit --no-fund
+      - run: CI=1 npx expo export --platform android --output-dir dist
