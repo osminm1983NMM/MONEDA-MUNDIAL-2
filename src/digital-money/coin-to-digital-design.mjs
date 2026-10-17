@@ -67,3 +67,46 @@ export function previewCoinToDigitalScenario({
   status:'educational_only',
  });
 }
+
+
+/**
+ * ESCENARIO INVERSO: Digital -> Coin (hipotético).
+ * Ambos precios son ejemplos MANUALES, no precios de mercado ni paridad verificada.
+ * No se invoca exchange, blockchain, backend ni saldo de usuario.
+ */
+export function previewDigitalToCoinScenario({
+ digitalUnits,coinUsdScenario,digitalUsdScenario,feeBps=0,slippageBps=0,
+}={}){
+ const quantity=readSixDecimal(digitalUnits);
+ const coinPrice=readSixDecimal(coinUsdScenario);
+ const digitalPrice=readSixDecimal(digitalUsdScenario);
+ if(quantity===null||coinPrice===null||digitalPrice===null||
+   !Number.isInteger(feeBps)||feeBps<0||feeBps>1000||
+   !Number.isInteger(slippageBps)||slippageBps<0||slippageBps>500)return null;
+ const hypotheticalUsdMicro=quantity*digitalPrice/SCALE;
+ const grossCoin=hypotheticalUsdMicro*SCALE/coinPrice;
+ if(grossCoin<=0n)return null;
+ const feeCoin=(grossCoin*BigInt(feeBps)+9999n)/10000n;
+ const netCoin=grossCoin-feeCoin;
+ if(netCoin<=0n)return null;
+ const stressCoin=netCoin*BigInt(10000-slippageBps)/10000n;
+ return Object.freeze({
+  from:'moneda_mundial_digital',to:'moneda_mundial_coin',
+  inputDigitalUnits:formatSix(quantity),
+  coinUsdScenario:formatSix(coinPrice),digitalUsdScenario:formatSix(digitalPrice),
+  hypotheticalUsdValue:formatSix(hypotheticalUsdMicro),
+  hypotheticalGrossCoinUnits:formatSix(grossCoin),
+  illustrativeFeeCoinUnits:formatSix(feeCoin),
+  hypotheticalNetCoinUnits:formatSix(netCoin),
+  slippageRiskBps:slippageBps,
+  hypotheticalStressCoinUnits:formatSix(stressCoin),
+  gasFeesIncluded:false,networkFeesIncluded:false,
+  quoteSource:'user_entered_unverified_scenarios',
+  realMarketPriceKnown:false,stablecoinIssuerSelected:false,
+  tradingVenueSelected:false,liquidityConfirmed:false,
+  priceGuaranteed:false,minimumReceiveGuaranteed:false,
+  assetCustodyEnabled:false,realTransferEnabled:false,
+  canExecute:false,canBuy:false,canSell:false,canRedeem:false,
+  status:'educational_only',
+ });
+}
