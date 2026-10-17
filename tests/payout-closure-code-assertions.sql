@@ -83,7 +83,7 @@ BEGIN
      WHERE status='sample_completed')<>1 THEN
    RAISE EXCEPTION 'Unexpected extra mock payout closure';
  END IF;
-END $;
+END $$;
 RESET ROLE;
 RESET request.jwt.claim.sub;
 SELECT 'Mock payout closure requires consumed token, owner and idempotency' AS result;
