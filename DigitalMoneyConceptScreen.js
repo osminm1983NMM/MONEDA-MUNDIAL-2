@@ -52,7 +52,7 @@ export default function DigitalMoneyConceptScreen(){
    <TextInput style={s.input} value={tradeUnits} onChangeText={setTradeUnits}
       keyboardType="decimal-pad" placeholder="Ejemplo: 10" placeholderTextColor="#aec5cf"/>
    <Text style={s.text}>Precio por Coin: utiliza el valor MANUAL de Coin en USD indicado arriba.</Text>
-   <Text style={s.text}>Comisión porcentual hipotética (0-10 %)</Text>
+   <Text style={s.text}>Comisión hipotética en puntos básicos (0-1000; 100 = 1 %)</Text>
    <TextInput style={s.input} value={tradeFee} onChangeText={setTradeFee}
       keyboardType="number-pad" placeholder="Puntos básicos, ejemplo 100 = 1%" placeholderTextColor="#aec5cf"/>
    {trade?<View>
