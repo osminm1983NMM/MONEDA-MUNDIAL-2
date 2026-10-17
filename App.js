@@ -28,7 +28,7 @@ import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentReque
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
 import { canApplySessionResponse } from './src/session-guards.mjs';
-import { canReusePendingDemoOperation, demoOperationStillBelongsToUser } from './src/demo-operation-session.mjs';
+import { canReusePendingDemoOperation, demoOperationStillBelongsToUser, claimDemoOperationLock } from './src/demo-operation-session.mjs';
 import {parseRecoveryDeepLink,validateRecoveryPassword} from './src/auth/recovery-link.mjs';
 import { isLatestRequest, isValidDemoQuoteResponse, isValidDemoPaymentPreview } from './src/async-demo-guards.mjs';
 import { needsDemoFeeReview, demoFeeShortfallCents } from './src/quote-risk.mjs';
@@ -1045,15 +1045,15 @@ export default function App() {
   }
 
   async function executeOperation(type, cents, code = '') {
-    if (busyRef.current) return;
+    if (!claimDemoOperationLock(busyRef)) return;
     const requestedUserId = userId;
     const requestedEpoch = sessionEpochRef.current;
     if (!await demoOperationStillBelongsToUser(supabase.auth, requestedUserId) ||
         sessionEpochRef.current !== requestedEpoch) {
+      busyRef.current = false;
       showMessage('Sesión', 'Inicia sesión nuevamente antes de realizar una operación ficticia.');
       return;
     }
-    busyRef.current = true;
     setBusy(true);
     try {
       const requested = {userId:requestedUserId,type,cents,code};
