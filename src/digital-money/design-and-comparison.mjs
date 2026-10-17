@@ -40,6 +40,16 @@ function positiveDecimal(value, max, maxFraction=6){
   return Number.isFinite(n)&&n>0&&n<=max?n:null;
 }
 
+// Los centavos y la razón moneda local/USD se calculan con enteros: así se
+// evitan errores de punto flotante en el redondeo de la referencia ilustrativa.
+function toScaledChecked(value,decimals) {
+ const [whole,frac='']=value.trim().replace(',','.').split('.');
+ const scale=10n**BigInt(decimals);
+ return BigInt(whole)*scale+BigInt(frac.padEnd(decimals,'0')||'0');
+}
+const roundPositive=(numerator,denominator)=>
+ (numerator+denominator/2n)/denominator;
+
 /**
  * Únicamente comparación manual educativa, sin tasa FX de proveedor, precio
  * cripto de mercado, garantía de ahorro ni ejecución de pagos.
@@ -57,18 +67,26 @@ export function compareInternationalPriceDemo({
   const seller=positiveDecimal(sellerUsd,1_000_000,2);
   if(price===null||rate===null||seller===null)return null;
 
-  const referenceCents=Math.round(price/rate*100);
-  const sellerCents=Math.round(seller*100);
-  if(!Number.isSafeInteger(referenceCents)||referenceCents<=0
-    ||referenceCents>100_000_000)return null;
+  // price tiene dos decimales y rate seis. Ambos son positivos y validados.
+  const referenceMinor=roundPositive(
+    toScaledChecked(localPrice,2)*1_000_000n,
+    toScaledChecked(localUnitsPerUsd,6)
+  );
+  if(referenceMinor<=0n||referenceMinor>100_000_000n)return null;
+  const referenceCents=Number(referenceMinor);
+  const sellerCents=Number(toScaledChecked(sellerUsd,2));
   const differenceCents=sellerCents-referenceCents;
   // Todo resultado de la calculadora carece de tasa verificable, consentimiento,
   // tarifas reales, impuestos, fuente FX y autorización bancaria.
   const token=tokenUsdExample===null||tokenUsdExample===''?null:
      positiveDecimal(tokenUsdExample,1_000_000,6);
   if(tokenUsdExample!==null&&tokenUsdExample!==''&&token===null)return null;
-  const possibleUnits=token===null?null:Number((referenceCents/100/token).toFixed(6));
-  if(possibleUnits!==null&&(!Number.isFinite(possibleUnits)||possibleUnits>1_000_000_000))return null;
+  const tokenMicros=token===null?null:toScaledChecked(tokenUsdExample,6);
+  // Coin hipotéticas: USD centavos -> USD -> unidades Coin con seis decimales.
+  const coinMicros=tokenMicros===null?null:
+    roundPositive(referenceMinor*1_000_000_000_000n,100n*tokenMicros);
+  if(coinMicros!==null&&coinMicros>1_000_000_000_000_000n)return null;
+  const possibleUnits=coinMicros===null?null:Number(coinMicros)/1_000_000;
   return Object.freeze({
     localCurrency,localPrice:price,localUnitsPerUsd:rate,
     sellerUsdCents:sellerCents,referenceUsdCents:referenceCents,

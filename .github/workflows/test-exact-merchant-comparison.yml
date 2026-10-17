@@ -1,0 +1,27 @@
+name: Probar centavos exactos en comparación DEMO
+on:
+  pull_request:
+    branches: [desarrollo-comercios-20261013, main]
+    paths:
+      - 'src/digital-money/design-and-comparison.mjs'
+      - 'tests/digital-money-design.test.mjs'
+      - '.github/workflows/test-exact-merchant-comparison.yml'
+  push:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'src/digital-money/design-and-comparison.mjs'
+      - 'tests/digital-money-design.test.mjs'
+      - '.github/workflows/test-exact-merchant-comparison.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-comparison:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/digital-money-design.test.mjs
+      - run: node --test tests/*.test.mjs
