@@ -5,6 +5,7 @@ import {previewFullMoneyJourney} from './src/digital-money/full-journey-demo.mjs
 import {SOURCES,PAYOUTS} from './src/digital-money/wallet-remittance-preview.mjs';
 import {DEMO_CORRIDORS} from './src/international-demo.mjs';
 import {amountToCents} from './src/demo-money.mjs';
+import {previewRemittanceDisclosure} from './src/digital-money/remittance-disclosure-demo.mjs';
 
 const s={panel:{backgroundColor:'#142e45',padding:15,borderRadius:12,marginVertical:9},
  text:{color:'#e2eff7',marginVertical:6},warn:{color:'#ffe0a0',marginVertical:7},
@@ -22,6 +23,7 @@ export default function FullMoneyJourneyScreen(){
  const v=previewFullMoneyJourney({source,payout,destination,
   hypotheticalUsdCents:amountToCents(amount),coinUnits,coinUsdScenario:coinPrice,
   digitalUsdScenario:digitalPrice,manualLocalPerUsd:rate});
+ const disclosure=previewRemittanceDisclosure({source,payout,destination,hypotheticalUsdCents:amountToCents(amount),manualLocalPerUsd:rate});
  return <View style={s.panel}>
   <Text style={{color:'white',fontSize:21,fontWeight:'800'}}>Recorrido Moneda Mundial</Text>
   <Text style={s.warn}>SOLO DEMOSTRACIÓN EDUCATIVA. No se conecta a bancos, mercados ni billeteras reales. Ningún botón envía fondos.</Text>
@@ -56,6 +58,14 @@ export default function FullMoneyJourneyScreen(){
    {v.conversionExample&&<Text style={s.text}>Coin→Digital hipotéticas: {v.conversionExample.inputCoinUnits} Coin equivaldrían a {v.conversionExample.hypotheticalDigitalUnits} Digital imaginarias. No se han convertido.</Text>}
    {v.independentUsdExample&&<Text style={s.text}>USD ejemplo: {(v.independentUsdExample.amountCents/100).toFixed(2)} · comisión hipotética {(v.independentUsdExample.feeCents/100).toFixed(2)}.</Text>}
    {v.localCurrencyExample&&<Text style={s.text}>Cantidad ilustrativa: {v.localCurrencyExample.amount} {v.localCurrencyExample.currency}; NO garantizada.</Text>}
+  </View>}
+  {disclosure&&source==='external_usd_scenario'&&<View style={s.button}>
+   <Text style={s.text}>TRANSPARENCIA DE COSTOS · SOLO EJEMPLO</Text>
+   <Text style={s.text}>Envío hipotético: USD {(disclosure.principalUsdCents/100).toFixed(2)}</Text>
+   <Text style={s.text}>Comisión ficticia: USD {(disclosure.hypotheticalServiceFeeUsdCents/100).toFixed(2)}</Text>
+   <Text style={s.text}>Suma ilustrativa: USD {(disclosure.hypotheticalDisplayedTotalUsdCents/100).toFixed(2)}</Text>
+   {disclosure.recipientAmountManualIllustration&&<Text style={s.text}>Receptor, tasa ingresada manualmente: {disclosure.recipientAmountManualIllustration} {disclosure.recipientAmountCurrency}. No garantizado.</Text>}
+   <Text style={s.warn}>Costo total real DESCONOCIDO: pueden faltar comisiones bancarias, tarifas de tarjeta, margen de divisas e impuestos. Ningún proveedor ha cotizado.</Text>
   </View>}
   <Text style={s.warn}>No hay Coin ni Digital emitidas, cambio autorizado, saldos reales ni países operativos. Los MWD de prueba no son canjeables.</Text>
  </View>;
