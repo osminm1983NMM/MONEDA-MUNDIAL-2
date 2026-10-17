@@ -3,12 +3,15 @@ import {View,Text,TextInput} from 'react-native';
 import {compareInternationalPriceDemo} from './src/digital-money/design-and-comparison.mjs';
 import {previewCoinToDigitalScenario,previewDigitalToCoinScenario} from './src/digital-money/coin-to-digital-design.mjs';
 import {CRYPTO_CONCEPT_OPTIONS,getCryptoConceptCard} from './src/digital-money/crypto-ui-state.mjs';
+import {previewCoinTradeScenario} from './src/digital-money/coin-market-demo.mjs';
 const s={panel:{backgroundColor:'#152b42',borderRadius:12,padding:14,marginVertical:9},text:{color:'#e1edf4',marginVertical:6},warning:{color:'#f3c887',marginVertical:8},input:{color:'#fff',backgroundColor:'#28465c',borderRadius:7,padding:11,marginVertical:7}};
 export default function DigitalMoneyConceptScreen(){
  const [currency,setCurrency]=useState('PEN'),[price,setPrice]=useState(''),[rate,setRate]=useState(''),[seller,setSeller]=useState(''),[hypothesis,setHypothesis]=useState('');
  const [coinUnits,setCoinUnits]=useState(''),[digitalUnits,setDigitalUnits]=useState(''),[coinUsd,setCoinUsd]=useState(''),[digitalUsd,setDigitalUsd]=useState('');
+ const [tradeSide,setTradeSide]=useState('buy'),[tradeUnits,setTradeUnits]=useState(''),[tradeFee,setTradeFee]=useState('0');
  const [selectedAsset,setSelectedAsset]=useState('coin');
  const selectedCard=getCryptoConceptCard(selectedAsset);
+ const trade=previewCoinTradeScenario({side:tradeSide,coinUnits:tradeUnits,coinUsdScenario:coinUsd,feeBps:Number(tradeFee)});
  const swap=previewCoinToDigitalScenario({coinUnits,coinUsdScenario:coinUsd,digitalUsdScenario:digitalUsd});
  const reverseSwap=previewDigitalToCoinScenario({digitalUnits,coinUsdScenario:coinUsd,digitalUsdScenario:digitalUsd});
  const q=compareInternationalPriceDemo({localCurrency:currency,localPrice:price,localUnitsPerUsd:rate,sellerUsd:seller,tokenUsdExample:hypothesis});
@@ -33,6 +36,32 @@ export default function DigitalMoneyConceptScreen(){
     {selectedCard.highlights.map(line=><Text key={line} style={s.text}>• {line}</Text>)}
     <Text style={s.warning}>Saldo real: ninguno · Comprar, vender, convertir y pagar: NO disponibles.</Text>
   </View>}
+  <View style={s.panel}>
+   <Text style={s.text}>COIN · COMPRAR / VENDER (PRESUPUESTO ILUSTRATIVO)</Text>
+   <Text style={s.warning}>NO son órdenes. No existe token emitido ni mercado o proveedor conectado.</Text>
+   <View style={{flexDirection:'row'}}>
+    {['buy','sell'].map(side=><Text key={side} accessibilityRole="button"
+      accessibilityLabel={side==='buy'?'Simular compra Coin':'Simular venta Coin'}
+      onPress={()=>setTradeSide(side)}
+      style={[s.text,{flex:1,padding:11,textAlign:'center',borderRadius:8,
+       backgroundColor:tradeSide===side?'#275c82':'#28465c'}]}>
+      {side==='buy'?'Comprar · ejemplo':'Vender · ejemplo'}
+    </Text>)}
+   </View>
+   <Text style={s.text}>Cantidad hipotética de Coin</Text>
+   <TextInput style={s.input} value={tradeUnits} onChangeText={setTradeUnits}
+      keyboardType="decimal-pad" placeholder="Ejemplo: 10" placeholderTextColor="#aec5cf"/>
+   <Text style={s.text}>Precio por Coin: utiliza el valor MANUAL de Coin en USD indicado arriba.</Text>
+   <Text style={s.text}>Comisión porcentual hipotética (0-10 %)</Text>
+   <TextInput style={s.input} value={tradeFee} onChangeText={setTradeFee}
+      keyboardType="number-pad" placeholder="Puntos básicos, ejemplo 100 = 1%" placeholderTextColor="#aec5cf"/>
+   {trade?<View>
+      <Text style={s.text}>Importe bruto ilustrativo: {trade.hypotheticalGrossUsd} USD</Text>
+      <Text style={s.text}>Comisión hipotética: {trade.illustrativeFeeUsd} USD</Text>
+      <Text style={s.text}>{tradeSide==='buy'?'Costo total hipotético':'Ingreso hipotético de venta'}: {tradeSide==='buy'?trade.hypotheticalBuyerTotalUsd:trade.hypotheticalSellerProceedsUsd} USD</Text>
+      <Text style={s.warning}>No incluye spreads, comisiones de red, impuestos ni conversión bancaria. Ninguna operación puede ejecutarse.</Text>
+    </View>:<Text style={s.warning}>Ingresa cantidades válidas y un precio ficticio de Coin.</Text>}
+  </View>
   <Text style={s.text}>MWD actuales: créditos de prueba sin valor financiero. NO son criptomonedas.</Text>
   <Text style={s.text}>Moneda Mundial Digital: concepto de moneda estable para pagos, sujeto a emisor autorizado. Paridad NO operativa.</Text>
   <Text style={s.text}>Moneda Mundial Coin: concepto de criptomoneda de valor variable. Sin emisión, oferta total, cotización ni blockchain elegidos.</Text>
