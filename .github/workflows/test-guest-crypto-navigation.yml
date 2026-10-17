@@ -4,12 +4,16 @@ on:
     branches: [desarrollo-comercios-20261013]
     paths:
       - 'scripts/android_guest_tour_contract.py'
+      - 'scripts/probar-recorrido-invitado-emulador.sh'
+      - '.github/workflows/android-apk-independiente.yml'
       - 'tests/test_android_guest_crypto_navigation.py'
       - '.github/workflows/test-guest-crypto-navigation.yml'
   push:
     branches: [desarrollo-comercios-20261013]
     paths:
       - 'scripts/android_guest_tour_contract.py'
+      - 'scripts/probar-recorrido-invitado-emulador.sh'
+      - '.github/workflows/android-apk-independiente.yml'
       - 'tests/test_android_guest_crypto_navigation.py'
       - '.github/workflows/test-guest-crypto-navigation.yml'
   workflow_dispatch:
@@ -24,3 +28,5 @@ jobs:
         run: |
           python3 -m unittest discover -s tests -p test_android_guest_crypto_navigation.py -v
           python3 -m unittest discover -s tests -p test_android_guest_tour_contract.py -v
+      - name: Verificar sintaxis del recorrido completo sin operaciones
+        run: bash -n scripts/probar-recorrido-invitado-emulador.sh
