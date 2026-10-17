@@ -20,6 +20,7 @@ on:
       - 'src/digital-money/crypto-ui-state.mjs'
       - 'tests/crypto-ui-state.test.mjs'
       - 'DigitalMoneyConceptScreen.js'
+      - 'WalletSafetyPreviewScreen.js'
       - '.github/workflows/test-crypto-release-gates.yml'
   push:
     branches: [desarrollo-comercios-20261013]
