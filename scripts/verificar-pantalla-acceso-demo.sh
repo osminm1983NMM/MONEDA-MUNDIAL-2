@@ -13,6 +13,12 @@ if [[ ! -s "$UI_XML" ]]; then
   echo "::error::No se pudo leer el árbol accesible de la pantalla Android."
   exit 1
 fi
+# A visible login BEHIND a system 'not responding' dialog is NOT a healthy app.
+# A previous workflow reported success with exactly that Android System UI dialog.
+if grep -Eqi 'isn.t responding|is not responding|not responding|no responde|no está respondiendo|Application Not Responding' "$UI_XML"; then
+  echo "::error::La pantalla está cubierta por un error del sistema Android (ANR). No aprobar la APK."
+  exit 1
+fi
 if ! grep -Fq 'MONEDA MUNDIAL' "$UI_XML"; then
   echo "::error::La marca MONEDA MUNDIAL no aparece en la pantalla inicial."
   exit 1
