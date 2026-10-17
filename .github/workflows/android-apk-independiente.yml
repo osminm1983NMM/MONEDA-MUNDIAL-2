@@ -11,6 +11,7 @@ on:
       - 'package.json'
       - 'src/**'
       - '.github/workflows/android-apk-independiente.yml'
+      - '.github/workflows/probar-apk-emulador.yml' # Rebuild after modifying APK provenance checks.
 
 permissions:
   contents: read
