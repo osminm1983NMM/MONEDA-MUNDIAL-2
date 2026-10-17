@@ -15,6 +15,12 @@ on:
 permissions:
   contents: read
 
+# Solo mantener la ejecución más reciente de esta compilación en la rama.
+# Evita que pruebas de APK antiguas compitan por recursos con la versión vigente.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   apk-android:
     name: Compilar APK Android de prueba

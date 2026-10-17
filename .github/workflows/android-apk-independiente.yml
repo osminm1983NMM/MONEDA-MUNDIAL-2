@@ -18,6 +18,12 @@ on:
 permissions:
   contents: read
 
+# Solo mantener la ejecución más reciente de esta compilación en la rama.
+# Evita que pruebas de APK antiguas compitan por recursos con la versión vigente.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   preparar-apk-independiente:
     runs-on: ubuntu-latest
@@ -101,6 +107,7 @@ jobs:
           echo "Commit APK: ${{ github.sha }}" > smoke-results/compilacion-probada.txt
           echo "Run: ${{ github.run_id }}" >> smoke-results/compilacion-probada.txt
       - name: Emulador Android sin credenciales ni dinero real
+        timeout-minutes: 35
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
