@@ -108,6 +108,12 @@ jobs:
           mkdir -p smoke-results
           echo "Commit APK: ${{ github.sha }}" > smoke-results/compilacion-probada.txt
           echo "Run: ${{ github.run_id }}" >> smoke-results/compilacion-probada.txt
+      - name: Registrar la huella SHA-256 de la APK exacta que se probará
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum apk-test/app-release.apk >smoke-results/sha256-apk-probada.txt
+          cat smoke-results/sha256-apk-probada.txt
       # Habilitar KVM según la guía de reactivecircus/android-emulator-runner.
       # Sin aceleración hardware, el arranque puede tardar más de 15 minutos
       # y el sistema Android puede mostrar errores de falta de respuesta.
@@ -136,6 +142,25 @@ jobs:
           script: |
             bash scripts/probar-apk-emulador.sh
             bash scripts/probar-recorrido-invitado-emulador.sh
+      # Solo llega aquí si instalar, abrir y recorrer la demo en el
+      # emulador de este mismo commit ha terminado SIN errores.
+      - name: Confirmar la huella y las evidencias del recorrido público
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum --check smoke-results/sha256-apk-probada.txt
+          test -s smoke-results/ui.xml
+          test -s smoke-results/guest-tour.xml
+          test -s smoke-results/guest-tour-bottom.xml
+          test -s smoke-results/guest-return.xml
+          echo "Run: ${{ github.run_id }}, commit: ${{ github.sha }}"
+      - name: Publicar APK Android DEMO verificada por el emulador
+        uses: actions/upload-artifact@v4
+        with:
+          name: moneda-mundial-2-demo-apk-verificada
+          path: apk-test/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
       - name: Guardar evidencias del arranque
         if: always()
         uses: actions/upload-artifact@v4
