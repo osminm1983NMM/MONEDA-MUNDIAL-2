@@ -53,12 +53,12 @@ adb shell input tap "$x" "$y"
 sleep 3
 # Do not accept returning straight to login or another unintended screen.
 read_accessibility guest-after-crypto
-python3 scripts/android_guest_tour_contract.py tour smoke-results/guest-tour.xml smoke-results/guest-after-crypto.xml
-
-# Tour's return-to-login button can be below the visible viewport.
+# Re-read this NEW visit's bottom content: reusing old tour XML would let
+# an incorrect return screen pass merely because the original tour was valid.
 adb shell input swipe 550 1900 550 700 500
 sleep 2
 read_accessibility guest-tour-return-ready
+python3 scripts/android_guest_tour_contract.py tour smoke-results/guest-after-crypto.xml smoke-results/guest-tour-return-ready.xml
 read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py return-button smoke-results/guest-tour-return-ready.xml)"
 echo "Volviendo a la pantalla pública de inicio..."
 adb shell input tap "$x" "$y"
