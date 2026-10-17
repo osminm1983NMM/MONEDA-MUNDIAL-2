@@ -49,3 +49,17 @@ test('seguridad matemática: no permitir cero, precios ficticios con salida cero
   {...base,side:'hold_coin',tradeInputUnits:'100'},
  ]) assert.equal(previewCoinPoolImpact(p),null,JSON.stringify(p));
 });
+
+test('medición de impacto spot produce alertas sin permitir operaciones',()=>{
+ const small=previewCoinPoolImpact({...base,side:'buy_coin',tradeInputUnits:'10000'});
+ const large=previewCoinPoolImpact({...base,side:'buy_coin',tradeInputUnits:'100000'});
+ assert.equal(small.highSpotPriceImpactWarning,false);
+ assert.equal(large.highSpotPriceImpactWarning,true);
+ assert.ok(BigInt(large.hypotheticalSpotPriceChangeBps)>
+           BigInt(small.hypotheticalSpotPriceChangeBps));
+ assert.equal(large.priceImpactIsNotExecutionSlippage,true);
+ assert.equal(large.quoteExecutable,false);
+ const sale=previewCoinPoolImpact({...base,side:'sell_coin',tradeInputUnits:'10000'});
+ assert.ok(BigInt(sale.hypotheticalSpotPriceChangeBps)>0n);
+ assert.equal(sale.realMoneyEnabled,false);
+});
