@@ -20,8 +20,11 @@ export default function DigitalMoneyConceptScreen(){
  const selectedCard=getCryptoConceptCard(selectedAsset);
  const poolImpact=previewCoinPoolImpact({poolCoinUnits:'100000',poolQuoteUsdCents:'1000000',side:poolSide,tradeInputUnits:poolInput});
  const launch=previewCoinLaunchFromDollars(getCoinLaunchExample(launchExample));
- const vesting=launch?previewCoinUnlockScenario({maximumSupplyUnits:launch.maximumSupplyUnits,planId:distributionPlan,month:Number(unlockMonth)}):null;
- const trade=previewCoinTradeScenario({side:tradeSide,coinUnits:tradeUnits,coinUsdScenario:coinUsd,feeBps:Number(tradeFee)});
+ // Evitar que los campos vacíos, 1e2 o 0x10 se interpreten como cifras válidas.
+ const monthValid=/^(?:0|[1-9][0-9]{0,2})$/.test(unlockMonth);
+ const feeValid=/^(?:0|[1-9][0-9]{0,3})$/.test(tradeFee);
+ const vesting=launch&&monthValid?previewCoinUnlockScenario({maximumSupplyUnits:launch.maximumSupplyUnits,planId:distributionPlan,month:Number(unlockMonth)}):null;
+ const trade=feeValid?previewCoinTradeScenario({side:tradeSide,coinUnits:tradeUnits,coinUsdScenario:coinUsd,feeBps:Number(tradeFee)}):null;
  const swap=previewCoinToDigitalScenario({coinUnits,coinUsdScenario:coinUsd,digitalUsdScenario:digitalUsd});
  const reverseSwap=previewDigitalToCoinScenario({digitalUnits,coinUsdScenario:coinUsd,digitalUsdScenario:digitalUsd});
  const q=compareInternationalPriceDemo({localCurrency:currency,localPrice:price,localUnitsPerUsd:rate,sellerUsd:seller,tokenUsdExample:hypothesis});
@@ -61,7 +64,9 @@ export default function DigitalMoneyConceptScreen(){
    <Text style={s.text}>Cantidad hipotética de Coin</Text>
    <TextInput style={s.input} value={tradeUnits} onChangeText={setTradeUnits}
       keyboardType="decimal-pad" placeholder="Ejemplo: 10" placeholderTextColor="#aec5cf"/>
-   <Text style={s.text}>Precio por Coin: utiliza el valor MANUAL de Coin en USD indicado arriba.</Text>
+   <Text style={s.text}>Precio MANUAL por Coin en USD (hipotético, no cotización real)</Text>
+   <TextInput style={s.input} value={coinUsd} onChangeText={setCoinUsd}
+     keyboardType="decimal-pad" placeholder="Ejemplo 0.25" placeholderTextColor="#aec5cf"/>
    <Text style={s.text}>Comisión hipotética en puntos básicos (0-1000; 100 = 1 %)</Text>
    <TextInput style={s.input} value={tradeFee} onChangeText={setTradeFee}
       keyboardType="number-pad" placeholder="Puntos básicos, ejemplo 100 = 1%" placeholderTextColor="#aec5cf"/>
@@ -162,8 +167,7 @@ export default function DigitalMoneyConceptScreen(){
    <Text style={s.text}>COIN → DIGITAL · CONVERSIÓN HIPOTÉTICA (NO OPERATIVA)</Text>
    <Text style={s.text}>Cantidad imaginaria de Coin</Text>
    <TextInput style={s.input} keyboardType="decimal-pad" value={coinUnits} onChangeText={setCoinUnits} placeholder="Ejemplo: 10" placeholderTextColor="#aec5cf"/>
-   <Text style={s.text}>Precio en USD imaginario por Coin</Text>
-   <TextInput style={s.input} keyboardType="decimal-pad" value={coinUsd} onChangeText={setCoinUsd} placeholder="Sin cotización real" placeholderTextColor="#aec5cf"/>
+   <Text style={s.text}>Precio en USD imaginario por Coin: {coinUsd||'sin definir'} (introducido arriba)</Text>
    <Text style={s.text}>Precio en USD imaginario por Digital (NO paridad aprobada)</Text>
    <TextInput style={s.input} keyboardType="decimal-pad" value={digitalUsd} onChangeText={setDigitalUsd} placeholder="Ejemplo educativo: 1" placeholderTextColor="#aec5cf"/>
    {swap ? <View>
