@@ -50,3 +50,23 @@ revoke all on function public.mwd_owner_complete_payout_sample_demo(uuid,uuid)
  from public,anon,authenticated;
 grant execute on function public.mwd_owner_complete_payout_sample_demo(uuid,uuid)
  to authenticated;
+
+
+-- Capability handshake: created only together with the safe DEMO payout closure.
+-- Plain SECURITY INVOKER, no private table access and no customer information.
+-- A missing function or any unexpected response must leave the Android
+-- completion button hidden until this DEMO migration is installed.
+create or replace function public.mwd_demo_payout_closure_capability()
+returns jsonb language sql stable security invoker set search_path='' as $cap$
+  select jsonb_build_object(
+    'version',1,
+    'demo_only',true,
+    'closure_requires_consumed_code',true,
+    'real_payments_enabled',false
+  )
+  where auth.uid() is not null
+$cap$;
+revoke all on function public.mwd_demo_payout_closure_capability()
+  from public,anon,authenticated;
+grant execute on function public.mwd_demo_payout_closure_capability()
+  to authenticated;
