@@ -23,7 +23,7 @@ if ! grep -Fq 'MONEDA MUNDIAL' "$UI_XML"; then
   echo "::error::La marca MONEDA MUNDIAL no aparece en la pantalla inicial."
   exit 1
 fi
-if ! grep -Eq 'Accede a Moneda Mundial|Iniciar sesi[oó]n|Crear cuenta de prueba' "$UI_XML"; then
+if ! grep -Eq 'Accede a Moneda Mundial|Iniciar sesi[oó]n|Crear cuenta de prueba|Sign in to Moneda Mundial|Sign in|Create demo account|Explore without an account' "$UI_XML"; then
   echo "::error::La pantalla de acceso de prueba no aparece. Puede haber una pantalla vacía o una carga atascada."
   exit 1
 fi
