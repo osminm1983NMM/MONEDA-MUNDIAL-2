@@ -36,7 +36,7 @@ case "$*" in
   'shell ls -l '*) echo 'mock xml path' ;;
   *) echo "Unknown fake adb request: $*" >&2; exit 2 ;;
 esac
-`;
+`.replaceAll('\\${', '${');
 function run(scenario){
   const dir=mkdtempSync(join(tmpdir(),'mwd-android-sim-'));
   const bin=join(dir,'bin');
