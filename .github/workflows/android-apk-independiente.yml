@@ -12,6 +12,8 @@ on:
       - 'src/**'
       - 'scripts/probar-apk-emulador.sh'
       - 'scripts/verificar-pantalla-acceso-demo.sh'
+      - 'scripts/android_guest_tour_contract.py'
+      - 'scripts/probar-recorrido-invitado-emulador.sh'
       - '.github/workflows/android-apk-independiente.yml'
       - '.github/workflows/probar-apk-emulador.yml' # Rebuild after modifying APK provenance checks.
 
@@ -131,7 +133,9 @@ jobs:
           profile: pixel_6
           emulator-boot-timeout: 900
           disable-animations: true
-          script: bash scripts/probar-apk-emulador.sh
+          script: |
+            bash scripts/probar-apk-emulador.sh
+            bash scripts/probar-recorrido-invitado-emulador.sh
       - name: Guardar evidencias del arranque
         if: always()
         uses: actions/upload-artifact@v4
