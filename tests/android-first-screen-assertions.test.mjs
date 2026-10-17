@@ -38,3 +38,9 @@ test('alternate visible DEMO entry labels are accepted',()=>{
     assert.equal(check({xml:`<hierarchy text="MONEDA MUNDIAL" hint="${label}"/>`}).status,0,label);
   }
 });
+test('system UI ANR overlay fails even with login text present',()=>{
+ for(const dialog of ["System UI isn't responding","System UI is not responding","La interfaz del sistema no responde"]){
+   const xml='<hierarchy><node text="MONEDA MUNDIAL"/><node text="Iniciar sesión"/><node text="'+dialog+'"/></hierarchy>';
+   assert.notEqual(check({xml}).status,0,dialog);
+ }
+});
