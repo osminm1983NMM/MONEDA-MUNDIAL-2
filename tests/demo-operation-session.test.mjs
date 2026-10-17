@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {canReusePendingDemoOperation,demoOperationStillBelongsToUser} from '../src/demo-operation-session.mjs';
+import {canReusePendingDemoOperation,demoOperationStillBelongsToUser,claimDemoOperationLock} from '../src/demo-operation-session.mjs';
 
 const session=(id)=>({getSession:async()=>({data:{session:id?{user:{id}}:null},error:null})});
 test('misma cuenta e importe reutiliza UUID ficticio para reintentos',()=>{
@@ -24,4 +24,16 @@ test('una respuesta de A solo se aplica mientras A siga conectado',async()=>{
 test('si no se puede verificar la sesión, no confirmar una transferencia ficticia',async()=>{
  assert.equal(await demoOperationStillBelongsToUser({getSession:async()=>({data:{session:{user:{id:'A'}}},error:{message:'err'}})},'A'),false);
  assert.equal(await demoOperationStillBelongsToUser({getSession:async()=>{throw Error('red')}} ,'A'),false);
+});
+
+test('doble pulsación concurrente solo obtiene un bloqueo antes de esperar sesión',()=>{
+ const busy={current:false};
+ assert.equal(claimDemoOperationLock(busy),true);
+ assert.equal(claimDemoOperationLock(busy),false);
+ busy.current=false;
+ assert.equal(claimDemoOperationLock(busy),true);
+});
+test('bloqueo falla cerrado si no existe referencia válida',()=>{
+ assert.equal(claimDemoOperationLock(null),false);
+ assert.equal(claimDemoOperationLock({current:true}),false);
 });

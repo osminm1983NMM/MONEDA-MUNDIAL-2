@@ -19,3 +19,10 @@ export async function demoOperationStillBelongsToUser(auth, requestedUserId) {
     return false;
   }
 }
+
+// Adquirir el bloqueo ANTES del primer await; dos pulsaciones no pueden enviar dos RPC.
+export function claimDemoOperationLock(busyRef) {
+  if (!busyRef || busyRef.current !== false) return false;
+  busyRef.current = true;
+  return true;
+}
