@@ -28,7 +28,7 @@ import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentReque
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
 import { canApplySessionResponse } from './src/session-guards.mjs';
-import { canReusePendingDemoOperation, demoOperationStillBelongsToUser, claimDemoOperationLock, retainPendingDemoRequest } from './src/demo-operation-session.mjs';
+import { canReusePendingDemoOperation, demoOperationStillBelongsToUser, claimDemoOperationLock, retainPendingDemoRequest, canConfirmDemoOperation } from './src/demo-operation-session.mjs';
 import {parseRecoveryDeepLink,validateRecoveryPassword} from './src/auth/recovery-link.mjs';
 import { isLatestRequest, isValidDemoQuoteResponse, isValidDemoPaymentPreview } from './src/async-demo-guards.mjs';
 import { needsDemoFeeReview, demoFeeShortfallCents } from './src/quote-risk.mjs';
@@ -1091,7 +1091,9 @@ export default function App() {
       setAmount('');
       setRecipientCode('');
       setScreen('Inicio');
-      await refreshAccount();
+      await refreshAccount(requestedUserId);
+      if (!await canConfirmDemoOperation(supabase.auth, requestedUserId,
+          sessionEpochRef, requestedEpoch)) return;
       showMessage('Operación ficticia confirmada', type === 'transfer'
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');

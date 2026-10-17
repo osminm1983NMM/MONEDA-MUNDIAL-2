@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {canReusePendingDemoOperation,demoOperationStillBelongsToUser,claimDemoOperationLock,retainPendingDemoRequest} from '../src/demo-operation-session.mjs';
+import {canReusePendingDemoOperation,demoOperationStillBelongsToUser,claimDemoOperationLock,retainPendingDemoRequest,canConfirmDemoOperation} from '../src/demo-operation-session.mjs';
 
 const session=(id)=>({getSession:async()=>({data:{session:id?{user:{id}}:null},error:null})});
 test('misma cuenta e importe reutiliza UUID ficticio para reintentos',()=>{
@@ -43,4 +43,16 @@ test('respuesta incierta conserva identificador de reintento solo en misma sesi�
  assert.equal(retainPendingDemoRequest(8,9),false);
  assert.equal(retainPendingDemoRequest(8,7),false);
  assert.equal(retainPendingDemoRequest(undefined,undefined),false);
+});
+
+test('no confirma después de cerrar y entrar a la misma cuenta durante la comprobación asíncrona',async()=>{
+ const epoch={current:3};
+ const auth={getSession:async()=>{epoch.current=4;return {data:{session:{user:{id:'A'}}},error:null};}};
+ assert.equal(await canConfirmDemoOperation(auth,'A',epoch,3),false);
+});
+test('confirma únicamente cuando sesión, usuario y generación coinciden',async()=>{
+ const epoch={current:3};
+ assert.equal(await canConfirmDemoOperation(session('A'),'A',epoch,3),true);
+ assert.equal(await canConfirmDemoOperation(session('B'),'A',epoch,3),false);
+ assert.equal(await canConfirmDemoOperation(session('A'),'A',epoch,2),false);
 });

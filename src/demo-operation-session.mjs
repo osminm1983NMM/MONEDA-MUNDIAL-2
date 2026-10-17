@@ -33,3 +33,11 @@ export function retainPendingDemoRequest(expectedEpoch, currentEpoch) {
   return Number.isSafeInteger(expectedEpoch) && expectedEpoch >= 0 &&
     expectedEpoch === currentEpoch;
 }
+
+// Comprobar sesion y generacion antes Y despues de consultar Auth.
+// Evita una confirmacion tardia tras cerrar y volver a abrir la misma cuenta.
+export async function canConfirmDemoOperation(auth, requestedUserId, sessionEpochRef, expectedEpoch) {
+  if (!retainPendingDemoRequest(expectedEpoch, sessionEpochRef?.current)) return false;
+  const stillActive = await demoOperationStillBelongsToUser(auth, requestedUserId);
+  return stillActive && retainPendingDemoRequest(expectedEpoch, sessionEpochRef?.current);
+}
