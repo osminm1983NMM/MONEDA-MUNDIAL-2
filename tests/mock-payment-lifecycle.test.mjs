@@ -88,3 +88,19 @@ test('una orden pagada o en salida pendiente no se cancela unilateralmente',()=>
  assert.throws(()=>m.requestMockRefund({orderId:o.orderId,requestId:'refund-already-paid-001'}),/No hay/);
  assert.equal(m.inspectMockOrder(o.orderId).status,'paid_mock');
 });
+
+test('reintento tardío del evento original mantiene su estado de aceptación',()=>{
+ const m=make(),o=create(m);
+ const original=m.makeTestWebhook({orderId:o.orderId,phase:'funding_settled_mock',eventId:'event-funding-replay-999'});
+ assert.equal(m.acceptTestWebhook(original).status,'funded_mock');
+ m.requestMockPayout({orderId:o.orderId,requestId:'payout-late-replay-001'});
+ emit(m,o,'payout_settled_mock','later-complete');
+ assert.equal(m.inspectMockOrder(o.orderId).status,'paid_mock');
+ const retry=m.acceptTestWebhook(original);
+ assert.equal(retry.duplicate,true);
+ assert.equal(retry.status,'funded_mock');
+ assert.equal(m.inspectMockOrder(o.orderId).status,'paid_mock');
+ assert.equal(m.getAccountingProposals(o.orderId).length,2);
+ assert.equal(m.getAuditLog().filter(x=>x.type==='funding_settled_mock').length,1);
+ assert.equal(retry.realMoneyEnabled,false);
+});
