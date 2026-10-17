@@ -42,8 +42,16 @@ export function previewCoinPoolImpact({
  // Sin swaps encadenados: cada llamada es un escenario independiente.
  const initial=fmtPrice(coins,quote);
  const final=fmtPrice(endingCoin,endingQuote);
- if((side==='buy_coin'&&!(endingQuote*coins>quote*endingCoin))||
-    (side==='sell_coin'&&!(endingQuote*coins<quote*endingCoin)))return null;
+ const previousCross=quote*endingCoin;
+ const newCross=endingQuote*coins;
+ if((side==='buy_coin'&&!(newCross>previousCross))||
+    (side==='sell_coin'&&!(newCross<previousCross)))return null;
+ // Cambio RELATIVO del precio spot tras una operación imaginaria; no es
+ // slippage real de ejecución, rentabilidad ni precio de un exchange.
+ // Operar con productos cruzados enteros evita errores de coma flotante.
+ const difference=newCross>previousCross?newCross-previousCross:previousCross-newCross;
+ const spotPriceChangeBps=difference*10000n/previousCross;
+ const highSpotPriceImpact=spotPriceChangeBps>500n; // >5% en ejemplo
  return Object.freeze({
   side,feeBps,
   poolCoinUnits:coins.toString(),
@@ -56,6 +64,10 @@ export function previewCoinPoolImpact({
   endingPoolQuoteUsdCents:endingQuote.toString(),
   initialSpotPriceUsd:initial,
   hypotheticalAfterTradeSpotPriceUsd:final,
+  hypotheticalSpotPriceChangeBps:spotPriceChangeBps.toString(),
+  highSpotPriceImpactWarning:highSpotPriceImpact,
+  // Alerta instructiva; ningún threshold autoriza una operación real.
+  priceImpactIsNotExecutionSlippage:true,
   quoteSource:'imaginary_constant_product_pool',
   gasFeesIncluded:false,externalPriceKnown:false,
   actualTradingVenueSelected:false,liquidityGuaranteed:false,
