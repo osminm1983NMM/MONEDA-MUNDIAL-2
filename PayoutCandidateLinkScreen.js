@@ -2,7 +2,7 @@
 // CERO pagos reales. Sólo el servidor permite los cambios de simulación.
 import React,{useEffect,useState,useRef} from 'react';
 import {View,Text,TouchableOpacity,TextInput} from 'react-native';
-import {canCloseMockPayout,isSafeMockPayoutClosureResponse} from './src/payout-demo-closure-guards.mjs';
+import {canCloseMockPayout,isSafeMockPayoutClosureResponse,isVerifiedMockPayoutCapability} from './src/payout-demo-closure-guards.mjs';
 const style={
  card:{backgroundColor:'#182d46',padding:14,borderRadius:11,marginVertical:8},
  text:{color:'#dce9f5',marginVertical:6},
@@ -32,6 +32,7 @@ export default function PayoutCandidateLinkScreen({supabase}){
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
  const [notice,setNotice]=useState('');
+ const [serverCapability,setServerCapability]=useState(false);
  const inFlight=useRef(false);
  const pending=useRef(null);
  const closePending=useRef(null);
@@ -41,11 +42,18 @@ export default function PayoutCandidateLinkScreen({supabase}){
   try{await callback()}catch(e){setError((e?.message||'Error')+' · Consulta el estado antes de reintentar.')}
   finally{inFlight.current=false;setBusy(false);}
  }
+ async function checkCapability(){
+  try{const response=await rpc('mwd_demo_payout_closure_capability');
+    setServerCapability(isVerifiedMockPayoutCapability(response));
+  }catch(_){setServerCapability(false);}
+ }
  async function reload(){
   const [o,p]=await Promise.all([rpc('mwd_owner_remittances_demo'),rpc('mwd_owner_partners_demo')]);
   setOrders(o||[]);setPartners(p||[]);
+  await checkCapability();
  }
  useEffect(()=>{let mounted=true;
+  checkCapability();
   Promise.all([supabase.rpc('mwd_owner_remittances_demo'),supabase.rpc('mwd_owner_partners_demo')])
   .then(results=>{if(!mounted)return;const e=results.find(r=>r.error);if(e)throw e.error;
    setOrders(results[0].data||[]);setPartners(results[1].data||[]);
@@ -100,6 +108,9 @@ export default function PayoutCandidateLinkScreen({supabase}){
   setNotice('Estado del ensayo: '+res.status+'. DINERO ENTREGADO: 0.');
  });}
  function closeMockPayout(){run(async()=>{
+  await checkCapability();
+  const capability=await rpc('mwd_demo_payout_closure_capability').catch(()=>null);
+  if(!isVerifiedMockPayoutCapability(capability)) throw Error('Servidor DEMO sin cierre seguro instalado');
   if(!canCloseMockPayout({orderStatus:order?.status,assignmentStatus:summary?.status,
      codeStatus:codeSummary?.status,identityCheckSimulated:codeSummary?.identity_check_simulated})){
     throw Error('Primero consume un código ficticio válido tras la revisión SIMULADA de identidad');
@@ -158,7 +169,7 @@ export default function PayoutCandidateLinkScreen({supabase}){
        <Btn title="Cancelar código de muestra" disabled={busy} onPress={cancelCode}/>
      </View>}
      {codeSummary?.status==='consumed'&&<Text style={style.warning}>Código consumido una sola vez. No hubo entrega de dinero.</Text>}
-     {canCloseMockPayout({orderStatus:order.status,assignmentStatus:summary?.status,
+     {serverCapability&&canCloseMockPayout({orderStatus:order.status,assignmentStatus:summary?.status,
        codeStatus:codeSummary?.status,identityCheckSimulated:codeSummary?.identity_check_simulated})&&
        <Btn title="Cerrar simulación (NO entregar dinero)" disabled={busy} onPress={closeMockPayout}/>}
 
@@ -168,6 +179,7 @@ export default function PayoutCandidateLinkScreen({supabase}){
    {summary?.status!=='unassigned'&&<Text style={style.text}>
      Sucursal asociada: {summary?.location_name||'—'} · Estado: {summary?.status||'—'}
    </Text>}
+   {!serverCapability&&summary?.status==='planned'&&<Text style={style.warning}>Cierre de simulación deshabilitado hasta verificar la actualización segura del servidor.</Text>}
    {summary?.status==='sample_completed'&&
      <Text style={style.warning}>Ensayo terminado. Bloqueado contra segundo retiro. Fondos pagados: 0.</Text>}
   </View>}
