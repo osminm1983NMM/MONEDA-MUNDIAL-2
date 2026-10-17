@@ -6,6 +6,7 @@ import {CRYPTO_CONCEPT_OPTIONS,getCryptoConceptCard} from './src/digital-money/c
 import {previewCoinTradeScenario} from './src/digital-money/coin-market-demo.mjs';
 import {getCoinLaunchExample,previewCoinLaunchFromDollars} from './src/digital-money/coin-launch-presets.mjs';
 import {previewCoinUnlockScenario} from './src/digital-money/coin-unlock-scenarios.mjs';
+import {previewCoinPoolImpact} from './src/digital-money/coin-pool-impact-demo.mjs';
 const s={panel:{backgroundColor:'#152b42',borderRadius:12,padding:14,marginVertical:9},text:{color:'#e1edf4',marginVertical:6},warning:{color:'#f3c887',marginVertical:8},input:{color:'#fff',backgroundColor:'#28465c',borderRadius:7,padding:11,marginVertical:7}};
 export default function DigitalMoneyConceptScreen(){
  const [currency,setCurrency]=useState('PEN'),[price,setPrice]=useState(''),[rate,setRate]=useState(''),[seller,setSeller]=useState(''),[hypothesis,setHypothesis]=useState('');
@@ -13,8 +14,10 @@ export default function DigitalMoneyConceptScreen(){
  const [tradeSide,setTradeSide]=useState('buy'),[tradeUnits,setTradeUnits]=useState(''),[tradeFee,setTradeFee]=useState('0');
  const [launchExample,setLaunchExample]=useState('100m');
  const [distributionPlan,setDistributionPlan]=useState('balanced'),[unlockMonth,setUnlockMonth]=useState('0');
+ const [poolSide,setPoolSide]=useState('buy_coin'),[poolInput,setPoolInput]=useState('');
  const [selectedAsset,setSelectedAsset]=useState('coin');
  const selectedCard=getCryptoConceptCard(selectedAsset);
+ const poolImpact=previewCoinPoolImpact({poolCoinUnits:'100000',poolQuoteUsdCents:'1000000',side:poolSide,tradeInputUnits:poolInput});
  const launch=previewCoinLaunchFromDollars(getCoinLaunchExample(launchExample));
  const vesting=launch?previewCoinUnlockScenario({maximumSupplyUnits:launch.maximumSupplyUnits,planId:distributionPlan,month:Number(unlockMonth)}):null;
  const trade=previewCoinTradeScenario({side:tradeSide,coinUnits:tradeUnits,coinUsdScenario:coinUsd,feeBps:Number(tradeFee)});
@@ -110,6 +113,28 @@ export default function DigitalMoneyConceptScreen(){
       </Text>)}
       <Text style={s.warning}>Desbloqueadas NO significa circulantes, vendibles ni garantizadas.</Text>
     </View>:<Text style={s.warning}>Indica un mes entero entre 0 y 120.</Text>}
+  </View>
+  <View style={s.panel}>
+    <Text style={s.text}>COIN · IMPACTO DE COMPRA / VENTA EN LIQUIDEZ FICTICIA</Text>
+    <Text style={s.warning}>Pool hipotético de 100,000 Coin y 10,000 USD imaginarios. No existe mercado.</Text>
+    <View style={{flexDirection:'row'}}>
+      {['buy_coin','sell_coin'].map(side=><Text key={side} accessibilityRole="button"
+       onPress={()=>{setPoolSide(side);setPoolInput('');}}
+       style={[s.text,{flex:1,textAlign:'center',padding:10,
+        backgroundColor:poolSide===side?'#275c82':'#28465c'}]}>
+        {side==='buy_coin'?'Comprar (USD cents)':'Vender (Coin)'}
+      </Text>)}
+    </View>
+    <Text style={s.text}>{poolSide==='buy_coin'?'Centavos ficticios para comprar (100 = $1)':'Unidades ficticias de Coin para vender'}</Text>
+    <TextInput style={s.input} value={poolInput} keyboardType="number-pad"
+     onChangeText={setPoolInput} placeholder="Ejemplo: 10000" placeholderTextColor="#aec5cf"/>
+    {poolImpact?<View>
+      <Text style={s.text}>Precio spot inicial ficticio: {poolImpact.initialSpotPriceUsd} USD</Text>
+      <Text style={s.text}>Precio spot posterior ficticio: {poolImpact.hypotheticalAfterTradeSpotPriceUsd} USD</Text>
+      <Text style={s.text}>Variación spot aproximada: {poolImpact.hypotheticalSpotPriceChangeBps} puntos básicos</Text>
+      {poolImpact.highSpotPriceImpactWarning&&<Text style={s.warning}>ATENCIÓN: efecto hipotético de precio elevado. Una cotización real podría ser muy diferente.</Text>}
+      <Text style={s.warning}>No es precio ejecutable, deslizamiento real ni promesa de rentabilidad.</Text>
+    </View>:<Text style={s.warning}>Introduce un importe hipotético válido para ver el impacto.</Text>}
   </View>
   <Text style={s.text}>MWD actuales: créditos de prueba sin valor financiero. NO son criptomonedas.</Text>
   <Text style={s.text}>Moneda Mundial Digital: concepto de moneda estable para pagos, sujeto a emisor autorizado. Paridad NO operativa.</Text>
