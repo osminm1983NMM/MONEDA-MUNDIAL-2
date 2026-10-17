@@ -3,7 +3,7 @@ import React,{useState} from 'react';
 import {View,Text,TextInput,TouchableOpacity} from 'react-native';
 import {amountToCents,formatMWD} from './src/demo-money.mjs';
 import {DEMO_CORRIDORS} from './src/international-demo.mjs';
-import {SOURCES,PAYOUTS,previewWalletRemittance} from './src/digital-money/wallet-remittance-preview.mjs';
+import {SOURCES,PAYOUTS,previewWalletRemittance,previewManualFxPayout} from './src/digital-money/wallet-remittance-preview.mjs';
 const style={box:{backgroundColor:'#132e42',borderRadius:12,padding:15,marginVertical:9},
  text:{color:'#deebf2',lineHeight:21,marginVertical:5},
  warning:{color:'#ffe1a1',lineHeight:21,marginVertical:9},
@@ -19,7 +19,9 @@ export default function WalletRemittanceConceptScreen({walletBalanceCents=null})
  const [source,setSource]=useState('demo_wallet'),[payout,setPayout]=useState('cash_pickup');
  const [destination,setDestination]=useState('NI'),[amount,setAmount]=useState('100');
  const [funding,setFunding]=useState('bank');
+ const [manualRate,setManualRate]=useState('');
  const result=previewWalletRemittance({source,payout,destination,funding,hypotheticalUsdCents:amountToCents(amount)});
+ const illustrativeFx=previewManualFxPayout({source,payout,destination,funding,hypotheticalUsdCents:amountToCents(amount),manualLocalPerUsd:manualRate});
  const fmt=c=>Number.isSafeInteger(c)?formatMWD(c):'No disponible';
  return <View style={style.box}>
   <Text style={{color:'white',fontSize:20,fontWeight:'800'}}>Billetera → Remesa internacional · Diseño</Text>
@@ -52,6 +54,13 @@ export default function WalletRemittanceConceptScreen({walletBalanceCents=null})
     <Text style={style.text}>Total hipotético: {fmt(result.illustrativeTotalCents)} USD</Text>
     <Text style={style.text}>Importe receptor: {result.illustrativeReceiveCents===null?'Sin tipo de cambio real':fmt(result.illustrativeReceiveCents)+' USD ficticios'}</Text>
    </View>:<Text style={style.warning}>No hay cotización para MWD, Coin ni Digital.</Text>}
+   {source==='external_usd_scenario'&&result.destinationCurrency!=='USD'&&<View>
+    <Text style={style.text}>Tipo de cambio MANUAL de ejemplo: moneda local por 1 USD (NO verificado)</Text>
+    <TextInput style={style.input} value={manualRate} onChangeText={setManualRate}
+     accessibilityLabel="Tasa de cambio manual no verificada" keyboardType="decimal-pad"
+     placeholder="Ejemplo hipotético: 25.125" placeholderTextColor="#a9c3cf"/>
+    {illustrativeFx?<Text style={style.warning}>El beneficiario recibiría hipotéticamente {illustrativeFx.illustrativeRecipientAmount} {illustrativeFx.destinationCurrency} antes de costos y ajustes desconocidos. NO es una cotización ni entrega garantizada.</Text>:<Text style={style.warning}>Sin cotización oficial. Introduce una tasa ficticia válida si deseas comparar.</Text>}
+   </View>}
    <Text style={style.warning}>Pago disponible: NO · Banco conectado: NO · Fondos enviados: 0</Text>
   </View>}
  </View>;
