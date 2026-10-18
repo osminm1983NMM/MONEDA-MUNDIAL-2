@@ -248,10 +248,11 @@ export default function App() {
       setAmount('');
       setRecipientCode('');
       setScreen('Inicio');
-      await refreshAccount();
+      // La confirmación es definitiva aunque falle una actualización de pantalla.
       message('Operación ficticia confirmada', type === 'transfer'
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
+      await refreshAccount();
     } catch (error) {
       if(sessionGuardRef.current.sameSession(sessionTicket))
         message('Operación no confirmada',
