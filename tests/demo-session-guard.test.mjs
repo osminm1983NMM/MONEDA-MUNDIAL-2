@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createDemoSessionGuard} from '../src/digital-money/demo-session-guard.mjs';
+import {createDemoSessionGuard,createDemoOperationGate} from '../src/digital-money/demo-session-guard.mjs';
 
 const a='11111111-1111-4111-8111-111111111111';
 const b='22222222-2222-4222-8222-222222222222';
@@ -47,4 +47,19 @@ test('renovar token de la misma cuenta mantiene válida la sesión; cambiarla in
  guard.setOwner(b);
  assert.equal(guard.sameSession(operation),false);
  assert.equal(guard.capture(a),null);
+});
+
+test('una operación obsoleta no libera el candado de una nueva sesión',()=>{
+ const gate=createDemoOperationGate();
+ const a=gate.acquire();
+ assert.ok(a);
+ assert.equal(gate.acquire(),null);
+ gate.reset();
+ const b=gate.acquire();
+ assert.ok(b);
+ assert.equal(gate.release(a),false);
+ assert.equal(gate.isBusy(),true);
+ assert.equal(gate.release(b),true);
+ assert.equal(gate.isBusy(),false);
+ assert.equal(gate.release(b),false);
 });
