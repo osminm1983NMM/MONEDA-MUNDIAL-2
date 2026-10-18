@@ -38,3 +38,18 @@ test('Nicaragua permanece en simulación y reintentos no duplican orden',()=>{
  assert.equal(again.alreadyProcessed,true);
  assert.equal(p.checkDemoStatus(first.demoTransferId).destination,'NI');
 });
+
+test('notificación duplicada conserva etapa original tras progreso posterior',()=>{
+ const p=make();const t=p.submitDemoTransfer({requestId:'request-duplicate-stage-1001',order});
+ const pending=p.makeSyntheticEvent({id:'event-pending-retry-123',transferId:t.demoTransferId,status:'sandbox_pending'});
+ const first=p.receiveSignedDemoEvent(pending);
+ assert.equal(first.stage,'processing_mock_provider_only');
+ const complete=p.makeSyntheticEvent({id:'event-complete-retry-123',transferId:t.demoTransferId,status:'sandbox_completed'});
+ assert.equal(p.receiveSignedDemoEvent(complete).stage,'mock_provider_job_completed_unverified');
+ const late=p.receiveSignedDemoEvent(pending);
+ assert.equal(late.alreadyProcessed,true);
+ assert.equal(late.stage,first.stage);
+ assert.equal(p.checkDemoStatus(t.demoTransferId).stage,'mock_provider_job_completed_unverified');
+ assert.equal(p.sanitizedAudit().filter(x=>x.type==='mock_webhook_accepted').length,2);
+ assert.equal(late.realMoneyEnabled,false);
+});
