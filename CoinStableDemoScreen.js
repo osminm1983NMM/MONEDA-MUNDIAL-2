@@ -94,9 +94,10 @@ export default function CoinStableDemoScreen({supabase,userId}) {
     (async()=>{
       const raw=pendingKey?await AsyncStorage.getItem(pendingKey):null;
       if(!live)return;
-      const restored=decodePendingDemoQuote(raw);
+      const restored=raw && !decodePendingDemoQuote(raw) ? {unavailable:true} : decodePendingDemoQuote(raw);
       pendingRef.current=restored;
       setPending(restored);
+      if(restored?.unavailable)setError('Existe un registro local pendiente que no pudo validarse. No se permitirán nuevas operaciones hasta una revisión segura.');
     })().catch(()=>{if(live){setError('No se pudo revisar si hay una conversión pendiente. Se bloquearon nuevas operaciones.');pendingRef.current={unavailable:true};setPending({unavailable:true});}})
       .finally(()=>{if(live)setPendingLoading(false);});
     const timer=setInterval(()=>setNow(Date.now()),1000);
