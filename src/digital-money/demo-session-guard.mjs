@@ -33,3 +33,27 @@ export function createDemoSessionGuard() {
     },
   };
 }
+
+/**
+ * Candado local para operaciones DEMO: una operación de una sesión cerrada
+ * jamás podrá liberar el candado de una operación nueva de otra sesión.
+ * Su existencia no sustituye la idempotencia implementada en PostgreSQL.
+ */
+export function createDemoOperationGate() {
+ let pending = null;
+ return {
+  isBusy() { return pending!==null; },
+  acquire() {
+   if (pending!==null) return null;
+   const token={};
+   pending=token;
+   return token;
+  },
+  release(token) {
+   if (!token || pending!==token) return false;
+   pending=null;
+   return true;
+  },
+  reset() { pending=null; },
+ };
+}
