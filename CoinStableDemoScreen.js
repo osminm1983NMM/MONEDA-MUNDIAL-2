@@ -41,6 +41,7 @@ function Btn({label,onPress,disabled=false}) {
 }
 export default function CoinStableDemoScreen({supabase}) {
   const [wallet,setWallet]=useState(null);
+  const [walletState,setWalletState]=useState('loading');
   const [asset,setAsset]=useState('COIN');
   const [amount,setAmount]=useState('1');
   const [quote,setQuote]=useState(null);
@@ -49,19 +50,43 @@ export default function CoinStableDemoScreen({supabase}) {
   const [notice,setNotice]=useState('');
   const [now,setNow]=useState(Date.now());
   const requestVersion=useRef(0);
+  const walletRequest=useRef(0);
+  const mounted=useRef(false);
   const load=useCallback(async()=>{
-    const {data,error:e}=await supabase.rpc('mwd_conversion_wallet_demo');
-    if(e) throw e;
-    const parsed=parseDemoAssetBalances(data);
-    const history=validateDemoHistory(data?.history);
-    if(!parsed||!history){setWallet(null);throw new Error('No se pudieron verificar los saldos ficticios.');}
-    setWallet({...parsed,history});
+    const ticket=++walletRequest.current;
+    if(mounted.current){
+      setWallet(null); // Nunca dejar visible un saldo de una solicitud anterior.
+      setWalletState('loading');
+      setError('');
+    }
+    try {
+      const {data,error:e}=await supabase.rpc('mwd_conversion_wallet_demo');
+      if(e)throw e;
+      const parsed=parseDemoAssetBalances(data);
+      const history=validateDemoHistory(data?.history);
+      if(!parsed||!history)throw new Error('Saldos o historial ficticios no verificables.');
+      if(mounted.current&&ticket===walletRequest.current){
+        setWallet({...parsed,history});
+        setWalletState('ready');
+      }
+    }catch(e){
+      if(mounted.current&&ticket===walletRequest.current){
+        setWallet(null);
+        setWalletState('error');
+        setError('No se pudo actualizar el saldo de prueba. Inténtalo de nuevo.');
+      }
+      throw e;
+    }
   },[supabase]);
   useEffect(()=>{
-    let live=true;
-    load().catch(e=>{if(live)setError(e.message);});
+    mounted.current=true;
+    load().catch(()=>{});
     const timer=setInterval(()=>setNow(Date.now()),1000);
-    return()=>{live=false;clearInterval(timer);};
+    return()=>{
+      mounted.current=false;
+      walletRequest.current+=1; // Ignorar respuestas de sesiones/pantallas anteriores.
+      clearInterval(timer);
+    };
   },[load]);
   function reset() {requestVersion.current+=1;setQuote(null);setError('');setNotice('');}
   async function requestQuote() {
@@ -90,8 +115,9 @@ export default function CoinStableDemoScreen({supabase}) {
       if(e)throw e;
       if(!validateDemoReceipt(data,quote.quoteId))throw new Error('No se pudo verificar el recibo ficticio.');
       setQuote(null);
-      await load();
-      setNotice('Conversión ficticia registrada, sin dinero real.');
+      setNotice('Conversión ficticia confirmada en el servidor de pruebas. Sin dinero real.');
+      try{await load();}
+      catch{setError('La conversión ficticia fue confirmada, pero no se pudo actualizar el saldo. Usa Actualizar saldos e historial.');}
     } catch(e){setError(e.message||'Conversión no confirmada');}
     finally{setBusy(false);}
   }
@@ -99,8 +125,8 @@ export default function CoinStableDemoScreen({supabase}) {
   return <View style={s.card}>
     <Text style={s.title}>Coin ↔ Estable</Text>
     <Text style={s.warning}>SOLO SIMULACIÓN. Precio sintético, sin cotización de mercado, reservas ni retiros. Los saldos no son dinero y no se mezclan con MWD.</Text>
-    <Text style={s.text}>Coin ficticia: {wallet?fmt(wallet.coinMicro):'...'} COIN</Text>
-    <Text style={s.text}>Estable ficticia: {wallet?fmt(wallet.stableMicro):'...'} STABLE</Text>
+    <Text style={s.text}>Coin ficticia: {wallet?fmt(wallet.coinMicro):walletState==='loading'?'Cargando...':'No disponible'} {wallet?'COIN':''}</Text>
+    <Text style={s.text}>Digital ficticia: {wallet?fmt(wallet.stableMicro):walletState==='loading'?'Cargando...':'No disponible'} {wallet?'STABLE':''}</Text>
     <Btn label={asset==='COIN'?'Origen: COIN → STABLE':'Origen: STABLE → COIN'}
       disabled={busy} onPress={()=>{setAsset(a=>a==='COIN'?'STABLE':'COIN');reset();}} />
     <TextInput accessibilityLabel="Cantidad ficticia" style={s.input}
@@ -124,7 +150,8 @@ export default function CoinStableDemoScreen({supabase}) {
     {!!notice&&<Text style={s.text}>{notice}</Text>}
     <Btn label="Actualizar saldos e historial" disabled={busy} onPress={()=>load().catch(e=>setError(e.message))}/>
     <Text style={s.title}>Últimas conversiones ficticias</Text>
-    {(wallet?.history||[]).length===0&&<Text style={s.text}>Sin conversiones registradas.</Text>}
+    {walletState==='error'&&<Text style={s.warning}>Historial temporalmente no disponible.</Text>}
+    {walletState==='ready'&&wallet?.history?.length===0&&<Text style={s.text}>Sin conversiones registradas.</Text>}
     {(wallet?.history||[]).map(op=><View key={op.id} style={s.item}>
       <Text style={s.text}>{fmt(op.amountInMicro)} {op.fromAsset} → {fmt(op.amountOutMicro)} {op.toAsset}</Text>
       <Text style={s.text}>{new Date(op.settledAt).toLocaleString()}</Text>
