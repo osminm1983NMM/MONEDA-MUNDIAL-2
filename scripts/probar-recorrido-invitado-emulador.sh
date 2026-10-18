@@ -59,6 +59,25 @@ adb shell input swipe 550 1900 550 700 500
 sleep 2
 read_accessibility guest-tour-return-ready
 python3 scripts/android_guest_tour_contract.py tour smoke-results/guest-after-crypto.xml smoke-results/guest-tour-return-ready.xml
+
+# Verificar panel público de requisitos; sigue sin iniciar sesión.
+read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py readiness-entry smoke-results/guest-tour-return-ready.xml)"
+echo "Abriendo requisitos públicos sin cuenta..."
+adb shell input tap "$x" "$y"
+sleep 3
+read_accessibility guest-readiness
+adb shell input swipe 550 1900 550 700 500
+sleep 2
+read_accessibility guest-readiness-bottom
+python3 scripts/android_guest_tour_contract.py readiness smoke-results/guest-readiness.xml smoke-results/guest-readiness-bottom.xml
+read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py readiness-back smoke-results/guest-readiness-bottom.xml)"
+adb shell input tap "$x" "$y"
+sleep 3
+read_accessibility guest-after-readiness
+adb shell input swipe 550 1900 550 700 500
+sleep 2
+read_accessibility guest-tour-return-ready
+python3 scripts/android_guest_tour_contract.py tour smoke-results/guest-after-readiness.xml smoke-results/guest-tour-return-ready.xml
 read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py return-button smoke-results/guest-tour-return-ready.xml)"
 echo "Volviendo a la pantalla pública de inicio..."
 adb shell input tap "$x" "$y"
