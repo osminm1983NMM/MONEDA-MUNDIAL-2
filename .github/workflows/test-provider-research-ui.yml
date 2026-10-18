@@ -4,6 +4,8 @@ on:
     branches: [desarrollo-comercios-20261013]
     paths:
       - 'src/digital-money/provider-research-overview.mjs'
+      - 'src/digital-money/provider-research-copy.mjs'
+      - 'tests/provider-research-copy.test.mjs'
       - 'ProviderResearchScreen.js'
       - 'src/digital-money/worldwide-research-countries.mjs'
       - 'tests/worldwide-research-countries.test.mjs'
@@ -14,6 +16,8 @@ on:
     branches: [desarrollo-comercios-20261013]
     paths:
       - 'src/digital-money/provider-research-overview.mjs'
+      - 'src/digital-money/provider-research-copy.mjs'
+      - 'tests/provider-research-copy.test.mjs'
       - 'ProviderResearchScreen.js'
       - 'App.js'
       - 'tests/provider-research-overview.test.mjs'
