@@ -1,0 +1,26 @@
+name: Verificar idempotencia acciones financieras MOCK
+on:
+  pull_request:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'src/server/mock-payment-lifecycle.mjs'
+      - 'tests/mock-payment-lifecycle.test.mjs'
+      - '.github/workflows/test-mock-action-idempotency.yml'
+  push:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'src/server/mock-payment-lifecycle.mjs'
+      - 'tests/mock-payment-lifecycle.test.mjs'
+      - '.github/workflows/test-mock-action-idempotency.yml'
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/mock-payment-lifecycle.test.mjs
+      - run: node --test tests/*.test.mjs
