@@ -12,11 +12,6 @@ on:
       - 'tests/guest-world-countries-preview.test.mjs'
       - 'tests/worldwide-research-countries.test.mjs'
       - '.github/workflows/test-guest-world-countries.yml'
-  push:
-    branches:
-      - feature/guest-world-country-research-20261018
-    paths:
-      - '.github/workflows/test-guest-world-countries.yml'
   workflow_dispatch:
 permissions:
   contents: read
