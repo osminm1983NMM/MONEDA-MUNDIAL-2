@@ -7,7 +7,7 @@ import {getProviderResearchOverview,RESEARCH_PAYOUTS} from './src/digital-money/
 const style={panel:{backgroundColor:'#142e45',borderRadius:12,padding:14,marginVertical:8},
  text:{color:'#dfedf6',marginVertical:5},alert:{color:'#ffdc97',marginVertical:8},
  btn:{backgroundColor:'#284c6a',padding:10,borderRadius:7,marginVertical:3}};
-export default function ProviderResearchScreen(){
+export default function ProviderResearchScreen({language='es'}){
  const [destination,setDestination]=useState('HN');
  const [method,setMethod]=useState('bank_account');
  const [countrySearch,setCountrySearch]=useState('');
@@ -39,9 +39,9 @@ export default function ProviderResearchScreen(){
   <TextInput accessibilityLabel="Buscar país del mundo" value={countrySearch} onChangeText={setCountrySearch}
    placeholder="País o código ISO (ej.: España, México, TR)" placeholderTextColor="#b9cfe1"
    style={{backgroundColor:'#284c6a',color:'#fff',padding:10,borderRadius:8}}/>
-  {searchWorldResearchCountries(countrySearch).map(c=><TouchableOpacity key={c.code} style={style.btn}
+  {searchWorldResearchCountries(countrySearch,12,language).map(c=><TouchableOpacity key={c.code} style={style.btn}
     accessibilityRole="button" onPress={()=>setCatalogueCountry(c)}>
-    <Text style={style.text}>{catalogueCountry?.code===c.code?'✓ ':''}{c.name} ({c.code}) · En investigación</Text>
+    <Text style={style.text}>{catalogueCountry?.code===c.code?'✓ ':''}{c.name} ({c.code}) · {language==='en'?'Under research':'En investigación'}</Text>
    </TouchableOpacity>)}
   {catalogueCountry&&<Text style={style.alert}>{catalogueCountry.name} ({catalogueCountry.code}): incluido en el catálogo mundial. Sin proveedor, moneda de pago ni ruta real confirmada.</Text>}
   <Text style={style.text}>Modalidad a consultar</Text>
