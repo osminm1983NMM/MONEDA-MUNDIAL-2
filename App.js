@@ -116,7 +116,7 @@ export default function App() {
     }
     setSession(nextSession);
     setAuthLoading(false);
-    setScreen('Inicio');
+    if(changed)setScreen('Inicio');
   }
 
   useEffect(() => {
@@ -220,6 +220,8 @@ export default function App() {
 
   async function executeOperation(type, cents, code = '') {
     if (busyRef.current) return;
+    const sessionTicket=sessionGuardRef.current.capture(userId);
+    if(!sessionTicket)return;
     busyRef.current = true;
     setBusy(true);
     try {
@@ -235,6 +237,7 @@ export default function App() {
         : await supabase.rpc('mwd_contribute_demo', {
           p_amount_cents: cents, p_request_id: requestId,
         });
+      if (!sessionGuardRef.current.sameSession(sessionTicket)) return;
       if (response.error) throw response.error;
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
@@ -248,11 +251,12 @@ export default function App() {
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
     } catch (error) {
-      message('Operación no confirmada',
-        (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
+      if(sessionGuardRef.current.sameSession(sessionTicket))
+        message('Operación no confirmada',
+          (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
     } finally {
       busyRef.current = false;
-      setBusy(false);
+      if(sessionGuardRef.current.sameSession(sessionTicket))setBusy(false);
     }
   }
 
