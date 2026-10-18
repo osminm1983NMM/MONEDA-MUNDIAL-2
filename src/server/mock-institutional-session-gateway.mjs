@@ -109,9 +109,13 @@ export function createMockInstitutionSessionGateway({
      sessions.delete(tokenHash);
      return copy({allowed:false,reason:'expired_or_revoked',...noLive});
    }
-   if(!['read_mock_cases','request_mock_review'].includes(action))
+   if(!['read_mock_cases','request_mock_review','verify_mock_cash_pickup'].includes(action))
      return copy({allowed:false,reason:'action_not_authorized',...noLive});
    const inst=INSTITUTIONS[session.institutionId];
+   // Un banco ficticio no puede hacerse pasar por un agente de retiro
+   // aunque tenga sesión válida. El permiso es sólo de laboratorio.
+   if(action==='verify_mock_cash_pickup'&&inst.kind!=='agent')
+     return copy({allowed:false,reason:'not_a_mock_cash_agent',...noLive});
    return copy({allowed:true,reason:'scoped_mock_access',
     memberId:session.memberId,institutionId:session.institutionId,
     institutionKind:inst.kind,country:inst.country,
