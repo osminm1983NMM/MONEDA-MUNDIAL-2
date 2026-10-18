@@ -21,6 +21,7 @@ on:
       - 'database/mwd_secure_partner_registry_demo.sql'
       - 'tests/partner-registry-fixture.sql'
       - 'tests/payout-closure-code-assertions.sql'
+      - 'tests/payout-closure-expired-assertions.sql'
       - 'tests/payout-closure-capability-assertions.sql'
       - 'PayoutCandidateLinkScreen.js'
       - 'src/payout-demo-closure-guards.mjs'
@@ -75,6 +76,8 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f tests/payout-closure-capability-assertions.sql
       - name: Probar propietario, consumo e idempotencia
         run: psql -X -v ON_ERROR_STOP=1 -f tests/payout-closure-code-assertions.sql
+      - name: Rechazar cierre con código de retiro vencido
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/payout-closure-expired-assertions.sql
 
   android-ui-export:
     name: Validar pantalla Android y bundle JS del DEMO
