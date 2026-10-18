@@ -44,3 +44,27 @@ function validatePendingDemoQuote(q) {
   realPaymentsEnabled:false
  };
 }
+
+/**
+ * Classifica el resultado del RPC que SOLO consulta el estado de una operación.
+ * El resultado no da permiso para alterar el libro: solo permite cerrar el aviso local.
+ * Devuelve null ante datos incompletos, ajenos o potencialmente falsificados.
+ */
+export function classifyDemoReconciliation(response,pending) {
+ if(!pending||pending.unavailable||!response||typeof response!=='object'||
+    response.mode!=='sandbox_only'||response.realPaymentsEnabled!==false||
+    !ID.test(response.quoteId||'')||response.quoteId!==pending.quoteId||
+    response.fromAsset!==pending.fromAsset||response.toAsset!==pending.toAsset)return null;
+ for(const field of ['amountInMicro','amountOutMicro','feeOutMicro']){
+   const value=response[field];
+   const parsed=typeof value==='number'?value:
+      typeof value==='string'&&/^(0|[1-9][0-9]*)$/.test(value)?Number(value):NaN;
+   if(!Number.isSafeInteger(parsed)||parsed!==pending[field])return null;
+ }
+ if(response.status==='quoted'||response.status==='expired')
+   return response.conversionId===null?response.status:null;
+ if(response.status==='executed')
+   return typeof response.conversionId==='string'&&ID.test(response.conversionId)
+     ? 'executed' : null;
+ return null;
+}
