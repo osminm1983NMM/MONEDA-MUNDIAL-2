@@ -66,8 +66,24 @@ if [ "$ui_ok" != "true" ]; then
 fi
 adb logcat -d -s AndroidRuntime:E ReactNativeJS:E >smoke-results/runtime-errors.txt || true
 adb shell dumpsys window >smoke-results/window-state.txt 2>&1 || true
-if grep -Eqi "Application Not Responding|isn.t responding|is not responding|not responding" smoke-results/window-state.txt; then
-  echo "::error::El sistema Android informa ventana ANR, no es una prueba válida."
+# 'LAST ANR' en dumpsys puede ser histórico. Solo importa el diálogo ACTUAL.
+# Un ANR del launcher del emulador puede interponerse durante el arranque;
+# permitir UNA recuperación controlada exclusivamente para Pixel Launcher.
+anr_status="$(python3 scripts/android_anr_triage.py classify smoke-results/ui.xml smoke-results/window-state.txt)"
+if [ "$anr_status" = "launcher_anr" ]; then
+  echo "::warning::El ANR pertenece a Pixel Launcher, no a Moneda Mundial. Recuperación CI única."
+  read -r touch_x touch_y <<< "$(python3 scripts/android_anr_triage.py launcher-close-coordinates smoke-results/ui.xml smoke-results/window-state.txt)"
+  adb shell input tap "$touch_x" "$touch_y"
+  sleep 3
+  adb shell am start -W -n "$APP_ID/.MainActivity" >smoke-results/relaunch.txt
+  sleep 10
+  adb shell uiautomator dump /sdcard/moneda-mundial-ui.xml >smoke-results/ui-dump-output.txt 2>&1
+  adb pull /sdcard/moneda-mundial-ui.xml smoke-results/ui.xml >>smoke-results/ui-pull-log.txt 2>&1
+  adb shell dumpsys window >smoke-results/window-state.txt 2>&1
+  anr_status="$(python3 scripts/android_anr_triage.py classify smoke-results/ui.xml smoke-results/window-state.txt)"
+fi
+if [ "$anr_status" != "none" ]; then
+  echo "::error::ANR activo ($anr_status). APK NO verificada."
   exit 1
 fi
 
