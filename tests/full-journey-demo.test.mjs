@@ -34,3 +34,24 @@ test('escenarios no soportados fallan cerrados y sin creación de pagos',()=>{
  assert.equal(p.localCurrencyExample,null);
  assert.equal(p.canDisburse,false);
 });
+
+test('Digital→Coin se muestra únicamente como cálculo separado, sin dinero transferible',()=>{
+ const p=preview({source:'digital_concept',destination:'NI',
+  digitalUnits:'2.5',coinUsdScenario:'0.25',digitalUsdScenario:'1',
+  hypotheticalUsdCents:10000,manualLocalPerUsd:'36.5'});
+ assert.equal(p.inverseConversionExample.inputDigitalUnits,'2.5');
+ assert.equal(p.inverseConversionExample.hypotheticalCoinUnits,'10');
+ assert.equal(p.inverseConversionExample.canExecute,false);
+ assert.equal(p.conversionExample,null);
+ assert.equal(p.independentUsdExample,null);
+ assert.equal(p.localCurrencyExample,null);
+ for(const key of ['canTrade','canConvert','canDebit','canSend','canPayMerchant',
+  'canWithdraw','canDisburse','realMoneyEnabled','operational'])assert.equal(p[key],false,key);
+});
+test('un valor Digital inválido nunca produce saldo ni activa operación',()=>{
+ const p=preview({source:'digital_concept',digitalUnits:'0',
+  coinUsdScenario:'0.25',digitalUsdScenario:'1'});
+ assert.equal(p.inverseConversionExample,null);
+ assert.equal(p.canSend,false);
+ assert.equal(p.digitalIssued,false);
+});
