@@ -158,6 +158,9 @@ jobs:
           test -s smoke-results/guest-tour-bottom.xml
           test -s smoke-results/guest-crypto.xml
           test -s smoke-results/guest-crypto-bottom.xml
+          test -s smoke-results/guest-readiness.xml
+          test -s smoke-results/guest-readiness-bottom.xml
+          test -s smoke-results/guest-after-readiness.xml
           test -s smoke-results/guest-after-crypto.xml
           test -s smoke-results/guest-tour-return-ready.xml
           test -s smoke-results/guest-return.xml
