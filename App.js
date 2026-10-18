@@ -352,7 +352,7 @@ export default function App() {
               })}
             </>}
 
-            {screen === 'Conversión' && <CoinStableDemoScreen supabase={supabase} />}
+            {screen === 'Conversión' && <CoinStableDemoScreen key={userId} userId={userId} supabase={supabase} />}
             {screen === 'Entrega' && <PickupWithoutPhoneDemo supabase={supabase} isOwner={adminRole === 'owner'} />}
             {screen === 'Admin' && <View style={styles.card}>
               <Text style={styles.heading}>Administración MWD</Text>
