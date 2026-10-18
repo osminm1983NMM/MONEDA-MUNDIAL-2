@@ -1,5 +1,6 @@
 import React,{useState} from 'react';
-import {View,Text,TouchableOpacity} from 'react-native';
+import {View,Text,TouchableOpacity,Share,Linking,Alert} from 'react-native';
+import {getMobileProviderOutreachDraft} from './src/digital-money/mobile-provider-outreach.mjs';
 import {RESEARCH_DESTINATIONS} from './src/digital-money/project-launch-status.mjs';
 import {getProviderResearchOverview,RESEARCH_PAYOUTS} from './src/digital-money/provider-research-overview.mjs';
 const style={panel:{backgroundColor:'#142e45',borderRadius:12,padding:14,marginVertical:8},
@@ -9,6 +10,19 @@ export default function ProviderResearchScreen(){
  const [destination,setDestination]=useState('HN');
  const [method,setMethod]=useState('bank_account');
  const result=getProviderResearchOverview({destination,method});
+ const shareDraft=async providerId=>{
+  const draft=getMobileProviderOutreachDraft({providerId,destination});
+  if(!draft)return;
+  try{await Share.share({message:draft.message,title:draft.subject});}
+  catch{Alert.alert('No se pudo compartir','Puedes volver a intentar más tarde. No se envió automáticamente.');}
+ };
+ const openOfficialForm=async providerId=>{
+  const draft=getMobileProviderOutreachDraft({providerId,destination});
+  if(!draft)return;
+  try{if(await Linking.canOpenURL(draft.contactUrl))await Linking.openURL(draft.contactUrl);
+   else Alert.alert('Enlace no disponible','Abre el formulario oficial desde un navegador.');}
+  catch{Alert.alert('No se pudo abrir','Comprueba la conexión o abre el formulario desde el navegador.');}
+ };
  return <View style={style.panel}>
   <Text style={{color:'#fff',fontSize:20,fontWeight:'800'}}>Proveedores para evaluar</Text>
   <Text style={style.alert}>SOLO INVESTIGACIÓN. Ningún candidato ha firmado contrato ni confirmado que pueda mover fondos para Moneda Mundial.</Text>
@@ -29,6 +43,18 @@ export default function ProviderResearchScreen(){
     <Text style={style.text}>Modalidad para investigar: {p.candidateMethodInResearch?'Sí':'No priorizada'}</Text>
     <Text style={style.text}>Requisitos documentales aún pendientes: {p.documentationMissing} / {p.documentationRequired}</Text>
     <Text style={style.alert}>Cobertura sin confirmar · Sin convenio ni sandbox otorgado.</Text>
+    {destination==='HN'&&<View>
+     <Text style={style.text}>Consulta comercial redactada en inglés, revisable y de envío manual.</Text>
+     <TouchableOpacity accessibilityRole="button" accessibilityLabel={'Compartir borrador de '+p.name}
+      style={style.btn} onPress={()=>shareDraft(p.providerId)}>
+      <Text style={style.text}>Compartir borrador de consulta · {p.name}</Text>
+     </TouchableOpacity>
+     <TouchableOpacity accessibilityRole="button" accessibilityLabel={'Abrir contacto oficial de '+p.name}
+      style={style.btn} onPress={()=>openOfficialForm(p.providerId)}>
+      <Text style={style.text}>Abrir formulario oficial · {p.name}</Text>
+     </TouchableOpacity>
+     <Text style={style.alert}>Abrir o compartir no envía automáticamente un mensaje. Revisa y decide si deseas contactar.</Text>
+    </View>}
    </View>)}
    <Text style={style.alert}>{result.nextAction}</Text>
   </View>}
