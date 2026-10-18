@@ -37,8 +37,20 @@ export function searchWorldResearchCountries(query='',limit=12){
   const name=c.name.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   return c.code.toLowerCase().includes(needle)||name.includes(needle);
  };
+ // Rank exact ISO codes first. Without this, searching "NI" could
+ // return twelve other name matches and hide Nicaragua entirely.
+ const priority=code=>{
+  const c=getWorldResearchCountry(code);
+  const name=c.name.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(code.toLowerCase()===needle)return 0;
+  if(name===needle)return 1;
+  if(code.toLowerCase().startsWith(needle))return 2;
+  if(name.startsWith(needle))return 3;
+  return 4;
+ };
  const matches=trim?
-  ISO_CODES.filter(match).sort((a,b)=>a.localeCompare(b)):
+  ISO_CODES.filter(match).sort((a,b)=>priority(a)-priority(b)||
+    a.localeCompare(b)):
   [...FAVOURITES];
  return Object.freeze(matches.slice(0,limit).map(getWorldResearchCountry));
 }
