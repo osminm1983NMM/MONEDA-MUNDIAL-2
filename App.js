@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import PartnerRegistryScreen from './PartnerRegistryScreen';
 import CoinStableDemoScreen from './CoinStableDemoScreen';
+import DemoAssetSummaryCard from './DemoAssetSummaryCard';
 import ConversionAdminDemoScreen from './ConversionAdminDemoScreen';
 import PickupWithoutPhoneDemo from './PickupWithoutPhoneDemo';
 import AgentAccessAdminDemo from './AgentAccessAdminDemo';
@@ -300,7 +301,7 @@ export default function App() {
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
               <Btn title="Actualizar saldo e historial" secondary onPress={() => refreshAccount()} disabled={syncing} />
-              <Btn title="Convertir Coin ↔ Estable (prueba)" secondary onPress={() => navigate('Conversión')} />
+              <DemoAssetSummaryCard key={userId} supabase={supabase} onOpenConversion={() => navigate('Conversión')} />
               <Btn title="Entrega sin teléfono (DEMO)" secondary onPress={() => navigate('Entrega')} />
               <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
               <Btn title="Cerrar sesión" secondary onPress={logout} />
