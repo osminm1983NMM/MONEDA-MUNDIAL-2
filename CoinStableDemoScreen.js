@@ -167,7 +167,14 @@ export default function CoinStableDemoScreen({supabase,userId}) {
       const {data,error:e}=await supabase.rpc('mwd_conversion_confirm_demo',{p_quote_id:current.quoteId});
       if(e)throw e;
       if(data?.realPaymentsEnabled!==false||data.quoteId!==current.quoteId||
-         !['ok','already_processed'].includes(data.status))throw new Error('Respuesta no verificable');
+         !['ok','already_processed'].includes(data.status)||!data.conversionId||
+         !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(data.conversionId)||
+         (data.status==='ok'&&(
+           data.fromAsset!==current.fromAsset||data.toAsset!==current.toAsset||
+           Number(data.amountInMicro)!==current.amountInMicro||
+           Number(data.amountOutMicro)!==current.amountOutMicro||
+           Number(data.feeOutMicro)!==current.feeOutMicro
+         )))throw new Error('Respuesta no verificable');
       if(!pendingKey)throw new Error('Sesión inválida');
       await AsyncStorage.removeItem(pendingKey);
       pendingRef.current=null;setPending(null);activeQuote.current=null;setQuote(null);
