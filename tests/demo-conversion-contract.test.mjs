@@ -41,3 +41,16 @@ test('historial inválido nunca aparece como saldo o operación válida',()=>{
    assert.equal(validateDemoHistory([{...row,...patch}]),null,JSON.stringify(patch));
  assert.equal(validateDemoHistory(null),null);
 });
+
+test('precio sintético corresponde al bruto exacto y rechaza valores falsificados',()=>{
+ assert.equal(validateDemoQuote(q,'COIN',1000000,now)?.grossOutMicro,125000);
+ const inverse={...q,fromAsset:'STABLE',toAsset:'COIN',grossOutMicro:8000000,
+   feeOutMicro:20000,amountOutMicro:7980000};
+ assert.equal(validateDemoQuote(inverse,'STABLE',1000000,now)?.grossOutMicro,8000000);
+ assert.equal(validateDemoQuote({...q,grossOutMicro:125001,amountOutMicro:124688},'COIN',1000000,now),null);
+ assert.equal(validateDemoQuote({...inverse,grossOutMicro:8000001,amountOutMicro:7980001},'STABLE',1000000,now),null);
+ const precise={...q,stablePerCoin:'0.12345678',grossOutMicro:123456,
+   feeOutMicro:100,amountOutMicro:123356};
+ assert.equal(validateDemoQuote(precise,'COIN',1000000,now)?.grossOutMicro,123456);
+ assert.equal(validateDemoQuote({...precise,grossOutMicro:123457,amountOutMicro:123357},'COIN',1000000,now),null);
+});
