@@ -7,6 +7,7 @@ test('249 destinos investigables sin cuenta ni fondos reales',()=>{
  for(const language of ['es','en','pt',null]){
   const v=getGuestWorldCountryPreview({language});
   assert.equal(v.totalCount,249);
+  if(language==='pt')assert.match(v.title,/países do mundo/);
   assert.equal(v.liveCountries,0);
   assert.equal(v.requiresLogin,false);
   assert.equal(v.offlineOnly,true);
