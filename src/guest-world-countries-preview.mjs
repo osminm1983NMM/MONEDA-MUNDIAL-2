@@ -25,9 +25,20 @@ const LABELS=Object.freeze({
   empty:'No country or territory found.',
   back:'Back to the Moneda Mundial tour',
  }),
+ pt:Object.freeze({
+  title:'Explorar países do mundo',
+  warning:'SOMENTE PESQUISA · NENHUM PAÍS ACEITA TRANSFERÊNCIAS REAIS',
+  subtitle:'Consulte países e territórios sem iniciar sessão. Honduras é um exemplo de estudo; Nicarágua e todos os demais destinos permanecem no catálogo.',
+  placeholder:'Buscar país ou código ISO',
+  listed:'Países e territórios no catálogo',
+  shown:'Resultados visíveis',
+  unavailable:'Sem provedor autorizado, cotação real, transferência ou saque disponível.',
+  empty:'Nenhum país ou território encontrado.',
+  back:'Voltar à apresentação do Moneda Mundial',
+ }),
 });
 export function getGuestWorldCountryPreview({query='',language='es'}={}){
- const locale=language==='en'?'en':'es';
+ const locale=['es','en','pt'].includes(language)?language:'es';
  const safeQuery=typeof query==='string'&&query.length<=80?query:null;
  const results=safeQuery===null?[]:searchWorldResearchCountries(safeQuery,12,locale);
  if(results.some(x=>x.realPaymentsEnabled!==false||x.bankProviderConfirmed!==false||
