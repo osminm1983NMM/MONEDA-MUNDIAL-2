@@ -34,7 +34,7 @@ export function validateDemoHistory(x){
   const a=micro(item.amountInMicro),b=micro(item.amountOutMicro),fee=micro(item.feeOutMicro);
   const price=String(item.priceSnapshot??'');
   if(a===null||b===null||a===0||b===0||fee===null||
-     !/^\\d+(?:\\.\\d{1,8})?$/.test(price)||!(Number(price)>0)||
+     !/^\d+(?:\.\d{1,8})?$/.test(price)||!(Number(price)>0)||
      !Number.isFinite(Number(price)))return null;
   out.push({...item,amountInMicro:a,amountOutMicro:b,feeOutMicro:fee,priceSnapshot:price});
  }
