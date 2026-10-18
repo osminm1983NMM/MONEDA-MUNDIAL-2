@@ -1,0 +1,22 @@
+name: Conciliación Coin Digital DEMO aislada
+on:
+  pull_request:
+    paths:
+      - 'database/mwd_coin_stable_conversion_demo.sql'
+      - 'database/mwd_conversion_reconcile_demo.sql'
+      - 'tests/reconcile-demo-isolated.sql'
+      - '.github/workflows/reconcile-demo-isolated.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reconcile:
+    name: Verificar sin Supabase real ni fondos
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Iniciar PostgreSQL desechable
+        run: sudo systemctl start postgresql
+      - name: Ejecutar pruebas de tres estados y permisos
+        run: sudo -u postgres psql -X -v ON_ERROR_STOP=1 -f tests/reconcile-demo-isolated.sql
