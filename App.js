@@ -1643,7 +1643,7 @@ export default function App() {
             {screen === 'PuenteRemesasDemo' && <WalletRemittanceConceptScreen walletBalanceCents={wallet?.balance_cents} />}
             {screen === 'RecorridoCompletoDemo' && <FullMoneyJourneyScreen />}
             {screen === 'EstadoLanzamientoDemo' && <ProjectLaunchStatusScreen />}
-            {screen === 'ProveedoresInvestigacionDemo' && <ProviderResearchScreen />}
+            {screen === 'ProveedoresInvestigacionDemo' && <ProviderResearchScreen language={language} />}
             {screen === 'MonedaDigitalConcepto' && <DigitalMoneyConceptScreen />}
 
             {screen === 'Admin' && <View style={styles.card}>
