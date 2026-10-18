@@ -1,7 +1,9 @@
 // Conversor aislado de activos ficticios: NO ES UN EXCHANGE ni stablecoin real.
 import 'react-native-get-random-values';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import {parseDemoAssetBalances,formatDemoMicro} from './src/digital-money/demo-asset-summary.mjs';
+import {validateDemoQuote,validateDemoReceipt,validateDemoHistory} from './src/digital-money/demo-conversion-contract.mjs';
 
 const MICRO = 1000000;
 const MAX = 10000;
@@ -15,7 +17,7 @@ const s = {
   buttonText:{color:'#fff',textAlign:'center',fontWeight:'700'},
   item:{paddingVertical:9,borderTopWidth:1,borderColor:'#43516b'},
 };
-const fmt = v => (Number(v || 0)/MICRO).toLocaleString('es-US',{minimumFractionDigits:2,maximumFractionDigits:6});
+const fmt = formatDemoMicro;
 function toMicro(input) {
   const v=input.trim().replace(',','.');
   if (!/^\d+(\.\d{1,6})?$/.test(v)) return null;
@@ -46,10 +48,14 @@ export default function CoinStableDemoScreen({supabase}) {
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
   const [now,setNow]=useState(Date.now());
+  const requestVersion=useRef(0);
   const load=useCallback(async()=>{
     const {data,error:e}=await supabase.rpc('mwd_conversion_wallet_demo');
     if(e) throw e;
-    setWallet(data);
+    const parsed=parseDemoAssetBalances(data);
+    const history=validateDemoHistory(data?.history);
+    if(!parsed||!history){setWallet(null);throw new Error('No se pudieron verificar los saldos ficticios.');}
+    setWallet({...parsed,history});
   },[supabase]);
   useEffect(()=>{
     let live=true;
@@ -57,10 +63,11 @@ export default function CoinStableDemoScreen({supabase}) {
     const timer=setInterval(()=>setNow(Date.now()),1000);
     return()=>{live=false;clearInterval(timer);};
   },[load]);
-  function reset() {setQuote(null);setError('');setNotice('');}
+  function reset() {requestVersion.current+=1;setQuote(null);setError('');setNotice('');}
   async function requestQuote() {
     if(busy)return;
     reset();
+    const ticket=requestVersion.current;
     const cents=toMicro(amount);
     if(cents===null){setError('Escribe una cantidad de 1 a 10,000 con hasta seis decimales.');return;}
     setBusy(true);
@@ -69,8 +76,10 @@ export default function CoinStableDemoScreen({supabase}) {
         p_from_asset:asset,p_amount_micro:cents,p_client_request_id:uuid()
       });
       if(e)throw e;
-      setQuote(data);
-    } catch(e){setError(e.message||'No se pudo obtener cotización');}
+      const checked=validateDemoQuote(data,asset,cents);
+      if(!checked)throw new Error('Cotización de demostración inválida o vencida.');
+      if(requestVersion.current===ticket)setQuote(checked);
+    } catch(e){if(requestVersion.current===ticket)setError(e.message||'No se pudo obtener cotización');}
     finally{setBusy(false);}
   }
   async function confirm() {
@@ -79,7 +88,7 @@ export default function CoinStableDemoScreen({supabase}) {
     try {
       const {data,error:e}=await supabase.rpc('mwd_conversion_confirm_demo',{p_quote_id:quote.quoteId});
       if(e)throw e;
-      if(!['ok','already_processed'].includes(data?.status))throw new Error('Conversión no confirmada');
+      if(!validateDemoReceipt(data,quote.quoteId))throw new Error('No se pudo verificar el recibo ficticio.');
       setQuote(null);
       await load();
       setNotice('Conversión ficticia registrada, sin dinero real.');
