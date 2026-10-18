@@ -7,6 +7,8 @@ on:
   pull_request:
     paths:
       - '*.js'
+      - 'src/digital-money/demo-asset-summary.mjs'
+      - 'tests/demo-asset-summary.test.mjs'
       - 'package.json'
       - 'app.json'
       - 'eas.json'
@@ -38,6 +40,8 @@ jobs:
         run: npx expo config --type public --json > /tmp/expo-config.json
       - name: Verificar compatibilidad de dependencias
         run: npx expo install --check
+      - name: Validar datos y presentación de Coin y Digital (DEMO)
+        run: node --test tests/demo-asset-summary.test.mjs
       - name: Empaquetar JavaScript para Android (no crea APK)
         run: npx expo export --platform android --output-dir dist
       - name: Confirmar que se generaron archivos
