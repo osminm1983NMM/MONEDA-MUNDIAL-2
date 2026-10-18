@@ -44,7 +44,8 @@ export function getGuestCoinTradePreview({language='es',side='buy',
  coinUnits='',coinUsdScenario='',feeBps='0'}={}){
  if(!COIN_TRADE_SCENARIO_SIDES.includes(side)||
   typeof coinUnits!=='string'||typeof coinUsdScenario!=='string'||
-  typeof feeBps!=='string'||!/^(?:0|[1-9][0-9]{0,3})$/.test(feeBps))return null;
+  typeof feeBps!=='string'||!/^(?:0|[1-9][0-9]{0,3})$/.test(feeBps)||
+  Number(feeBps)>1000)return null;
  const copy=COPY[language==='en'?'en':'es'];
  const scenario=previewCoinTradeScenario({
   side,coinUnits,coinUsdScenario,feeBps:Number(feeBps),
