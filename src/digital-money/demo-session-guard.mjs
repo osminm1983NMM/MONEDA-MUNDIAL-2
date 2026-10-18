@@ -14,6 +14,13 @@ export function createDemoSessionGuard() {
       request += 1;
       return true;
     },
+    capture(userId) {
+      if (!valid(userId) || owner !== userId.toLowerCase()) return null;
+      return { owner, version };
+    },
+    sameSession(ticket) {
+      return !!ticket && owner === ticket.owner && version === ticket.version;
+    },
     begin(userId) {
       if (!valid(userId) || owner !== userId.toLowerCase()) return null;
       request += 1;
