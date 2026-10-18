@@ -2,7 +2,7 @@
 // Unifica la explicación de billetera, Coin→Digital, remesa y entrega.
 // NO crea operación, NO consulta Supabase, blockchain, bancos ni saldo real.
 import {previewWalletRemittance,previewManualFxPayout} from './wallet-remittance-preview.mjs';
-import {previewCoinToDigitalScenario} from './coin-to-digital-design.mjs';
+import {previewCoinToDigitalScenario,previewDigitalToCoinScenario} from './coin-to-digital-design.mjs';
 
 const SOURCES=new Set(['demo_wallet','coin_concept','digital_concept','external_usd_scenario']);
 const STEP_LABELS=Object.freeze([
@@ -14,7 +14,7 @@ const STEP_LABELS=Object.freeze([
 
 export function previewFullMoneyJourney({
  source='coin_concept',destination='HN',payout='cash_pickup',funding='bank',
- hypotheticalUsdCents=10000,coinUnits='10',coinUsdScenario='0.25',
+ hypotheticalUsdCents=10000,coinUnits='10',digitalUnits='2.5',coinUsdScenario='0.25',
  digitalUsdScenario='1',manualLocalPerUsd='',
 }={}){
  if(!SOURCES.has(source))return null;
@@ -26,6 +26,11 @@ export function previewFullMoneyJourney({
  // de Coin como fondos disponibles en Digital, USD o una remesa.
  const conversion=source==='coin_concept'
   ?previewCoinToDigitalScenario({coinUnits,coinUsdScenario,digitalUsdScenario})
+  :null;
+ // Separate inverse example: never treat hypothetical Digital units as usable Coin,
+ // USD balance or remittance funding.
+ const reverseConversion=source==='digital_concept'
+  ?previewDigitalToCoinScenario({digitalUnits,coinUsdScenario,digitalUsdScenario})
   :null;
  const fx=source==='external_usd_scenario'&&manualLocalPerUsd!==''?
   previewManualFxPayout({
@@ -39,6 +44,13 @@ export function previewFullMoneyJourney({
   conversionExample:conversion?Object.freeze({
    inputCoinUnits:conversion.inputCoinUnits,
    hypotheticalDigitalUnits:conversion.hypotheticalNetDigitalUnits,
+   coinPriceSource:'user_entered_unverified_scenario',
+   digitalPriceSource:'user_entered_unverified_scenario',
+   canExecute:false,
+  }):null,
+  inverseConversionExample:reverseConversion?Object.freeze({
+   inputDigitalUnits:reverseConversion.inputDigitalUnits,
+   hypotheticalCoinUnits:reverseConversion.hypotheticalNetCoinUnits,
    coinPriceSource:'user_entered_unverified_scenario',
    digitalPriceSource:'user_entered_unverified_scenario',
    canExecute:false,
