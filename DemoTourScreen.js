@@ -3,6 +3,7 @@ import React,{useState} from 'react';
 import GuestCryptoPreviewScreen from './GuestCryptoPreviewScreen';
 import GuestReadinessPreviewScreen from './GuestReadinessPreviewScreen';
 import GuestCashPickupPreviewScreen from './GuestCashPickupPreviewScreen';
+import GuestWorldCountriesScreen from './GuestWorldCountriesScreen';
 import {View,Text,TouchableOpacity} from 'react-native';
 import {DEMO_PREVIEW_REAL_PAYMENTS_ENABLED,getPublicDemoTour} from './src/demo-tour.mjs';
 const s={
@@ -19,8 +20,10 @@ export default function DemoTourScreen({language='es',onClose}){
  const [viewCrypto,setViewCrypto]=useState(false);
  const [viewReadiness,setViewReadiness]=useState(false);
  const [viewCashPickup,setViewCashPickup]=useState(false);
+ const [viewWorldCountries,setViewWorldCountries]=useState(false);
  const content=getPublicDemoTour(language);
  if(DEMO_PREVIEW_REAL_PAYMENTS_ENABLED) throw Error('Offline demo preview must not enable real payments');
+ if(viewWorldCountries)return <GuestWorldCountriesScreen language={language} onBack={()=>setViewWorldCountries(false)}/>;
  if(viewCashPickup)return <GuestCashPickupPreviewScreen language={language} onBack={()=>setViewCashPickup(false)}/>;
  if(viewCrypto)return <GuestCryptoPreviewScreen language={language} onBack={()=>setViewCrypto(false)}/>;
  if(viewReadiness)return <View style={s.box}><GuestReadinessPreviewScreen/><TouchableOpacity accessibilityRole="button" style={s.button} onPress={()=>setViewReadiness(false)}><Text style={s.buttonText}>Volver al recorrido de Moneda Mundial</Text></TouchableOpacity></View>;
@@ -39,6 +42,11 @@ export default function DemoTourScreen({language='es',onClose}){
   </TouchableOpacity>
   <TouchableOpacity accessibilityRole="button" style={s.button} onPress={()=>setViewReadiness(true)}><Text style={s.buttonText}>Ver requisitos pendientes (sin cuenta)</Text></TouchableOpacity>
   <TouchableOpacity accessibilityRole="button" style={s.button} accessibilityLabel={language==='en'?'Explore cash pickup without a phone':'Conocer retiro sin teléfono'} onPress={()=>setViewCashPickup(true)}><Text style={s.buttonText}>{language==='en'?'Explore cash pickup without a phone (demo)':'Conocer retiro sin teléfono (demostración)'}</Text></TouchableOpacity>
+  <TouchableOpacity accessibilityRole="button" style={s.button}
+    accessibilityLabel={language==='en'?'Explore countries worldwide':'Explorar países del mundo'}
+    onPress={()=>setViewWorldCountries(true)}>
+    <Text style={s.buttonText}>{language==='en'?'Explore all countries (research only)':'Explorar países del mundo (solo investigación)'}</Text>
+  </TouchableOpacity>
   <Text style={s.text}>{content.footer}</Text>
   <TouchableOpacity accessibilityRole="button" style={s.button} onPress={onClose}
     accessibilityLabel={content.back}><Text style={s.buttonText}>{content.back}</Text></TouchableOpacity>
