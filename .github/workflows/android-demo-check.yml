@@ -11,6 +11,8 @@ on:
       - 'tests/demo-asset-summary.test.mjs'
       - 'src/digital-money/demo-conversion-contract.mjs'
       - 'tests/demo-conversion-contract.test.mjs'
+      - 'scripts/android_launcher_anr.py'
+      - 'tests/test_android_launcher_anr.py'
       - 'package.json'
       - 'app.json'
       - 'eas.json'
@@ -42,6 +44,8 @@ jobs:
         run: npx expo config --type public --json > /tmp/expo-config.json
       - name: Verificar compatibilidad de dependencias
         run: npx expo install --check
+      - name: Comprobar clasificación segura de ANR Android
+        run: python3 -m unittest discover -s tests -p 'test_android_launcher_anr.py'
       - name: Validar cotizaciones y recibos solo de prueba
         run: node --test tests/demo-conversion-contract.test.mjs
       - name: Validar datos y presentación de Coin y Digital (DEMO)
