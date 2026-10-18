@@ -6,7 +6,7 @@ Esperar a que el trabajo **APK Android independiente - pruebas** en GitHub Actio
 
 ## APK de demostración anterior verificada (17 de octubre de 2026, hora de Washington D. C.)
 - **Ejecución GitHub:** https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/39087333726
-- **Versión del código:** `1262ba893fc5a16e1ead2515a6d851d10a7ec4e2` (vista pública de retiro sin teléfono incluida; no contiene los cambios pendientes de las solicitudes #59 y #60).
+- **Versión del código:** `1262ba893fc5a16e1ead2515a6d851d10a7ec4e2` (vista pública de retiro sin teléfono incluida; esta APK antigua no incluye las funcionalidades de #59 y #60).
 - **Archivo a elegir dentro de esa ejecución, sección Artifacts:** `moneda-mundial-2-demo-apk-verificada`.
 - **Pruebas automáticas completadas:** se compiló, se instaló en un emulador Android 35 y se comprobó su arranque y el recorrido público de invitado; las evidencias se guardaron como `moneda-mundial-android-smoke-test`.
 - **Huella SHA-256 verificada de la APK:** `06f8bdc02c0ef00003ced7d3cb878824b794678921fa8f20c5ffba5eca58ffac`. Comparar la huella del archivo exacto antes de distribuirlo a terceros.
