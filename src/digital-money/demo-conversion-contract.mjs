@@ -10,6 +10,15 @@ export function validateDemoQuote(x,asset,amount,now=Date.now()){
  if(incoming!==amount||gross===null||fee===null||net===null||net<=0||gross!==fee+net)return null;
  const rate=String(x.stablePerCoin??'');
  if(!/^\d+(?:\.\d{1,8})?$/.test(rate)||!(Number(rate)>0)||!Number.isFinite(Number(rate)))return null;
+ // La simulación debe corresponder exactamente al precio publicado, incluso en fracciones.
+ // BigInt evita que las operaciones con coma flotante alteren el monto recibido.
+ const [rateWhole,rateFraction='']=rate.split('.');
+ const rateDen=10n**BigInt(rateFraction.length);
+ const rateNum=BigInt(rateWhole)*rateDen+BigInt(rateFraction||'0');
+ const grossCalculated=asset==='COIN'
+   ? BigInt(incoming)*rateNum/rateDen
+   : BigInt(incoming)*rateDen/rateNum;
+ if(BigInt(gross)!==grossCalculated)return null;
  if(typeof x.expiresAt!=='string'||!/T.*(?:Z|[+-]\d\d:\d\d)$/.test(x.expiresAt))return null;
  const expiry=Date.parse(x.expiresAt);
  if(!Number.isFinite(expiry)||expiry<=now||expiry>now+130000)return null;
