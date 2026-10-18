@@ -134,6 +134,10 @@ python3 scripts/android_guest_tour_contract.py world smoke-results/guest-world-t
 read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py world-back smoke-results/guest-world-bottom.xml)"
 adb shell input tap "$x" "$y"
 sleep 3
+# Regresar desde una lista desplazada puede conservar la posición de ScrollView.
+# Capturar de nuevo la cabecera ANTES de verificar los elementos del final.
+adb shell input swipe 550 650 550 1900 550
+sleep 2
 read_accessibility guest-after-world
 adb shell input swipe 550 1900 550 700 500
 sleep 2
