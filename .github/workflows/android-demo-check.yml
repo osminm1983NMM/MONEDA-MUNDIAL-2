@@ -13,6 +13,8 @@ on:
       - 'tests/demo-conversion-contract.test.mjs'
       - 'src/digital-money/demo-pending-confirmation.mjs'
       - 'tests/demo-pending-confirmation.test.mjs'
+      - 'src/digital-money/demo-session-guard.mjs'
+      - 'tests/demo-session-guard.test.mjs'
       - 'scripts/android_launcher_anr.py'
       - 'tests/test_android_launcher_anr.py'
       - 'package.json'
@@ -54,6 +56,8 @@ jobs:
         run: node --test tests/demo-pending-confirmation.test.mjs
       - name: Validar datos y presentación de Coin y Digital (DEMO)
         run: node --test tests/demo-asset-summary.test.mjs
+      - name: Verificar aislamiento de cuentas y respuestas obsoletas
+        run: node --test tests/demo-session-guard.test.mjs
       - name: Empaquetar JavaScript para Android (no crea APK)
         run: npx expo export --platform android --output-dir dist
       - name: Confirmar que se generaron archivos
