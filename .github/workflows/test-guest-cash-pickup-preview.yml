@@ -1,0 +1,22 @@
+name: Verificar retiro público sin teléfono
+on:
+  pull_request:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'GuestCashPickupPreviewScreen.js'
+      - 'DemoTourScreen.js'
+      - 'src/guest-cash-pickup-preview.mjs'
+      - 'tests/guest-cash-pickup-preview.test.mjs'
+      - '.github/workflows/test-guest-cash-pickup-preview.yml'
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/guest-cash-pickup-preview.test.mjs
+      - run: node --test tests/*.test.mjs
