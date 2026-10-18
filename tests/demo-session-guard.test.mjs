@@ -33,3 +33,18 @@ test('última consulta prevalece y cerrar sesión invalida todos los tickets',()
  assert.equal(guard.begin(a),null);
  assert.equal(guard.setOwner(null),false);
 });
+
+test('renovar token de la misma cuenta mantiene válida la sesión; cambiarla invalida su operación',()=>{
+ const guard=createDemoSessionGuard();
+ guard.setOwner(a);
+ const operation=guard.capture(a);
+ const balanceRequest=guard.begin(a);
+ guard.begin(a);
+ assert.equal(guard.sameSession(operation),true);
+ assert.equal(guard.current(balanceRequest),false);
+ assert.equal(guard.setOwner(a),false);
+ assert.equal(guard.sameSession(operation),true);
+ guard.setOwner(b);
+ assert.equal(guard.sameSession(operation),false);
+ assert.equal(guard.capture(a),null);
+});
