@@ -15,9 +15,15 @@ export function validateDemoQuote(x,asset,amount,now=Date.now()){
  if(!Number.isFinite(expiry)||expiry<=now||expiry>now+130000)return null;
  return {...x,amountInMicro:incoming,grossOutMicro:gross,feeOutMicro:fee,amountOutMicro:net,stablePerCoin:rate};
 }
-export function validateDemoReceipt(x,quoteId){
- return !!x&&x.realPaymentsEnabled===false&&uuid(x.conversionId)&&x.quoteId===quoteId&&
-   (x.status==='ok'||x.status==='already_processed');
+export function validateDemoReceipt(x,quote){
+ if(!x||!quote||x.realPaymentsEnabled!==false||!uuid(x.conversionId)||
+    x.quoteId!==quote.quoteId)return false;
+ // Respuesta idempotente: el servidor no repite importes; solo comunica el recibo.
+ if(x.status==='already_processed')return true;
+ if(x.status!=='ok'||x.fromAsset!==quote.fromAsset||x.toAsset!==quote.toAsset)return false;
+ return micro(x.amountInMicro)===quote.amountInMicro &&
+   micro(x.amountOutMicro)===quote.amountOutMicro &&
+   micro(x.feeOutMicro)===quote.feeOutMicro;
 }
 export function validateDemoHistory(x){
  if(!Array.isArray(x)||x.length>20)return null;
@@ -25,9 +31,12 @@ export function validateDemoHistory(x){
  for(const item of x){
   if(!item||!uuid(item.id)||item.toAsset!==other(item.fromAsset)||
      typeof item.settledAt!=='string'||!Number.isFinite(Date.parse(item.settledAt)))return null;
-  const a=micro(item.amountInMicro),b=micro(item.amountOutMicro);
-  if(a===null||b===null||a===0||b===0)return null;
-  out.push({...item,amountInMicro:a,amountOutMicro:b});
+  const a=micro(item.amountInMicro),b=micro(item.amountOutMicro),fee=micro(item.feeOutMicro);
+  const price=String(item.priceSnapshot??'');
+  if(a===null||b===null||a===0||b===0||fee===null||
+     !/^\\d+(?:\\.\\d{1,8})?$/.test(price)||!(Number(price)>0)||
+     !Number.isFinite(Number(price)))return null;
+  out.push({...item,amountInMicro:a,amountOutMicro:b,feeOutMicro:fee,priceSnapshot:price});
  }
  return out;
 }
