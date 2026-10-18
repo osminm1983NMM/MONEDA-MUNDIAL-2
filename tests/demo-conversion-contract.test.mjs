@@ -54,3 +54,17 @@ test('precio sintético corresponde al bruto exacto y rechaza valores falsificad
  assert.equal(validateDemoQuote(precise,'COIN',1000000,now)?.grossOutMicro,123456);
  assert.equal(validateDemoQuote({...precise,grossOutMicro:123457,amountOutMicro:123357},'COIN',1000000,now),null);
 });
+
+test('historial DEMO rechaza duplicados, importes incoherentes y fechas sin zona',()=>{
+ const row={id,fromAsset:'COIN',toAsset:'STABLE',amountInMicro:1000000,
+   amountOutMicro:124687,feeOutMicro:313,priceSnapshot:'0.12500000',
+   settledAt:'2026-10-18T19:02:00Z'};
+ assert.equal(validateDemoHistory([row])?.length,1);
+ assert.equal(validateDemoHistory([row,{...row}]),null);
+ assert.equal(validateDemoHistory([{...row,amountOutMicro:124688}]),null);
+ assert.equal(validateDemoHistory([{...row,priceSnapshot:'0.25000000'}]),null);
+ assert.equal(validateDemoHistory([{...row,settledAt:'2026-10-18T19:02:00'}]),null);
+ const inverse={...row,id:other,fromAsset:'STABLE',toAsset:'COIN',amountOutMicro:7980000,feeOutMicro:20000};
+ assert.equal(validateDemoHistory([inverse])?.length,1);
+ assert.equal(validateDemoHistory([{...inverse,feeOutMicro:20001}]),null);
+});
