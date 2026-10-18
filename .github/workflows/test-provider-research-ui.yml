@@ -5,6 +5,8 @@ on:
     paths:
       - 'src/digital-money/provider-research-overview.mjs'
       - 'ProviderResearchScreen.js'
+      - 'src/digital-money/worldwide-research-countries.mjs'
+      - 'tests/worldwide-research-countries.test.mjs'
       - 'App.js'
       - 'tests/provider-research-overview.test.mjs'
       - '.github/workflows/test-provider-research-ui.yml'
