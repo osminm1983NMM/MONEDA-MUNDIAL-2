@@ -16,7 +16,7 @@ import { createClient } from '@supabase/supabase-js';
 import PartnerRegistryScreen from './PartnerRegistryScreen';
 import CoinStableDemoScreen from './CoinStableDemoScreen';
 import DemoAssetSummaryCard from './DemoAssetSummaryCard';
-import { createDemoSessionGuard } from './src/digital-money/demo-session-guard.mjs';
+import { createDemoSessionGuard, createDemoOperationGate } from './src/digital-money/demo-session-guard.mjs';
 import ConversionAdminDemoScreen from './ConversionAdminDemoScreen';
 import PickupWithoutPhoneDemo from './PickupWithoutPhoneDemo';
 import AgentAccessAdminDemo from './AgentAccessAdminDemo';
@@ -100,7 +100,8 @@ export default function App() {
   const [recipientCode, setRecipientCode] = useState('');
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
-  const busyRef = useRef(false);
+  const operationGateRef = useRef(null);
+  if (!operationGateRef.current) operationGateRef.current=createDemoOperationGate();
   const pendingRef = useRef(null);
   const sessionGuardRef = useRef(null);
   if (!sessionGuardRef.current) sessionGuardRef.current=createDemoSessionGuard();
@@ -112,6 +113,7 @@ export default function App() {
     if(changed) {
       // Una cuenta nunca ve por un instante el saldo/rol de la anterior.
       setWallet(null);setOperations([]);setAdminRole(null);setSyncing(false);
+      operationGateRef.current.reset();setBusy(false);
       pendingRef.current=null;setAmount('');setRecipientCode('');
     }
     setSession(nextSession);
@@ -219,10 +221,10 @@ export default function App() {
   }
 
   async function executeOperation(type, cents, code = '') {
-    if (busyRef.current) return;
     const sessionTicket=sessionGuardRef.current.capture(userId);
     if(!sessionTicket)return;
-    busyRef.current = true;
+    const operationToken=operationGateRef.current.acquire();
+    if(!operationToken)return;
     setBusy(true);
     try {
       const pending = pendingRef.current;
@@ -255,13 +257,12 @@ export default function App() {
         message('Operación no confirmada',
           (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
     } finally {
-      busyRef.current = false;
-      if(sessionGuardRef.current.sameSession(sessionTicket))setBusy(false);
+      if(operationGateRef.current.release(operationToken) && sessionGuardRef.current.sameSession(sessionTicket))setBusy(false);
     }
   }
 
   function prepareOperation(type) {
-    if (busyRef.current) return;
+    if (operationGateRef.current.isBusy()) return;
     const cents = amountToCents(amount);
     if (cents === null) {
       return message('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
