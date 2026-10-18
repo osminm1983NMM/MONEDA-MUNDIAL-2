@@ -19,8 +19,10 @@ export default function ProviderResearchScreen(){
  const openOfficialForm=async providerId=>{
   const draft=getMobileProviderOutreachDraft({providerId,destination});
   if(!draft)return;
-  try{if(await Linking.canOpenURL(draft.contactUrl))await Linking.openURL(draft.contactUrl);
-   else Alert.alert('Enlace no disponible','Abre el formulario oficial desde un navegador.');}
+  // Android 11+ package visibility can make canOpenURL return false even when
+  // a normal HTTPS link opens in the user's browser. URLs are fixed by the
+  // local, allowlisted provider catalogue; no user-supplied link is accepted.
+  try{await Linking.openURL(draft.contactUrl);}
   catch{Alert.alert('No se pudo abrir','Comprueba la conexión o abre el formulario desde el navegador.');}
  };
  return <View style={style.panel}>
@@ -44,7 +46,7 @@ export default function ProviderResearchScreen(){
     <Text style={style.text}>Requisitos documentales aún pendientes: {p.documentationMissing} / {p.documentationRequired}</Text>
     <Text style={style.alert}>Cobertura sin confirmar · Sin convenio ni sandbox otorgado.</Text>
     {destination==='HN'&&<View>
-     <Text style={style.text}>Consulta comercial redactada en inglés, revisable y de envío manual.</Text>
+     <Text style={style.text}>Desde tu Samsung: comparte o copia el borrador y después abre el formulario oficial. Debes revisar, pegar y enviar tú mismo el mensaje. No se enviará automáticamente.</Text>
      <TouchableOpacity accessibilityRole="button" accessibilityLabel={'Compartir borrador de '+p.name}
       style={style.btn} onPress={()=>shareDraft(p.providerId)}>
       <Text style={style.text}>Compartir borrador de consulta · {p.name}</Text>
