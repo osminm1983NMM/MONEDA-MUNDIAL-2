@@ -2,6 +2,18 @@ name: APK Android independiente - pruebas
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - '*.js'
+      - 'app.json'
+      - 'package.json'
+      - 'src/**'
+      - 'scripts/probar-apk-emulador.sh'
+      - 'scripts/verificar-pantalla-acceso-demo.sh'
+      - 'scripts/android_guest_tour_contract.py'
+      - 'scripts/probar-recorrido-invitado-emulador.sh'
+      - '.github/workflows/android-apk-independiente.yml'
   push:
     branches:
       - desarrollo-comercios-20261013
@@ -28,6 +40,8 @@ concurrency:
 
 jobs:
   preparar-apk-independiente:
+    # Do not build untrusted fork PR code on the expensive Android runner.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 55
     steps:

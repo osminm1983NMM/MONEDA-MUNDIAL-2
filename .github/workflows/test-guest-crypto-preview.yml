@@ -5,6 +5,10 @@ on:
     paths:
       - 'DemoTourScreen.js'
       - 'GuestCryptoPreviewScreen.js'
+      - 'GuestCoinTradePreviewScreen.js'
+      - 'src/guest-coin-trade-preview.mjs'
+      - 'src/digital-money/coin-market-demo.mjs'
+      - 'tests/guest-coin-trade-preview.test.mjs'
       - 'src/guest-crypto-preview.mjs'
       - 'src/digital-money/crypto-ui-state.mjs'
       - 'tests/guest-crypto-preview.test.mjs'

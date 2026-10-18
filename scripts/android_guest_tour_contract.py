@@ -20,6 +20,16 @@ CRYPTO_TITLE = ("explorar coin y digital sin cuenta", "explore coin and digital 
 CRYPTO_WARNING = ("investigación solamente", "research only")
 CRYPTO_BACK = ("volver al recorrido de moneda mundial", "back to the moneda mundial tour")
 CRYPTO_NOT_ISSUED = ("no emitida", "not issued")
+COIN_TRADE_ENTRY = ("simular compra y venta de coin", "explore hypothetical coin buying and selling")
+COIN_TRADE_TITLE = ("simular compra o venta de coin", "explore hypothetical coin buying and selling")
+COIN_TRADE_WARNING = ("no existen coin emitidas", "no coin tokens")
+COIN_TRADE_BUY = ("comprar (simulación)", "buy (simulation)")
+COIN_TRADE_SELL = ("vender (simulación)", "sell (simulation)")
+COIN_TRADE_GROSS = ("valor bruto hipotético", "hypothetical gross value")
+COIN_TRADE_BUY_TOTAL = ("costo total hipotético", "hypothetical buyer cost")
+COIN_TRADE_SELL_NET = ("resultado hipotético del vendedor", "hypothetical seller proceeds")
+COIN_TRADE_BLOCK = ("no se puede comprar, vender", "you cannot buy, sell")
+COIN_TRADE_BACK = ("volver a coin y digital", "back to coin and digital")
 READINESS_ENTRY = ("ver requisitos pendientes",)
 READINESS_TITLE = ("preparación pública del proyecto",)
 READINESS_WARNING = ("solo investigación", "sin fondos reales")
@@ -133,6 +143,38 @@ def verify_crypto_preview(*xml_paths):
         raise ValueError("Detalle público cripto incompleto: " + ", ".join(missing))
 
 
+def coin_trade_entry_coordinates(xml_path):
+    return clickable_coordinates(xml_path, COIN_TRADE_ENTRY, "abrir simulación de Coin")
+
+
+def coin_trade_sell_coordinates(xml_path):
+    return clickable_coordinates(xml_path, COIN_TRADE_SELL, "simular venta de Coin")
+
+
+def coin_trade_back_coordinates(xml_path):
+    return clickable_coordinates(xml_path, COIN_TRADE_BACK, "volver a Coin y Digital")
+
+
+def verify_coin_trade_preview(*xml_paths, side="buy"):
+    if side not in ("buy", "sell"):
+        raise ValueError("Dirección de compra/venta inválida")
+    ns = [n for path in xml_paths for n in nodes(path)]
+    required = [
+        ("cabecera simulación Coin", COIN_TRADE_TITLE),
+        ("sin emisión ni precios oficiales", COIN_TRADE_WARNING),
+        ("opción comprar", COIN_TRADE_BUY),
+        ("opción vender", COIN_TRADE_SELL),
+        ("valor bruto ficticio", COIN_TRADE_GROSS),
+        ("operación prohibida", COIN_TRADE_BLOCK),
+        ("regreso Coin Digital", COIN_TRADE_BACK),
+        ("resultado ilustrativo", COIN_TRADE_BUY_TOTAL if side == "buy" else COIN_TRADE_SELL_NET),
+    ]
+    missing = [label for label, phrases in required
+               if not contains_any(ns, phrases)]
+    if missing:
+        raise ValueError("Simulación pública Coin incompleta: " + ", ".join(missing))
+
+
 def readiness_entry_coordinates(xml_path):
     return clickable_coordinates(xml_path, READINESS_ENTRY, "ver preparación financiera")
 
@@ -168,6 +210,7 @@ def main(argv):
     if len(argv)<3 or argv[1] not in (
         "locate", "tour", "return", "return-button",
         "crypto-entry", "crypto", "crypto-back",
+        "coin-trade-entry", "coin-trade-buy", "coin-trade-sell", "coin-trade-sell-entry", "coin-trade-back",
         "readiness-entry", "readiness", "readiness-back"):
 
         raise ValueError("Uso: helper.py locate|tour|return|return-button|crypto-entry|crypto|crypto-back|readiness-entry|readiness|readiness-back ui.xml [bottom.xml]")
@@ -182,6 +225,11 @@ def main(argv):
             raise ValueError("Verificación cripto requiere capturas superior e inferior")
         verify_crypto_preview(*argv[2:])
         print("OK: Coin y Digital visibles sólo como investigación pública")
+    elif action in ("coin-trade-buy", "coin-trade-sell"):
+        if len(argv)<4:
+            raise ValueError("Simulador Coin requiere capturas superior e inferior")
+        verify_coin_trade_preview(*argv[2:], side="buy" if action == "coin-trade-buy" else "sell")
+        print("OK: compra/venta pública de Coin solo como escenario hipotético")
     elif action == "readiness":
         if len(argv)<4:
             raise ValueError("Verificación de preparación requiere capturas superior e inferior")
@@ -194,6 +242,15 @@ def main(argv):
         print(f"{x} {y}")
     elif action == "crypto-back":
         x, y = crypto_back_coordinates(path)
+        print(f"{x} {y}")
+    elif action == "coin-trade-entry":
+        x, y = coin_trade_entry_coordinates(path)
+        print(f"{x} {y}")
+    elif action == "coin-trade-sell-entry":
+        x, y = coin_trade_sell_coordinates(path)
+        print(f"{x} {y}")
+    elif action == "coin-trade-back":
+        x, y = coin_trade_back_coordinates(path)
         print(f"{x} {y}")
     elif action == "readiness-entry":
         x, y = readiness_entry_coordinates(path)
