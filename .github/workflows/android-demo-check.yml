@@ -9,6 +9,8 @@ on:
       - '*.js'
       - 'src/digital-money/demo-asset-summary.mjs'
       - 'tests/demo-asset-summary.test.mjs'
+      - 'src/digital-money/demo-conversion-contract.mjs'
+      - 'tests/demo-conversion-contract.test.mjs'
       - 'package.json'
       - 'app.json'
       - 'eas.json'
@@ -40,6 +42,8 @@ jobs:
         run: npx expo config --type public --json > /tmp/expo-config.json
       - name: Verificar compatibilidad de dependencias
         run: npx expo install --check
+      - name: Validar cotizaciones y recibos solo de prueba
+        run: node --test tests/demo-conversion-contract.test.mjs
       - name: Validar datos y presentación de Coin y Digital (DEMO)
         run: node --test tests/demo-asset-summary.test.mjs
       - name: Empaquetar JavaScript para Android (no crea APK)
