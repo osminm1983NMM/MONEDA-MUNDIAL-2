@@ -47,7 +47,46 @@ sleep 2
 read_accessibility guest-crypto-bottom
 python3 scripts/android_guest_tour_contract.py crypto smoke-results/guest-crypto.xml smoke-results/guest-crypto-bottom.xml
 
-read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py crypto-back smoke-results/guest-crypto-bottom.xml)"
+# Exercise public Coin buy/sell examples on the *installed* APK, not only
+# Python/UI unit tests. No account, blockchain connection or real order.
+read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py coin-trade-entry smoke-results/guest-crypto-bottom.xml)"
+echo "Abriendo simulación pública de compra/venta de Coin..."
+adb shell input tap "$x" "$y"
+sleep 3
+# Switching nested views can preserve the parent ScrollView's old position.
+adb shell input swipe 550 700 550 1900 500
+sleep 2
+read_accessibility guest-coin-buy
+adb shell input swipe 550 1900 550 700 500
+sleep 2
+read_accessibility guest-coin-buy-bottom
+python3 scripts/android_guest_tour_contract.py coin-trade-buy smoke-results/guest-coin-buy.xml smoke-results/guest-coin-buy-bottom.xml
+
+# Selling is a second render: never validate the new state with the old XML.
+adb shell input swipe 550 700 550 1900 500
+sleep 2
+read_accessibility guest-coin-before-sell
+read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py coin-trade-sell-entry smoke-results/guest-coin-before-sell.xml)"
+adb shell input tap "$x" "$y"
+sleep 2
+read_accessibility guest-coin-sell
+adb shell input swipe 550 1900 550 700 500
+sleep 2
+read_accessibility guest-coin-sell-bottom
+python3 scripts/android_guest_tour_contract.py coin-trade-sell smoke-results/guest-coin-sell.xml smoke-results/guest-coin-sell-bottom.xml
+
+read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py coin-trade-back smoke-results/guest-coin-sell-bottom.xml)"
+echo "Volviendo de la simulación a Coin y Digital..."
+adb shell input tap "$x" "$y"
+sleep 3
+adb shell input swipe 550 700 550 1900 500
+sleep 2
+read_accessibility guest-crypto-return
+adb shell input swipe 550 1900 550 700 500
+sleep 2
+read_accessibility guest-crypto-return-bottom
+python3 scripts/android_guest_tour_contract.py crypto smoke-results/guest-crypto-return.xml smoke-results/guest-crypto-return-bottom.xml
+read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py crypto-back smoke-results/guest-crypto-return-bottom.xml)"
 echo "Regresando desde Coin/Digital al recorrido de invitado..."
 adb shell input tap "$x" "$y"
 sleep 3
@@ -84,4 +123,4 @@ adb shell input tap "$x" "$y"
 sleep 3
 read_accessibility guest-return
 python3 scripts/android_guest_tour_contract.py return smoke-results/guest-return.xml
-echo "OK: invitado → recorrido → Coin/Digital → recorrido → inicio, sin cuenta ni dinero."
+echo "OK: invitado → Coin/Digital → compra/venta ficticia → recorrido → inicio, sin cuenta ni dinero."
