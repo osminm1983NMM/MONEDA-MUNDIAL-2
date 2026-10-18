@@ -113,7 +113,7 @@ export default function CoinStableDemoScreen({supabase}) {
     try {
       const {data,error:e}=await supabase.rpc('mwd_conversion_confirm_demo',{p_quote_id:quote.quoteId});
       if(e)throw e;
-      if(!validateDemoReceipt(data,quote.quoteId))throw new Error('No se pudo verificar el recibo ficticio.');
+      if(!validateDemoReceipt(data,quote))throw new Error('No se pudo verificar el recibo ficticio.');
       setQuote(null);
       setNotice('Conversión ficticia confirmada en el servidor de pruebas. Sin dinero real.');
       try{await load();}
@@ -154,6 +154,8 @@ export default function CoinStableDemoScreen({supabase}) {
     {walletState==='ready'&&wallet?.history?.length===0&&<Text style={s.text}>Sin conversiones registradas.</Text>}
     {(wallet?.history||[]).map(op=><View key={op.id} style={s.item}>
       <Text style={s.text}>{fmt(op.amountInMicro)} {op.fromAsset} → {fmt(op.amountOutMicro)} {op.toAsset}</Text>
+      <Text style={s.text}>Comisión ficticia: {fmt(op.feeOutMicro)} {op.toAsset} · Precio simulado: {op.priceSnapshot}</Text>
+      <Text selectable style={s.text}>Referencia de prueba: {op.id}</Text>
       <Text style={s.text}>{new Date(op.settledAt).toLocaleString()}</Text>
     </View>)}
   </View>;
