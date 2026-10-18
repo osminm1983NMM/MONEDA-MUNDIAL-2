@@ -52,6 +52,8 @@ export default function CoinStableDemoScreen({supabase}) {
   const requestVersion=useRef(0);
   const walletRequest=useRef(0);
   const mounted=useRef(false);
+  const pendingAction=useRef(false); // Candado inmediato contra dobles toques.
+  const activeQuote=useRef(null); // No confirmar un aviso de una cotización ya cambiada.
   const load=useCallback(async()=>{
     const ticket=++walletRequest.current;
     if(mounted.current){
@@ -88,13 +90,14 @@ export default function CoinStableDemoScreen({supabase}) {
       clearInterval(timer);
     };
   },[load]);
-  function reset() {requestVersion.current+=1;setQuote(null);setError('');setNotice('');}
+  function reset() {requestVersion.current+=1;activeQuote.current=null;setQuote(null);setError('');setNotice('');}
   async function requestQuote() {
-    if(busy)return;
+    if(busy||pendingAction.current)return;
     reset();
     const ticket=requestVersion.current;
     const cents=toMicro(amount);
     if(cents===null){setError('Escribe una cantidad de 1 a 10,000 con hasta seis decimales.');return;}
+    pendingAction.current=true;
     setBusy(true);
     try {
       const {data,error:e}=await supabase.rpc('mwd_conversion_quote_demo',{
@@ -103,23 +106,26 @@ export default function CoinStableDemoScreen({supabase}) {
       if(e)throw e;
       const checked=validateDemoQuote(data,asset,cents);
       if(!checked)throw new Error('Cotización de demostración inválida o vencida.');
-      if(requestVersion.current===ticket)setQuote(checked);
+      if(mounted.current&&requestVersion.current===ticket){activeQuote.current=checked;setQuote(checked);}
     } catch(e){if(requestVersion.current===ticket)setError(e.message||'No se pudo obtener cotización');}
-    finally{setBusy(false);}
+    finally{pendingAction.current=false;if(mounted.current)setBusy(false);}
   }
   async function confirm() {
-    if(!quote||busy||Date.parse(quote.expiresAt)<=Date.now())return;
+    const current=activeQuote.current;
+    if(!current||busy||pendingAction.current||Date.parse(current.expiresAt)<=Date.now())return;
+    pendingAction.current=true;
     setBusy(true);setError('');
     try {
-      const {data,error:e}=await supabase.rpc('mwd_conversion_confirm_demo',{p_quote_id:quote.quoteId});
+      const {data,error:e}=await supabase.rpc('mwd_conversion_confirm_demo',{p_quote_id:current.quoteId});
       if(e)throw e;
-      if(!validateDemoReceipt(data,quote))throw new Error('No se pudo verificar el recibo ficticio.');
+      if(!validateDemoReceipt(data,current))throw new Error('No se pudo verificar el recibo ficticio.');
+      activeQuote.current=null;
       setQuote(null);
       setNotice('Conversión ficticia confirmada en el servidor de pruebas. Sin dinero real.');
       try{await load();}
       catch{setError('La conversión ficticia fue confirmada, pero no se pudo actualizar el saldo. Usa Actualizar saldos e historial.');}
     } catch(e){setError(e.message||'Conversión no confirmada');}
-    finally{setBusy(false);}
+    finally{pendingAction.current=false;if(mounted.current)setBusy(false);}
   }
   const expired=quote&&Date.parse(quote.expiresAt)<=now;
   return <View style={s.card}>
@@ -131,7 +137,7 @@ export default function CoinStableDemoScreen({supabase}) {
       disabled={busy} onPress={()=>{setAsset(a=>a==='COIN'?'STABLE':'COIN');reset();}} />
     <TextInput accessibilityLabel="Cantidad ficticia" style={s.input}
       placeholder="Importe de prueba" placeholderTextColor="#b3c5d9"
-      keyboardType="decimal-pad" value={amount}
+      keyboardType="decimal-pad" editable={!busy} value={amount}
       onChangeText={v=>{setAmount(v);reset();}} />
     <Btn label={busy?'Procesando...':'Obtener cotización de prueba'}
       disabled={busy} onPress={requestQuote}/>
