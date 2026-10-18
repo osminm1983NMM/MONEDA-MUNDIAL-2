@@ -21,6 +21,17 @@ NINGUNA capacidad publicada equivale a las otras dos. Todos los estados operativ
 **NO confirmado:** aceptación de nuestra empresa, recepción/fondeo desde EE. UU. para el caso C2C, cobertura de estados en EE. UU., Visa Direct en la tarjeta concreta, costo/FX, agentes de retiro de efectivo sin teléfono, acceso sandbox concedido, convenio o cobertura legal. No inferir retiro en efectivo del listado publicado.  
 **Prioridad:** preguntar por cuentas y tarjetas, y específicamente si tienen red de cash pickup asociada o no.
 
+### Verificación adicional del catálogo Nium (18 de octubre de 2026 UTC)
+
+Al revisar nuevamente el [catálogo oficial de Honduras](https://info.nium.com/country/honduras) y el [catálogo de Norteamérica](https://info.nium.com/?region=North+America):
+
+- El **destino Honduras** figura con *foreign currency wire transfer* y *Visa Direct* (este último publicado con HNL). **No figura cash pickup** en las modalidades mostradas para Honduras.
+- El **destino Nicaragua** figura públicamente con *foreign currency wire transfer*. Esto **no lo elimina** del futuro alcance de Moneda Mundial ni implica que cualquier cliente pueda utilizarlo.
+- Los listados de destinos **no prueban** que se permita el fondeo desde EE. UU., transferencias C2C de nuestros usuarios, aceptación de una empresa todavía no constituida, cobertura por estados, una tarjeta Visa concreta, licencias en origen o destino, ni el acceso a un sandbox para Moneda Mundial.
+- **Conclusión de priorización:** consultar a Nium primero por los términos concretos de *Visa Direct* HNL y transferencias bancarias; mantener **retiro en efectivo sin teléfono como NO CONFIRMADO**, nunca como producto ofrecido.
+
+Todo lo anterior es información publicada de una oferta general, no aprobación de producción ni respuesta comercial enviada o recibida.
+
 ## 2. TerraPay — candidato a abono bancario y validación del beneficiario
 **Fuentes oficiales consultadas:**
 - Red publicada: https://www.terrapay.com/network/
