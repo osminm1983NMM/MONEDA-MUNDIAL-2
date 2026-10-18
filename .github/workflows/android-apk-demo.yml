@@ -1,6 +1,14 @@
 name: Compilar APK Android de demostración
 on:
   workflow_dispatch:
+  pull_request:
+    branches: ['integracion/demo-unificada-20261016']
+    paths:
+      - 'App.js'
+      - '*.js'
+      - 'src/digital-money/demo-asset-summary.mjs'
+      - 'tests/demo-asset-summary.test.mjs'
+      - '.github/workflows/android-apk-demo.yml'
   push:
     branches: ['integracion/demo-unificada-20261016']
     paths:
