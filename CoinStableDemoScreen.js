@@ -2,6 +2,8 @@
 import 'react-native-get-random-values';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { demoPendingStorageKey, encodePendingDemoQuote, decodePendingDemoQuote } from './src/digital-money/demo-pending-confirmation.mjs';
 import {parseDemoAssetBalances,formatDemoMicro} from './src/digital-money/demo-asset-summary.mjs';
 import {validateDemoQuote,validateDemoReceipt,validateDemoHistory} from './src/digital-money/demo-conversion-contract.mjs';
 
@@ -39,7 +41,7 @@ function Btn({label,onPress,disabled=false}) {
     <Text style={s.buttonText}>{label}</Text>
   </TouchableOpacity>;
 }
-export default function CoinStableDemoScreen({supabase}) {
+export default function CoinStableDemoScreen({supabase,userId}) {
   const [wallet,setWallet]=useState(null);
   const [walletState,setWalletState]=useState('loading');
   const [asset,setAsset]=useState('COIN');
@@ -49,6 +51,10 @@ export default function CoinStableDemoScreen({supabase}) {
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
   const [now,setNow]=useState(Date.now());
+  const [pending,setPending]=useState(null);
+  const [pendingLoading,setPendingLoading]=useState(true);
+  const pendingRef=useRef(null);
+  const pendingKey=demoPendingStorageKey(userId);
   const requestVersion=useRef(0);
   const walletRequest=useRef(0);
   const mounted=useRef(false);
@@ -83,8 +89,19 @@ export default function CoinStableDemoScreen({supabase}) {
   useEffect(()=>{
     mounted.current=true;
     load().catch(()=>{});
+    let live=true;
+    setPendingLoading(true);
+    (async()=>{
+      const raw=pendingKey?await AsyncStorage.getItem(pendingKey):null;
+      if(!live)return;
+      const restored=decodePendingDemoQuote(raw);
+      pendingRef.current=restored;
+      setPending(restored);
+    })().catch(()=>{if(live){setError('No se pudo revisar si hay una conversión pendiente. Se bloquearon nuevas operaciones.');pendingRef.current={unavailable:true};setPending({unavailable:true});}})
+      .finally(()=>{if(live)setPendingLoading(false);});
     const timer=setInterval(()=>setNow(Date.now()),1000);
     return()=>{
+      live=false;
       mounted.current=false;
       walletRequest.current+=1; // Ignorar respuestas de sesiones/pantallas anteriores.
       clearInterval(timer);
@@ -92,7 +109,7 @@ export default function CoinStableDemoScreen({supabase}) {
   },[load]);
   function reset() {requestVersion.current+=1;activeQuote.current=null;setQuote(null);setError('');setNotice('');}
   async function requestQuote() {
-    if(busy||pendingAction.current)return;
+    if(busy||pendingAction.current||pendingLoading||pendingRef.current)return;
     reset();
     const ticket=requestVersion.current;
     const cents=toMicro(amount);
@@ -116,20 +133,55 @@ export default function CoinStableDemoScreen({supabase}) {
     pendingAction.current=true;
     setBusy(true);setError('');
     try {
+      if(!pendingKey)throw new Error('No se pudo identificar la cuenta de prueba.');
+      const serialized=encodePendingDemoQuote(current);
+      if(!serialized)throw new Error('No es posible conservar esta cotización de prueba.');
+      await AsyncStorage.setItem(pendingKey,serialized);
+      const persisted=decodePendingDemoQuote(serialized);
+      pendingRef.current=persisted;
+      setPending(persisted);
       const {data,error:e}=await supabase.rpc('mwd_conversion_confirm_demo',{p_quote_id:current.quoteId});
       if(e)throw e;
       if(!validateDemoReceipt(data,current))throw new Error('No se pudo verificar el recibo ficticio.');
+      await AsyncStorage.removeItem(pendingKey);
+      pendingRef.current=null;setPending(null);
       activeQuote.current=null;
       setQuote(null);
       setNotice('Conversión ficticia confirmada en el servidor de pruebas. Sin dinero real.');
       try{await load();}
       catch{setError('La conversión ficticia fue confirmada, pero no se pudo actualizar el saldo. Usa Actualizar saldos e historial.');}
-    } catch(e){setError(e.message||'Conversión no confirmada');}
+    } catch(e){
+      setError(pendingRef.current
+        ? 'Resultado de la conversión incierto. No hagas otra operación: usa Verificar/reintentar para consultar con la misma referencia.'
+        : e.message||'No fue posible iniciar la confirmación de prueba.');
+    }
     finally{pendingAction.current=false;if(mounted.current)setBusy(false);}
+  }
+  async function retryPending(){
+    const current=pendingRef.current;
+    if(!current||current.unavailable||pendingAction.current||busy)return;
+    pendingAction.current=true;setBusy(true);setError('');
+    try {
+      // La operación del servidor es idempotente para el MISMO quoteId.
+      const {data,error:e}=await supabase.rpc('mwd_conversion_confirm_demo',{p_quote_id:current.quoteId});
+      if(e)throw e;
+      if(data?.realPaymentsEnabled!==false||data.quoteId!==current.quoteId||
+         !['ok','already_processed'].includes(data.status))throw new Error('Respuesta no verificable');
+      if(!pendingKey)throw new Error('Sesión inválida');
+      await AsyncStorage.removeItem(pendingKey);
+      pendingRef.current=null;setPending(null);activeQuote.current=null;setQuote(null);
+      setNotice('Se verificó una sola conversión ficticia. Sin dinero real.');
+      await load();
+    } catch(e){
+      setError('Sigue sin poder verificarse. No inicies otra conversión; vuelve a intentarlo al recuperar conexión.');
+    } finally {pendingAction.current=false;if(mounted.current)setBusy(false);}
   }
   const expired=quote&&Date.parse(quote.expiresAt)<=now;
   return <View style={s.card}>
-    <Text style={s.title}>Coin ↔ Estable</Text>
+    <Text style={s.title}>Coin ↔ Digital (DEMO)</Text>
+    {pendingLoading&&<Text style={s.warning}>Comprobando operaciones pendientes...</Text>}
+    {!!pending&&<Text style={s.warning}>CONFIRMACIÓN PENDIENTE DE VERIFICACIÓN. Bloqueada cualquier operación nueva hasta aclarar el resultado.</Text>}
+    {!!pending&&!pending.unavailable&&<Btn label="Verificar/reintentar misma operación" disabled={busy} onPress={retryPending}/>}
     <Text style={s.warning}>SOLO SIMULACIÓN. Precio sintético, sin cotización de mercado, reservas ni retiros. Los saldos no son dinero y no se mezclan con MWD.</Text>
     <Text style={s.text}>Coin ficticia: {wallet?fmt(wallet.coinMicro):walletState==='loading'?'Cargando...':'No disponible'} {wallet?'COIN':''}</Text>
     <Text style={s.text}>Digital ficticia: {wallet?fmt(wallet.stableMicro):walletState==='loading'?'Cargando...':'No disponible'} {wallet?'STABLE':''}</Text>
@@ -140,13 +192,13 @@ export default function CoinStableDemoScreen({supabase}) {
       keyboardType="decimal-pad" editable={!busy} value={amount}
       onChangeText={v=>{setAmount(v);reset();}} />
     <Btn label={busy?'Procesando...':'Obtener cotización de prueba'}
-      disabled={busy} onPress={requestQuote}/>
+      disabled={busy||pendingLoading||!!pending} onPress={requestQuote}/>
     {!!quote&&<View style={s.item}>
       <Text style={s.text}>{fmt(quote.amountInMicro)} {quote.fromAsset} → {fmt(quote.amountOutMicro)} {quote.toAsset}</Text>
       <Text style={s.text}>Comisión simulada: {fmt(quote.feeOutMicro)} {quote.toAsset}</Text>
       <Text style={s.text}>Precio sintético: 1 COIN = {quote.stablePerCoin} STABLE</Text>
       <Text style={s.warning}>{expired?'Cotización vencida. Solicita otra.':'Válida durante 90 segundos desde su emisión.'}</Text>
-      <Btn label="Confirmar conversión FICTICIA" disabled={busy||!!expired||quote.status==='executed'} onPress={()=>{
+      <Btn label="Confirmar conversión FICTICIA" disabled={busy||pendingLoading||!!pending||!!expired||quote.status==='executed'} onPress={()=>{
         Alert.alert('Solo demostración','No representa dinero ni monedas negociables.',[
           {text:'Cancelar',style:'cancel'},{text:'Confirmar prueba',onPress:confirm}
         ]);
