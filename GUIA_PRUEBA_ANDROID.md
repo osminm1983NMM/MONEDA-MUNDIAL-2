@@ -4,6 +4,16 @@
 ## Requisito previo
 Esperar a que el trabajo **APK Android independiente - pruebas** en GitHub Actions tenga estado verde `success`. Si está pendiente o en rojo, NO afirmar que existe una APK nueva validada. La verificación del paquete JavaScript no sustituye las pruebas manuales. Los artefactos de Actions vencen según la retención indicada en el flujo.
 
+## Nueva APK de demostración verificada (18 de octubre de 2026)
+- **Ejecución verificada de GitHub:** https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/39141412833
+- **Commit exacto del APK probado:** `82e27e9fd87ac8f44473767aeaa758ac21c8fe3b` (versión candidata #61 con #59 y #60 incorporados).
+- **Archivo de la sección Artifacts:** `moneda-mundial-2-demo-apk-verificada`, cuyo ZIP contiene `app-release.apk`.
+- **SHA-256 del archivo APK extraído, NO del ZIP:** `fc60f1271bccd515cab01cb049eea3dc96b9bd53e1ce63b3e50d38c999c11d3f`.
+- **Verificaciones completas:** compilación Android, instalación y arranque en emulador API 35, recorrido público sin cuenta, vistas Coin/Digital, compra/venta ficticias y regreso a inicio. El flujo de GitHub concluyó `success`.
+- **No implica:** pruebas manuales sobre un Samsung real, acreditación de proveedor financiero, emisión cripto, custodia, transferencias bancarias ni dinero real.
+- **Precaución con versiones:** los cambios posteriores en la rama de desarrollo (como las pruebas SQL de autorización #63) no están incluidos en este APK. La compilación verificada se identifica por su commit, no por la fecha en que se descargue.
+- **Retención:** GitHub Actions conserva este artefacto temporalmente (configurado a 14 días). Si deja de estar disponible, hace falta otra compilación y pruebas del nuevo commit.
+
 ## APK de demostración anterior verificada (17 de octubre de 2026, hora de Washington D. C.)
 - **Ejecución GitHub:** https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/39087333726
 - **Versión del código:** `1262ba893fc5a16e1ead2515a6d851d10a7ec4e2` (vista pública de retiro sin teléfono incluida; esta APK antigua no incluye las funcionalidades de #59 y #60).
