@@ -20,6 +20,13 @@ CRYPTO_TITLE = ("explorar coin y digital sin cuenta", "explore coin and digital 
 CRYPTO_WARNING = ("investigación solamente", "research only")
 CRYPTO_BACK = ("volver al recorrido de moneda mundial", "back to the moneda mundial tour")
 CRYPTO_NOT_ISSUED = ("no emitida", "not issued")
+READINESS_ENTRY = ("ver requisitos pendientes",)
+READINESS_TITLE = ("preparación pública del proyecto",)
+READINESS_WARNING = ("solo investigación", "sin fondos reales")
+READINESS_ROUTE = ("estados unidos", "honduras")
+READINESS_ZERO = ("países operativos: 0", "contratos financieros confirmados: 0")
+READINESS_BACK = ("volver al recorrido de moneda mundial",)
+
 LOGIN = ("sign in to moneda mundial", "accede a moneda mundial",
          "iniciar sesión", "create demo account", "crear cuenta de prueba")
 
@@ -126,6 +133,27 @@ def verify_crypto_preview(*xml_paths):
         raise ValueError("Detalle público cripto incompleto: " + ", ".join(missing))
 
 
+def readiness_entry_coordinates(xml_path):
+    return clickable_coordinates(xml_path, READINESS_ENTRY, "ver preparación financiera")
+
+
+def readiness_back_coordinates(xml_path):
+    return clickable_coordinates(xml_path, READINESS_BACK, "volver de requisitos")
+
+
+def verify_readiness_preview(*xml_paths):
+    ns = [n for path in xml_paths for n in nodes(path)]
+    for label, phrases in [
+        ("cabecera de preparación", READINESS_TITLE),
+        ("advertencia de investigación", READINESS_WARNING),
+        ("ruta de estudio", READINESS_ROUTE),
+        ("operatividad nula", READINESS_ZERO),
+        ("regreso al recorrido", READINESS_BACK),
+    ]:
+        if not contains_any(ns, phrases):
+            raise ValueError("Falta información pública obligatoria: " + label)
+
+
 def verify_return(xml_path):
     ns = nodes(xml_path)
     if not contains_any(ns, ("moneda mundial",)):
@@ -139,9 +167,10 @@ def verify_return(xml_path):
 def main(argv):
     if len(argv)<3 or argv[1] not in (
         "locate", "tour", "return", "return-button",
-        "crypto-entry", "crypto", "crypto-back"):
+        "crypto-entry", "crypto", "crypto-back",
+        "readiness-entry", "readiness", "readiness-back"):
 
-        raise ValueError("Uso: helper.py locate|tour|return|return-button|crypto-entry|crypto|crypto-back ui.xml [bottom.xml]")
+        raise ValueError("Uso: helper.py locate|tour|return|return-button|crypto-entry|crypto|crypto-back|readiness-entry|readiness|readiness-back ui.xml [bottom.xml]")
     action, path = argv[1:3]
     if action == "tour":
         if len(argv)<4:
@@ -153,6 +182,11 @@ def main(argv):
             raise ValueError("Verificación cripto requiere capturas superior e inferior")
         verify_crypto_preview(*argv[2:])
         print("OK: Coin y Digital visibles sólo como investigación pública")
+    elif action == "readiness":
+        if len(argv)<4:
+            raise ValueError("Verificación de preparación requiere capturas superior e inferior")
+        verify_readiness_preview(*argv[2:])
+        print("OK: vista pública de preparación y controles legales visibles")
     elif len(argv)!=3:
         raise ValueError("Acción requiere un solo XML")
     elif action == "crypto-entry":
@@ -160,6 +194,12 @@ def main(argv):
         print(f"{x} {y}")
     elif action == "crypto-back":
         x, y = crypto_back_coordinates(path)
+        print(f"{x} {y}")
+    elif action == "readiness-entry":
+        x, y = readiness_entry_coordinates(path)
+        print(f"{x} {y}")
+    elif action == "readiness-back":
+        x, y = readiness_back_coordinates(path)
         print(f"{x} {y}")
     elif action == "locate":
         x, y = entry_coordinates(path)

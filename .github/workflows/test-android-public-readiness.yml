@@ -1,0 +1,22 @@
+name: Verificar contrato de vista pública Android
+on:
+  pull_request:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'scripts/android_guest_tour_contract.py'
+      - 'scripts/probar-recorrido-invitado-emulador.sh'
+      - 'tests/android-public-readiness-contract.test.mjs'
+      - '.github/workflows/android-apk-independiente.yml'
+      - '.github/workflows/test-android-public-readiness.yml'
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/android-public-readiness-contract.test.mjs
+      - run: node --test tests/*.test.mjs
