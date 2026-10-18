@@ -41,6 +41,30 @@ for attempt in 1 2 3; do
   fi
   sleep 5
 done
+# Recover exactly once only if the current visible dialog belongs to Pixel Launcher.
+# Coordinates come from the close button's current accessibility bounds, never guesses.
+if [ -s smoke-results/ui.xml ]; then
+  anr_state="$(python3 scripts/android_launcher_anr.py classify smoke-results/ui.xml)"
+  if [ "$anr_state" = launcher_anr ]; then
+    echo "::warning::Pixel Launcher ANR visible; one controlled recovery."
+    read -r x y <<< "$(python3 scripts/android_launcher_anr.py close-coordinates smoke-results/ui.xml)"
+    adb shell input tap "$x" "$y"
+    sleep 5
+    adb shell am start -W -n "$app/.MainActivity" > smoke-results/reinicio.txt
+    sleep 12
+    adb shell uiautomator dump /sdcard/moneda-ui.xml > smoke-results/uiautomator-reintento.log 2>&1 || true
+    adb pull /sdcard/moneda-ui.xml smoke-results/ui.xml >/dev/null 2>&1 || true
+    found=false
+    if [ -s smoke-results/ui.xml ] &&
+       grep -Fq 'MONEDA MUNDIAL' smoke-results/ui.xml &&
+       grep -Fq 'SOLO DEMOSTRACIÓN' smoke-results/ui.xml &&
+       grep -Eq 'Accede a Moneda Mundial|Iniciar sesi[oó]n|Crear cuenta de prueba' smoke-results/ui.xml; then
+      found=true
+    fi
+  elif [ "$anr_state" != none ]; then
+    echo "::error::Unknown or non-launcher ANR. Never dismiss it."; exit 1
+  fi
+fi
 adb logcat -d -s AndroidRuntime:E ReactNativeJS:E >smoke-results/errores-android.txt || true
 if grep -Eqi 'not responding|no responde|Application Not Responding' smoke-results/ui.xml 2>/dev/null; then
   echo "::error::Diálogo Android ANR presente"; exit 1
