@@ -104,3 +104,40 @@ test('reintento tardío del evento original mantiene su estado de aceptación',(
  assert.equal(m.getAuditLog().filter(x=>x.type==='funding_settled_mock').length,1);
  assert.equal(retry.realMoneyEnabled,false);
 });
+
+test('reintento de creación conserva estado original tras supuesto pago',()=>{
+ const m=make(),created=create(m);
+ emit(m,created,'funding_settled_mock','fund-create');
+ m.requestMockPayout({orderId:created.orderId,requestId:'pay-create-123456'});
+ emit(m,created,'payout_settled_mock','settled-create');
+ assert.equal(m.inspectMockOrder(created.orderId).status,'paid_mock');
+ const retry=create(m);
+ assert.equal(retry.status,'created_mock');
+ assert.equal(retry.alreadyProcessed,true);
+ assert.equal(retry.orderId,created.orderId);
+ assert.equal(m.getAuditLog().filter(x=>x.type==='order_created_mock').length,1);
+});
+test('reintentos tardíos de acción no aparentan un estado distinto',()=>{
+ const m=make(),o=create(m,'NI');
+ emit(m,o,'funding_settled_mock','fund-act');
+ const actionId='pay-action-replay-001';
+ assert.equal(m.requestMockPayout({orderId:o.orderId,requestId:actionId}).status,'payout_pending_mock');
+ emit(m,o,'payout_settled_mock','paid-action');
+ const retry=m.requestMockPayout({orderId:o.orderId,requestId:actionId});
+ assert.equal(retry.status,'payout_pending_mock');
+ assert.equal(retry.alreadyProcessed,true);
+ assert.equal(m.inspectMockOrder(o.orderId).status,'paid_mock');
+ assert.equal(m.getAuditLog().filter(x=>x.type==='payout_requested_mock').length,1);
+});
+test('reembolso repetido después de la liquidación devuelve respuesta original',()=>{
+ const m=make(),o=create(m);
+ emit(m,o,'funding_settled_mock','fund-refund');
+ const requestId='refund-retry-123456';
+ assert.equal(m.requestMockRefund({orderId:o.orderId,requestId}).status,'refund_pending_mock');
+ emit(m,o,'refund_settled_mock','refund-done');
+ const retry=m.requestMockRefund({orderId:o.orderId,requestId});
+ assert.equal(retry.status,'refund_pending_mock');
+ assert.equal(retry.alreadyProcessed,true);
+ assert.equal(m.inspectMockOrder(o.orderId).status,'refunded_mock');
+ assert.throws(()=>m.requestMockPayout({orderId:o.orderId,requestId:'pay-after-refund-01'}),/prohibida/);
+});
