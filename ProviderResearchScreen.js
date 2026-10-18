@@ -1,5 +1,6 @@
 import React,{useState} from 'react';
-import {View,Text,TouchableOpacity,Share,Linking,Alert} from 'react-native';
+import {View,Text,TouchableOpacity,TextInput,Share,Linking,Alert} from 'react-native';
+import {searchWorldResearchCountries} from './src/digital-money/worldwide-research-countries.mjs';
 import {getMobileProviderOutreachDraft} from './src/digital-money/mobile-provider-outreach.mjs';
 import {RESEARCH_DESTINATIONS} from './src/digital-money/project-launch-status.mjs';
 import {getProviderResearchOverview,RESEARCH_PAYOUTS} from './src/digital-money/provider-research-overview.mjs';
@@ -9,6 +10,8 @@ const style={panel:{backgroundColor:'#142e45',borderRadius:12,padding:14,marginV
 export default function ProviderResearchScreen(){
  const [destination,setDestination]=useState('HN');
  const [method,setMethod]=useState('bank_account');
+ const [countrySearch,setCountrySearch]=useState('');
+ const [catalogueCountry,setCatalogueCountry]=useState(null);
  const result=getProviderResearchOverview({destination,method});
  const shareDraft=async providerId=>{
   const draft=getMobileProviderOutreachDraft({providerId,destination});
@@ -32,6 +35,15 @@ export default function ProviderResearchScreen(){
   {Object.entries(RESEARCH_DESTINATIONS).map(([code,c])=><TouchableOpacity accessibilityRole="button" key={code} style={style.btn} onPress={()=>setDestination(code)}>
    <Text style={style.text}>{destination===code?'✓ ':''}{c.country} ({code})</Text>
   </TouchableOpacity>)}
+  <Text style={style.text}>Consulta mundial de países (catálogo, ninguno habilitado)</Text>
+  <TextInput accessibilityLabel="Buscar país del mundo" value={countrySearch} onChangeText={setCountrySearch}
+   placeholder="País o código ISO (ej.: España, México, TR)" placeholderTextColor="#b9cfe1"
+   style={{backgroundColor:'#284c6a',color:'#fff',padding:10,borderRadius:8}}/>
+  {searchWorldResearchCountries(countrySearch).map(c=><TouchableOpacity key={c.code} style={style.btn}
+    accessibilityRole="button" onPress={()=>setCatalogueCountry(c)}>
+    <Text style={style.text}>{catalogueCountry?.code===c.code?'✓ ':''}{c.name} ({c.code}) · En investigación</Text>
+   </TouchableOpacity>)}
+  {catalogueCountry&&<Text style={style.alert}>{catalogueCountry.name} ({catalogueCountry.code}): incluido en el catálogo mundial. Sin proveedor, moneda de pago ni ruta real confirmada.</Text>}
   <Text style={style.text}>Modalidad a consultar</Text>
   {Object.entries(RESEARCH_PAYOUTS).map(([id,label])=><TouchableOpacity accessibilityRole="button" key={id} style={style.btn} onPress={()=>setMethod(id)}>
    <Text style={style.text}>{method===id?'✓ ':''}{label}</Text>
