@@ -2,6 +2,14 @@
 const uuid=x=>typeof x==='string'&&/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(x);
 const micro=x=>{const n=typeof x==='number'?x:typeof x==='string'&&/^(0|[1-9][0-9]*)$/.test(x)?Number(x):NaN;return Number.isSafeInteger(n)&&n>=0?n:null;};
 const other=x=>x==='COIN'?'STABLE':x==='STABLE'?'COIN':null;
+function expectedGrossMicro(incoming,asset,rate){
+ const [whole,fraction='']=rate.split('.');
+ const denominator=10n**BigInt(fraction.length);
+ const numerator=BigInt(whole)*denominator+BigInt(fraction||'0');
+ if(numerator<=0n)return null;
+ return asset==='COIN' ? BigInt(incoming)*numerator/denominator
+   : asset==='STABLE' ? BigInt(incoming)*denominator/numerator : null;
+}
 export function validateDemoQuote(x,asset,amount,now=Date.now()){
  if(!x||x.realPaymentsEnabled!==false||x.priceIsReal!==false||
     x.provider!=='synthetic_sandbox'||x.status!=='quoted'||!uuid(x.quoteId)||
@@ -10,15 +18,8 @@ export function validateDemoQuote(x,asset,amount,now=Date.now()){
  if(incoming!==amount||gross===null||fee===null||net===null||net<=0||gross!==fee+net)return null;
  const rate=String(x.stablePerCoin??'');
  if(!/^\d+(?:\.\d{1,8})?$/.test(rate)||!(Number(rate)>0)||!Number.isFinite(Number(rate)))return null;
- // La simulación debe corresponder exactamente al precio publicado, incluso en fracciones.
- // BigInt evita que las operaciones con coma flotante alteren el monto recibido.
- const [rateWhole,rateFraction='']=rate.split('.');
- const rateDen=10n**BigInt(rateFraction.length);
- const rateNum=BigInt(rateWhole)*rateDen+BigInt(rateFraction||'0');
- const grossCalculated=asset==='COIN'
-   ? BigInt(incoming)*rateNum/rateDen
-   : BigInt(incoming)*rateDen/rateNum;
- if(BigInt(gross)!==grossCalculated)return null;
+ // No aceptar importes que contradigan la tasa sintética declarada.
+ if(BigInt(gross)!==expectedGrossMicro(incoming,asset,rate))return null;
  if(typeof x.expiresAt!=='string'||!/T.*(?:Z|[+-]\d\d:\d\d)$/.test(x.expiresAt))return null;
  const expiry=Date.parse(x.expiresAt);
  if(!Number.isFinite(expiry)||expiry<=now||expiry>now+130000)return null;
@@ -37,14 +38,20 @@ export function validateDemoReceipt(x,quote){
 export function validateDemoHistory(x){
  if(!Array.isArray(x)||x.length>20)return null;
  const out=[];
+ const ids=new Set();
  for(const item of x){
-  if(!item||!uuid(item.id)||item.toAsset!==other(item.fromAsset)||
-     typeof item.settledAt!=='string'||!Number.isFinite(Date.parse(item.settledAt)))return null;
+  if(!item||!uuid(item.id)||ids.has(item.id.toLowerCase())||
+     item.toAsset!==other(item.fromAsset)||
+     typeof item.settledAt!=='string'||
+     !/T.*(?:Z|[+-]\d\d:\d\d)$/.test(item.settledAt)||
+     !Number.isFinite(Date.parse(item.settledAt)))return null;
+  ids.add(item.id.toLowerCase());
   const a=micro(item.amountInMicro),b=micro(item.amountOutMicro),fee=micro(item.feeOutMicro);
   const price=String(item.priceSnapshot??'');
   if(a===null||b===null||a===0||b===0||fee===null||
      !/^\d+(?:\.\d{1,8})?$/.test(price)||!(Number(price)>0)||
-     !Number.isFinite(Number(price)))return null;
+     !Number.isFinite(Number(price))||
+     BigInt(b)+BigInt(fee)!==expectedGrossMicro(a,item.fromAsset,price))return null;
   out.push({...item,amountInMicro:a,amountOutMicro:b,feeOutMicro:fee,priceSnapshot:price});
  }
  return out;
