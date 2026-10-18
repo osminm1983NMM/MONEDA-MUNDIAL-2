@@ -163,22 +163,26 @@ export default function CoinStableDemoScreen({supabase,userId}) {
     if(!current||current.unavailable||pendingAction.current||busy)return;
     pendingAction.current=true;setBusy(true);setError('');
     try {
-      // La operación del servidor es idempotente para el MISMO quoteId.
-      const {data,error:e}=await supabase.rpc('mwd_conversion_confirm_demo',{p_quote_id:current.quoteId});
+      // Solo consulta: no genera un nuevo cargo, ni confirma una cotización vigente.
+      const {data,error:e}=await supabase.rpc('mwd_conversion_reconcile_demo',{p_quote_id:current.quoteId});
       if(e)throw e;
-      if(data?.realPaymentsEnabled!==false||data.quoteId!==current.quoteId||
-         !['ok','already_processed'].includes(data.status)||!data.conversionId||
-         !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(data.conversionId)||
-         (data.status==='ok'&&(
-           data.fromAsset!==current.fromAsset||data.toAsset!==current.toAsset||
-           Number(data.amountInMicro)!==current.amountInMicro||
-           Number(data.amountOutMicro)!==current.amountOutMicro||
-           Number(data.feeOutMicro)!==current.feeOutMicro
-         )))throw new Error('Respuesta no verificable');
+      if(data?.mode!=='sandbox_only'||data?.realPaymentsEnabled!==false||
+         data.quoteId!==current.quoteId||
+         data.fromAsset!==current.fromAsset||data.toAsset!==current.toAsset||
+         Number(data.amountInMicro)!==current.amountInMicro||
+         Number(data.amountOutMicro)!==current.amountOutMicro||
+         Number(data.feeOutMicro)!==current.feeOutMicro)throw new Error('Respuesta no verificable');
+      if(data.status==='quoted') {
+        setError('La cotización sigue vigente pero no fue confirmada. Espera a que venza y vuelve a verificar; no se cobrará de nuevo.');
+        return;
+      }
+      if(!['executed','expired'].includes(data.status)||
+         (data.status==='executed'&&!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(data.conversionId)))
+         throw new Error('Estado desconocido');
       if(!pendingKey)throw new Error('Sesión inválida');
       await AsyncStorage.removeItem(pendingKey);
       pendingRef.current=null;setPending(null);activeQuote.current=null;setQuote(null);
-      setNotice('Se verificó una sola conversión ficticia. Sin dinero real.');
+      setNotice(data.status==='executed' ? 'Se verificó una sola conversión ficticia. Sin dinero real.' : 'La cotización ficticia venció sin ejecutarse. Puedes solicitar una nueva.');
       await load();
     } catch(e){
       setError('Sigue sin poder verificarse. No inicies otra conversión; vuelve a intentarlo al recuperar conexión.');
@@ -189,7 +193,7 @@ export default function CoinStableDemoScreen({supabase,userId}) {
     <Text style={s.title}>Coin ↔ Digital (DEMO)</Text>
     {pendingLoading&&<Text style={s.warning}>Comprobando operaciones pendientes...</Text>}
     {!!pending&&<Text style={s.warning}>CONFIRMACIÓN PENDIENTE DE VERIFICACIÓN. Bloqueada cualquier operación nueva hasta aclarar el resultado.</Text>}
-    {!!pending&&!pending.unavailable&&<Btn label="Verificar/reintentar misma operación" disabled={busy} onPress={retryPending}/>}
+    {!!pending&&!pending.unavailable&&<Btn label="Consultar estado sin repetir operación" disabled={busy} onPress={retryPending}/>}
     <Text style={s.warning}>SOLO SIMULACIÓN. Precio sintético, sin cotización de mercado, reservas ni retiros. Los saldos no son dinero y no se mezclan con MWD.</Text>
     <Text style={s.text}>Coin ficticia: {wallet?fmt(wallet.coinMicro):walletState==='loading'?'Cargando...':'No disponible'} {wallet?'COIN':''}</Text>
     <Text style={s.text}>Digital ficticia: {wallet?fmt(wallet.stableMicro):walletState==='loading'?'Cargando...':'No disponible'} {wallet?'STABLE':''}</Text>
