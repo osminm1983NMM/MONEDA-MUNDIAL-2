@@ -301,7 +301,7 @@ export default function App() {
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
               <Btn title="Actualizar saldo e historial" secondary onPress={() => refreshAccount()} disabled={syncing} />
-              <DemoAssetSummaryCard key={userId} supabase={supabase} onOpenConversion={() => navigate('Conversión')} />
+              <DemoAssetSummaryCard key={userId} userId={userId} supabase={supabase} onOpenConversion={() => navigate('Conversión')} />
               <Btn title="Entrega sin teléfono (DEMO)" secondary onPress={() => navigate('Entrega')} />
               <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
               <Btn title="Cerrar sesión" secondary onPress={logout} />
