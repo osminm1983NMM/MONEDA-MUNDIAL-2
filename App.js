@@ -16,6 +16,7 @@ import { createClient } from '@supabase/supabase-js';
 import PartnerRegistryScreen from './PartnerRegistryScreen';
 import CoinStableDemoScreen from './CoinStableDemoScreen';
 import DemoAssetSummaryCard from './DemoAssetSummaryCard';
+import { createDemoSessionGuard } from './src/digital-money/demo-session-guard.mjs';
 import ConversionAdminDemoScreen from './ConversionAdminDemoScreen';
 import PickupWithoutPhoneDemo from './PickupWithoutPhoneDemo';
 import AgentAccessAdminDemo from './AgentAccessAdminDemo';
@@ -101,23 +102,39 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
+  const sessionGuardRef = useRef(null);
+  if (!sessionGuardRef.current) sessionGuardRef.current=createDemoSessionGuard();
+  const authEventsRef = useRef(0);
   const userId = session?.user?.id;
+
+  function applySession(nextSession) {
+    const changed=sessionGuardRef.current.setOwner(nextSession?.user?.id);
+    if(changed) {
+      // Una cuenta nunca ve por un instante el saldo/rol de la anterior.
+      setWallet(null);setOperations([]);setAdminRole(null);setSyncing(false);
+      pendingRef.current=null;setAmount('');setRecipientCode('');
+    }
+    setSession(nextSession);
+    setAuthLoading(false);
+    setScreen('Inicio');
+  }
 
   useEffect(() => {
     let active = true;
+    const beforeGetSession=authEventsRef.current;
     supabase.auth.getSession()
       .then(({ data, error }) => {
         if (error) throw error;
-        if (active) setSession(data.session);
+        // Una respuesta inicial tardía no puede restaurar una sesión ya reemplazada.
+        if (active && beforeGetSession===authEventsRef.current) applySession(data.session);
       })
-      .catch(error => message('Sesión', error.message))
+      .catch(error => { if(active) message('Sesión', error.message); })
       .finally(() => { if (active) setAuthLoading(false); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return;
-      setSession(nextSession);
-      setAuthLoading(false);
-      setScreen('Inicio');
+      authEventsRef.current+=1;
+      applySession(nextSession);
     });
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
@@ -133,8 +150,11 @@ export default function App() {
   }, [userId]);
 
   async function refreshAccount(id = userId) {
-    if (!id) return;
+    const ticket=sessionGuardRef.current.begin(id);
+    if(!ticket)return;
     setSyncing(true);
+    // No conservar un saldo antiguo visible cuando la respuesta aún no se ha validado.
+    setWallet(null);setOperations([]);setAdminRole(null);
     try {
       const [w, h, a] = await Promise.all([
         supabase.from('mwd_wallets')
@@ -145,17 +165,22 @@ export default function App() {
           .order('created_at', { ascending: false }).limit(50),
         supabase.from('mwd_admin_roles').select('role').eq('user_id', id).maybeSingle(),
       ]);
-      if (w.error) throw w.error;
-      if (h.error) throw h.error;
-      if (a.error) throw a.error;
-      if (supabase.auth.getUser && supabase.auth && id !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      if(!sessionGuardRef.current.current(ticket))return;
+      if(w.error)throw w.error;
+      if(h.error)throw h.error;
+      if(a.error)throw a.error;
+      if(w.data?.user_id!==id)throw new Error('La billetera no corresponde a la sesión actual.');
+      const history=h.data||[];
+      if(history.some(op=>op.source_user_id!==id&&op.destination_user_id!==id))
+        throw new Error('Se recibió un historial que no corresponde a esta cuenta.');
       setWallet(w.data);
-      setOperations(h.data || []);
-      setAdminRole(a.data?.role || null);
+      setOperations(history);
+      setAdminRole(a.data?.role||null);
     } catch (error) {
-      message('Sincronización', error.message || 'No se pudo consultar Supabase.');
+      if(sessionGuardRef.current.current(ticket))
+        message('Sincronización', error.message || 'No se pudo consultar Supabase.');
     } finally {
-      setSyncing(false);
+      if(sessionGuardRef.current.current(ticket))setSyncing(false);
     }
   }
 
