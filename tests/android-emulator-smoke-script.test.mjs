@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 
 const program=resolve('scripts/probar-apk-emulador.sh');
 const verifier=resolve('scripts/verificar-pantalla-acceso-demo.sh');
+const anrHelper=resolve('scripts/android_anr_triage.py');
 const fakeAdb=String.raw`#!/usr/bin/env bash
 set -euo pipefail
 case "$*" in
@@ -28,10 +29,12 @@ case "$*" in
       echo 'adb pull failed' >&2
       exit 1
     fi
-    printf '%s' '<hierarchy text="MONEDA MUNDIAL" hint="Iniciar sesión"/>' > smoke-results/ui.xml ;;
+    if [[ "\${MOCK_SCENARIO:-}" == 'anr' ]]; then
+      printf '%s' '<hierarchy><node resource-id="android:id/alertTitle" text="Moneda Mundial isn&amp;apos;t responding"/><node resource-id="android:id/aerr_close" clickable="true" bounds="[10,20][80,90]"/></hierarchy>' > smoke-results/ui.xml
+    else printf '%s' '<hierarchy text="MONEDA MUNDIAL" hint="Iniciar sesión"/>' > smoke-results/ui.xml; fi ;;
   'logcat -d -s '*) ;;
   'shell dumpsys window')
-    if [[ "\${MOCK_SCENARIO:-}" == 'anr' ]]; then echo 'Application Not Responding'; fi ;;
+    if [[ "\${MOCK_SCENARIO:-}" == 'anr' ]]; then echo 'mCurrentFocus=Window{123 u0 Application Not Responding: com.monedamundial.app}'; fi ;;
   'shell pidof '*) echo '1001' ;;
   'shell ls -l '*) echo 'mock xml path' ;;
   *) echo "Unknown fake adb request: $*" >&2; exit 2 ;;
@@ -50,6 +53,7 @@ exit 0
 `,{mode:0o755});
   mkdirSync(join(dir,'scripts'));
   writeFileSync(join(dir,'scripts/verificar-pantalla-acceso-demo.sh'),readFileSync(verifier));
+  writeFileSync(join(dir,'scripts/android_anr_triage.py'),readFileSync(anrHelper));
   const out=spawnSync('bash',[program],{
     cwd:dir,encoding:'utf8',timeout:20000,
     env:{...process.env,PATH:bin+':'+process.env.PATH,MOCK_SCENARIO:scenario,MOCK_COUNTER_FILE:join(dir,'attempts'),APK_PATH:join(dir,'test.apk')}
