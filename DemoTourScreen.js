@@ -1,6 +1,7 @@
 // Completely offline read-only preview for Android users without an account.
 import React,{useState} from 'react';
 import GuestCryptoPreviewScreen from './GuestCryptoPreviewScreen';
+import GuestReadinessPreviewScreen from './GuestReadinessPreviewScreen';
 import {View,Text,TouchableOpacity} from 'react-native';
 import {DEMO_PREVIEW_REAL_PAYMENTS_ENABLED,getPublicDemoTour} from './src/demo-tour.mjs';
 const s={
@@ -15,9 +16,11 @@ const s={
 };
 export default function DemoTourScreen({language='es',onClose}){
  const [viewCrypto,setViewCrypto]=useState(false);
+ const [viewReadiness,setViewReadiness]=useState(false);
  const content=getPublicDemoTour(language);
  if(DEMO_PREVIEW_REAL_PAYMENTS_ENABLED) throw Error('Offline demo preview must not enable real payments');
  if(viewCrypto)return <GuestCryptoPreviewScreen language={language} onBack={()=>setViewCrypto(false)}/>;
+ if(viewReadiness)return <View style={s.box}><GuestReadinessPreviewScreen/><TouchableOpacity accessibilityRole="button" style={s.button} onPress={()=>setViewReadiness(false)}><Text style={s.buttonText}>Volver al recorrido de Moneda Mundial</Text></TouchableOpacity></View>;
  return <View style={s.box}>
   <Text style={s.title}>{content.heading}</Text>
   <Text style={s.banner}>{content.warning}</Text>
@@ -31,6 +34,7 @@ export default function DemoTourScreen({language='es',onClose}){
     onPress={()=>setViewCrypto(true)}>
     <Text style={s.buttonText}>{language==='en'?'Explore Coin and Digital (research)':'Conocer Coin y Digital (investigación)'}</Text>
   </TouchableOpacity>
+  <TouchableOpacity accessibilityRole="button" style={s.button} onPress={()=>setViewReadiness(true)}><Text style={s.buttonText}>Ver requisitos pendientes (sin cuenta)</Text></TouchableOpacity>
   <Text style={s.text}>{content.footer}</Text>
   <TouchableOpacity accessibilityRole="button" style={s.button} onPress={onClose}
     accessibilityLabel={content.back}><Text style={s.buttonText}>{content.back}</Text></TouchableOpacity>
