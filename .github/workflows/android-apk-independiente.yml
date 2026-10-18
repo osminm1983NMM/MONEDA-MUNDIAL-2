@@ -3,7 +3,7 @@ name: APK Android independiente - pruebas
 on:
   workflow_dispatch:
   pull_request:
-    branches: [desarrollo-comercios-20261013]
+    branches: [integration/worldwide-guest-preview-20261018]
     paths:
       - '*.js'
       - 'app.json'
