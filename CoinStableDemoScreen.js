@@ -3,7 +3,7 @@ import 'react-native-get-random-values';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { demoPendingStorageKey, encodePendingDemoQuote, decodePendingDemoQuote } from './src/digital-money/demo-pending-confirmation.mjs';
+import { demoPendingStorageKey, encodePendingDemoQuote, decodePendingDemoQuote, classifyDemoReconciliation } from './src/digital-money/demo-pending-confirmation.mjs';
 import {parseDemoAssetBalances,formatDemoMicro} from './src/digital-money/demo-asset-summary.mjs';
 import {validateDemoQuote,validateDemoReceipt,validateDemoHistory} from './src/digital-money/demo-conversion-contract.mjs';
 
@@ -166,24 +166,18 @@ export default function CoinStableDemoScreen({supabase,userId}) {
       // Solo consulta: no genera un nuevo cargo, ni confirma una cotización vigente.
       const {data,error:e}=await supabase.rpc('mwd_conversion_reconcile_demo',{p_quote_id:current.quoteId});
       if(e)throw e;
-      if(data?.mode!=='sandbox_only'||data?.realPaymentsEnabled!==false||
-         data.quoteId!==current.quoteId||
-         data.fromAsset!==current.fromAsset||data.toAsset!==current.toAsset||
-         Number(data.amountInMicro)!==current.amountInMicro||
-         Number(data.amountOutMicro)!==current.amountOutMicro||
-         Number(data.feeOutMicro)!==current.feeOutMicro)throw new Error('Respuesta no verificable');
-      if(data.status==='quoted') {
-        setError('La cotización sigue vigente pero no fue confirmada. Espera a que venza y vuelve a verificar; no se cobrará de nuevo.');
+      const state=classifyDemoReconciliation(data,current);
+      if(!state)throw new Error('Respuesta no verificable');
+      if(state==='quoted') {
+        setError('Cotización sin ejecutar, todavía vigente. Espera a que venza y consulta de nuevo. No se ha repetido ninguna operación.');
         return;
       }
-      if(!['executed','expired'].includes(data.status)||
-         (data.status==='executed'&&!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(data.conversionId)))
-         throw new Error('Estado desconocido');
       if(!pendingKey)throw new Error('Sesión inválida');
       await AsyncStorage.removeItem(pendingKey);
       pendingRef.current=null;setPending(null);activeQuote.current=null;setQuote(null);
-      setNotice(data.status==='executed' ? 'Se verificó una sola conversión ficticia. Sin dinero real.' : 'La cotización ficticia venció sin ejecutarse. Puedes solicitar una nueva.');
-      await load();
+      setNotice(state==='executed' ? 'Se verificó una sola conversión ficticia. Sin dinero real.' : 'La cotización ficticia venció sin ejecutarse. Puedes solicitar una nueva.');
+      try{await load();}
+      catch{setError('La conciliación terminó, pero no se pudo actualizar el historial. Actualiza los saldos cuando tengas conexión.');}
     } catch(e){
       setError('Sigue sin poder verificarse. No inicies otra conversión; vuelve a intentarlo al recuperar conexión.');
     } finally {pendingAction.current=false;if(mounted.current)setBusy(false);}
@@ -193,6 +187,7 @@ export default function CoinStableDemoScreen({supabase,userId}) {
     <Text style={s.title}>Coin ↔ Digital (DEMO)</Text>
     {pendingLoading&&<Text style={s.warning}>Comprobando operaciones pendientes...</Text>}
     {!!pending&&<Text style={s.warning}>CONFIRMACIÓN PENDIENTE DE VERIFICACIÓN. Bloqueada cualquier operación nueva hasta aclarar el resultado.</Text>}
+    {!!pending&&!pending.unavailable&&<Text selectable style={s.text}>Referencia ficticia: {pending.quoteId}{'\n'}Importe: {fmt(pending.amountInMicro)} {pending.fromAsset} → {fmt(pending.amountOutMicro)} {pending.toAsset}{'\n'}Vence: {new Date(pending.expiresAt).toLocaleString()}</Text>}
     {!!pending&&!pending.unavailable&&<Btn label="Consultar estado sin repetir operación" disabled={busy} onPress={retryPending}/>}
     <Text style={s.warning}>SOLO SIMULACIÓN. Precio sintético, sin cotización de mercado, reservas ni retiros. Los saldos no son dinero y no se mezclan con MWD.</Text>
     <Text style={s.text}>Coin ficticia: {wallet?fmt(wallet.coinMicro):walletState==='loading'?'Cargando...':'No disponible'} {wallet?'COIN':''}</Text>
