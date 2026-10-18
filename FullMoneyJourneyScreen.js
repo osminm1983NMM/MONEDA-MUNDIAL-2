@@ -17,11 +17,12 @@ export default function FullMoneyJourneyScreen(){
  const [destination,setDestination]=useState('HN');
  const [amount,setAmount]=useState('100');
  const [coinUnits,setCoinUnits]=useState('10');
+ const [digitalUnits,setDigitalUnits]=useState('2.5');
  const [coinPrice,setCoinPrice]=useState('0.25');
  const [digitalPrice,setDigitalPrice]=useState('1');
  const [rate,setRate]=useState('');
  const v=previewFullMoneyJourney({source,payout,destination,
-  hypotheticalUsdCents:amountToCents(amount),coinUnits,coinUsdScenario:coinPrice,
+  hypotheticalUsdCents:amountToCents(amount),coinUnits,digitalUnits,coinUsdScenario:coinPrice,
   digitalUsdScenario:digitalPrice,manualLocalPerUsd:rate});
  const disclosure=previewRemittanceDisclosure({source,payout,destination,hypotheticalUsdCents:amountToCents(amount),manualLocalPerUsd:rate});
  return <View style={s.panel}>
@@ -36,6 +37,12 @@ export default function FullMoneyJourneyScreen(){
    <TextInput style={s.input} value={coinUnits} onChangeText={setCoinUnits} keyboardType="decimal-pad" accessibilityLabel="Coin de ejemplo"/>
    <TextInput style={s.input} value={coinPrice} onChangeText={setCoinPrice} keyboardType="decimal-pad" accessibilityLabel="Precio hipotético Coin"/>
    <TextInput style={s.input} value={digitalPrice} onChangeText={setDigitalPrice} keyboardType="decimal-pad" accessibilityLabel="Precio hipotético Digital"/>
+  </View>}
+  {source==='digital_concept'&&<View>
+   <Text style={s.text}>Digital hipotéticas, precio Digital USD y precio Coin USD (datos manuales)</Text>
+   <TextInput style={s.input} value={digitalUnits} onChangeText={setDigitalUnits} keyboardType="decimal-pad" accessibilityLabel="Digital de ejemplo"/>
+   <TextInput style={s.input} value={digitalPrice} onChangeText={setDigitalPrice} keyboardType="decimal-pad" accessibilityLabel="Precio hipotético Digital"/>
+   <TextInput style={s.input} value={coinPrice} onChangeText={setCoinPrice} keyboardType="decimal-pad" accessibilityLabel="Precio hipotético Coin"/>
   </View>}
   <Text style={s.text}>2. País destino de ejemplo</Text>
   {DEMO_CORRIDORS.filter(x=>['HN','NI','EC','CR'].includes(x.code)).map(x=>
@@ -56,6 +63,7 @@ export default function FullMoneyJourneyScreen(){
    {v.steps.map(step=><Text key={step.id} style={s.text}>{step.title}: {step.status==='not_available'?'NO disponible':'solo diseño'}</Text>)}
    <Text style={s.warn}>{v.blockReason}</Text>
    {v.conversionExample&&<Text style={s.text}>Coin→Digital hipotéticas: {v.conversionExample.inputCoinUnits} Coin equivaldrían a {v.conversionExample.hypotheticalDigitalUnits} Digital imaginarias. No se han convertido.</Text>}
+   {v.inverseConversionExample&&<Text style={s.text}>Digital→Coin hipotéticas: {v.inverseConversionExample.inputDigitalUnits} Digital equivaldrían a {v.inverseConversionExample.hypotheticalCoinUnits} Coin imaginarias. No se han convertido.</Text>}
    {v.independentUsdExample&&<Text style={s.text}>USD ejemplo: {(v.independentUsdExample.amountCents/100).toFixed(2)} · comisión hipotética {(v.independentUsdExample.feeCents/100).toFixed(2)}.</Text>}
    {v.localCurrencyExample&&<Text style={s.text}>Cantidad ilustrativa: {v.localCurrencyExample.amount} {v.localCurrencyExample.currency}; NO garantizada.</Text>}
   </View>}
