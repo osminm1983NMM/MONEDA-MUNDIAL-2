@@ -57,13 +57,16 @@ export function createMockPaymentLifecycle({
    const previous=actionIds.get(requestId);
    if(previous){
      if(previous.kind!==kind||previous.orderId!==orderId)fail('Clave de acción reutilizada');
-     return view(o,true);
+     // El reintento conserva el resultado ORIGINAL de esta acción,
+     // aunque otro evento haya avanzado la orden después.
+     return Object.freeze({...previous.result,alreadyProcessed:true});
    }
    if(o.status!==allowedState)fail('Transición ficticia prohibida');
    o.status=newState;
-   actionIds.set(requestId,{kind,orderId});
+   const result=view(o);
+   actionIds.set(requestId,{kind,orderId,result});
    log(kind,o);
-   return view(o);
+   return result;
  };
  const suggestions=new Map(); // Sólo propuestas; NUNCA asientos registrados.
  function propose(o,phase){
@@ -98,15 +101,17 @@ export function createMockPaymentLifecycle({
       amountCents<100||amountCents>10000000)fail('Orden de ensayo inválida');
    const existed=createdIds.get(requestId);
    if(existed){
-     const o=get(existed);
+     const o=get(existed.orderId);
      if(o.destination!==destination||o.amountCents!==amountCents)
        fail('Clave de orden reutilizada con datos diferentes');
-     return view(o,true);
+     return Object.freeze({...existed.result,alreadyProcessed:true});
    }
    const o={id:randomUUID(),destination,amountCents,status:STATE.created};
-   orders.set(o.id,o);createdIds.set(requestId,o.id);
+   orders.set(o.id,o);
+   const result=view(o);
+   createdIds.set(requestId,{orderId:o.id,result});
    log('order_created_mock',o);
-   return view(o);
+   return result;
   },
   requestMockPayout({orderId,requestId}={}){
    return action('payout_requested_mock',orderId,requestId,STATE.funded,STATE.payoutPending);
@@ -126,7 +131,7 @@ export function createMockPaymentLifecycle({
      checkId(requestId);
      const previous=actionIds.get(requestId);
      if(previous?.kind==='refund_requested_mock'&&previous.orderId===orderId)
-       return view(o,true);
+       return Object.freeze({...previous.result,alreadyProcessed:true});
      fail('No hay fondos ficticios disponibles para devolución');
    }
    return action('refund_requested_mock',orderId,requestId,before,STATE.refundPending);
