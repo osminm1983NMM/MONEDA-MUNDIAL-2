@@ -1,6 +1,8 @@
 // Resumen de balances SIMULADOS; separado del saldo MWD de la cuenta.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {demoPendingStorageKey,decodePendingDemoQuote} from './src/digital-money/demo-pending-confirmation.mjs';
 import { parseDemoAssetBalances, formatDemoMicro } from './src/digital-money/demo-asset-summary.mjs';
 
 const style = {
@@ -13,9 +15,11 @@ const style = {
   buttonText: { color: '#fff', fontWeight: '700', textAlign: 'center' },
 };
 
-export default function DemoAssetSummaryCard({ supabase, onOpenConversion }) {
+export default function DemoAssetSummaryCard({ supabase, userId, onOpenConversion }) {
   const [balances, setBalances] = useState(null);
   const [state, setState] = useState('loading');
+  // 'unknown' bloquea afirmaciones de que no hay pendientes si falla el almacenamiento.
+  const [pendingState, setPendingState] = useState('checking');
   const mounted = useRef(false);
   const request = useRef(0);
 
@@ -46,9 +50,25 @@ export default function DemoAssetSummaryCard({ supabase, onOpenConversion }) {
     return () => { mounted.current = false; request.current += 1; };
   }, [reload]);
 
+  useEffect(() => {
+    let active = true;
+    setPendingState('checking');
+    (async () => {
+      const key=demoPendingStorageKey(userId);
+      if (!key) throw new Error('Cuenta no válida');
+      const raw=await AsyncStorage.getItem(key);
+      if (!active) return;
+      setPendingState(!raw ? 'none' : decodePendingDemoQuote(raw) ? 'pending' : 'unknown');
+    })().catch(() => { if(active) setPendingState('unknown'); });
+    return () => { active=false; };
+  }, [userId]);
+
   return <View style={style.panel}>
     <Text style={style.heading}>Moneda Mundial Coin y Digital</Text>
     <Text style={style.warning}>SOLO DEMOSTRACIÓN · Saldos ficticios separados de MWD. No se suman, no son USD ni representan activos emitidos.</Text>
+    {pendingState==='checking'&&<Text style={style.description}>Revisando confirmaciones ficticias anteriores...</Text>}
+    {pendingState==='pending'&&<Text style={style.warning}>ATENCIÓN: Existe una conversión ficticia cuya confirmación debe verificarse. Abre el conversor antes de intentar otra.</Text>}
+    {pendingState==='unknown'&&<Text style={style.warning}>No fue posible comprobar el registro local de conversiones. Abre el conversor para revisar antes de operar.</Text>}
     {state === 'loading' && <Text style={style.description}>Consultando saldos ficticios...</Text>}
     {state === 'error' && <Text style={style.warning}>Los saldos de Coin y Digital no están disponibles. No se muestra un saldo estimado.</Text>}
     {state === 'ready' && balances && <>
@@ -63,7 +83,7 @@ export default function DemoAssetSummaryCard({ supabase, onOpenConversion }) {
     </TouchableOpacity>
     <TouchableOpacity accessibilityRole="button" accessibilityLabel="Abrir conversión ficticia Coin y Digital"
       style={style.button} onPress={onOpenConversion}>
-      <Text style={style.buttonText}>Convertir Coin ↔ Digital (prueba)</Text>
+      <Text style={style.buttonText}>{pendingState==='pending'||pendingState==='unknown' ? 'Revisar conversión pendiente (DEMO)' : 'Convertir Coin ↔ Digital (prueba)'}</Text>
     </TouchableOpacity>
   </View>;
 }
