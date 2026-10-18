@@ -1,0 +1,17 @@
+name: Verificar contrato Android de países mundiales
+on:
+  pull_request:
+    branches: [integration/worldwide-guest-preview-20261018]
+    paths:
+      - 'scripts/android_guest_tour_contract.py'
+      - 'tests/test_android_guest_tour_contract.py'
+      - '.github/workflows/test-world-android-accessibility.yml'
+permissions:
+  contents: read
+jobs:
+  accessibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar contrato Android sin cuenta, sin fondos
+        run: python3 -m unittest discover -s tests -p test_android_guest_tour_contract.py -v

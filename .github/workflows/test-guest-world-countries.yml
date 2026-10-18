@@ -1,0 +1,40 @@
+name: Validar catalogo mundial publico y sin fondos
+on:
+  pull_request:
+    branches:
+      - feature/world-country-search-es-en-20261018
+      - desarrollo-comercios-20261013
+    paths:
+      - 'src/guest-world-countries-preview.mjs'
+      - 'GuestWorldCountriesScreen.js'
+      - 'DemoTourScreen.js'
+      - 'src/digital-money/worldwide-research-countries.mjs'
+      - 'tests/guest-world-countries-preview.test.mjs'
+      - 'tests/worldwide-research-countries.test.mjs'
+      - '.github/workflows/test-guest-world-countries.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  world-research-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirmar los 249 destinos y no habilitar fondos
+        run: |
+          node --test tests/worldwide-research-countries.test.mjs tests/guest-world-countries-preview.test.mjs
+      - name: Comprobar ausencia de llamadas remotas en la vista publica
+        run: |
+          node --input-type=module -e "
+          import fs from 'node:fs';
+          const files=['src/guest-world-countries-preview.mjs','GuestWorldCountriesScreen.js'];
+          for(const path of files){
+            const code=fs.readFileSync(path,'utf8');
+            if(/fetch\\s*\\(|createClient\\s*\\(|\\.rpc\\s*\\(|Linking\\.|service_role|sb_secret_/.test(code))
+              throw Error('Unexpected financial or remote operation in '+path);
+          }
+          console.log('Offline DEMO: no provider or payment calls');
+          "
