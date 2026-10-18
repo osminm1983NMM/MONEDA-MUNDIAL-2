@@ -117,7 +117,29 @@ adb shell input swipe 550 1900 550 700 500
 sleep 2
 read_accessibility guest-tour-return-ready
 python3 scripts/android_guest_tour_contract.py tour smoke-results/guest-after-readiness.xml smoke-results/guest-tour-return-ready.xml
-read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py return-button smoke-results/guest-tour-return-ready.xml)"
+# El catálogo mundial es público. Verificar la pantalla REAL de este APK
+# (no confundir pruebas unitarias con navegación Android).
+read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py world-entry smoke-results/guest-tour-return-ready.xml)"
+echo "Abriendo catálogo mundial sin iniciar sesión..."
+adb shell input tap "$x" "$y"
+sleep 3
+# Distintas densidades de pantalla muestran listas parciales: capturar ambas.
+adb shell input swipe 550 700 550 1900 500
+sleep 2
+read_accessibility guest-world-top
+adb shell input swipe 550 1900 550 700 500
+sleep 2
+read_accessibility guest-world-bottom
+python3 scripts/android_guest_tour_contract.py world smoke-results/guest-world-top.xml smoke-results/guest-world-bottom.xml
+read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py world-back smoke-results/guest-world-bottom.xml)"
+adb shell input tap "$x" "$y"
+sleep 3
+read_accessibility guest-after-world
+adb shell input swipe 550 1900 550 700 500
+sleep 2
+read_accessibility guest-tour-after-world-bottom
+python3 scripts/android_guest_tour_contract.py tour smoke-results/guest-after-world.xml smoke-results/guest-tour-after-world-bottom.xml
+read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py return-button smoke-results/guest-tour-after-world-bottom.xml)"
 echo "Volviendo a la pantalla pública de inicio..."
 adb shell input tap "$x" "$y"
 sleep 3
