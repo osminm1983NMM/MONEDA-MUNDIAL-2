@@ -1,0 +1,20 @@
+name: Verificar consulta MWD DEMO aislada
+on:
+  pull_request:
+    paths:
+      - 'database/mwd_operation_status_demo.sql'
+      - 'tests/mwd-operation-status-isolated.sql'
+      - '.github/workflows/mwd-operation-status-isolated.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: PostgreSQL de prueba
+        run: sudo systemctl start postgresql
+      - name: Verificar permisos y consulta sin actualizar billeteras
+        run: sudo -u postgres psql -X -v ON_ERROR_STOP=1 -f tests/mwd-operation-status-isolated.sql
