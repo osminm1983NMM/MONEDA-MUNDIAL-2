@@ -8,6 +8,12 @@ on:
       - 'tests/beneficiary-code-demo-assertions.sql'
       - 'tests/beneficiary-code-edge-assertions.sql'
       - 'tests/beneficiary-code-request-binding-assertions.sql'
+      - 'tests/beneficiary-code-authorization-assertions.sql'
+      - '.github/workflows/test-beneficiary-code-demo.yml'
+  pull_request:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'tests/beneficiary-code-authorization-assertions.sql'
       - '.github/workflows/test-beneficiary-code-demo.yml'
   workflow_dispatch:
 permissions:
@@ -48,6 +54,8 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_beneficiary_code_security_demo.sql
       - name: Instalar seguridad de UUID reutilizados
         run: psql -X -v ON_ERROR_STOP=1 -f database/mwd_pickup_code_idempotency_demo.sql
+      - name: Probar negación a usuarios anónimos y no propietarios
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/beneficiary-code-authorization-assertions.sql
       - name: Probar código de uso único y verificación ficticia
         run: psql -X -v ON_ERROR_STOP=1 -f tests/beneficiary-code-demo-assertions.sql
       - name: Probar vencimiento, cancelación y bloqueo tras cinco fallos
