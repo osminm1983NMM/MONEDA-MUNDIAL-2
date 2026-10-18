@@ -1,0 +1,20 @@
+name: Verificar reintentos en puente de proveedor MOCK
+on:
+  pull_request:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'src/server/mock-regulated-provider-bridge.mjs'
+      - 'tests/provider-integration-port.test.mjs'
+      - '.github/workflows/test-provider-replay-bridge.yml'
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/provider-integration-port.test.mjs tests/mock-regulated-provider-bridge.test.mjs
+      - run: node --test tests/*.test.mjs
