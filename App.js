@@ -17,6 +17,8 @@ import PartnerRegistryScreen from './PartnerRegistryScreen';
 import CoinStableDemoScreen from './CoinStableDemoScreen';
 import DemoAssetSummaryCard from './DemoAssetSummaryCard';
 import { createDemoSessionGuard, createDemoOperationGate } from './src/digital-money/demo-session-guard.mjs';
+import { mwdPendingStorageKey, serializeMwdPending, deserializeMwdPending } from './src/digital-money/mwd-pending-operation-demo.mjs';
+import {classifyMwdOperationStatus} from './src/digital-money/mwd-operation-status-demo.mjs';
 import ConversionAdminDemoScreen from './ConversionAdminDemoScreen';
 import PickupWithoutPhoneDemo from './PickupWithoutPhoneDemo';
 import AgentAccessAdminDemo from './AgentAccessAdminDemo';
@@ -103,6 +105,8 @@ export default function App() {
   const operationGateRef = useRef(null);
   if (!operationGateRef.current) operationGateRef.current=createDemoOperationGate();
   const pendingRef = useRef(null);
+  const [mwdPending,setMwdPending]=useState(null);
+  const [pendingReady,setPendingReady]=useState(false);
   const sessionGuardRef = useRef(null);
   if (!sessionGuardRef.current) sessionGuardRef.current=createDemoSessionGuard();
   const authEventsRef = useRef(0);
@@ -114,7 +118,7 @@ export default function App() {
       // Una cuenta nunca ve por un instante el saldo/rol de la anterior.
       setWallet(null);setOperations([]);setAdminRole(null);setSyncing(false);
       operationGateRef.current.reset();setBusy(false);
-      pendingRef.current=null;setAmount('');setRecipientCode('');
+      pendingRef.current=null;setMwdPending(null);setPendingReady(false);setAmount('');setRecipientCode('');
     }
     setSession(nextSession);
     setAuthLoading(false);
@@ -150,6 +154,58 @@ export default function App() {
     }
     refreshAccount(userId);
   }, [userId]);
+
+  useEffect(()=>{
+    if(!userId)return;
+    const ticket=sessionGuardRef.current.capture(userId);
+    let active=true;
+    const key=mwdPendingStorageKey(userId);
+    (async()=>{
+      const raw=key?await AsyncStorage.getItem(key):null;
+      if(!active||!sessionGuardRef.current.sameSession(ticket))return;
+      const restored=raw ? deserializeMwdPending(raw) : null;
+      pendingRef.current=restored||(raw?{unavailable:true}:null);
+      setMwdPending(pendingRef.current);
+      setPendingReady(true);
+    })().catch(()=>{
+      if(active&&sessionGuardRef.current.sameSession(ticket)){
+        pendingRef.current={unavailable:true};setMwdPending({unavailable:true});setPendingReady(true);
+      }
+    });
+    return ()=>{active=false;};
+  },[userId]);
+
+  async function checkPendingMwd(){
+    const ticket=sessionGuardRef.current.capture(userId);
+    const current=pendingRef.current;
+    if(!ticket||!current||current.unavailable)return;
+    const lock=operationGateRef.current.acquire();
+    if(!lock)return;
+    setBusy(true);
+    try{
+      const {data,error}=await supabase.rpc('mwd_operation_status_demo',{p_request_id:current.id});
+      if(!sessionGuardRef.current.sameSession(ticket))return;
+      if(error)throw error;
+      const state=classifyMwdOperationStatus(data,current);
+      if(!state)throw new Error('Respuesta de conciliación inválida');
+      if(state==='unconfirmed'){
+        message('Resultado pendiente','Aún no aparece registrada. No repitas la transferencia. Conservamos la referencia para verificar de nuevo.');
+        return;
+      }
+      const key=mwdPendingStorageKey(userId);
+      if(!key)throw new Error('Cuenta inválida');
+      await AsyncStorage.removeItem(key);
+      if(!sessionGuardRef.current.sameSession(ticket))return;
+      pendingRef.current=null;setMwdPending(null);
+      message('Operación ficticia verificada','La misma referencia figura como procesada. No se enviaron fondos adicionales.');
+      await refreshAccount();
+    }catch(e){
+      if(sessionGuardRef.current.sameSession(ticket))
+        message('Pendiente de verificar','La operación sigue bloqueada hasta poder comprobar su resultado.');
+    }finally{
+      if(operationGateRef.current.release(lock)&&sessionGuardRef.current.sameSession(ticket))setBusy(false);
+    }
+  }
 
   async function refreshAccount(id = userId) {
     const ticket=sessionGuardRef.current.begin(id);
@@ -227,11 +283,18 @@ export default function App() {
     if(!operationToken)return;
     setBusy(true);
     try {
+      if(!pendingReady||pendingRef.current)throw new Error('Primero verifica la operación pendiente.');
       const pending = pendingRef.current;
       if (!pending || pending.type !== type || pending.cents !== cents || pending.code !== code) {
         pendingRef.current = { type, cents, code, id: uniqueRequestId() };
       }
       const requestId = pendingRef.current.id;
+      const key=mwdPendingStorageKey(userId);
+      const serialized=serializeMwdPending(pendingRef.current);
+      if(!key||!serialized)throw new Error('Referencia de prueba no válida');
+      await AsyncStorage.setItem(key,serialized);
+      if(!sessionGuardRef.current.sameSession(sessionTicket))return;
+      setMwdPending(pendingRef.current);
       const response = type === 'transfer'
         ? await supabase.rpc('mwd_transfer_demo', {
           p_recipient_code: code, p_amount_cents: cents, p_request_id: requestId,
@@ -244,7 +307,9 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
-      pendingRef.current = null;
+      await AsyncStorage.removeItem(key);
+      if(!sessionGuardRef.current.sameSession(sessionTicket))return;
+      pendingRef.current = null;setMwdPending(null);
       setAmount('');
       setRecipientCode('');
       setScreen('Inicio');
@@ -264,6 +329,7 @@ export default function App() {
 
   function prepareOperation(type) {
     if (operationGateRef.current.isBusy()) return;
+    if(!pendingReady||pendingRef.current)return message('Operación pendiente','Revisa la operación anterior antes de iniciar una nueva.');
     const cents = amountToCents(amount);
     if (cents === null) {
       return message('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
@@ -291,7 +357,7 @@ export default function App() {
     setScreen(to);
     setAmount('');
     setRecipientCode('');
-    pendingRef.current = null;
+    // No borrar referencias inciertas al navegar.
   }
 
   return (
@@ -327,6 +393,8 @@ export default function App() {
                 <Text style={styles.muted}>Saldo ficticio en Supabase</Text>
                 <Text selectable style={styles.code}>{wallet?.account_code || 'Cargando identificador...'}</Text>
               </View>
+              {!!mwdPending&&<Text style={styles.warning}>Hay una operación MWD ficticia pendiente de verificación.</Text>}
+              {!!mwdPending&&!mwdPending.unavailable&&<Btn title="Verificar operación MWD anterior" onPress={checkPendingMwd} disabled={busy} />}
               <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet} />
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
