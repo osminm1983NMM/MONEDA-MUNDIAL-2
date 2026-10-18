@@ -36,6 +36,15 @@ READINESS_WARNING = ("solo investigación", "sin fondos reales")
 READINESS_ROUTE = ("estados unidos", "honduras")
 READINESS_ZERO = ("países operativos: 0", "contratos financieros confirmados: 0")
 READINESS_BACK = ("volver al recorrido de moneda mundial",)
+WORLD_ENTRY = ("explorar países del mundo", "explore countries worldwide")
+WORLD_TITLE = ("explorar países del mundo", "explore countries worldwide")
+WORLD_WARNING = ("ningún país admite envíos reales", "no countries support real transfers")
+WORLD_COUNT = ("países y territorios en el catálogo: 249",
+               "countries and territories in catalogue: 249")
+WORLD_NO_PAYOUT = ("sin proveedor autorizado", "no licensed provider")
+WORLD_HONDURAS = ("honduras (hn)",)
+WORLD_NICARAGUA = ("nicaragua (ni)",)
+WORLD_BACK = ("volver al recorrido de moneda mundial", "back to the moneda mundial tour")
 
 LOGIN = ("sign in to moneda mundial", "accede a moneda mundial",
          "iniciar sesión", "create demo account", "crear cuenta de prueba")
@@ -196,6 +205,32 @@ def verify_readiness_preview(*xml_paths):
             raise ValueError("Falta información pública obligatoria: " + label)
 
 
+def world_entry_coordinates(xml_path):
+    return clickable_coordinates(xml_path, WORLD_ENTRY, "abrir catálogo mundial")
+
+
+def world_back_coordinates(xml_path):
+    return clickable_coordinates(xml_path, WORLD_BACK, "volver del catálogo mundial")
+
+
+def verify_world_preview(*xml_paths):
+    # Two snapshots from the CURRENT screen, not a previously visited view.
+    ns = [n for path in xml_paths for n in nodes(path)]
+    checks = [
+        ("pantalla mundial", WORLD_TITLE),
+        ("sin fondos reales", WORLD_WARNING),
+        ("catálogo con 249 entradas", WORLD_COUNT),
+        ("Honduras conservada", WORLD_HONDURAS),
+        ("Nicaragua conservada", WORLD_NICARAGUA),
+        ("proveedor no autorizado", WORLD_NO_PAYOUT),
+        ("regreso", WORLD_BACK),
+    ]
+    missing = [label for label, phrases in checks
+               if not contains_any(ns, phrases)]
+    if missing:
+        raise ValueError("Catálogo público no comprobado: " + ", ".join(missing))
+
+
 def verify_return(xml_path):
     ns = nodes(xml_path)
     if not contains_any(ns, ("moneda mundial",)):
@@ -211,9 +246,10 @@ def main(argv):
         "locate", "tour", "return", "return-button",
         "crypto-entry", "crypto", "crypto-back",
         "coin-trade-entry", "coin-trade-buy", "coin-trade-sell", "coin-trade-sell-entry", "coin-trade-back",
-        "readiness-entry", "readiness", "readiness-back"):
+        "readiness-entry", "readiness", "readiness-back",
+        "world-entry", "world", "world-back"):
 
-        raise ValueError("Uso: helper.py locate|tour|return|return-button|crypto-entry|crypto|crypto-back|readiness-entry|readiness|readiness-back ui.xml [bottom.xml]")
+        raise ValueError("Uso: helper.py locate|tour|return|return-button|crypto-entry|crypto|crypto-back|readiness-entry|readiness|readiness-back|world-entry|world|world-back ui.xml [bottom.xml]")
     action, path = argv[1:3]
     if action == "tour":
         if len(argv)<4:
@@ -235,6 +271,11 @@ def main(argv):
             raise ValueError("Verificación de preparación requiere capturas superior e inferior")
         verify_readiness_preview(*argv[2:])
         print("OK: vista pública de preparación y controles legales visibles")
+    elif action == "world":
+        if len(argv)<4:
+            raise ValueError("Catálogo mundial requiere capturas superior e inferior")
+        verify_world_preview(*argv[2:])
+        print("OK: 249 países de investigación, Nicaragua/Honduras y fondos bloqueados")
     elif len(argv)!=3:
         raise ValueError("Acción requiere un solo XML")
     elif action == "crypto-entry":
@@ -257,6 +298,12 @@ def main(argv):
         print(f"{x} {y}")
     elif action == "readiness-back":
         x, y = readiness_back_coordinates(path)
+        print(f"{x} {y}")
+    elif action == "world-entry":
+        x, y = world_entry_coordinates(path)
+        print(f"{x} {y}")
+    elif action == "world-back":
+        x, y = world_back_coordinates(path)
         print(f"{x} {y}")
     elif action == "locate":
         x, y = entry_coordinates(path)
