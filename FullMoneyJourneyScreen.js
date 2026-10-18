@@ -21,9 +21,13 @@ export default function FullMoneyJourneyScreen(){
  const [coinPrice,setCoinPrice]=useState('0.25');
  const [digitalPrice,setDigitalPrice]=useState('1');
  const [rate,setRate]=useState('');
+ const [feeBps,setFeeBps]=useState('0');
+ const [slippageBps,setSlippageBps]=useState('0');
+ const integerBps=x=>/^\d{1,4}$/.test(x)?Number(x):-1;
  const v=previewFullMoneyJourney({source,payout,destination,
   hypotheticalUsdCents:amountToCents(amount),coinUnits,digitalUnits,coinUsdScenario:coinPrice,
-  digitalUsdScenario:digitalPrice,manualLocalPerUsd:rate});
+  digitalUsdScenario:digitalPrice,manualLocalPerUsd:rate,
+  feeBps:integerBps(feeBps),slippageBps:integerBps(slippageBps)});
  const disclosure=previewRemittanceDisclosure({source,payout,destination,hypotheticalUsdCents:amountToCents(amount),manualLocalPerUsd:rate});
  return <View style={s.panel}>
   <Text style={{color:'white',fontSize:21,fontWeight:'800'}}>Recorrido Moneda Mundial</Text>
@@ -44,6 +48,13 @@ export default function FullMoneyJourneyScreen(){
    <TextInput style={s.input} value={digitalPrice} onChangeText={setDigitalPrice} keyboardType="decimal-pad" accessibilityLabel="Precio hipotético Digital"/>
    <TextInput style={s.input} value={coinPrice} onChangeText={setCoinPrice} keyboardType="decimal-pad" accessibilityLabel="Precio hipotético Coin"/>
   </View>}
+  {(source==='coin_concept'||source==='digital_concept')&&<View>
+   <Text style={s.text}>Comisión ilustrativa (puntos básicos, 100 = 1%; máximo 1000)</Text>
+   <TextInput style={s.input} value={feeBps} onChangeText={setFeeBps} keyboardType="number-pad" accessibilityLabel="Comisión hipotética en puntos básicos"/>
+   <Text style={s.text}>Deslizamiento supuesto (puntos básicos, 100 = 1%; máximo 500)</Text>
+   <TextInput style={s.input} value={slippageBps} onChangeText={setSlippageBps} keyboardType="number-pad" accessibilityLabel="Deslizamiento ilustrativo en puntos básicos"/>
+   <Text style={s.warn}>Comisiones de red y gas NO incluidas. Ningún resultado es mínimo garantizado ni cotización ejecutable.</Text>
+  </View>}
   <Text style={s.text}>2. País destino de ejemplo</Text>
   {DEMO_CORRIDORS.filter(x=>['HN','NI','EC','CR'].includes(x.code)).map(x=>
    <TouchableOpacity key={x.code} accessibilityRole="button" style={s.button} onPress={()=>setDestination(x.code)}>
@@ -63,7 +74,9 @@ export default function FullMoneyJourneyScreen(){
    {v.steps.map(step=><Text key={step.id} style={s.text}>{step.title}: {step.status==='not_available'?'NO disponible':'solo diseño'}</Text>)}
    <Text style={s.warn}>{v.blockReason}</Text>
    {v.conversionExample&&<Text style={s.text}>Coin→Digital hipotéticas: {v.conversionExample.inputCoinUnits} Coin equivaldrían a {v.conversionExample.hypotheticalDigitalUnits} Digital imaginarias. No se han convertido.</Text>}
+   {v.conversionExample&&<Text style={s.warn}>Comisión ilustrativa: {v.conversionExample.illustrativeFeeDigitalUnits} Digital. Escenario con deslizamiento: {v.conversionExample.riskAdjustedDigitalUnits} Digital. NO garantizado.</Text>}
    {v.inverseConversionExample&&<Text style={s.text}>Digital→Coin hipotéticas: {v.inverseConversionExample.inputDigitalUnits} Digital equivaldrían a {v.inverseConversionExample.hypotheticalCoinUnits} Coin imaginarias. No se han convertido.</Text>}
+   {v.inverseConversionExample&&<Text style={s.warn}>Comisión ilustrativa: {v.inverseConversionExample.illustrativeFeeCoinUnits} Coin. Escenario con deslizamiento: {v.inverseConversionExample.riskAdjustedCoinUnits} Coin. NO garantizado.</Text>}
    {v.independentUsdExample&&<Text style={s.text}>USD ejemplo: {(v.independentUsdExample.amountCents/100).toFixed(2)} · comisión hipotética {(v.independentUsdExample.feeCents/100).toFixed(2)}.</Text>}
    {v.localCurrencyExample&&<Text style={s.text}>Cantidad ilustrativa: {v.localCurrencyExample.amount} {v.localCurrencyExample.currency}; NO garantizada.</Text>}
   </View>}
