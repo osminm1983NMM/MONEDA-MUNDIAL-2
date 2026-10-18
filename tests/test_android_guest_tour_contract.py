@@ -1,7 +1,7 @@
 import unittest
 import tempfile
 from pathlib import Path
-from scripts.android_guest_tour_contract import entry_coordinates, verify_tour, verify_return, return_button_coordinates
+from scripts.android_guest_tour_contract import entry_coordinates, verify_tour, verify_return, return_button_coordinates, world_entry_coordinates, world_back_coordinates, verify_world_preview
 
 def node(text='', desc='', clickable=False, bounds='[10,20][110,120]'):
     return (f'<node text="{text}" content-desc="{desc}" '
@@ -77,6 +77,42 @@ class GuestTourContractTest(unittest.TestCase):
         try:
             with self.assertRaises(ValueError): return_button_coordinates(bottom)
         finally: bottom.unlink()
+
+    def test_world_catalogue_complete_and_no_real_money(self):
+        top=write_xml(node(text='Explorar países del mundo')+
+            node(text='SOLO INVESTIGACIÓN · NINGÚN PAÍS ADMITE ENVÍOS REALES')+
+            node(text='Países y territorios en el catálogo: 249'))
+        bottom=write_xml(node(text='Honduras (HN)')+node(text='Nicaragua (NI)')+
+            node(text='Sin proveedor autorizado, cotización real, envío ni retiro disponible.')+
+            node(desc='Volver al recorrido de Moneda Mundial',clickable=True))
+        try:
+            verify_world_preview(top,bottom)
+            self.assertEqual(world_back_coordinates(bottom),(60,70))
+        finally:
+            top.unlink()
+            bottom.unlink()
+
+    def test_world_catalogue_fails_without_nicaragua_or_warning(self):
+        top=write_xml(node(text='Explorar países del mundo')+
+            node(text='Países y territorios en el catálogo: 249')+
+            node(text='Honduras (HN)'))
+        bottom=write_xml(node(desc='Volver al recorrido de Moneda Mundial',clickable=True))
+        try:
+            with self.assertRaisesRegex(ValueError,'sin fondos reales|Nicaragua'):
+                verify_world_preview(top,bottom)
+        finally:
+            top.unlink()
+            bottom.unlink()
+
+    def test_world_entry_requires_clickable_button(self):
+        target=write_xml(node(desc='Explorar países del mundo',clickable=True))
+        missing=write_xml(node(text='Explorar países del mundo'))
+        try:
+            self.assertEqual(world_entry_coordinates(target),(60,70))
+            with self.assertRaises(ValueError):world_entry_coordinates(missing)
+        finally:
+            target.unlink()
+            missing.unlink()
 
 if __name__=='__main__':
     unittest.main()
