@@ -1,0 +1,30 @@
+name: Diagnóstico ANR Android y recuperación segura
+on:
+  pull_request:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'scripts/android_anr_triage.py'
+      - 'scripts/probar-apk-emulador.sh'
+      - 'tests/android-anr-triage.test.mjs'
+      - 'tests/android-emulator-smoke-script.test.mjs'
+      - '.github/workflows/test-android-anr-triage.yml'
+  push:
+    branches: [desarrollo-comercios-20261013]
+    paths:
+      - 'scripts/android_anr_triage.py'
+      - 'scripts/probar-apk-emulador.sh'
+      - 'tests/android-anr-triage.test.mjs'
+      - 'tests/android-emulator-smoke-script.test.mjs'
+      - '.github/workflows/test-android-anr-triage.yml'
+permissions:
+  contents: read
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/android-anr-triage.test.mjs tests/android-emulator-smoke-script.test.mjs
+      - run: node --test tests/*.test.mjs
