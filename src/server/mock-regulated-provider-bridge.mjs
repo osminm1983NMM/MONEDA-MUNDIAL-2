@@ -103,11 +103,14 @@ export function createMockRegulatedProviderBridge({
       typeof event.transferId!=='string'||!DEMO_STATUSES.has(event.status))
      throw auditSafe('Esquema del evento inválido');
    const eventFingerprint=createHash('sha256').update(rawBody).digest('hex');
-   if(events.has(event.id)){
-     if(events.get(event.id)!==eventFingerprint)
+   const previous=events.get(event.id);
+   if(previous){
+     if(previous.fingerprint!==eventFingerprint)
        throw auditSafe('Identificador de evento reutilizado con otro contenido');
-     return Object.freeze({alreadyProcessed:true,accepted:true,moneyPaid:false,
-       realPaymentsEnabled:false});
+     // La repetición representa el evento aceptado originalmente, NO
+     // el estado posterior de la orden. Evita reportar etapa vacía.
+     return Object.freeze({alreadyProcessed:true,accepted:true,
+       status:previous.acceptedStatus,moneyPaid:false,realPaymentsEnabled:false});
    }
    const stored=orders.get(event.transferId);
    if(!stored)throw auditSafe('Orden de simulación inexistente');
@@ -119,7 +122,7 @@ export function createMockRegulatedProviderBridge({
    if(!allowed[stored.status]?.includes(event.status))
      throw auditSafe('Transición de estado de ensayo inválida');
    stored.status=event.status;
-   events.set(event.id,eventFingerprint);
+   events.set(event.id,Object.freeze({fingerprint:eventFingerprint,acceptedStatus:event.status}));
    maybeLog('mock_webhook_accepted',event.transferId);
    return Object.freeze({accepted:true,alreadyProcessed:false,status:stored.status,
      moneyPaid:false,realPaymentsEnabled:false});
