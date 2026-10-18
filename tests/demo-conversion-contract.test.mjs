@@ -18,19 +18,26 @@ test('cotización simulada válida solo para origen, importe y vencimiento solic
  ])assert.equal(validateDemoQuote({...q,...field},'COIN',1000000,now),null,JSON.stringify(field));
  assert.equal(validateDemoQuote(q,'STABLE',1000000,now),null);
 });
-test('recibo ficticio verificado sin anunciar fondos reales',()=>{
- const receipt={status:'ok',quoteId:id,conversionId:other,realPaymentsEnabled:false};
- assert.equal(validateDemoReceipt(receipt,id),true);
- assert.equal(validateDemoReceipt({...receipt,status:'already_processed'},id),true);
- assert.equal(validateDemoReceipt({...receipt,realPaymentsEnabled:true},id),false);
- assert.equal(validateDemoReceipt({...receipt,quoteId:other},id),false);
- assert.equal(validateDemoReceipt({...receipt,status:'pending'},id),false);
+test('recibo ficticio coincide en cotización, monedas, montos y comisión',()=>{
+ const receipt={status:'ok',quoteId:id,conversionId:other,realPaymentsEnabled:false,
+   fromAsset:'COIN',toAsset:'STABLE',amountInMicro:1000000,amountOutMicro:124687,feeOutMicro:313};
+ assert.equal(validateDemoReceipt(receipt,q),true);
+ assert.equal(validateDemoReceipt({status:'already_processed',quoteId:id,conversionId:other,
+    realPaymentsEnabled:false},q),true);
+ for(const patch of [{realPaymentsEnabled:true},{realPaymentsEnabled:undefined},
+  {quoteId:other},{conversionId:'invalid'},{status:'pending'},
+  {fromAsset:'STABLE'},{toAsset:'COIN'},{amountInMicro:1000001},
+  {amountOutMicro:124688},{feeOutMicro:0},{feeOutMicro:-1}])
+    assert.equal(validateDemoReceipt({...receipt,...patch},q),false,JSON.stringify(patch));
 });
 test('historial inválido nunca aparece como saldo o operación válida',()=>{
- const row={id,fromAsset:'COIN',toAsset:'STABLE',amountInMicro:'1000000',amountOutMicro:124687,settledAt:'2026-10-18T19:02:00Z'};
+ const row={id,fromAsset:'COIN',toAsset:'STABLE',amountInMicro:'1000000',
+   amountOutMicro:124687,feeOutMicro:313,priceSnapshot:'0.12500000',settledAt:'2026-10-18T19:02:00Z'};
  assert.equal(validateDemoHistory([row])?.[0]?.amountInMicro,1000000);
+ assert.equal(validateDemoHistory([row])?.[0]?.feeOutMicro,313);
  assert.deepEqual(validateDemoHistory([]),[]);
- assert.equal(validateDemoHistory([{...row,amountOutMicro:NaN}]),null);
- assert.equal(validateDemoHistory([{...row,toAsset:'COIN'}]),null);
+ for(const patch of [{amountOutMicro:NaN},{toAsset:'COIN'},{feeOutMicro:undefined},
+  {feeOutMicro:-1},{priceSnapshot:0},{priceSnapshot:'NaN'},{settledAt:'invalid'}])
+   assert.equal(validateDemoHistory([{...row,...patch}]),null,JSON.stringify(patch));
  assert.equal(validateDemoHistory(null),null);
 });
