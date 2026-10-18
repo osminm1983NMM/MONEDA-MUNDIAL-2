@@ -44,6 +44,35 @@ jobs:
         run: npx expo install --check
       - name: Generar proyecto nativo Android
         run: CI=1 npx expo prebuild --platform android --no-install --non-interactive
+      # Instalar el mismo NDK que utiliza con éxito la APK independiente.
+      # Sin instalación anticipada, Gradle puede fallar al bajar el SDK durante
+      # su propia configuración (InstallFailedException: ndk;27.1.12297006).
+      - name: Preparar NDK Android con reintentos
+        shell: bash
+        run: |
+          set -euo pipefail
+          NDK_VERSION="27.1.12297006"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            echo "::error::Android sdkmanager no está disponible"
+            exit 1
+          fi
+          for attempt in 1 2 3; do
+            if "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "ndk;$NDK_VERSION"; then
+              if [ -f "$SDK_ROOT/ndk/$NDK_VERSION/source.properties" ]; then
+                echo "NDK instalado correctamente en intento $attempt"
+                break
+              fi
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::No se pudo instalar NDK luego de 3 intentos"
+              exit 1
+            fi
+            echo "::warning::Descarga incompleta del NDK; reintentando"
+            rm -rf "$SDK_ROOT/ndk/$NDK_VERSION"
+            sleep 20
+          done
       - name: Compilar aplicación de prueba (sin firma de publicación)
         working-directory: android
         run: |
