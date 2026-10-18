@@ -4,7 +4,8 @@ function node(text,clickable=false){return '<node text="'+text+'" clickable="'+c
 function invoke(action,xml){
  const dir=mkdtempSync(join(tmpdir(),'mwd-readiness-'));const file=join(dir,'ui.xml');
  writeFileSync(file,'<hierarchy>'+xml+'</hierarchy>');
- const r=spawnSync('python3',['scripts/android_guest_tour_contract.py',action,file,file],{encoding:'utf8'});
+ const args=['scripts/android_guest_tour_contract.py',action,file];if(action==='readiness')args.push(file);
+ const r=spawnSync('python3',args,{encoding:'utf8'});
  rmSync(dir,{recursive:true,force:true});return r;
 }
 test('verificación de preparación pública acepta aviso y ceros visibles',()=>{
