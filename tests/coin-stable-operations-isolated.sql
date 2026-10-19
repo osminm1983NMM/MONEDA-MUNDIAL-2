@@ -31,7 +31,12 @@ begin
     has_schema_privilege('anon','mwd_swap_private','usage') or
     has_function_privilege('anon','public.mwd_conversion_confirm_demo(uuid)','execute') or
     has_function_privilege('anon','public.mwd_conversion_wallet_demo()','execute') or
-    not has_function_privilege('authenticated','public.mwd_conversion_confirm_demo(uuid)','execute')
+    has_function_privilege('anon','public.mwd_conversion_quote_demo(text,bigint,uuid)','execute') or
+    has_function_privilege('anon','public.mwd_conversion_reconcile_demo(uuid)','execute') or
+    not has_function_privilege('authenticated','public.mwd_conversion_confirm_demo(uuid)','execute') or
+    not has_function_privilege('authenticated','public.mwd_conversion_wallet_demo()','execute') or
+    not has_function_privilege('authenticated','public.mwd_conversion_quote_demo(text,bigint,uuid)','execute') or
+    not has_function_privilege('authenticated','public.mwd_conversion_reconcile_demo(uuid)','execute')
  then raise exception 'Permisos incorrectos del conversor ficticio'; end if;
 end $check$;
 
