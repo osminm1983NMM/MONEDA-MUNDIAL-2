@@ -4,7 +4,9 @@ on:
     branches: [desarrollo-comercios-20261013]
     paths:
       - 'src/server/mock-regulated-provider-bridge.mjs'
+      - 'src/server/provider-integration-port.mjs'
       - 'tests/provider-integration-port.test.mjs'
+      - 'tests/mock-regulated-provider-bridge.test.mjs'
       - '.github/workflows/test-provider-replay-bridge.yml'
 permissions:
   contents: read
