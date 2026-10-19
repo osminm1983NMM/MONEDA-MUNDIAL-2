@@ -29,7 +29,18 @@ export function validateDemoReceipt(x,quote){
  if(!x||!quote||x.realPaymentsEnabled!==false||!uuid(x.conversionId)||
     x.quoteId!==quote.quoteId)return false;
  // Respuesta idempotente: el servidor no repite importes; solo comunica el recibo.
- if(x.status==='already_processed')return true;
+ if(x.status==='already_processed'){
+  // La RPC actual solo retorna identificadores; si futuras versiones agregan
+  // montos o monedas, no aceptar campos contradictorios aunque sea un reintento.
+  if(x.mode!==undefined&&x.mode!=='sandbox_only')return false;
+  for(const field of ['fromAsset','toAsset']){
+   if(Object.prototype.hasOwnProperty.call(x,field)&&x[field]!==quote[field])return false;
+  }
+  for(const field of ['amountInMicro','amountOutMicro','feeOutMicro']){
+   if(Object.prototype.hasOwnProperty.call(x,field)&&micro(x[field])!==quote[field])return false;
+  }
+  return true;
+ }
  if(x.status!=='ok'||x.fromAsset!==quote.fromAsset||x.toAsset!==quote.toAsset)return false;
  return micro(x.amountInMicro)===quote.amountInMicro &&
    micro(x.amountOutMicro)===quote.amountOutMicro &&
