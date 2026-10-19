@@ -1,11 +1,12 @@
 // VISTA INFORMATIVA PÚBLICA SIN CUENTA. No consulta servicios financieros,
 // no genera referencias cobrables, no almacena datos y no enlaza con Supabase.
 // Este contenido es el mismo para todas las personas y no acredita cobertura.
+import {GLOBAL_RESEARCH_COUNTRY_COUNT,getWorldResearchCountry}
+ from './digital-money/worldwide-research-countries.mjs';
 export const GUEST_CASH_PICKUP_REAL_PAYMENTS_ENABLED=false;
-const COUNTRIES=Object.freeze({
- HN:Object.freeze({code:'HN',es:'Honduras',en:'Honduras'}),
- NI:Object.freeze({code:'NI',es:'Nicaragua',en:'Nicaragua'}),
-});
+// Atajos visibles; el buscador mundial permite investigar más destinos.
+// Ninguno habilita una ruta de remesa, oficina o retiro de efectivo.
+export const CASH_PICKUP_PUBLIC_DESTINATIONS=Object.freeze(['HN','NI','EC','CR']);
 const STEP_KEYS=Object.freeze(['sender','identity','reference','payout','reconcile']);
 const CONTENT=Object.freeze({
  es:Object.freeze({
@@ -13,7 +14,7 @@ const CONTENT=Object.freeze({
   warning:'SOLO DEMOSTRACIÓN · NO HAY DINERO NI CÓDIGOS COBRABLES',
   subtitle:'Ejemplo educativo para beneficiarios sin aplicación o teléfono. No se crea ningún retiro.',
   choose:'País de ejemplo (sin servicios activos)',
-  coverage:'Honduras y Nicaragua son ejemplos; los demás países continúan en el catálogo mundial de diseño.',
+  coverage:'Catálogo mundial de 249 países y territorios para investigación. Elegir un destino NO significa que haya servicios, licencias o agentes autorizados.',
   route:'Estados Unidos → ',
   reference:'Código de retiro: NO EMITIDO',
   status:'Agentes conectados: 0 · Retiros reales habilitados: 0',
@@ -32,7 +33,7 @@ const CONTENT=Object.freeze({
   warning:'DEMO ONLY · NO MONEY OR REDEEMABLE CODES',
   subtitle:'Educational example for recipients without an app or smartphone. No payout request is created.',
   choose:'Example country (no live services)',
-  coverage:'Honduras and Nicaragua are examples; all other countries remain in the global design catalog.',
+  coverage:'Research catalog of 249 countries and territories. Selecting a destination does NOT mean any services, licenses or authorized agents are available.',
   route:'United States → ',
   reference:'Pickup code: NOT ISSUED',
   status:'Connected agents: 0 · Live cash payouts: 0',
@@ -47,16 +48,21 @@ const CONTENT=Object.freeze({
   back:'Back to the Moneda Mundial tour',
  }),
 });
-export const CASH_PICKUP_PUBLIC_DESTINATIONS=Object.freeze(Object.keys(COUNTRIES));
+// Estados Unidos es origen de este ejemplo, no una ruta US→US.
+// El catálogo global conserva US y los 249 códigos; solo se excluye
+// como DESTINO extranjero desde Estados Unidos en esta vista.
 export function getGuestCashPickupPreview({language='es',destination='HN'}={}){
  const l=language==='en'?'en':'es';
- if(!Object.hasOwn(COUNTRIES,destination))return null;
+ const research=destination==='US'?null:getWorldResearchCountry(destination,l);
+ if(!research)return null;
  const content=CONTENT[l];
  return Object.freeze({
   ...content,
-  destination,countryName:COUNTRIES[destination][l],
-  routeLabel:content.route+COUNTRIES[destination][l],
+  destination,countryName:research.name,
+  routeLabel:content.route+research.name,
   steps:content.steps,stepCount:STEP_KEYS.length,
+  researchCatalogueSize:GLOBAL_RESEARCH_COUNTRY_COUNT,
+  routeAvailable:false,licensedRemittanceCorridor:false,
   requiresAccount:false,contactedSupabase:false,codeIssued:false,
   registeredPayoutAgents:0,confirmedProviders:0,
   customerIdentityVerified:false,transferCreated:false,
