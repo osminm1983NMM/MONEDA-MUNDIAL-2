@@ -4,6 +4,7 @@ on:
     branches: [desarrollo-comercios-20261013]
     paths:
       - 'src/server/mock-agent-pickup-session.mjs'
+      - 'src/server/mock-cash-pickup-verification.mjs'
       - 'src/server/mock-institutional-session-gateway.mjs'
       - 'tests/mock-agent-pickup-session.test.mjs'
       - '.github/workflows/test-mock-agent-pickup-session.yml'

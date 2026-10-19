@@ -31,3 +31,19 @@ test('un banco o agente de otro país no consume el código',()=>{
  }
  assert.equal(v.inspectSample(item.caseId).status,'issued_mock');
 });
+
+test('agente rechaza datos extra o autorizaciones falsas antes de consumir el código',()=>{
+ t=1700000000000;
+ const g=gateway(),v=createMockCashPickupVerifier({secret:'sandbox-code-only-1234567890000000000',clock:()=>t});
+ const item=v.createSample({caseId:'SIM-HN-EXTRAAGENT12',beneficiaryAlias:'SAMPLE-HN-EXTRAAGENT12',country:'HN',amountCents:10000});
+ const p=createMockAgentPickupSession({sessionGateway:g,pickupVerifier:v});
+ const input={sessionToken:login(g,'agent-hn-staff-001'),caseId:item.caseId,
+  sampleCode:item.sampleCode,beneficiaryAlias:'SAMPLE-HN-EXTRAAGENT12'};
+ for(const patch of [{realIdentityConfirmed:true},{bankAccount:'0000'},{country:'NI'},
+  {cashDelivered:true},{paymentProviderAuthorized:true}]){
+  assert.throws(()=>p.verifySample({...input,...patch}),/inválida/);
+ }
+ assert.equal(v.inspectSample(item.caseId).status,'issued_mock');
+ assert.equal(p.verifySample(input).acceptedMock,true);
+ assert.equal(v.inspectSample(item.caseId).canPay,false);
+});

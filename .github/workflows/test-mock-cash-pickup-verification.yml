@@ -5,6 +5,7 @@ on:
     paths:
       - 'src/server/mock-cash-pickup-verification.mjs'
       - 'tests/mock-cash-pickup-verification.test.mjs'
+      - 'src/server/mock-agent-pickup-session.mjs'
       - '.github/workflows/test-mock-cash-pickup-verification.yml'
 permissions:
   contents: read
