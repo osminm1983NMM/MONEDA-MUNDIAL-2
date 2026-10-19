@@ -41,13 +41,18 @@ begin
     or checked->>'operationId' is distinct from first_result->>'operation_id'
     or checked->>'recipientCode'<>'MWD-BBBBBBBBBBBBBBBB'
     then raise exception 'Error de conciliación'; end if;
-  if (select balance_cents from public.mwd_wallets where account_code='MWD-AAAAAAAAAAAAAAAA')<>99000
-    or (select balance_cents from public.mwd_wallets where account_code='MWD-BBBBBBBBBBBBBBBB')<>201000
-    or (select count(*) from public.mwd_operations o where o.request_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid)<>1
-    then raise exception 'La transferencia se duplicó'; end if;
   perform set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',true);
   checked:=public.mwd_operation_status_demo(request_id);
   if checked->>'status'<>'unconfirmed' then raise exception 'Lectura ajena permitida'; end if;
 end $checks$;
 reset role;
+-- Solo el rol administrador verifica los saldos; el usuario autenticado
+-- NO recibe SELECT directo a las tablas financieras.
+do $balances$
+begin
+  if (select balance_cents from public.mwd_wallets where account_code='MWD-AAAAAAAAAAAAAAAA')<>99000
+    or (select balance_cents from public.mwd_wallets where account_code='MWD-BBBBBBBBBBBBBBBB')<>201000
+    or (select count(*) from public.mwd_operations o where o.request_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid)<>1
+    then raise exception 'La transferencia se duplicó'; end if;
+end $balances$;
 select 'OK: dos cuentas y transferencia ficticia única' as resultado;
