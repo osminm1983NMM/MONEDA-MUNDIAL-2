@@ -36,6 +36,19 @@ begin
   if first_result->>'status'<>'ok' or second_result->>'status'<>'already_processed'
     or first_result->>'operation_id' is distinct from second_result->>'operation_id'
     then raise exception 'Error de idempotencia de transferencia'; end if;
+  -- Una referencia ya procesada jamás puede reutilizarse con otro importe.
+  begin
+    perform public.mwd_transfer_demo('MWD-BBBBBBBBBBBBBBBB',1001,request_id);
+    raise exception 'Se aceptó la misma referencia con importe distinto';
+  exception when raise_exception then
+    if SQLERRM <> 'Identificador ya usado para otra operacion' then raise; end if;
+  end;
+  -- Las cuentas autenticadas consultan por RPC, no leen las tablas de saldos.
+  begin
+    perform count(*) from public.mwd_wallets;
+    raise exception 'Se permitio acceso directo a saldos';
+  exception when insufficient_privilege then null;
+  end;
   checked:=public.mwd_operation_status_demo(request_id);
   if checked->>'status'<>'processed'
     or checked->>'operationId' is distinct from first_result->>'operation_id'
@@ -44,6 +57,13 @@ begin
   perform set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',true);
   checked:=public.mwd_operation_status_demo(request_id);
   if checked->>'status'<>'unconfirmed' then raise exception 'Lectura ajena permitida'; end if;
+  -- Sin una sesión válida ni siquiera se permite consultar estado.
+  perform set_config('request.jwt.claim.sub','',true);
+  begin
+    perform public.mwd_operation_status_demo(request_id);
+    raise exception 'Se permitio consultar sin sesion';
+  exception when insufficient_privilege then null;
+  end;
 end $checks$;
 reset role;
 -- Solo el rol administrador verifica los saldos; el usuario autenticado
