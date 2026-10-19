@@ -1,34 +1,17 @@
-import React,{useEffect,useState} from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React,{useState} from 'react';
 import {View,Text,TextInput,StyleSheet,TouchableOpacity} from 'react-native';
 import {buildInternationalDemoPlan,DEMO_PAYOUT_METHODS} from './src/digital-money/international-demo-planner.mjs';
 import {searchCountryOptionsDemo} from './src/digital-money/country-search-demo.mjs';
 import {buildBeneficiaryVerificationChecklistDemo} from './src/digital-money/beneficiary-verification-checklist-demo.mjs';
 import {assessInternationalProviderCandidateDemo} from './src/digital-money/international-provider-assessment-demo.mjs';
 import {detectInternationalDemoLanguage,INTERNATIONAL_DEMO_TEXT,internationalRequirementText,internationalCheckText,internationalProviderCheckText} from './src/digital-money/international-demo-i18n.mjs';
-import {INTERNATIONAL_DEMO_LANGUAGE_KEY,decodeInternationalDemoLanguagePreference,resolveInternationalDemoLanguage,saveInternationalDemoLanguagePreference} from './src/digital-money/international-demo-language-preference.mjs';
+import {resolveInternationalDemoLanguage} from './src/digital-money/international-demo-language-preference.mjs';
 const s=StyleSheet.create({box:{backgroundColor:'#13253e',borderRadius:12,padding:16,marginTop:10},heading:{color:'#fff',fontSize:19,fontWeight:'bold',marginBottom:10},text:{color:'#d4e0f1',marginBottom:8},notice:{color:'#ffda88',marginBottom:10},input:{backgroundColor:'#243957',color:'white',padding:12,borderRadius:8,marginBottom:10}});
-export default function InternationalPlannerDemoScreen(){
+export default function InternationalPlannerDemoScreen({languagePreference='auto',languageReady=true,onLanguageChange}){
+ // El estado vive en App: cambiar idioma aquí actualiza también la portada.
  const [deviceLanguage]=useState(detectInternationalDemoLanguage);
- const [languagePreference,setLanguagePreference]=useState('auto');
- const [languageReady,setLanguageReady]=useState(false);
- const [languageError,setLanguageError]=useState('');
  const language=resolveInternationalDemoLanguage(languagePreference,deviceLanguage);
  const t=INTERNATIONAL_DEMO_TEXT[language];
- useEffect(()=>{
-  let active=true;
-  AsyncStorage.getItem(INTERNATIONAL_DEMO_LANGUAGE_KEY)
-   .then(raw=>{if(active){setLanguagePreference(decodeInternationalDemoLanguagePreference(raw));setLanguageReady(true);}})
-   .catch(()=>{if(active){setLanguageError('No se pudo recuperar el idioma guardado.');setLanguageReady(true);}});
-  return ()=>{active=false;};
- },[]);
- async function chooseLanguage(value){
-  if(!languageReady)return;
-  try{
-   await saveInternationalDemoLanguagePreference(AsyncStorage,value);
-   setLanguagePreference(value);setLanguageError('');
-  }catch{setLanguageError('No se pudo guardar la preferencia de idioma.');}
- }
  const [origin,setOrigin]=useState('US');
  const [destination,setDestination]=useState('HN');
  const [amount,setAmount]=useState('25.00');
@@ -40,12 +23,11 @@ export default function InternationalPlannerDemoScreen(){
  return <View style={s.box}>
   <Text style={s.heading}>{t.title}</Text>
   <View style={{flexDirection:'row',flexWrap:'wrap',marginBottom:8}}>{['auto','es','en'].map(lang=><TouchableOpacity
-    key={lang} accessibilityRole="button" disabled={!languageReady}
-    onPress={()=>chooseLanguage(lang)}
+    key={lang} accessibilityRole="button" disabled={!languageReady||typeof onLanguageChange!=='function'}
+    onPress={()=>onLanguageChange(lang)}
     style={[s.input,{marginRight:8},languagePreference===lang&&{borderColor:'#ffda88',borderWidth:1}]}>
     <Text style={s.text}>{lang==='auto'?'Auto':lang==='es'?'Español':'English'}</Text>
   </TouchableOpacity>)}</View>
-  {!!languageError&&<Text style={s.notice}>{languageError}</Text>}
   <Text style={s.notice}>{t.notice}</Text>
   <Text style={s.text}>{t.favorites}</Text>
   <View style={{flexDirection:'row',flexWrap:'wrap',marginBottom:10}}>
