@@ -81,6 +81,8 @@ jobs:
         run: npx expo install --check
       - name: Comprobar clasificación segura de ANR Android
         run: python3 -m unittest discover -s tests -p 'test_android_launcher_anr.py'
+      - name: Validar controles reales de idioma en XML Android
+        run: python3 -m unittest discover -s tests -p 'test_android_demo_locale_ui.py'
       - name: Validar cotizaciones y recibos solo de prueba
         run: node --test tests/demo-conversion-contract.test.mjs
       - name: Comprobar recuperación de confirmaciones tras una desconexión
