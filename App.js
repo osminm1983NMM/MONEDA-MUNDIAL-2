@@ -269,11 +269,11 @@ export default function App() {
 
   function changeAmount(value) {
     setAmount(value);
-    pendingRef.current = null;
+    // No borrar una referencia de transferencia posiblemente procesada.
   }
   function changeRecipient(value) {
     setRecipientCode(value);
-    pendingRef.current = null;
+    // La referencia incierta solo desaparece tras conciliación verificable.
   }
 
   async function executeOperation(type, cents, code = '') {
@@ -283,7 +283,7 @@ export default function App() {
     if(!operationToken)return;
     setBusy(true);
     try {
-      if(!pendingReady||pendingRef.current)throw new Error('Primero verifica la operación pendiente.');
+      if(!pendingReady||pendingRef.current||mwdPending)throw new Error('Primero verifica la operación pendiente.');
       const pending = pendingRef.current;
       if (!pending || pending.type !== type || pending.cents !== cents || pending.code !== code) {
         pendingRef.current = { type, cents, code, id: uniqueRequestId() };
@@ -329,7 +329,7 @@ export default function App() {
 
   function prepareOperation(type) {
     if (operationGateRef.current.isBusy()) return;
-    if(!pendingReady||pendingRef.current)return message('Operación pendiente','Revisa la operación anterior antes de iniciar una nueva.');
+    if(!pendingReady||pendingRef.current||mwdPending)return message('Operación pendiente','Revisa la operación anterior antes de iniciar una nueva.');
     const cents = amountToCents(amount);
     if (cents === null) {
       return message('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
