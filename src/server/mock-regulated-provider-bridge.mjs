@@ -22,7 +22,7 @@ function validateOrder(order, countries) {
   // El mock nunca debe aceptar ni ignorar datos personales, cuentas o
   // controles "approved" suministrados por clientes. Forma EXACTA del contrato.
   if (!plainRecord(order) || Object.keys(order).sort().join('|')!==ORDER_KEYS)
-    throw auditSafe('Orden de ensayo inválida: solo campos públicos no personales');
+    throw auditSafe('Orden de ensayo inválida: datos personales/bancarios prohibidos; solo campos públicos permitidos');
   if (order.origin !== 'US' || !countries.has(order.destination) ||
       !MONEY_RE.test(order.sourceCurrency ?? '') || order.sourceCurrency !== 'USD' ||
       !Number.isSafeInteger(order.amountCents) || order.amountCents < 100 || order.amountCents > 10000000 ||
