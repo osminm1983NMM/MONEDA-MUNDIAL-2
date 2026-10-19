@@ -153,6 +153,7 @@ jobs:
           script: |
             bash scripts/smoke-wallet-demo-android.sh
             bash scripts/smoke-android-locales-demo.sh
+            bash scripts/smoke-android-build-diagnostics.sh
       - name: Comprobar misma APK
         run: sha256sum --check smoke-results/sha256.txt
       - name: Publicar APK de demostración verificada en Android
