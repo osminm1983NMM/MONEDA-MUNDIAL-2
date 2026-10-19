@@ -43,7 +43,7 @@ begin
     then raise exception 'Error de conciliación'; end if;
   if (select balance_cents from public.mwd_wallets where account_code='MWD-AAAAAAAAAAAAAAAA')<>99000
     or (select balance_cents from public.mwd_wallets where account_code='MWD-BBBBBBBBBBBBBBBB')<>201000
-    or (select count(*) from public.mwd_operations where request_id=request_id)<>1
+    or (select count(*) from public.mwd_operations o where o.request_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid)<>1
     then raise exception 'La transferencia se duplicó'; end if;
   perform set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',true);
   checked:=public.mwd_operation_status_demo(request_id);
