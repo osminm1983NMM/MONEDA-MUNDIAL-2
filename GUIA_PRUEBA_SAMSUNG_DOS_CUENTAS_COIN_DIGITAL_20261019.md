@@ -4,8 +4,10 @@
 Esta guía está pensada para comprobar la app **desde un solo teléfono Samsung**. No constituye una certificación financiera, de seguridad o de producción. Ninguna moneda Coin o Digital se ha emitido ni representa fondos retirables.
 
 ## Antes de instalar
-- **No instalar una APK nueva hasta confirmar** que GitHub Actions completó tanto la compilación como el arranque en emulador y creó el artefacto `moneda-mundial-demo-apk-arranque-verificado` del **mismo commit**. Los resultados anteriores no certifican un commit nuevo.
-- Flujo de esta versión: https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/39301885956 (al redactar esta guía seguía en ejecución). Consultar el estado final antes de cualquier instalación.
+- ✅ **Verificación del 19 de octubre de 2026:** GitHub Actions finalizó en `success` para el commit de aplicación `3b99f544068e9f5fa14238a81fbd0b5eb3b304ef`. La compilación, instalación en **emulador** y comprobación de aviso `SOLO DEMOSTRACIÓN` fueron exitosas; se cotejó la misma APK por SHA-256.
+- Flujo aprobado: https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/39301885956
+- Descargar **solo** desde la sección **Artifacts** de ese flujo el archivo `moneda-mundial-demo-apk-arranque-verificado` (identificador de artefacto GitHub `12212645639`). **Disponible temporalmente hasta el 26 de octubre de 2026 a las 18:32 UTC**, salvo cambios de retención en GitHub. No confundir el commit posterior de esta guía con el commit de la APK verificada.
+- ⚠️ La verificación confirma **arranque sin iniciar sesión en emulador**, no funcionamiento en un Samsung físico, pagos, login autenticado ni convertibilidad verdadera.
 - La APK de GitHub es una **build con firma temporal de pruebas**, nunca para usar con fondos, claves bancarias, identidades reales o credenciales financieras. No compartir APK por mensajería.
 - Si ya está instalada otra versión, **no desinstalarla** cuando haya un registro de conversión pendiente: la desinstalación puede borrar datos locales necesarios para conciliación. Las firmas temporales de versiones distintas pueden impedir la actualización. No anular protecciones Android.
 - Crear/utilizar exclusivamente **dos cuentas autorizadas de ensayo** (A y B), sin datos bancarios ni personales innecesarios.
