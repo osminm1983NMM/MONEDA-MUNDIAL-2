@@ -68,3 +68,20 @@ test('el catálogo internacional no habilita pagos: HN, NI, CR y EC solo DEMO',(
  }
  assert.equal(v.sanitizedAudit().filter(x=>x.kind==='sample_issued_mock').length,4);
 });
+
+test('la inspección actualiza la expiración sin mostrar código ni duplicar auditoría',()=>{
+ t=1700000000000;
+ const m=make();
+ const issued=create(m);
+ assert.equal(m.inspectSample(issued.caseId).status,'issued_mock');
+ t+=15*60*1000;
+ const expired=m.inspectSample(issued.caseId);
+ assert.equal(expired.status,'expired_mock');
+ assert.equal(expired.canPay,false);
+ assert.equal(expired.moneyDelivered,false);
+ assert.equal(JSON.stringify(expired).includes(issued.sampleCode),false);
+ assert.equal(m.inspectSample(issued.caseId).status,'expired_mock');
+ assert.equal(m.sanitizedAudit().filter(e=>e.kind==='sample_expired_mock').length,1);
+ assert.equal(m.verifySyntheticCode({caseId:issued.caseId,sampleCode:issued.sampleCode,beneficiaryAlias:'SAMPLE-HN-ABCD1234'}).acceptedMock,false);
+ t=1700000000000;
+});
