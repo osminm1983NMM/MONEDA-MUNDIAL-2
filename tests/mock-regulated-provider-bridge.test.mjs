@@ -68,3 +68,53 @@ test('notificación de laboratorio rechaza campos ajenos aunque estén firmados 
  assert.throws(()=>m.verifyAndApplyWebhook({rawBody,timestamp:signed.timestamp,signature}),/Esquema/);
  assert.equal(m.getSandboxTransfer(a.id).status,'sandbox_submitted');
 });
+
+test('contrato estricto del puente no ignora campos personales ni autorizaciones declaradas',()=>{
+ const m=make();
+ for(const candidate of [
+  {...order,beneficiaryEmail:'someone@example.com'},
+  {...order,bankAccount:'123456'},
+  {...order,ssn:'000-00-0000'},
+  {...order,liveApproved:true},
+  {...order,providerToken:'fake-token'},
+  {...order,recipientFullName:'TEST PERSON'},
+ ]){
+  assert.throws(()=>m.quote(candidate),/inválida/);
+  assert.throws(()=>m.submitSandboxTransfer({requestId:'request-extra-fields-123',order:candidate}),/inválida/);
+ }
+ const inherited=Object.create(order);
+ assert.throws(()=>m.quote(inherited),/inválida/);
+ assert.throws(()=>createMockRegulatedProviderBridge({webhookSecret:secret,liveFundsEnabled:true}),/Configuración/);
+ assert.throws(()=>createMockRegulatedProviderBridge({webhookSecret:secret,providerApiKey:'secret'}),/Configuración/);
+ assert.equal(m.moneyMovementEnabled,false);
+ assert.equal(m.getSanitizedAudit().length,0);
+});
+test('marcas de tiempo inválidas nunca pasan una firma válida aunque reloj falle',()=>{
+ const signedClock=1700000000000;
+ const good=make(),transfer=good.submitSandboxTransfer({requestId:'request-invalid-clock-01',order});
+ const signed=good.makeMockWebhook({id:'event-invalid-clock-01',transferId:transfer.id,status:'sandbox_pending'});
+ for(const clock of [()=>Number.NaN,()=>Number.POSITIVE_INFINITY,()=>undefined,()=>-1,()=>0.1]){
+  const broken=createMockRegulatedProviderBridge({webhookSecret:secret,clock});
+  assert.throws(()=>broken.verifyAndApplyWebhook(signed),/vencida/);
+  assert.throws(()=>broken.makeMockWebhook({transferId:transfer.id,status:'sandbox_pending'}),/Reloj/);
+ }
+ const boundary=createMockRegulatedProviderBridge({webhookSecret:secret,clock:()=>signedClock+5*60*1000});
+ const another=boundary.submitSandboxTransfer({requestId:'request-boundary-clock-01',order});
+ const signature=good.makeMockWebhook({id:'event-boundary-clock-01',transferId:another.id,status:'sandbox_pending'});
+ assert.equal(boundary.verifyAndApplyWebhook(signature).status,'sandbox_pending');
+ const outdated=createMockRegulatedProviderBridge({webhookSecret:secret,clock:()=>signedClock+5*60*1000+1});
+ assert.throws(()=>outdated.verifyAndApplyWebhook(signature),/vencida/);
+});
+test('catálogo de países de DISEÑO exige códigos únicos sin habilitar remesas reales',()=>{
+ assert.throws(()=>createMockRegulatedProviderBridge({webhookSecret:secret,countryCodes:['HN','HN']}),/Catálogo/);
+ const m=createMockRegulatedProviderBridge({webhookSecret:secret,countryCodes:['HN','NI','CR','EC']});
+ assert.deepEqual(m.supportedDesignRoutes,['US:CR','US:EC','US:HN','US:NI']);
+ for(const destination of ['HN','NI','CR','EC']){
+  const q=m.quote({...order,destination});
+  assert.equal(q.quoteValidForRealTransfer,false);
+  assert.equal(q.feeCents,null);
+  assert.equal(q.fxRate,null);
+  assert.equal(q.recipientAmountCents,null);
+  assert.equal(q.redeemable,false);
+ }
+});
