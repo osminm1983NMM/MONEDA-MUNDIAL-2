@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import PartnerRegistryScreen from './PartnerRegistryScreen';
 import CoinStableDemoScreen from './CoinStableDemoScreen';
+import InternationalPlannerDemoScreen from './InternationalPlannerDemoScreen';
 import DemoAssetSummaryCard from './DemoAssetSummaryCard';
 import { createDemoSessionGuard, createDemoOperationGate } from './src/digital-money/demo-session-guard.mjs';
 import { mwdPendingStorageKey, serializeMwdPending, deserializeMwdPending, buildMwdDemoRetry } from './src/digital-money/mwd-pending-operation-demo.mjs';
@@ -422,6 +423,7 @@ export default function App() {
                   ()=>checkPendingMwd(true))
               } />}
               <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet} />
+              <Btn title="Planificar envío internacional (DEMO)" secondary onPress={() => navigate('Internacional')} />
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
@@ -477,6 +479,7 @@ export default function App() {
               })}
             </>}
 
+            {screen === 'Internacional' && <InternationalPlannerDemoScreen />}
             {screen === 'Conversión' && <CoinStableDemoScreen key={userId} userId={userId} supabase={supabase} />}
             {screen === 'Entrega' && <PickupWithoutPhoneDemo supabase={supabase} isOwner={adminRole === 'owner'} />}
             {screen === 'Admin' && <View style={styles.card}>
