@@ -1,8 +1,17 @@
 -- Prueba automática de conversión COIN/DIGITAL con PostgreSQL DESECHABLE.
 -- Nunca ejecuta servicios bancarios, cadenas cripto ni Supabase del usuario.
 \set ON_ERROR_STOP on
-create role anon nologin;
-create role authenticated nologin;
+-- Los roles de PostgreSQL son globales al cluster, aunque cada prueba usa su propia BD.
+-- Mantener las dos pruebas independientes sin fallar por roles creados previamente.
+do $roles$
+begin
+  if not exists (select 1 from pg_catalog.pg_roles where rolname='anon') then
+    create role anon nologin;
+  end if;
+  if not exists (select 1 from pg_catalog.pg_roles where rolname='authenticated') then
+    create role authenticated nologin;
+  end if;
+end $roles$;
 create schema auth;
 grant usage on schema auth to authenticated;
 create table auth.users(id uuid primary key);
