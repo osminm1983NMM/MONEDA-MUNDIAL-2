@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ALL_COUNTRY_CODE_COUNT,validDemoCountryCode,parseInternationalPlanCents,buildInternationalDemoPlan} from '../src/digital-money/international-demo-planner.mjs';
+import {ALL_COUNTRY_CODE_COUNT,DEMO_PAYOUT_METHODS,validDemoCountryCode,parseInternationalPlanCents,buildInternationalDemoPlan} from '../src/digital-money/international-demo-planner.mjs';
 test('mantiene códigos internacionales completos, incluidos Nicaragua y Honduras',()=>{
  assert.equal(ALL_COUNTRY_CODE_COUNT,249);
  for(const code of ['US','HN','NI','SV','CR','EC','ES','TR','AR','PE','BR','CO'])
@@ -30,4 +30,19 @@ test('no permite país inválido, misma jurisdicción o valores monetarios incor
  assert.equal(parseInternationalPlanCents('0.01'),1);
  assert.equal(parseInternationalPlanCents('25,50'),2550);
  assert.equal(parseInternationalPlanCents('1000000'),100000000);
+});
+
+test('métodos de entrega no generan pago ni recopilan datos del beneficiario',()=>{
+ assert.equal(DEMO_PAYOUT_METHODS.length,4);
+ for(const method of DEMO_PAYOUT_METHODS){
+   const plan=buildInternationalDemoPlan({originCode:'US',destinationCode:'NI',payoutMethod:method.id});
+   assert.equal(plan.payoutMethod,method.id);
+   assert.equal(plan.payoutAvailability,'not_verified');
+   assert.equal(plan.beneficiaryVerification,'not_started');
+   assert.equal(plan.beneficiaryDataCollected,false);
+   assert.equal(plan.executionAvailable,false);
+   assert.equal(plan.pickupCode,null);
+   assert.equal(plan.payoutReference,null);
+ }
+ assert.equal(buildInternationalDemoPlan({payoutMethod:'instant_real_bank_transfer'}),null);
 });
