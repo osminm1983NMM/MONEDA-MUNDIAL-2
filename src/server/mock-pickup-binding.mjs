@@ -77,7 +77,10 @@ export function createMockPickupBinding({providerPort,pickupVerifier}={}){
      sampleCode:sample.sampleCode,nonRedeemableWarning:
        'SOLO DEMOSTRACIÓN. Código sin valor; ningún banco ni agente puede entregar dinero.'});
   },
-  inspectSyntheticPickup({demoTransferId}={}){
+  inspectSyntheticPickup(input={}){
+   if(!exact(input,['demoTransferId']))
+    fail('Consulta de código ficticio inválida: campos inesperados');
+   const {demoTransferId}=input;
    if(typeof demoTransferId!=='string'||!DEMO_ID.test(demoTransferId))
     fail('Referencia de prueba inválida');
    const link=issuedByTransfer.get(demoTransferId);
