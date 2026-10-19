@@ -503,7 +503,7 @@ export default function App() {
               })}
             </>}
 
-            {screen === 'Internacional' && <InternationalPlannerDemoScreen />}
+            {screen === 'Internacional' && <InternationalPlannerDemoScreen languagePreference={languagePreference} onLanguageChange={chooseHomeLanguage} />}
             {screen === 'Conversión' && <CoinStableDemoScreen key={userId} userId={userId} supabase={supabase} />}
             {screen === 'Entrega' && <PickupWithoutPhoneDemo supabase={supabase} isOwner={adminRole === 'owner'} />}
             {screen === 'Admin' && <View style={styles.card}>
