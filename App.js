@@ -19,6 +19,7 @@ import DemoAssetSummaryCard from './DemoAssetSummaryCard';
 import { createDemoSessionGuard, createDemoOperationGate } from './src/digital-money/demo-session-guard.mjs';
 import { mwdPendingStorageKey, serializeMwdPending, deserializeMwdPending, buildMwdDemoRetry } from './src/digital-money/mwd-pending-operation-demo.mjs';
 import {classifyMwdOperationStatus} from './src/digital-money/mwd-operation-status-demo.mjs';
+import {reconcileMwdPendingDemo} from './src/digital-money/mwd-pending-recovery-demo.mjs';
 import ConversionAdminDemoScreen from './ConversionAdminDemoScreen';
 import PickupWithoutPhoneDemo from './PickupWithoutPhoneDemo';
 import AgentAccessAdminDemo from './AgentAccessAdminDemo';
@@ -183,34 +184,17 @@ export default function App() {
     if(!lock)return;
     setBusy(true);
     try{
-      // Antes de reenviar una operación se consulta siempre el libro.
-      const first=await supabase.rpc('mwd_operation_status_demo',{p_request_id:current.id});
+      const result=await reconcileMwdPendingDemo({
+        request:current,
+        rpc:(name,params)=>supabase.rpc(name,params),
+        allowRetry:allowSameReferenceRetry,
+        isCurrent:()=>sessionGuardRef.current.sameSession(ticket),
+      });
       if(!sessionGuardRef.current.sameSession(ticket))return;
-      if(first.error)throw first.error;
-      let state=classifyMwdOperationStatus(first.data,current);
-      if(!state)throw new Error('Respuesta de conciliación inválida');
-      if(state==='unconfirmed'&&!allowSameReferenceRetry){
-        message('Estado no confirmado','No hay registro visible aún. Conservamos la referencia. Puedes volver a consultar o elegir un reintento idempotente de DEMO.');
+      if(result.state==='unconfirmed'){
+        message('Estado no confirmado','El servidor todavía no registra el movimiento. Se conserva la referencia original para comprobarla de nuevo.');
         return;
       }
-      if(state==='unconfirmed'&&allowSameReferenceRetry){
-        const retry=buildMwdDemoRetry(current);
-        if(!retry)throw new Error('La referencia local de prueba no es válida');
-        // El servidor debe imponer unicidad por (actor_id, request_id);
-        // jamás generar otra referencia o cambiar monto y destino.
-        const repeated=await supabase.rpc(retry.rpc,retry.params);
-        if(!sessionGuardRef.current.sameSession(ticket))return;
-        if(repeated.error)throw repeated.error;
-        if(!['ok','already_processed'].includes(repeated.data?.status))
-          throw new Error('Respuesta del reintento no verificable');
-        const second=await supabase.rpc('mwd_operation_status_demo',{p_request_id:current.id});
-        if(!sessionGuardRef.current.sameSession(ticket))return;
-        if(second.error)throw second.error;
-        state=classifyMwdOperationStatus(second.data,current);
-        if(state!=='processed'||second.data.operationId!==repeated.data.operation_id)
-          throw new Error('El recibo no coincide con el libro de prueba');
-      }
-      if(state!=='processed')throw new Error('No se pudo confirmar el resultado');
       const key=mwdPendingStorageKey(userId);
       if(!key)throw new Error('Cuenta inválida');
       await AsyncStorage.removeItem(key);
