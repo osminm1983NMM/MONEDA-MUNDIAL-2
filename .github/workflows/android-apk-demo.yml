@@ -79,6 +79,8 @@ jobs:
             throw Error('Falta barrera documental de transferencias internacionales');
           }
           NODE
+      - name: Verificar lectura estricta de aviso DEMO en ambos idiomas
+        run: bash tests/check-demo-launch-ui.test.sh
       - name: Identificar APK como aplicación SOLO DEMO
         shell: bash
         run: |
