@@ -1,4 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
+import {getWorldResearchCountry} from '../src/digital-money/worldwide-research-countries.mjs';
 import {getGuestCashPickupPreview,GUEST_CASH_PICKUP_REAL_PAYMENTS_ENABLED}
  from '../src/guest-cash-pickup-preview.mjs';
 test('flujo público de retiro sin móvil bloquea fondos y referencias',()=>{
@@ -28,4 +29,29 @@ test('idioma inglés y países no confirmados no habilitan retiro',()=>{
  }
  assert.equal(getGuestCashPickupPreview({destination:'US'}),null);
  assert.equal(getGuestCashPickupPreview({destination:'ZZ'}),null);
+});
+
+test('catálogo completo permite explorar 248 destinos extranjeros sin habilitar pagos',()=>{
+ let count=0,visibleDestinations=0;
+ for(let a=65;a<=90;a++)for(let b=65;b<=90;b++){
+  const code=String.fromCharCode(a,b);
+  const row=getWorldResearchCountry(code,'es');
+  if(!row)continue;
+  count++;
+  const preview=getGuestCashPickupPreview({destination:code});
+  if(code==='US'){assert.equal(preview,null);continue;}
+  visibleDestinations++;
+  assert.ok(preview,code);
+  assert.equal(preview.destination,code);
+  assert.equal(preview.routeAvailable,false);
+  assert.equal(preview.licensedRemittanceCorridor,false);
+  assert.equal(preview.canWithdraw,false);
+  assert.equal(preview.canIssueCode,false);
+  assert.equal(preview.codeIssued,false);
+  assert.equal(preview.confirmedProviders,0);
+  assert.equal(preview.registeredPayoutAgents,0);
+  assert.equal(preview.realMoneyEnabled,false);
+ }
+ assert.equal(count,249);
+ assert.equal(visibleDestinations,248);
 });
