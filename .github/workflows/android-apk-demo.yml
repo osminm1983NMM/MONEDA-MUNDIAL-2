@@ -6,8 +6,12 @@ on:
     paths:
       - 'App.js'
       - '*.js'
-      - 'src/digital-money/demo-asset-summary.mjs'
+      - 'src/digital-money/**'
       - 'tests/demo-asset-summary.test.mjs'
+      - 'tests/demo-conversion-contract.test.mjs'
+      - 'tests/demo-pending-confirmation.test.mjs'
+      - 'tests/demo-confirm-and-reconcile.test.mjs'
+      - 'tests/demo-session-guard.test.mjs'
       - 'scripts/smoke-wallet-demo-android.sh'
       - '.github/workflows/android-apk-demo.yml'
   push:
@@ -46,6 +50,14 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Comprobar paquetes compatibles con Expo SDK 54
         run: npx expo install --check
+      - name: Rechazar recibos y cotizaciones DEMO inconsistentes
+        run: node --test tests/demo-conversion-contract.test.mjs
+      - name: Probar confirmaciones inciertas y conciliacion DEMO
+        run: |
+          node --test tests/demo-pending-confirmation.test.mjs
+          node --test tests/demo-confirm-and-reconcile.test.mjs
+          node --test tests/demo-session-guard.test.mjs
+          node --test tests/demo-asset-summary.test.mjs
       - name: Identificar APK como aplicación SOLO DEMO
         shell: bash
         run: |
