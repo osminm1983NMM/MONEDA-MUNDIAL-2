@@ -26,3 +26,23 @@ export function deserializeMwdPending(raw){
  if(typeof raw!=='string'||raw.length>1024)return null;
  try{return validateMwdPending(JSON.parse(raw));}catch{return null;}
 }
+
+/**
+ * Solamente operaciones de PRUEBA. Si hace falta reintentar una confirmación
+ * incierta, se repite EXACTAMENTE la referencia y parámetros originales.
+ * El servidor exige UNIQUE(actor_id, request_id) e idempotencia por RPC.
+ */
+export function buildMwdDemoRetry(request){
+ if(!request||typeof request!=='object')return null;
+ const valid=validateMwdPending({...request,version:1,
+   mode:'sandbox_only',realPaymentsEnabled:false});
+ if(!valid)return null;
+ if(valid.type==='transfer')return {
+   rpc:'mwd_transfer_demo',
+   params:{p_recipient_code:valid.code,p_amount_cents:valid.cents,p_request_id:valid.id},
+ };
+ return {
+   rpc:'mwd_contribute_demo',
+   params:{p_amount_cents:valid.cents,p_request_id:valid.id},
+ };
+}
