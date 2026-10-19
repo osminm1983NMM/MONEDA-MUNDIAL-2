@@ -175,7 +175,7 @@ export default function App() {
     return ()=>{active=false;};
   },[userId]);
 
-  async function checkPendingMwd(){
+  async function checkPendingMwd(allowSameReferenceRetry=false){
     const ticket=sessionGuardRef.current.capture(userId);
     const current=pendingRef.current;
     if(!ticket||!current||current.unavailable)return;
@@ -183,25 +183,44 @@ export default function App() {
     if(!lock)return;
     setBusy(true);
     try{
-      const {data,error}=await supabase.rpc('mwd_operation_status_demo',{p_request_id:current.id});
+      // Antes de reenviar una operación se consulta siempre el libro.
+      const first=await supabase.rpc('mwd_operation_status_demo',{p_request_id:current.id});
       if(!sessionGuardRef.current.sameSession(ticket))return;
-      if(error)throw error;
-      const state=classifyMwdOperationStatus(data,current);
+      if(first.error)throw first.error;
+      let state=classifyMwdOperationStatus(first.data,current);
       if(!state)throw new Error('Respuesta de conciliación inválida');
-      if(state==='unconfirmed'){
-        message('Resultado pendiente','Aún no aparece registrada. No repitas la transferencia. Conservamos la referencia para verificar de nuevo.');
+      if(state==='unconfirmed'&&!allowSameReferenceRetry){
+        message('Estado no confirmado','No hay registro visible aún. Conservamos la referencia. Puedes volver a consultar o elegir un reintento idempotente de DEMO.');
         return;
       }
+      if(state==='unconfirmed'&&allowSameReferenceRetry){
+        const retry=buildMwdDemoRetry(current);
+        if(!retry)throw new Error('La referencia local de prueba no es válida');
+        // El servidor debe imponer unicidad por (actor_id, request_id);
+        // jamás generar otra referencia o cambiar monto y destino.
+        const repeated=await supabase.rpc(retry.rpc,retry.params);
+        if(!sessionGuardRef.current.sameSession(ticket))return;
+        if(repeated.error)throw repeated.error;
+        if(!['ok','already_processed'].includes(repeated.data?.status))
+          throw new Error('Respuesta del reintento no verificable');
+        const second=await supabase.rpc('mwd_operation_status_demo',{p_request_id:current.id});
+        if(!sessionGuardRef.current.sameSession(ticket))return;
+        if(second.error)throw second.error;
+        state=classifyMwdOperationStatus(second.data,current);
+        if(state!=='processed'||second.data.operationId!==repeated.data.operation_id)
+          throw new Error('El recibo no coincide con el libro de prueba');
+      }
+      if(state!=='processed')throw new Error('No se pudo confirmar el resultado');
       const key=mwdPendingStorageKey(userId);
       if(!key)throw new Error('Cuenta inválida');
       await AsyncStorage.removeItem(key);
       if(!sessionGuardRef.current.sameSession(ticket))return;
       pendingRef.current=null;setMwdPending(null);
-      message('Operación ficticia verificada','La misma referencia figura como procesada. No se enviaron fondos adicionales.');
+      message('Operación ficticia verificada','Esta referencia aparece procesada una sola vez. Sin dinero real.');
       await refreshAccount();
     }catch(e){
       if(sessionGuardRef.current.sameSession(ticket))
-        message('Pendiente de verificar','La operación sigue bloqueada hasta poder comprobar su resultado.');
+        message('Pendiente de verificar','Se conserva la referencia original. No inicies otro envío mientras se verifica el resultado.');
     }finally{
       if(operationGateRef.current.release(lock)&&sessionGuardRef.current.sameSession(ticket))setBusy(false);
     }
@@ -412,7 +431,12 @@ export default function App() {
               </View>
               {!!mwdPending&&<Text style={styles.warning}>Hay una operación MWD ficticia pendiente de verificación.</Text>}
               {!!mwdPending&&!mwdPending.unavailable&&<Text selectable style={styles.muted}>Referencia: {mwdPending.id}{'\n'}Tipo: {mwdPending.type==='transfer'?'Transferencia':'Aportación'} · {formatMWD(mwdPending.cents)} MWD de prueba{mwdPending.type==='transfer'?' · Beneficiario: '+mwdPending.code:''}</Text>}
-              {!!mwdPending&&!mwdPending.unavailable&&<Btn title="Verificar operación MWD anterior" onPress={checkPendingMwd} disabled={busy} />}
+              {!!mwdPending&&!mwdPending.unavailable&&<Btn title="Consultar estado MWD anterior" onPress={()=>checkPendingMwd(false)} disabled={busy} />}
+              {!!mwdPending&&!mwdPending.unavailable&&<Btn title="Reintentar MISMA operación (DEMO)" secondary disabled={busy} onPress={()=>
+                confirmAction('Reintento idempotente de DEMO',
+                  'Se consultará primero el registro. Solo si no está confirmada se repetirá exactamente la misma referencia, cantidad y beneficiario. Nunca utiliza dinero real.',
+                  ()=>checkPendingMwd(true))
+              } />}
               <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet} />
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
