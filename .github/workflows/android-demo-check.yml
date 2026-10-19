@@ -31,6 +31,8 @@ on:
       - 'tests/country-search-demo.test.mjs'
       - 'src/digital-money/international-demo-i18n.mjs'
       - 'tests/international-demo-i18n.test.mjs'
+      - 'src/digital-money/international-demo-language-preference.mjs'
+      - 'tests/international-demo-language-preference.test.mjs'
       - 'src/digital-money/beneficiary-verification-checklist-demo.mjs'
       - 'tests/beneficiary-verification-checklist-demo.test.mjs'
       - 'src/digital-money/international-provider-assessment-demo.mjs'
@@ -104,6 +106,8 @@ jobs:
         run: node --test tests/country-search-demo.test.mjs
       - name: Comprobar localización internacional ES/EN
         run: node --test tests/international-demo-i18n.test.mjs
+      - name: Verificar preferencia de idioma persistente
+        run: node --test tests/international-demo-language-preference.test.mjs
       - name: Empaquetar JavaScript para Android (no crea APK)
         run: npx expo export --platform android --output-dir dist
       - name: Confirmar que se generaron archivos
