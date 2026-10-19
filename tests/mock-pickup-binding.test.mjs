@@ -14,7 +14,7 @@ const order=(destination='HN',payoutMethod='cash_pickup')=>({
  origin:'US',destination,sourceCurrency:'USD',amountCents:10000,payoutMethod
 });
 const create=(port,destination='HN',payoutMethod='cash_pickup')=>port.submitDemoTransfer({
- requestId:'request-'+destination+'-'+payoutMethod+'-001',order:order(destination,payoutMethod)
+ requestId:'request-'+destination+'-'+payoutMethod.replaceAll('_','-')+'-001',order:order(destination,payoutMethod)
 });
 const complete=(port,id)=>{
  const pending=port.makeSyntheticEvent({id:'mock-event-pending-'+id,
