@@ -5,6 +5,7 @@ on:
     paths:
       - 'tests/coin-digital-two-user-isolation-rollback-20261019.sql'
       - 'tests/coin-stable-operations-isolated.sql'
+      - 'tests/fixtures/coin-digital-two-user-rollback-isolated-setup.sql'
       - 'docs/PRUEBA_DOS_CUENTAS_COIN_DIGITAL_20261019.md'
       - 'src/digital-money/demo-conversion-contract.mjs'
       - '.github/workflows/dual-wallet-qa-isolated.yml'
@@ -51,6 +52,14 @@ jobs:
           sudo -u postgres createdb mwd_two_wallets_ci
           sudo -u postgres psql -d mwd_two_wallets_ci -X -v ON_ERROR_STOP=1 \
             -f tests/coin-stable-operations-isolated.sql
+
+      - name: Ejecutar prueba versionada de dos cuentas con ROLLBACK, sin Supabase
+        run: |
+          sudo -u postgres createdb mwd_two_users_rollback_ci
+          sudo -u postgres psql -d mwd_two_users_rollback_ci -X -v ON_ERROR_STOP=1 \
+            -f tests/fixtures/coin-digital-two-user-rollback-isolated-setup.sql
+          sudo -u postgres psql -d mwd_two_users_rollback_ci -X -v ON_ERROR_STOP=1 \
+            -f tests/coin-digital-two-user-isolation-rollback-20261019.sql
 
       - name: Resumen de alcance
         run: |
