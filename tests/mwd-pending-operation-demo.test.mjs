@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mwdPendingStorageKey,serializeMwdPending,deserializeMwdPending,validateMwdPending} from '../src/digital-money/mwd-pending-operation-demo.mjs';
+import {mwdPendingStorageKey,serializeMwdPending,deserializeMwdPending,validateMwdPending,buildMwdDemoRetry} from '../src/digital-money/mwd-pending-operation-demo.mjs';
 const id='11111111-1111-4111-8111-111111111111';
 const r={id,type:'transfer',cents:100,code:'MWD-0123456789ABCDEF'};
 test('persistencia segura de referencia MWD ficticia por usuario',()=>{
@@ -16,4 +16,14 @@ test('persistencia segura de referencia MWD ficticia por usuario',()=>{
 test('aportacion ficticia no debe contener beneficiario',()=>{
  assert.deepEqual(deserializeMwdPending(serializeMwdPending({...r,type:'contribution',code:''})),{...r,type:'contribution',code:''});
  assert.equal(serializeMwdPending({...r,type:'contribution'}),null);
+});
+
+test('reintento idempotente DEMO reutiliza exactamente la misma referencia y datos',()=>{
+ const restored=deserializeMwdPending(serializeMwdPending(r));
+ assert.deepEqual(buildMwdDemoRetry(restored),{rpc:'mwd_transfer_demo',
+   params:{p_recipient_code:r.code,p_amount_cents:r.cents,p_request_id:r.id}});
+ assert.deepEqual(buildMwdDemoRetry({...r,type:'contribution',code:''}),{
+   rpc:'mwd_contribute_demo',params:{p_amount_cents:r.cents,p_request_id:r.id}});
+ assert.equal(buildMwdDemoRetry({...r,code:'invalid'}),null);
+ assert.equal(buildMwdDemoRetry(null),null);
 });
