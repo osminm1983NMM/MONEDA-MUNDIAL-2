@@ -6,6 +6,11 @@ import { createHmac, randomUUID, timingSafeEqual, createHash } from 'node:crypto
 const DEFAULT_DESIGN_COUNTRIES = Object.freeze(['HN', 'NI']); // ejemplos; el catálogo completo llega desde el servidor
 const DEMO_STATUSES = new Set(['sandbox_submitted', 'sandbox_pending', 'sandbox_completed', 'sandbox_failed']);
 const MONEY_RE = /^[A-Z]{3}$/;
+const ORDER_KEYS = ['amountCents','destination','origin','payoutMethod','sourceCurrency'].join('|');
+const CONFIG_KEYS = new Set(['mode','webhookSecret','clock','countryCodes']);
+const plainRecord = value => value!==null && typeof value==='object' &&
+ !Array.isArray(value) && (Object.getPrototypeOf(value)===Object.prototype ||
+ Object.getPrototypeOf(value)===null);
 const MODE_ERROR='DINERO REAL BLOQUEADO: no hay proveedor contratado ni aprobación regulatoria.';
 const jsonClone = value => JSON.parse(JSON.stringify(value));
 const auditSafe = (message) => new Error(message);
@@ -14,17 +19,15 @@ function requireMockOnly(mode) {
   if (mode !== 'mock') throw auditSafe(MODE_ERROR);
 }
 function validateOrder(order, countries) {
-  if (!order || typeof order !== 'object' || Array.isArray(order)) throw auditSafe('Orden de ensayo requerida');
+  // El mock nunca debe aceptar ni ignorar datos personales, cuentas o
+  // controles "approved" suministrados por clientes. Forma EXACTA del contrato.
+  if (!plainRecord(order) || Object.keys(order).sort().join('|')!==ORDER_KEYS)
+    throw auditSafe('Orden de ensayo inválida: datos personales/bancarios prohibidos; solo campos públicos permitidos');
   if (order.origin !== 'US' || !countries.has(order.destination) ||
       !MONEY_RE.test(order.sourceCurrency ?? '') || order.sourceCurrency !== 'USD' ||
       !Number.isSafeInteger(order.amountCents) || order.amountCents < 100 || order.amountCents > 10000000 ||
       !['bank_account', 'cash_pickup'].includes(order.payoutMethod)) {
     throw auditSafe('Ruta o importe de ensayo inválido');
-  }
-  // Nunca insertar información sensible de clientes reales en el mock.
-  if (['bankAccount', 'beneficiaryName', 'beneficiaryDocument', 'cardNumber', 'cvv',
-      'iban', 'routingNumber', 'personalId'].some(key => Object.hasOwn(order,key))) {
-    throw auditSafe('Datos personales/bancarios prohibidos en el sandbox ficticio');
   }
   return {
     origin:'US', destination:order.destination,sourceCurrency:'USD',
@@ -40,14 +43,18 @@ function constantTimeHex(a,b) {
     return false;
   return timingSafeEqual(Buffer.from(a,'hex'),Buffer.from(b,'hex'));
 }
-export function createMockRegulatedProviderBridge({
- mode='mock', webhookSecret, clock=()=>Date.now(), countryCodes=DEFAULT_DESIGN_COUNTRIES,
-}={}) {
+export function createMockRegulatedProviderBridge(options={}) {
+ if(!plainRecord(options) || Object.keys(options).some(key=>!CONFIG_KEYS.has(key)))
+   throw auditSafe('Configuración de proveedor mock inválida');
+ const {mode='mock', webhookSecret, clock=()=>Date.now(),
+  countryCodes=DEFAULT_DESIGN_COUNTRIES}=options;
  requireMockOnly(mode);
  if(typeof webhookSecret!=='string' || webhookSecret.length<32)
    throw auditSafe('Se necesita una clave de ensayo secreta >=32 caracteres. Nunca incluirla en la app.');
  if(typeof clock!=='function')throw auditSafe('Reloj inválido');
- if(!Array.isArray(countryCodes) || countryCodes.some(code=>!(/^[A-Z]{2}$/.test(code)) || code==='US'))
+ if(!Array.isArray(countryCodes) || countryCodes.some(code=>
+     typeof code!=='string'||!(/^[A-Z]{2}$/.test(code)) || code==='US') ||
+     new Set(countryCodes).size!==countryCodes.length)
    throw auditSafe('Catálogo de países de diseño inválido');
  const countries=new Set(countryCodes);
  const routes=Object.freeze([...countries].map(code=>'US:'+code).sort());
@@ -70,14 +77,23 @@ export function createMockRegulatedProviderBridge({
      redeemable:false,moneyMovementEnabled:false,
    });
   },
-  submitSandboxTransfer({requestId,order}={}) {
+  submitSandboxTransfer(input={}) {
+   // Fallar cerrado: no aceptar ni ignorar PII, token, URL o bandera de pago "live".
+   if(!plainRecord(input) || Object.keys(input).sort().join('|')!=='order|requestId')
+     throw auditSafe('Solicitud de demostración inválida: solo orden e identificador');
+   const {requestId,order}=input;
    if(typeof requestId!=='string'||!/^[a-zA-Z0-9-]{12,90}$/.test(requestId))
      throw auditSafe('Identificador de reintento inválido');
    const normalized=validateOrder(order,countries),hash=digest(normalized);
    const existing=attempts.get(requestId);
    if(existing) {
      if(existing.hash!==hash)throw auditSafe('Idempotency key reutilizada con datos diferentes');
-     return Object.freeze({...jsonClone(existing.result),alreadyProcessed:true});
+     // La referencia idempotente NO crea otra remesa; su estado consultado
+     // se alinea con el último evento MOCK aceptado (nunca equivale a pago).
+     const current=orders.get(existing.result.id);
+     if(!current)throw auditSafe('Orden de ensayo inconsistente');
+     return Object.freeze({...jsonClone(existing.result),
+       status:current.status,alreadyProcessed:true});
    }
    const id=randomUUID(), result={
      id,requestId,status:'sandbox_submitted',source:'mock_memory_only',
@@ -89,9 +105,17 @@ export function createMockRegulatedProviderBridge({
    maybeLog('mock_transfer_created',id);
    return Object.freeze(jsonClone({...result,alreadyProcessed:false}));
   },
-  verifyAndApplyWebhook({rawBody,timestamp,signature:incomingSignature}={}) {
+  verifyAndApplyWebhook(message={}) {
+   // La firma solo protege los bytes aceptados; no aceptar parámetros extra.
+   if(!plainRecord(message) || Object.keys(message).sort().join('|')!=='rawBody|signature|timestamp')
+     throw auditSafe('Notificación de ensayo inválida: campos inesperados');
+   const {rawBody,timestamp,signature:incomingSignature}=message;
+   // Falla cerrada ante relojes incompletos, saltos inválidos o edades >5 min.
+   const current=clock();
    if(typeof rawBody!=='string'||Buffer.byteLength(rawBody,'utf8')>8192||
-      !Number.isSafeInteger(timestamp)||Math.abs(clock()-timestamp)>5*60*1000)
+      !Number.isSafeInteger(timestamp)||timestamp<0 ||
+      !Number.isSafeInteger(current)||current<0 ||
+      Math.abs(current-timestamp)>5*60*1000)
      throw auditSafe('Notificación de ensayo inválida o vencida');
    if(!constantTimeHex(signature(webhookSecret,timestamp,rawBody),incomingSignature))
      throw auditSafe('Firma de notificación inválida');
@@ -131,6 +155,8 @@ export function createMockRegulatedProviderBridge({
   makeMockWebhook({id=randomUUID(),transferId,status}={}) {
     const rawBody=JSON.stringify({id,transferId,status});
     const timestamp=clock();
+    if(!Number.isSafeInteger(timestamp)||timestamp<0)
+      throw auditSafe('Reloj de ensayo inválido');
     return Object.freeze({rawBody,timestamp,signature:signature(webhookSecret,timestamp,rawBody)});
   },
   getSandboxTransfer(id) {

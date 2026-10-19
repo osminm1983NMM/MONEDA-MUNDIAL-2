@@ -53,3 +53,21 @@ test('notificación duplicada conserva etapa original tras progreso posterior',(
  assert.equal(p.sanitizedAudit().filter(x=>x.type==='mock_webhook_accepted').length,2);
  assert.equal(late.realMoneyEnabled,false);
 });
+
+test('port de proveedor conserva etapa más reciente al reintentar la misma referencia MOCK',()=>{
+ const p=make();
+ const input={requestId:'request-port-replay-001',order};
+ const original=p.submitDemoTransfer(input);
+ const pending=p.makeSyntheticEvent({id:'event-port-pending-001',transferId:original.demoTransferId,status:'sandbox_pending'});
+ assert.equal(p.receiveSignedDemoEvent(pending).stage,'processing_mock_provider_only');
+ const after=p.submitDemoTransfer(input);
+ assert.equal(after.demoTransferId,original.demoTransferId);
+ assert.equal(after.alreadyProcessed,true);
+ assert.equal(after.stage,'processing_mock_provider_only');
+ const failed=p.makeSyntheticEvent({id:'event-port-failed-001',transferId:original.demoTransferId,status:'sandbox_failed'});
+ assert.equal(p.receiveSignedDemoEvent(failed).stage,'mock_provider_job_failed_unverified');
+ assert.equal(p.submitDemoTransfer(input).stage,'mock_provider_job_failed_unverified');
+ assert.equal(p.sanitizedAudit().filter(e=>e.type==='mock_transfer_created').length,1);
+ assert.equal(p.checkDemoStatus(original.demoTransferId).bankProviderConnected,false);
+ assert.equal(p.checkDemoStatus(original.demoTransferId).realMoneyEnabled,false);
+});
