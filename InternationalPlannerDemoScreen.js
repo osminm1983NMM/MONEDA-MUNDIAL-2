@@ -1,0 +1,27 @@
+import React,{useState} from 'react';
+import {View,Text,TextInput,StyleSheet} from 'react-native';
+import {buildInternationalDemoPlan} from './src/digital-money/international-demo-planner.mjs';
+const s=StyleSheet.create({box:{backgroundColor:'#13253e',borderRadius:12,padding:16,marginTop:10},heading:{color:'#fff',fontSize:19,fontWeight:'bold',marginBottom:10},text:{color:'#d4e0f1',marginBottom:8},notice:{color:'#ffda88',marginBottom:10},input:{backgroundColor:'#243957',color:'white',padding:12,borderRadius:8,marginBottom:10}});
+export default function InternationalPlannerDemoScreen(){
+ const [origin,setOrigin]=useState('US');
+ const [destination,setDestination]=useState('HN');
+ const [amount,setAmount]=useState('25.00');
+ const plan=buildInternationalDemoPlan({originCode:origin,destinationCode:destination,amountUSD:amount});
+ return <View style={s.box}>
+  <Text style={s.heading}>Transferencia internacional — planificación</Text>
+  <Text style={s.notice}>SOLO DEMOSTRACIÓN. No envía fondos, no genera tasa de cambio real ni habilita país alguno.</Text>
+  <Text style={s.text}>País de origen (ISO, 2 letras)</Text>
+  <TextInput accessibilityLabel="País origen" style={s.input} autoCapitalize="characters" maxLength={2} value={origin} onChangeText={setOrigin}/>
+  <Text style={s.text}>País destino (ISO, 2 letras)</Text>
+  <TextInput accessibilityLabel="País destino" style={s.input} autoCapitalize="characters" maxLength={2} value={destination} onChangeText={setDestination}/>
+  <Text style={s.text}>Cantidad de referencia en USD (solo para planificación)</Text>
+  <TextInput accessibilityLabel="Importe simulado USD" style={s.input} keyboardType="decimal-pad" value={amount} onChangeText={setAmount}/>
+  {!plan?<Text style={s.notice}>Comprueba ambos códigos de país (distintos) y el importe positivo con máximo dos decimales.</Text>:<>
+   <Text style={s.text}>Ruta solicitada: {plan.originCode} → {plan.destinationCode}</Text>
+   <Text style={s.text}>Importe de referencia: {(plan.amountCents/100).toFixed(2)} USD</Text>
+   <Text style={s.notice}>ESTADO: NO HABILITADA. No hay comisión, proveedor, tasa ni importe de entrega confirmados.</Text>
+   <Text style={s.heading}>Requisitos antes de cualquier activación</Text>
+   {plan.requirements.map((line,index)=><Text key={index} style={s.text}>• {line}</Text>)}
+  </>}
+ </View>;
+}
