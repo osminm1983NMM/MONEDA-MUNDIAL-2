@@ -65,6 +65,9 @@ test('Estados Unidos → Honduras: orden y estados MOCK no acreditan un solo cen
  assert.equal(status.journalPostingAllowed,false);
  assertNoReal(status);
  assert.equal(port.sanitizedAudit().filter(x=>x.type==='mock_transfer_created').length,1);
+ assert.equal(replay.funded,false);
+ assert.equal(replay.paid,false);
+ assert.equal(replay.realMoneyEnabled,false);
 });
 test('Honduras: el agente NI o banco HN no pueden consumir código SAMPLE',()=>{
  const verifier=createMockCashPickupVerifier({secret:PICKUP_SECRET,clock:()=>CLOCK});

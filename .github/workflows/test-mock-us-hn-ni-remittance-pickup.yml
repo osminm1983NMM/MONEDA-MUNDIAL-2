@@ -8,6 +8,7 @@ on:
       - 'src/server/mock-agent-pickup-session.mjs'
       - 'src/server/mock-regulated-provider-bridge.mjs'
       - 'src/server/provider-integration-port.mjs'
+      - 'tests/provider-integration-port.test.mjs'
       - 'src/server/mock-institutional-session-gateway.mjs'
       - '.github/workflows/test-mock-us-hn-ni-remittance-pickup.yml'
   workflow_dispatch:

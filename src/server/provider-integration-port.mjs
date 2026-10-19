@@ -64,13 +64,18 @@ export function createMockProviderIntegrationPort(options={}){
      fail('Solicitud de demostración inválida');
    orderCheck(input.order);
    const result=bridge.submitSandboxTransfer(input);
+   // Los recibos idempotentes pueden conservar la fase inicial; observar el
+   // último estado del MOCK sin crear una segunda orden ni asumir pago.
+   const latest=bridge.getSandboxTransfer(result.id);
+   if(!latest||!Object.hasOwn(stateToPhase,latest.status))
+     fail('Estado ficticio de reintento no verificable');
    created.set(result.id,frozen({origin:'US',
      destination:input.order.destination,
      sourceCurrency:'USD',sourceAmountCents:input.order.amountCents}));
    return frozen({
     demoTransferId:result.id,
     alreadyProcessed:result.alreadyProcessed,
-    stage:stateToPhase[result.status],
+    stage:stateToPhase[latest.status],
     funded:false,paid:false,refundable:false,
     realMoneyEnabled:false,providerContractSigned:false,
    });
