@@ -1,0 +1,58 @@
+name: QA de dos billeteras DEMO en Postgres desechable
+
+on:
+  pull_request:
+    paths:
+      - 'tests/coin-digital-two-user-isolation-rollback-20261019.sql'
+      - 'tests/coin-stable-operations-isolated.sql'
+      - 'docs/PRUEBA_DOS_CUENTAS_COIN_DIGITAL_20261019.md'
+      - 'src/digital-money/demo-conversion-contract.mjs'
+      - '.github/workflows/dual-wallet-qa-isolated.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qa-isolated:
+    name: Conversiones y aislamiento en base desechable (NO Supabase real)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      REAL_PAYMENTS_ENABLED: 'false'
+      CI: '1'
+    steps:
+      - name: Obtener codigo de la rama
+        uses: actions/checkout@v4
+
+      - name: Comprobar que la prueba manual documenta ROLLBACK
+        run: |
+          test -s tests/coin-digital-two-user-isolation-rollback-20261019.sql
+          grep -Fq 'ROLLBACK;' tests/coin-digital-two-user-isolation-rollback-20261019.sql
+          echo 'La prueba SQL del laboratorio requiere validacion independiente; no se ejecuta aqui.'
+
+      - name: Node 22 para pruebas JavaScript sin instalar paquetes
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Probar cotizaciones, recibos y aislamiento de clientes ficticios
+        run: |
+          node --test tests/demo-conversion-contract.test.mjs
+          node --test tests/demo-asset-summary.test.mjs
+          node --test tests/mwd-two-accounts-sandbox.test.mjs
+          node --test tests/demo-session-guard.test.mjs
+
+      - name: Iniciar PostgreSQL desechable local al runner
+        run: sudo systemctl start postgresql
+
+      - name: Verificar operaciones Coin y Digital en la base DESCARTABLE
+        run: |
+          sudo -u postgres createdb mwd_two_wallets_ci
+          sudo -u postgres psql -d mwd_two_wallets_ci -X -v ON_ERROR_STOP=1 \
+            -f tests/coin-stable-operations-isolated.sql
+
+      - name: Resumen de alcance
+        run: |
+          echo 'PASS CI significa prueba aislada y tests JS, no autenticacion E2E ni dinero real.'
+          echo 'No se accedio a Supabase conectado, no se usaron secretos y no se emitieron activos.'
