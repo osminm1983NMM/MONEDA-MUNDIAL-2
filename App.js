@@ -16,6 +16,7 @@ import { createClient } from '@supabase/supabase-js';
 import PartnerRegistryScreen from './PartnerRegistryScreen';
 import CoinStableDemoScreen from './CoinStableDemoScreen';
 import InternationalPlannerDemoScreen from './InternationalPlannerDemoScreen';
+import DemoDiagnosticsScreen from './DemoDiagnosticsScreen';
 import {HOME_DEMO_TEXT} from './src/digital-money/home-demo-i18n.mjs';
 import {detectInternationalDemoLanguage} from './src/digital-money/international-demo-i18n.mjs';
 import {INTERNATIONAL_DEMO_LANGUAGE_KEY,decodeInternationalDemoLanguagePreference,resolveInternationalDemoLanguage,saveInternationalDemoLanguagePreference} from './src/digital-money/international-demo-language-preference.mjs';
@@ -519,6 +520,8 @@ export default function App() {
             </View>}
           </>
         )}
+        <Btn title={lang==='en'?'View build info (DEMO)':'Ver información de versión (DEMO)'} secondary onPress={()=>navigate('Diagnóstico')} />
+        {screen === 'Diagnóstico' && <DemoDiagnosticsScreen language={lang} />}
         <Text style={styles.footer}>{homeText.footer}</Text>
       </ScrollView>
     </View>
