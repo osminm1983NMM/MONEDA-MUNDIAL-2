@@ -21,6 +21,7 @@ on:
       - 'tests/mwd-pending-operation-demo.test.mjs'
       - 'src/digital-money/mwd-pending-recovery-demo.mjs'
       - 'tests/mwd-pending-recovery-demo.test.mjs'
+      - 'tests/mwd-recovery-identity.test.mjs'
       - 'scripts/android_launcher_anr.py'
       - 'tests/test_android_launcher_anr.py'
       - 'package.json'
@@ -70,6 +71,8 @@ jobs:
         run: node --test tests/mwd-pending-operation-demo.test.mjs
       - name: Verificar recuperación idempotente MWD ante fallas
         run: node --test tests/mwd-pending-recovery-demo.test.mjs
+      - name: Verificar identidad y recuperación con red simulada
+        run: node --test tests/mwd-recovery-identity.test.mjs
       - name: Empaquetar JavaScript para Android (no crea APK)
         run: npx expo export --platform android --output-dir dist
       - name: Confirmar que se generaron archivos
