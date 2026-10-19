@@ -16,6 +16,16 @@ test('flujo público de retiro sin móvil bloquea fondos y referencias',()=>{
 test('idioma inglés y países no confirmados no habilitan retiro',()=>{
  const p=getGuestCashPickupPreview({language:'en',destination:'NI'});
  assert.match(p.reference,/NOT ISSUED/);assert.match(p.blocked,/BLOCKED/);
- assert.equal(getGuestCashPickupPreview({destination:'CR'}),null);
- assert.equal(getGuestCashPickupPreview({destination:'EC'}),null);
+ for(const code of ['CR','EC','MX','ES','TR','JP']){
+  const item=getGuestCashPickupPreview({destination:code,language:'en'});
+  assert.equal(item.destination,code);
+  assert.equal(item.researchCatalogueSize,249);
+  assert.equal(item.routeAvailable,false);
+  assert.equal(item.licensedRemittanceCorridor,false);
+  assert.equal(item.confirmedProviders,0);
+  assert.equal(item.codeIssued,false);
+  assert.equal(item.realMoneyEnabled,false);
+ }
+ assert.equal(getGuestCashPickupPreview({destination:'US'}),null);
+ assert.equal(getGuestCashPickupPreview({destination:'ZZ'}),null);
 });
