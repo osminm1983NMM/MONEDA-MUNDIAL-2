@@ -5,7 +5,8 @@ import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { demoPendingStorageKey, encodePendingDemoQuote, decodePendingDemoQuote, classifyDemoReconciliation } from './src/digital-money/demo-pending-confirmation.mjs';
 import {parseDemoAssetBalances,formatDemoMicro} from './src/digital-money/demo-asset-summary.mjs';
-import {validateDemoQuote,validateDemoReceipt,validateDemoHistory} from './src/digital-money/demo-conversion-contract.mjs';
+import {validateDemoQuote,validateDemoHistory} from './src/digital-money/demo-conversion-contract.mjs';
+import {confirmAndReconcileDemo} from './src/digital-money/demo-confirm-and-reconcile.mjs';
 
 const MICRO = 1000000;
 const MAX = 10000;
@@ -88,6 +89,10 @@ export default function CoinStableDemoScreen({supabase,userId}) {
   },[supabase]);
   useEffect(()=>{
     mounted.current=true;
+    requestVersion.current+=1;
+    activeQuote.current=null;setQuote(null);
+    pendingRef.current={unavailable:true};setPending(null);
+    setBusy(false);
     load().catch(()=>{});
     let live=true;
     setPendingLoading(true);
@@ -104,10 +109,11 @@ export default function CoinStableDemoScreen({supabase,userId}) {
     return()=>{
       live=false;
       mounted.current=false;
+      requestVersion.current+=1;
       walletRequest.current+=1; // Ignorar respuestas de sesiones/pantallas anteriores.
       clearInterval(timer);
     };
-  },[load]);
+  },[load,pendingKey]);
   function reset() {requestVersion.current+=1;activeQuote.current=null;setQuote(null);setError('');setNotice('');}
   async function requestQuote() {
     if(busy||pendingAction.current||pendingLoading||pendingRef.current)return;
@@ -131,6 +137,7 @@ export default function CoinStableDemoScreen({supabase,userId}) {
   async function confirm() {
     const current=activeQuote.current;
     if(!current||busy||pendingAction.current||Date.parse(current.expiresAt)<=Date.now())return;
+    const ticket=requestVersion.current;
     pendingAction.current=true;
     setBusy(true);setError('');
     try {
@@ -141,9 +148,13 @@ export default function CoinStableDemoScreen({supabase,userId}) {
       const persisted=decodePendingDemoQuote(serialized);
       pendingRef.current=persisted;
       setPending(persisted);
-      const {data,error:e}=await supabase.rpc('mwd_conversion_confirm_demo',{p_quote_id:current.quoteId});
-      if(e)throw e;
-      if(!validateDemoReceipt(data,current))throw new Error('No se pudo verificar el recibo ficticio.');
+      if(!mounted.current||requestVersion.current!==ticket)
+        throw new Error('La sesión cambió; la operación queda pendiente');
+      await confirmAndReconcileDemo({quote:current,
+        rpc:(name,params)=>supabase.rpc(name,params),
+        isCurrent:()=>mounted.current&&requestVersion.current===ticket});
+      if(!mounted.current||requestVersion.current!==ticket)
+        throw new Error('La sesión cambió; la operación queda pendiente');
       await AsyncStorage.removeItem(pendingKey);
       pendingRef.current=null;setPending(null);
       activeQuote.current=null;
@@ -152,19 +163,22 @@ export default function CoinStableDemoScreen({supabase,userId}) {
       try{await load();}
       catch{setError('La conversión ficticia fue confirmada, pero no se pudo actualizar el saldo. Usa Actualizar saldos e historial.');}
     } catch(e){
-      setError(pendingRef.current
+      if(mounted.current&&requestVersion.current===ticket)setError(pendingRef.current
         ? 'Resultado de la conversión incierto. No hagas otra operación: usa Verificar/reintentar para consultar con la misma referencia.'
         : e.message||'No fue posible iniciar la confirmación de prueba.');
     }
-    finally{pendingAction.current=false;if(mounted.current)setBusy(false);}
+    finally{pendingAction.current=false;if(mounted.current&&requestVersion.current===ticket)setBusy(false);}
   }
   async function retryPending(){
     const current=pendingRef.current;
     if(!current||current.unavailable||pendingAction.current||busy)return;
+    const ticket=requestVersion.current;
     pendingAction.current=true;setBusy(true);setError('');
     try {
       // Solo consulta: no genera un nuevo cargo, ni confirma una cotización vigente.
       const {data,error:e}=await supabase.rpc('mwd_conversion_reconcile_demo',{p_quote_id:current.quoteId});
+      if(!mounted.current||requestVersion.current!==ticket)
+        throw new Error('La sesión cambió');
       if(e)throw e;
       const state=classifyDemoReconciliation(data,current);
       if(!state)throw new Error('Respuesta no verificable');
@@ -179,8 +193,9 @@ export default function CoinStableDemoScreen({supabase,userId}) {
       try{await load();}
       catch{setError('La conciliación terminó, pero no se pudo actualizar el historial. Actualiza los saldos cuando tengas conexión.');}
     } catch(e){
-      setError('Sigue sin poder verificarse. No inicies otra conversión; vuelve a intentarlo al recuperar conexión.');
-    } finally {pendingAction.current=false;if(mounted.current)setBusy(false);}
+      if(mounted.current&&requestVersion.current===ticket)
+        setError('Sigue sin poder verificarse. No inicies otra conversión; vuelve a intentarlo al recuperar conexión.');
+    } finally {pendingAction.current=false;if(mounted.current&&requestVersion.current===ticket)setBusy(false);}
   }
   const expired=quote&&Date.parse(quote.expiresAt)<=now;
   return <View style={s.card}>

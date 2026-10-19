@@ -13,6 +13,8 @@ on:
       - 'tests/demo-conversion-contract.test.mjs'
       - 'src/digital-money/demo-pending-confirmation.mjs'
       - 'tests/demo-pending-confirmation.test.mjs'
+      - 'src/digital-money/demo-confirm-and-reconcile.mjs'
+      - 'tests/demo-confirm-and-reconcile.test.mjs'
       - 'src/digital-money/demo-session-guard.mjs'
       - 'tests/demo-session-guard.test.mjs'
       - 'src/digital-money/mwd-operation-status-demo.mjs'
@@ -62,6 +64,8 @@ jobs:
         run: node --test tests/demo-conversion-contract.test.mjs
       - name: Comprobar recuperación de confirmaciones tras una desconexión
         run: node --test tests/demo-pending-confirmation.test.mjs
+      - name: Exigir conciliación del recibo antes de liberar saldo DEMO
+        run: node --test tests/demo-confirm-and-reconcile.test.mjs
       - name: Validar datos y presentación de Coin y Digital (DEMO)
         run: node --test tests/demo-asset-summary.test.mjs
       - name: Verificar aislamiento de cuentas y respuestas obsoletas
