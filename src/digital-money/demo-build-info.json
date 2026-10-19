@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "appVersion": "2.0.0",
+  "mode": "demo_only",
+  "realPaymentsEnabled": false,
+  "gitSha": null,
+  "runId": null,
+  "runAttempt": null
+}
