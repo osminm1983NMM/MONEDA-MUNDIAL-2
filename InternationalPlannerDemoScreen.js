@@ -10,6 +10,7 @@ export default function InternationalPlannerDemoScreen(){
  const [destination,setDestination]=useState('HN');
  const [amount,setAmount]=useState('25.00');
  const [method,setMethod]=useState('bank_account');
+ const [countrySearch,setCountrySearch]=useState('');
  const plan=buildInternationalDemoPlan({originCode:origin,destinationCode:destination,amountUSD:amount,payoutMethod:method});
  const verification=buildBeneficiaryVerificationChecklistDemo(plan);
  const providerAssessment=assessInternationalProviderCandidateDemo(plan);
@@ -25,6 +26,15 @@ export default function InternationalPlannerDemoScreen(){
     </TouchableOpacity>
    )}
   </View>
+  <Text style={s.text}>Buscar cualquier destino por nombre o código</Text>
+  <TextInput accessibilityLabel="Buscar país de destino" style={s.input}
+    autoCorrect={false} value={countrySearch} onChangeText={setCountrySearch}
+    placeholder="Ejemplo: Nicaragua, México, JP" placeholderTextColor="#b3c5d9" />
+  {!!countrySearch.trim()&&searchCountryOptionsDemo(countrySearch,25).map(v=>
+    <TouchableOpacity key={v.code} accessibilityRole="button" style={s.input}
+      onPress={()=>{setDestination(v.code);setCountrySearch('');}}>
+      <Text style={s.text}>{v.label}</Text>
+    </TouchableOpacity>)}
   <Text style={s.text}>País de origen (ISO, 2 letras)</Text>
   <TextInput accessibilityLabel="País origen" style={s.input} autoCapitalize="characters" maxLength={2} value={origin} onChangeText={setOrigin}/>
   <Text style={s.text}>País destino (ISO, 2 letras)</Text>
