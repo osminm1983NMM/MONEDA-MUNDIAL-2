@@ -7,7 +7,9 @@ const s={box:{backgroundColor:'#162b45',borderRadius:14,padding:16,marginVertica
 export default function GuestCashPickupPreviewScreen({language='es',onBack}){
  const [destination,setDestination]=useState('HN');
  const [search,setSearch]=useState('');
- const results=searchWorldResearchCountries(search,12,language);
+ // Esta pantalla describe transferencias desde US a OTROS países.
+ // Excluir US del selector evita una ruta US→US y datos nulos en el ejemplo.
+ const results=searchWorldResearchCountries(search,12,language).filter(item=>item.code!=='US');
  if(GUEST_CASH_PICKUP_REAL_PAYMENTS_ENABLED)throw Error('No permitir pagos reales en pantalla pública');
  const data=getGuestCashPickupPreview({language,destination});
  return <View style={s.box}>
