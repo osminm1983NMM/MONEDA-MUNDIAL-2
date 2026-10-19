@@ -45,6 +45,35 @@ begin
   exception when raise_exception then
     if SQLERRM <> 'Identificador ya usado para otra operacion' then raise; end if;
   end;
+  -- Reusar la misma referencia de transferencia como aportación NO está permitido.
+  begin
+    perform public.mwd_contribute_demo(100,request_id);
+    raise exception 'Referencia de transferencia aceptada como aportacion';
+  exception when raise_exception then
+    if SQLERRM <> 'Identificador ya usado para otra operacion' then raise; end if;
+  end;
+  -- Fallos anteriores al envío nunca deben crear movimientos ni cambiar saldos.
+  begin
+    perform public.mwd_transfer_demo('MWD-BBBBBBBBBBBBBBBB',9999999,
+      'dddddddd-dddd-4ddd-8ddd-dddddddddddd'::uuid);
+    raise exception 'Saldo insuficiente aceptado';
+  exception when raise_exception then
+    if SQLERRM <> 'Saldo ficticio insuficiente' then raise; end if;
+  end;
+  begin
+    perform public.mwd_transfer_demo('MWD-CCCCCCCCCCCCCCCC',100,
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'::uuid);
+    raise exception 'Destinatario desconocido aceptado';
+  exception when raise_exception then
+    if SQLERRM <> 'Cuenta destinataria no disponible' then raise; end if;
+  end;
+  begin
+    perform public.mwd_transfer_demo('MWD-AAAAAAAAAAAAAAAA',100,
+      'ffffffff-ffff-4fff-8fff-ffffffffffff'::uuid);
+    raise exception 'Autotransferencia aceptada';
+  exception when raise_exception then
+    if SQLERRM <> 'Cuenta destinataria no disponible' then raise; end if;
+  end;
   -- Las cuentas autenticadas consultan por RPC, no leen las tablas de saldos.
   begin
     perform count(*) from public.mwd_wallets;
@@ -94,4 +123,4 @@ begin
     or (select count(*) from public.mwd_operations o where o.request_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid)<>2
     then raise exception 'Se alteraron saldos o se duplico una referencia por actor'; end if;
 end $balances$;
-select 'OK: dos cuentas aisladas, mismo UUID por actor, transferencias únicas y saldos correctos' as resultado;
+select 'OK: dos cuentas aisladas, UUID por actor, sin duplicados, insuficiencia, destino inválido y autotransferencia rechazados' as resultado;
