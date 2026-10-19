@@ -332,10 +332,13 @@ export default function App() {
         : 'Aportación de demostración registrada en Supabase.');
       await refreshAccount();
     } catch (error) {
-      if(sessionGuardRef.current.sameSession(sessionTicket))
+      if(sessionGuardRef.current.sameSession(sessionTicket)) {
         message('Operación pendiente de verificación',
           (error.message || 'No fue posible verificar el estado.') +
-          '\nNo realices otro envío: usa «Verificar operación MWD anterior» en Inicio.');
+          (pendingRef.current
+            ? '\nNo realices otro envío: usa «Verificar operación MWD anterior» en Inicio.'
+            : '\nNo se inició ningún envío. Puedes intentarlo nuevamente.'));
+      }
     } finally {
       if(operationGateRef.current.release(operationToken) && sessionGuardRef.current.sameSession(sessionTicket))setBusy(false);
     }
