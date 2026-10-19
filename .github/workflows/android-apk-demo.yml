@@ -58,6 +58,27 @@ jobs:
           node --test tests/demo-confirm-and-reconcile.test.mjs
           node --test tests/demo-session-guard.test.mjs
           node --test tests/demo-asset-summary.test.mjs
+      - name: Ejecutar todas las pruebas de JavaScript de la demo antes de generar APK
+        run: node --test tests/*.test.mjs
+      - name: Comprobar barreras de dinero real antes de empaquetar
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$REAL_PAYMENTS_ENABLED" = 'false'
+          test "$EXPO_PUBLIC_REAL_PAYMENTS_ENABLED" = 'false'
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const app=fs.readFileSync('App.js','utf8');
+          const international=fs.readFileSync('src/digital-money/international-demo-planner.mjs','utf8');
+          const provider=fs.readFileSync('src/digital-money/international-provider-adapter-contract-demo.mjs','utf8');
+          if(!app.includes('HOME_DEMO_TEXT') || !fs.readFileSync('src/digital-money/home-demo-i18n.mjs','utf8').includes('NO REAL MONEY')) {
+            throw Error('Falta etiqueta multilingüe de demostración');
+          }
+          if(!international.includes("realPaymentsEnabled:false")||!international.includes("executionAvailable:false")||
+             !provider.includes("internationalLiveTransferDisabled")) {
+            throw Error('Falta barrera documental de transferencias internacionales');
+          }
+          NODE
       - name: Identificar APK como aplicación SOLO DEMO
         shell: bash
         run: |
