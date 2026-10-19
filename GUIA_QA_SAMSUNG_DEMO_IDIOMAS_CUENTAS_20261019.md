@@ -1,6 +1,20 @@
 # Moneda Mundial 2.0 — validación en Samsung desde un solo teléfono
 **Fecha:** 19 de octubre de 2026 · **Tipo:** laboratorio con créditos ficticios.
 
+## APK verificada de esta etapa (evidencia confirmada en GitHub Actions)
+
+- **Commit exacto del código compilado:** `8a003a7cbc6344766903d7995da642530c3e635f`.
+- **Run de compilación y arranque:** https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/39319745682
+- **Resultado:** `success` en ambos trabajos: compilación Android y arranque en emulador con aviso de demostración.
+- **Artefacto a descargar:** `moneda-mundial-demo-apk-arranque-verificado` (identificador `12219638940`).
+- **Enlace directo al artefacto de GitHub:** https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/39319745682/artifacts/12219638940
+- **Caducidad aproximada del ZIP:** 26 de octubre de 2026 a las 20:39 UTC; comprobar antes de descargar.
+- **Importante:** una revisión posterior del documento o del repositorio NO significa que la APK corresponda a ese commit posterior. Esta APK corresponde exactamente al identificador indicado arriba.
+
+**Sin necesidad de computadora:** desde el Samsung iniciar sesión en GitHub, abrir el enlace del artefacto, descargar el ZIP, abrir **Mis archivos → Descargas → Extraer**, y localizar `app-release.apk`. Si la instalación exige ignorar controles de seguridad, detenerse. Si hay una versión previa con operación DEMO pendiente, no desinstalar para cambiar de firma: primero resolver su estado.
+
+**Alcance:** la prueba automatizada verificó que se instala e inicia **sin iniciar sesión** en un emulador Android. No valida funcionamiento en un Samsung físico ni confirma login, MWD/COIN/Digital autenticados o servicios financieros reales.
+
 ## Regla de entrada: no instalar compilaciones sin verificar
 1. Comprobar que el flujo «Compilar APK Android de demostración» haya terminado con **success**, incluyendo el segundo trabajo **Instalar APK del mismo commit y verificar aviso DEMO**.
 2. Abrir GitHub Actions del flujo **exacto** y descargar de **Artifacts** solamente `moneda-mundial-demo-apk-arranque-verificado` (ZIP con `app-release.apk`). Confirmar commit/run. Los ZIP caducan a los siete días.
