@@ -44,6 +44,8 @@ on:
       - 'tests/international-provider-assessment-demo.test.mjs'
       - 'src/digital-money/international-provider-adapter-contract-demo.mjs'
       - 'tests/international-provider-adapter-contract-demo.test.mjs'
+      - 'scripts/android_demo_build_ui.py'
+      - 'tests/test_android_demo_build_ui.py'
       - 'scripts/android_demo_locale_ui.py'
       - 'tests/test_android_demo_locale_ui.py'
       - 'scripts/android_launcher_anr.py'
@@ -83,6 +85,8 @@ jobs:
         run: python3 -m unittest discover -s tests -p 'test_android_launcher_anr.py'
       - name: Validar controles reales de idioma en XML Android
         run: python3 -m unittest discover -s tests -p 'test_android_demo_locale_ui.py'
+      - name: Probar identificación visible de la compilación Android
+        run: python3 -m unittest discover -s tests -p 'test_android_demo_build_ui.py'
       - name: Validar cotizaciones y recibos solo de prueba
         run: node --test tests/demo-conversion-contract.test.mjs
       - name: Comprobar recuperación de confirmaciones tras una desconexión
