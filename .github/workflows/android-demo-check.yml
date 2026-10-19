@@ -25,6 +25,8 @@ on:
       - 'tests/mwd-pending-recovery-demo.test.mjs'
       - 'tests/mwd-recovery-identity.test.mjs'
       - 'tests/mwd-two-accounts-sandbox.test.mjs'
+      - 'src/digital-money/international-demo-planner.mjs'
+      - 'tests/international-demo-planner.test.mjs'
       - 'scripts/android_launcher_anr.py'
       - 'tests/test_android_launcher_anr.py'
       - 'package.json'
@@ -80,6 +82,8 @@ jobs:
         run: node --test tests/mwd-recovery-identity.test.mjs
       - name: Simular dos cuentas MWD e idempotencia sin dinero real
         run: node --test tests/mwd-two-accounts-sandbox.test.mjs
+      - name: Verificar corredor internacional SOLO planificación
+        run: node --test tests/international-demo-planner.test.mjs
       - name: Empaquetar JavaScript para Android (no crea APK)
         run: npx expo export --platform android --output-dir dist
       - name: Confirmar que se generaron archivos
