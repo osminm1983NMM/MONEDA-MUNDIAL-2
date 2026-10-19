@@ -1,6 +1,7 @@
 import React,{useState} from 'react';
 import {View,Text,TextInput,StyleSheet,TouchableOpacity} from 'react-native';
 import {buildInternationalDemoPlan,DEMO_PAYOUT_METHODS} from './src/digital-money/international-demo-planner.mjs';
+import {searchCountryOptionsDemo} from './src/digital-money/country-search-demo.mjs';
 import {buildBeneficiaryVerificationChecklistDemo} from './src/digital-money/beneficiary-verification-checklist-demo.mjs';
 import {assessInternationalProviderCandidateDemo} from './src/digital-money/international-provider-assessment-demo.mjs';
 const s=StyleSheet.create({box:{backgroundColor:'#13253e',borderRadius:12,padding:16,marginTop:10},heading:{color:'#fff',fontSize:19,fontWeight:'bold',marginBottom:10},text:{color:'#d4e0f1',marginBottom:8},notice:{color:'#ffda88',marginBottom:10},input:{backgroundColor:'#243957',color:'white',padding:12,borderRadius:8,marginBottom:10}});
@@ -15,6 +16,15 @@ export default function InternationalPlannerDemoScreen(){
  return <View style={s.box}>
   <Text style={s.heading}>Transferencia internacional — planificación</Text>
   <Text style={s.notice}>SOLO DEMOSTRACIÓN. No envía fondos, no genera tasa de cambio real ni habilita país alguno.</Text>
+  <Text style={s.text}>Destinos frecuentes (todos los códigos ISO siguen disponibles)</Text>
+  <View style={{flexDirection:'row',flexWrap:'wrap',marginBottom:10}}>
+   {searchCountryOptionsDemo('',12).filter(v=>v.code!=='US').map(v=>
+    <TouchableOpacity key={v.code} accessibilityRole="button"
+      onPress={()=>setDestination(v.code)} style={{backgroundColor:'#243957',padding:9,borderRadius:8,marginRight:6,marginBottom:6}}>
+     <Text style={s.text}>{v.name}</Text>
+    </TouchableOpacity>
+   )}
+  </View>
   <Text style={s.text}>País de origen (ISO, 2 letras)</Text>
   <TextInput accessibilityLabel="País origen" style={s.input} autoCapitalize="characters" maxLength={2} value={origin} onChangeText={setOrigin}/>
   <Text style={s.text}>País destino (ISO, 2 letras)</Text>
