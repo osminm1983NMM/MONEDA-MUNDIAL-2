@@ -5,6 +5,7 @@ on:
       - 'database/mwd_coin_stable_conversion_demo.sql'
       - 'database/mwd_conversion_reconcile_demo.sql'
       - 'tests/reconcile-demo-isolated.sql'
+      - 'tests/coin-stable-operations-isolated.sql'
       - '.github/workflows/reconcile-demo-isolated.yml'
   workflow_dispatch:
 permissions:
@@ -19,4 +20,10 @@ jobs:
       - name: Iniciar PostgreSQL desechable
         run: sudo systemctl start postgresql
       - name: Ejecutar pruebas de tres estados y permisos
-        run: sudo -u postgres psql -X -v ON_ERROR_STOP=1 -f tests/reconcile-demo-isolated.sql
+        run: |
+          sudo -u postgres createdb mm_reconcile_demo
+          sudo -u postgres psql -d mm_reconcile_demo -X -v ON_ERROR_STOP=1 -f tests/reconcile-demo-isolated.sql
+      - name: Ensayar dos cuentas, conversiones y libro contable aislados
+        run: |
+          sudo -u postgres createdb mm_operations_demo
+          sudo -u postgres psql -d mm_operations_demo -X -v ON_ERROR_STOP=1 -f tests/coin-stable-operations-isolated.sql

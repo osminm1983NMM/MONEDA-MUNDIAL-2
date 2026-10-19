@@ -7,6 +7,7 @@ import { demoPendingStorageKey, encodePendingDemoQuote, decodePendingDemoQuote, 
 import {parseDemoAssetBalances,formatDemoMicro} from './src/digital-money/demo-asset-summary.mjs';
 import {validateDemoQuote,validateDemoHistory} from './src/digital-money/demo-conversion-contract.mjs';
 import {confirmAndReconcileDemo} from './src/digital-money/demo-confirm-and-reconcile.mjs';
+import {createDemoOperationGate} from './src/digital-money/demo-session-guard.mjs';
 
 const MICRO = 1000000;
 const MAX = 10000;
@@ -59,7 +60,8 @@ export default function CoinStableDemoScreen({supabase,userId}) {
   const requestVersion=useRef(0);
   const walletRequest=useRef(0);
   const mounted=useRef(false);
-  const pendingAction=useRef(false); // Candado inmediato contra dobles toques.
+  const operationGate=useRef(null);
+  if (!operationGate.current) operationGate.current=createDemoOperationGate(); // Token único por operación.
   const activeQuote=useRef(null); // No confirmar un aviso de una cotización ya cambiada.
   const load=useCallback(async()=>{
     const ticket=++walletRequest.current;
@@ -92,6 +94,7 @@ export default function CoinStableDemoScreen({supabase,userId}) {
     requestVersion.current+=1;
     activeQuote.current=null;setQuote(null);
     pendingRef.current={unavailable:true};setPending(null);
+    operationGate.current.reset(); // La operación de la cuenta anterior no desbloquea esta sesión.
     setBusy(false);
     load().catch(()=>{});
     let live=true;
@@ -116,12 +119,13 @@ export default function CoinStableDemoScreen({supabase,userId}) {
   },[load,pendingKey]);
   function reset() {requestVersion.current+=1;activeQuote.current=null;setQuote(null);setError('');setNotice('');}
   async function requestQuote() {
-    if(busy||pendingAction.current||pendingLoading||pendingRef.current)return;
+    if(busy||operationGate.current.isBusy()||pendingLoading||pendingRef.current)return;
+    const operationToken=operationGate.current.acquire();
+    if(!operationToken)return;
     reset();
     const ticket=requestVersion.current;
     const cents=toMicro(amount);
-    if(cents===null){setError('Escribe una cantidad de 1 a 10,000 con hasta seis decimales.');return;}
-    pendingAction.current=true;
+    if(cents===null){operationGate.current.release(operationToken);setError('Escribe una cantidad de 1 a 10,000 con hasta seis decimales.');return;}
     setBusy(true);
     try {
       const {data,error:e}=await supabase.rpc('mwd_conversion_quote_demo',{
@@ -131,14 +135,15 @@ export default function CoinStableDemoScreen({supabase,userId}) {
       const checked=validateDemoQuote(data,asset,cents);
       if(!checked)throw new Error('Cotización de demostración inválida o vencida.');
       if(mounted.current&&requestVersion.current===ticket){activeQuote.current=checked;setQuote(checked);}
-    } catch(e){if(requestVersion.current===ticket)setError(e.message||'No se pudo obtener cotización');}
-    finally{pendingAction.current=false;if(mounted.current)setBusy(false);}
+    } catch(e){if(mounted.current&&requestVersion.current===ticket)setError(e.message||'No se pudo obtener cotización');}
+    finally{operationGate.current.release(operationToken);if(mounted.current&&requestVersion.current===ticket)setBusy(false);}
   }
   async function confirm() {
     const current=activeQuote.current;
-    if(!current||busy||pendingAction.current||Date.parse(current.expiresAt)<=Date.now())return;
+    if(!current||busy||operationGate.current.isBusy()||pendingRef.current||Date.parse(current.expiresAt)<=Date.now())return;
+    const operationToken=operationGate.current.acquire();
+    if(!operationToken)return;
     const ticket=requestVersion.current;
-    pendingAction.current=true;
     setBusy(true);setError('');
     try {
       if(!pendingKey)throw new Error('No se pudo identificar la cuenta de prueba.');
@@ -167,13 +172,14 @@ export default function CoinStableDemoScreen({supabase,userId}) {
         ? 'Resultado de la conversión incierto. No hagas otra operación: usa Verificar/reintentar para consultar con la misma referencia.'
         : e.message||'No fue posible iniciar la confirmación de prueba.');
     }
-    finally{pendingAction.current=false;if(mounted.current&&requestVersion.current===ticket)setBusy(false);}
+    finally{operationGate.current.release(operationToken);if(mounted.current&&requestVersion.current===ticket)setBusy(false);}
   }
   async function retryPending(){
     const current=pendingRef.current;
-    if(!current||current.unavailable||pendingAction.current||busy)return;
-    const ticket=requestVersion.current;
-    pendingAction.current=true;setBusy(true);setError('');
+    if(!current||current.unavailable||operationGate.current.isBusy()||busy)return;
+    const operationToken=operationGate.current.acquire();
+    if(!operationToken)return;
+    const ticket=requestVersion.current;setBusy(true);setError('');
     try {
       // Solo consulta: no genera un nuevo cargo, ni confirma una cotización vigente.
       const {data,error:e}=await supabase.rpc('mwd_conversion_reconcile_demo',{p_quote_id:current.quoteId});
@@ -195,7 +201,7 @@ export default function CoinStableDemoScreen({supabase,userId}) {
     } catch(e){
       if(mounted.current&&requestVersion.current===ticket)
         setError('Sigue sin poder verificarse. No inicies otra conversión; vuelve a intentarlo al recuperar conexión.');
-    } finally {pendingAction.current=false;if(mounted.current&&requestVersion.current===ticket)setBusy(false);}
+    } finally {operationGate.current.release(operationToken);if(mounted.current&&requestVersion.current===ticket)setBusy(false);}
   }
   const expired=quote&&Date.parse(quote.expiresAt)<=now;
   return <View style={s.card}>
