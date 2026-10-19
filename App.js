@@ -17,7 +17,7 @@ import PartnerRegistryScreen from './PartnerRegistryScreen';
 import CoinStableDemoScreen from './CoinStableDemoScreen';
 import DemoAssetSummaryCard from './DemoAssetSummaryCard';
 import { createDemoSessionGuard, createDemoOperationGate } from './src/digital-money/demo-session-guard.mjs';
-import { mwdPendingStorageKey, serializeMwdPending, deserializeMwdPending } from './src/digital-money/mwd-pending-operation-demo.mjs';
+import { mwdPendingStorageKey, serializeMwdPending, deserializeMwdPending, buildMwdDemoRetry } from './src/digital-money/mwd-pending-operation-demo.mjs';
 import {classifyMwdOperationStatus} from './src/digital-money/mwd-operation-status-demo.mjs';
 import ConversionAdminDemoScreen from './ConversionAdminDemoScreen';
 import PickupWithoutPhoneDemo from './PickupWithoutPhoneDemo';
@@ -284,17 +284,18 @@ export default function App() {
     setBusy(true);
     try {
       if(!pendingReady||pendingRef.current||mwdPending)throw new Error('Primero verifica la operación pendiente.');
-      const pending = pendingRef.current;
-      if (!pending || pending.type !== type || pending.cents !== cents || pending.code !== code) {
-        pendingRef.current = { type, cents, code, id: uniqueRequestId() };
-      }
-      const requestId = pendingRef.current.id;
+      // No bloquear la cuenta si AsyncStorage falla ANTES de guardar.
+      // Si el archivo se guardó pero la sesión cambió, la referencia sigue
+      // asociada al dueño original y se restaurará al iniciar sesión de nuevo.
+      const requested={type,cents,code,id:uniqueRequestId()};
+      const requestId=requested.id;
       const key=mwdPendingStorageKey(userId);
-      const serialized=serializeMwdPending(pendingRef.current);
+      const serialized=serializeMwdPending(requested);
       if(!key||!serialized)throw new Error('Referencia de prueba no válida');
       await AsyncStorage.setItem(key,serialized);
       if(!sessionGuardRef.current.sameSession(sessionTicket))return;
-      setMwdPending(pendingRef.current);
+      pendingRef.current=requested;
+      setMwdPending(requested);
       const response = type === 'transfer'
         ? await supabase.rpc('mwd_transfer_demo', {
           p_recipient_code: code, p_amount_cents: cents, p_request_id: requestId,
