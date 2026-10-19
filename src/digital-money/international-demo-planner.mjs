@@ -12,6 +12,17 @@ export const DEMO_CORRIDOR_REQUIREMENTS=Object.freeze([
  'Tasas de cambio, comisiones y límites confirmados por proveedor',
  'Conciliación, reembolsos, disputas y registro de auditoría',
 ]);
+// Opciones de entrega contempladas para futuro análisis de proveedores,
+// NO disponibles todavía, sin cuentas, tarjetas ni información personal.
+export const DEMO_PAYOUT_METHODS=Object.freeze([
+ {id:'bank_account',label:'Depósito bancario',review:'Validar titularidad y disponibilidad bancaria local'},
+ {id:'card',label:'Entrega a tarjeta',review:'Verificar elegibilidad y proveedor de abonos a tarjeta'},
+ {id:'cash_pickup',label:'Retiro en efectivo',review:'Verificar red de agentes y controles del código de retiro'},
+ {id:'wallet',label:'Billetera compatible',review:'Verificar proveedor receptor, titularidad y regulación local'},
+]);
+export function availableDemoPayoutMethod(id){
+ return typeof id==='string' && DEMO_PAYOUT_METHODS.find(m=>m.id===id)||null;
+}
 export function validDemoCountryCode(input){
  return typeof input==='string'&&ISO2.has(input.trim().toUpperCase());
 }
@@ -24,10 +35,12 @@ export function parseInternationalPlanCents(input){
  if(cents<1n||cents>100000000n)return null;
  return Number(cents);
 }
-export function buildInternationalDemoPlan({originCode='US',destinationCode='HN',amountUSD='25.00'}={}){
+export function buildInternationalDemoPlan({originCode='US',destinationCode='HN',amountUSD='25.00',payoutMethod='bank_account'}={}){
  const origin=typeof originCode==='string'?originCode.trim().toUpperCase():'';
  const destination=typeof destinationCode==='string'?destinationCode.trim().toUpperCase():'';
  if(!ISO2.has(origin)||!ISO2.has(destination)||origin===destination)return null;
+ const method=availableDemoPayoutMethod(payoutMethod);
+ if(!method)return null;
  const amountCents=parseInternationalPlanCents(amountUSD);
  if(amountCents===null)return null;
  return Object.freeze({
@@ -36,7 +49,10 @@ export function buildInternationalDemoPlan({originCode='US',destinationCode='HN'
   amountCents,
   destinationCurrency:null,exchangeRate:null,feeCents:null,
   payoutAmount:null,providerId:null,executionAvailable:false,
+  payoutMethod:method.id,payoutMethodLabel:method.label,
+  payoutAvailability:'not_verified',beneficiaryVerification:'not_started',
+  beneficiaryDataCollected:false,pickupCode:null,payoutReference:null,
   complianceStatus:'not_verified',corridorStatus:'not_enabled',
-  requirements:[...DEMO_CORRIDOR_REQUIREMENTS],
+  requirements:[...DEMO_CORRIDOR_REQUIREMENTS,method.review],
  });
 }
