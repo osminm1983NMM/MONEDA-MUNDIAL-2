@@ -81,6 +81,8 @@ jobs:
           NODE
       - name: Verificar lectura estricta de aviso DEMO en ambos idiomas
         run: bash tests/check-demo-launch-ui.test.sh
+      - name: Incrustar identificador de compilación DEMO
+        run: node scripts/write-demo-build-info.cjs
       - name: Identificar APK como aplicación SOLO DEMO
         shell: bash
         run: |
