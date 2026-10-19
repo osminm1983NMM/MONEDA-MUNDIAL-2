@@ -17,6 +17,8 @@ on:
       - 'tests/demo-session-guard.test.mjs'
       - 'src/digital-money/mwd-operation-status-demo.mjs'
       - 'tests/mwd-operation-status-demo.test.mjs'
+      - 'src/digital-money/mwd-pending-operation-demo.mjs'
+      - 'tests/mwd-pending-operation-demo.test.mjs'
       - 'scripts/android_launcher_anr.py'
       - 'tests/test_android_launcher_anr.py'
       - 'package.json'
@@ -62,6 +64,8 @@ jobs:
         run: node --test tests/demo-session-guard.test.mjs
       - name: Validar estado de operaciones MWD sin mover saldos
         run: node --test tests/mwd-operation-status-demo.test.mjs
+      - name: Verificar referencias persistentes MWD ficticias
+        run: node --test tests/mwd-pending-operation-demo.test.mjs
       - name: Empaquetar JavaScript para Android (no crea APK)
         run: npx expo export --platform android --output-dir dist
       - name: Confirmar que se generaron archivos
