@@ -70,7 +70,7 @@ export function createMockProviderIntegrationPort(options={}){
    if(!latest||!Object.hasOwn(stateToPhase,latest.status))
      fail('Estado ficticio de reintento no verificable');
    created.set(result.id,frozen({origin:'US',
-     destination:input.order.destination,
+     destination:input.order.destination,payoutMethod:input.order.payoutMethod,
      sourceCurrency:'USD',sourceAmountCents:input.order.amountCents}));
    return frozen({
     demoTransferId:result.id,

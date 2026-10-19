@@ -8,6 +8,8 @@ on:
       - 'src/server/mock-agent-pickup-session.mjs'
       - 'src/server/mock-regulated-provider-bridge.mjs'
       - 'src/server/provider-integration-port.mjs'
+      - 'src/server/mock-pickup-binding.mjs'
+      - 'tests/mock-pickup-binding.test.mjs'
       - 'tests/provider-integration-port.test.mjs'
       - 'src/server/mock-institutional-session-gateway.mjs'
       - '.github/workflows/test-mock-us-hn-ni-remittance-pickup.yml'
@@ -25,5 +27,7 @@ jobs:
           node-version: '22'
       - name: Verificar envío y retiro falsos sin mover dinero
         run: node --test tests/mock-us-hn-ni-remittance-pickup-journey.test.mjs
+      - name: Verificar enlace de retirada de muestra con remesa simulada
+        run: node --test tests/mock-pickup-binding.test.mjs
       - name: Verificar contratos y seguridad de los módulos usados
         run: node --test tests/mock-regulated-provider-bridge.test.mjs tests/provider-integration-port.test.mjs tests/mock-cash-pickup-verification.test.mjs tests/mock-agent-pickup-session.test.mjs tests/mock-institutional-session-gateway.test.mjs
