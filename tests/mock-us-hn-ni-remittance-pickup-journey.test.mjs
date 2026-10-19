@@ -7,6 +7,7 @@ import {createMockProviderIntegrationPort} from '../src/server/provider-integrat
 import {createMockInstitutionSessionGateway} from '../src/server/mock-institutional-session-gateway.mjs';
 import {createMockCashPickupVerifier} from '../src/server/mock-cash-pickup-verification.mjs';
 import {createMockAgentPickupSession} from '../src/server/mock-agent-pickup-session.mjs';
+import {createMockPickupBinding} from '../src/server/mock-pickup-binding.mjs';
 
 const CLOCK=1700000000000;
 const US_SECRET='LABORATORIO-provider-mock-2026-secret-00001';
@@ -113,5 +114,51 @@ test('Nicaragua se conserva como ruta DEMO, siempre sin fondos ni pago',()=>{
  assertNoReal(checked);
  assert.equal(port.sanitizedAudit().filter(x=>x.type==='mock_transfer_created').length,1);
 });
-// IMPORTANTE: estos códigos se emiten por un fixture SEPARADO; NO prueban
-// que una remesa haya sido financiada, ni vinculan un saldo bancario real.
+// IMPORTANTE: todo el flujo, incluida la prueba enlazada, es puramente MOCK.
+// Ninguna fase confirma financiación o entrega bancaria real.
+
+test('Honduras: flujo MOCK enlazado desde remesa hasta verificación del agente',()=>{
+ const port=makePort(),verifier=createMockCashPickupVerifier({secret:PICKUP_SECRET,clock:()=>CLOCK});
+ const binding=createMockPickupBinding({providerPort:port,pickupVerifier:verifier});
+ const g=makeGateway(),agent=createMockAgentPickupSession({sessionGateway:g,pickupVerifier:verifier});
+ const transfer=port.submitDemoTransfer({requestId:'US-HN-BIND-FULL-JOURNEY-001',order:order('HN')});
+ const ref={demoTransferId:transfer.demoTransferId,caseId:'SIM-HN-FULLCHAIN001',
+  beneficiaryAlias:'SAMPLE-HN-FULLCHAIN001'};
+ // No existe un código de retiro mientras la simulación está pendiente.
+ assert.throws(()=>binding.issueSyntheticPickup(ref),/no apta/);
+ const pending=port.makeSyntheticEvent({id:'US-HN-BIND-PENDING-001',
+  transferId:transfer.demoTransferId,status:'sandbox_pending'});
+ port.receiveSignedDemoEvent(pending);
+ assert.throws(()=>binding.issueSyntheticPickup(ref),/no apta/);
+ const done=port.makeSyntheticEvent({id:'US-HN-BIND-COMPLETE-001',
+  transferId:transfer.demoTransferId,status:'sandbox_completed'});
+ port.receiveSignedDemoEvent(done);
+ const sample=binding.issueSyntheticPickup(ref);
+ assert.equal(sample.destination,'HN');
+ assert.equal(sample.proofOfPayment,false);
+ assert.equal(sample.canRedeemAtBank,false);
+ assert.match(sample.sampleCode,/^SIMONLY-[A-F0-9]{32}$/);
+ const mockCheck={caseId:ref.caseId,beneficiaryAlias:ref.beneficiaryAlias,
+  sampleCode:sample.sampleCode};
+ // Una institución de otro país no consume el SAMPLE ficticio.
+ const foreign=agent.verifySample({...mockCheck,
+  sessionToken:login(g,'staff-ni-test-001')});
+ assert.equal(foreign.acceptedMock,false);
+ assert.equal(verifier.inspectSample(ref.caseId).failedAttempts,0);
+ const accepted=agent.verifySample({...mockCheck,
+  sessionToken:login(g,'staff-hn-test-001')});
+ assert.equal(accepted.acceptedMock,true);
+ assert.equal(accepted.status,'consumed_mock');
+ assertNoReal(accepted);
+ assert.equal(accepted.canPay,false);
+ const replay=binding.issueSyntheticPickup(ref);
+ assert.equal(replay.alreadyIssued,true);
+ assert.equal(Object.hasOwn(replay,'sampleCode'),false);
+ const inspected=binding.inspectSyntheticPickup({demoTransferId:transfer.demoTransferId});
+ assert.equal(inspected.codeStatus,'consumed_mock');
+ assert.equal(JSON.stringify(inspected).includes(sample.sampleCode),false);
+ assert.equal(JSON.stringify(verifier.sanitizedAudit()).includes(sample.sampleCode),false);
+ assert.equal(port.checkDemoStatus(transfer.demoTransferId).noConfirmedFunding,true);
+ assert.equal(port.checkDemoStatus(transfer.demoTransferId).noConfirmedDisbursement,true);
+ assert.equal(port.sanitizedAudit().filter(x=>x.type==='mock_transfer_created').length,1);
+});
