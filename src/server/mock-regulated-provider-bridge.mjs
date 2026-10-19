@@ -77,14 +77,23 @@ export function createMockRegulatedProviderBridge(options={}) {
      redeemable:false,moneyMovementEnabled:false,
    });
   },
-  submitSandboxTransfer({requestId,order}={}) {
+  submitSandboxTransfer(input={}) {
+   // Fallar cerrado: no aceptar ni ignorar PII, token, URL o bandera de pago "live".
+   if(!plainRecord(input) || Object.keys(input).sort().join('|')!=='order|requestId')
+     throw auditSafe('Solicitud de demostración inválida: solo orden e identificador');
+   const {requestId,order}=input;
    if(typeof requestId!=='string'||!/^[a-zA-Z0-9-]{12,90}$/.test(requestId))
      throw auditSafe('Identificador de reintento inválido');
    const normalized=validateOrder(order,countries),hash=digest(normalized);
    const existing=attempts.get(requestId);
    if(existing) {
      if(existing.hash!==hash)throw auditSafe('Idempotency key reutilizada con datos diferentes');
-     return Object.freeze({...jsonClone(existing.result),alreadyProcessed:true});
+     // La referencia idempotente NO crea otra remesa; su estado consultado
+     // se alinea con el último evento MOCK aceptado (nunca equivale a pago).
+     const current=orders.get(existing.result.id);
+     if(!current)throw auditSafe('Orden de ensayo inconsistente');
+     return Object.freeze({...jsonClone(existing.result),
+       status:current.status,alreadyProcessed:true});
    }
    const id=randomUUID(), result={
      id,requestId,status:'sandbox_submitted',source:'mock_memory_only',
@@ -96,7 +105,11 @@ export function createMockRegulatedProviderBridge(options={}) {
    maybeLog('mock_transfer_created',id);
    return Object.freeze(jsonClone({...result,alreadyProcessed:false}));
   },
-  verifyAndApplyWebhook({rawBody,timestamp,signature:incomingSignature}={}) {
+  verifyAndApplyWebhook(message={}) {
+   // La firma solo protege los bytes aceptados; no aceptar parámetros extra.
+   if(!plainRecord(message) || Object.keys(message).sort().join('|')!=='rawBody|signature|timestamp')
+     throw auditSafe('Notificación de ensayo inválida: campos inesperados');
+   const {rawBody,timestamp,signature:incomingSignature}=message;
    // Falla cerrada ante relojes incompletos, saltos inválidos o edades >5 min.
    const current=clock();
    if(typeof rawBody!=='string'||Buffer.byteLength(rawBody,'utf8')>8192||

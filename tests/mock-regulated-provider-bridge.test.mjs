@@ -118,3 +118,42 @@ test('catálogo de países de DISEÑO exige códigos únicos sin habilitar remes
   assert.equal(q.redeemable,false);
  }
 });
+
+test('reintento idempotente refleja último estado mock sin duplicar remesas ni fingir pago',()=>{
+ const m=make();
+ const requestId='request-status-retained-001';
+ const created=m.submitSandboxTransfer({requestId,order});
+ const pending=m.makeMockWebhook({id:'event-status-pending-001',transferId:created.id,status:'sandbox_pending'});
+ assert.equal(m.verifyAndApplyWebhook(pending).status,'sandbox_pending');
+ const retry=m.submitSandboxTransfer({requestId,order});
+ assert.equal(retry.id,created.id);
+ assert.equal(retry.alreadyProcessed,true);
+ assert.equal(retry.status,'sandbox_pending');
+ assert.equal(retry.fundingConfirmed,false);
+ assert.equal(retry.recipientPaid,false);
+ const completed=m.makeMockWebhook({id:'event-status-complete-001',transferId:created.id,status:'sandbox_completed'});
+ assert.equal(m.verifyAndApplyWebhook(completed).status,'sandbox_completed');
+ const again=m.submitSandboxTransfer({requestId,order});
+ assert.equal(again.status,'sandbox_completed');
+ assert.equal(again.id,created.id);
+ assert.equal(again.realPaymentsEnabled,false);
+ assert.equal(again.redeemable,false);
+ assert.equal(m.getSanitizedAudit().filter(x=>x.type==='mock_transfer_created').length,1);
+ assert.throws(()=>m.submitSandboxTransfer({requestId,order:{...order,amountCents:10001}}),/reutilizada/);
+});
+test('envelopes falsificados NO pueden inyectar autorización o datos bancarios',()=>{
+ const m=make();
+ const envelope={requestId:'request-strict-test-001',order};
+ for(const extra of [
+   {liveApproved:true},{bankAccount:'test-account'},
+   {providerToken:'secret'},{senderName:'test-person'}
+ ])assert.throws(()=>m.submitSandboxTransfer({...envelope,...extra}),/inválida/);
+ assert.throws(()=>m.submitSandboxTransfer(null),/inválida/);
+ const submitted=m.submitSandboxTransfer(envelope);
+ const good=m.makeMockWebhook({id:'event-strict-test-001',transferId:submitted.id,status:'sandbox_pending'});
+ assert.throws(()=>m.verifyAndApplyWebhook({...good,providerPaid:true}),/inválida/);
+ assert.throws(()=>m.verifyAndApplyWebhook({...good,accountNumber:'test'}),/inválida/);
+ assert.equal(m.getSandboxTransfer(submitted.id).status,'sandbox_submitted');
+ assert.equal(m.verifyAndApplyWebhook(good).status,'sandbox_pending');
+ assert.equal(m.getSandboxTransfer(submitted.id).recipientPaid,false);
+});
