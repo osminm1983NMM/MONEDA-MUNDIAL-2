@@ -1,0 +1,21 @@
+name: Verificar transferencia MWD entre dos cuentas DEMO
+on:
+  pull_request:
+    paths:
+      - 'tests/mwd-transfer-two-accounts-isolated.sql'
+      - 'tests/fixtures/mwd-core-rpcs-snapshot-demo.sql'
+      - 'database/mwd_operation_status_demo.sql'
+      - '.github/workflows/mwd-transfer-two-accounts-isolated.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Iniciar PostgreSQL desechable
+        run: sudo systemctl start postgresql
+      - name: Probar débitos, créditos e idempotencia sin fondos reales
+        run: sudo -u postgres psql -X -v ON_ERROR_STOP=1 -f tests/mwd-transfer-two-accounts-isolated.sql

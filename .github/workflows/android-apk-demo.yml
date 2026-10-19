@@ -1,6 +1,19 @@
 name: Compilar APK Android de demostración
 on:
   workflow_dispatch:
+  pull_request:
+    branches: ['integracion/demo-unificada-20261016']
+    paths:
+      - 'App.js'
+      - '*.js'
+      - 'src/digital-money/**'
+      - 'tests/demo-asset-summary.test.mjs'
+      - 'tests/demo-conversion-contract.test.mjs'
+      - 'tests/demo-pending-confirmation.test.mjs'
+      - 'tests/demo-confirm-and-reconcile.test.mjs'
+      - 'tests/demo-session-guard.test.mjs'
+      - 'scripts/smoke-wallet-demo-android.sh'
+      - '.github/workflows/android-apk-demo.yml'
   push:
     branches: ['integracion/demo-unificada-20261016']
     paths:
@@ -37,6 +50,39 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Comprobar paquetes compatibles con Expo SDK 54
         run: npx expo install --check
+      - name: Rechazar recibos y cotizaciones DEMO inconsistentes
+        run: node --test tests/demo-conversion-contract.test.mjs
+      - name: Probar confirmaciones inciertas y conciliacion DEMO
+        run: |
+          node --test tests/demo-pending-confirmation.test.mjs
+          node --test tests/demo-confirm-and-reconcile.test.mjs
+          node --test tests/demo-session-guard.test.mjs
+          node --test tests/demo-asset-summary.test.mjs
+      - name: Ejecutar todas las pruebas de JavaScript de la demo antes de generar APK
+        run: node --test tests/*.test.mjs
+      - name: Comprobar barreras de dinero real antes de empaquetar
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$REAL_PAYMENTS_ENABLED" = 'false'
+          test "$EXPO_PUBLIC_REAL_PAYMENTS_ENABLED" = 'false'
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const app=fs.readFileSync('App.js','utf8');
+          const international=fs.readFileSync('src/digital-money/international-demo-planner.mjs','utf8');
+          const provider=fs.readFileSync('src/digital-money/international-provider-adapter-contract-demo.mjs','utf8');
+          if(!app.includes('HOME_DEMO_TEXT') || !fs.readFileSync('src/digital-money/home-demo-i18n.mjs','utf8').includes('NO REAL MONEY')) {
+            throw Error('Falta etiqueta multilingüe de demostración');
+          }
+          if(!international.includes("realPaymentsEnabled:false")||!international.includes("executionAvailable:false")||
+             !provider.includes("internationalLiveTransferDisabled")) {
+            throw Error('Falta barrera documental de transferencias internacionales');
+          }
+          NODE
+      - name: Verificar lectura estricta de aviso DEMO en ambos idiomas
+        run: bash tests/check-demo-launch-ui.test.sh
+      - name: Incrustar identificador de compilación DEMO
+        run: node scripts/write-demo-build-info.cjs
       - name: Identificar APK como aplicación SOLO DEMO
         shell: bash
         run: |
@@ -60,4 +106,68 @@ jobs:
           name: moneda-mundial-demo-android-apk
           path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+          retention-days: 7
+
+  smoke-sin-credenciales:
+    name: Instalar APK del mismo commit y verificar aviso DEMO
+    needs: android-demo-apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Código del mismo commit
+        uses: actions/checkout@v4
+      - name: Preparar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Descargar APK compilada en este mismo flujo
+        uses: actions/download-artifact@v4
+        with:
+          name: moneda-mundial-demo-android-apk
+          path: apk-test
+      - name: Registrar commit y huella de APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p smoke-results
+          echo "commit=${{ github.sha }}" > smoke-results/procedencia.txt
+          echo "run=${{ github.run_id }}" >> smoke-results/procedencia.txt
+          sha256sum apk-test/app-release.apk > smoke-results/sha256.txt
+      - name: Habilitar KVM para Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -e /dev/kvm || { echo "::error::Runner sin KVM"; exit 1; }
+          sudo chmod 666 /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+      - name: Abrir aplicación en emulador sin iniciar sesión
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-boot-timeout: 900
+          disable-animations: true
+          script: |
+            bash scripts/smoke-wallet-demo-android.sh
+            bash scripts/smoke-android-locales-demo.sh
+            bash scripts/smoke-android-build-diagnostics.sh
+      - name: Comprobar misma APK
+        run: sha256sum --check smoke-results/sha256.txt
+      - name: Publicar APK de demostración verificada en Android
+        uses: actions/upload-artifact@v4
+        with:
+          name: moneda-mundial-demo-apk-arranque-verificado
+          path: apk-test/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
+      - name: Guardar pruebas visuales de arranque
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moneda-mundial-demo-prueba-android
+          path: smoke-results/
+          if-no-files-found: warn
           retention-days: 7

@@ -7,6 +7,49 @@ on:
   pull_request:
     paths:
       - '*.js'
+      - 'src/digital-money/demo-build-info.mjs'
+      - 'src/digital-money/demo-build-info.json'
+      - 'tests/demo-build-info.test.mjs'
+      - 'src/digital-money/demo-asset-summary.mjs'
+      - 'tests/demo-asset-summary.test.mjs'
+      - 'src/digital-money/demo-conversion-contract.mjs'
+      - 'tests/demo-conversion-contract.test.mjs'
+      - 'src/digital-money/demo-pending-confirmation.mjs'
+      - 'tests/demo-pending-confirmation.test.mjs'
+      - 'src/digital-money/demo-confirm-and-reconcile.mjs'
+      - 'tests/demo-confirm-and-reconcile.test.mjs'
+      - 'src/digital-money/demo-session-guard.mjs'
+      - 'tests/demo-session-guard.test.mjs'
+      - 'src/digital-money/mwd-operation-status-demo.mjs'
+      - 'tests/mwd-operation-status-demo.test.mjs'
+      - 'src/digital-money/mwd-pending-operation-demo.mjs'
+      - 'tests/mwd-pending-operation-demo.test.mjs'
+      - 'src/digital-money/mwd-pending-recovery-demo.mjs'
+      - 'tests/mwd-pending-recovery-demo.test.mjs'
+      - 'tests/mwd-recovery-identity.test.mjs'
+      - 'tests/mwd-two-accounts-sandbox.test.mjs'
+      - 'src/digital-money/international-demo-planner.mjs'
+      - 'tests/international-demo-planner.test.mjs'
+      - 'src/digital-money/country-search-demo.mjs'
+      - 'tests/country-search-demo.test.mjs'
+      - 'src/digital-money/international-demo-i18n.mjs'
+      - 'tests/international-demo-i18n.test.mjs'
+      - 'src/digital-money/international-demo-language-preference.mjs'
+      - 'tests/international-demo-language-preference.test.mjs'
+      - 'src/digital-money/home-demo-i18n.mjs'
+      - 'tests/home-demo-i18n.test.mjs'
+      - 'src/digital-money/beneficiary-verification-checklist-demo.mjs'
+      - 'tests/beneficiary-verification-checklist-demo.test.mjs'
+      - 'src/digital-money/international-provider-assessment-demo.mjs'
+      - 'tests/international-provider-assessment-demo.test.mjs'
+      - 'src/digital-money/international-provider-adapter-contract-demo.mjs'
+      - 'tests/international-provider-adapter-contract-demo.test.mjs'
+      - 'scripts/android_demo_build_ui.py'
+      - 'tests/test_android_demo_build_ui.py'
+      - 'scripts/android_demo_locale_ui.py'
+      - 'tests/test_android_demo_locale_ui.py'
+      - 'scripts/android_launcher_anr.py'
+      - 'tests/test_android_launcher_anr.py'
       - 'package.json'
       - 'app.json'
       - 'eas.json'
@@ -38,6 +81,50 @@ jobs:
         run: npx expo config --type public --json > /tmp/expo-config.json
       - name: Verificar compatibilidad de dependencias
         run: npx expo install --check
+      - name: Comprobar clasificación segura de ANR Android
+        run: python3 -m unittest discover -s tests -p 'test_android_launcher_anr.py'
+      - name: Validar controles reales de idioma en XML Android
+        run: python3 -m unittest discover -s tests -p 'test_android_demo_locale_ui.py'
+      - name: Probar identificación visible de la compilación Android
+        run: python3 -m unittest discover -s tests -p 'test_android_demo_build_ui.py'
+      - name: Validar cotizaciones y recibos solo de prueba
+        run: node --test tests/demo-conversion-contract.test.mjs
+      - name: Comprobar recuperación de confirmaciones tras una desconexión
+        run: node --test tests/demo-pending-confirmation.test.mjs
+      - name: Exigir conciliación del recibo antes de liberar saldo DEMO
+        run: node --test tests/demo-confirm-and-reconcile.test.mjs
+      - name: Validar datos y presentación de Coin y Digital (DEMO)
+        run: node --test tests/demo-asset-summary.test.mjs
+      - name: Verificar aislamiento de cuentas y respuestas obsoletas
+        run: node --test tests/demo-session-guard.test.mjs
+      - name: Validar estado de operaciones MWD sin mover saldos
+        run: node --test tests/mwd-operation-status-demo.test.mjs
+      - name: Verificar referencias persistentes MWD ficticias
+        run: node --test tests/mwd-pending-operation-demo.test.mjs
+      - name: Verificar recuperación idempotente MWD ante fallas
+        run: node --test tests/mwd-pending-recovery-demo.test.mjs
+      - name: Verificar identidad y recuperación con red simulada
+        run: node --test tests/mwd-recovery-identity.test.mjs
+      - name: Simular dos cuentas MWD e idempotencia sin dinero real
+        run: node --test tests/mwd-two-accounts-sandbox.test.mjs
+      - name: Verificar corredor internacional SOLO planificación
+        run: node --test tests/international-demo-planner.test.mjs
+      - name: Comprobar verificación de beneficiarios solo informativa
+        run: node --test tests/beneficiary-verification-checklist-demo.test.mjs
+      - name: Rechazar proveedores internacionales no verificados
+        run: node --test tests/international-provider-assessment-demo.test.mjs
+      - name: Verificar adaptador de investigación sin pagos habilitados
+        run: node --test tests/international-provider-adapter-contract-demo.test.mjs
+      - name: Validar selector de países internacional
+        run: node --test tests/country-search-demo.test.mjs
+      - name: Comprobar localización internacional ES/EN
+        run: node --test tests/international-demo-i18n.test.mjs
+      - name: Verificar preferencia de idioma persistente
+        run: node --test tests/international-demo-language-preference.test.mjs
+      - name: Comprobar traducciones de portada y billetera ficticia
+        run: node --test tests/home-demo-i18n.test.mjs
+      - name: Verificar procedencia y avisos de APK DEMO
+        run: node --test tests/demo-build-info.test.mjs
       - name: Empaquetar JavaScript para Android (no crea APK)
         run: npx expo export --platform android --output-dir dist
       - name: Confirmar que se generaron archivos
