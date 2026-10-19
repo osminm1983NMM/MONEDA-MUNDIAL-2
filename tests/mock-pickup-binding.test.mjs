@@ -76,3 +76,18 @@ test('Nicaragua conserva alcance sólo de laboratorio y no se reemite código',(
  assert.equal(again.alreadyIssued,true);
  assert.equal(again.sampleCodeRetrievable,false);
 });
+
+test('consulta de código SAMPLE rechaza campos arbitrarios y nunca divulga el secreto',()=>{
+ const {port,binding}=make(),r=create(port);
+ complete(port,r.demoTransferId);
+ const issued=binding.issueSyntheticPickup(input(r.demoTransferId));
+ for(const extra of [{paid:true},{recipientName:'FICTICIO'},{country:'NI'},
+   {bankAccount:'DEMO-ACCOUNT'},{providerApproved:true}]){
+  assert.throws(()=>binding.inspectSyntheticPickup({demoTransferId:r.demoTransferId,...extra}),/campos inesperados/);
+ }
+ assert.throws(()=>binding.inspectSyntheticPickup(Object.create({demoTransferId:r.demoTransferId})),/campos inesperados/);
+ const inspected=binding.inspectSyntheticPickup({demoTransferId:r.demoTransferId});
+ assert.equal(inspected.codeStatus,'issued_mock');
+ assert.equal(inspected.realMoneyEnabled,false);
+ assert.equal(JSON.stringify(inspected).includes(issued.sampleCode),false);
+});
