@@ -7,6 +7,9 @@ on:
   pull_request:
     paths:
       - '*.js'
+      - 'src/digital-money/demo-build-info.mjs'
+      - 'src/digital-money/demo-build-info.json'
+      - 'tests/demo-build-info.test.mjs'
       - 'src/digital-money/demo-asset-summary.mjs'
       - 'tests/demo-asset-summary.test.mjs'
       - 'src/digital-money/demo-conversion-contract.mjs'
@@ -112,6 +115,8 @@ jobs:
         run: node --test tests/international-demo-language-preference.test.mjs
       - name: Comprobar traducciones de portada y billetera ficticia
         run: node --test tests/home-demo-i18n.test.mjs
+      - name: Verificar procedencia y avisos de APK DEMO
+        run: node --test tests/demo-build-info.test.mjs
       - name: Empaquetar JavaScript para Android (no crea APK)
         run: npx expo export --platform android --output-dir dist
       - name: Confirmar que se generaron archivos
