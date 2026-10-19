@@ -150,7 +150,9 @@ jobs:
           profile: pixel_6
           emulator-boot-timeout: 900
           disable-animations: true
-          script: bash scripts/smoke-wallet-demo-android.sh
+          script: |
+            bash scripts/smoke-wallet-demo-android.sh
+            bash scripts/smoke-android-locales-demo.sh
       - name: Comprobar misma APK
         run: sha256sum --check smoke-results/sha256.txt
       - name: Publicar APK de demostración verificada en Android
