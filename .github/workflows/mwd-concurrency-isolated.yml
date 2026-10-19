@@ -1,0 +1,22 @@
+name: Concurrencia MWD con dos sesiones DEMO
+on:
+  pull_request:
+    paths:
+      - 'tests/mwd-concurrent-setup-isolated.sql'
+      - 'tests/mwd-concurrent-two-sessions-ci.sh'
+      - 'tests/fixtures/mwd-core-rpcs-snapshot-demo.sql'
+      - 'database/mwd_operation_status_demo.sql'
+      - '.github/workflows/mwd-concurrency-isolated.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  concurrent-demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Iniciar PostgreSQL descartable
+        run: sudo systemctl start postgresql
+      - name: Lanzar dos sesiones simultáneas sin fondos reales
+        run: bash tests/mwd-concurrent-two-sessions-ci.sh
