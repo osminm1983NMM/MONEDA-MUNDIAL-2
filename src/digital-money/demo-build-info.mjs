@@ -18,3 +18,11 @@ export function safeDemoBuildInfo(raw){
   physicallyVerified:false, // Nunca reclamar prueba en teléfono real.
  });
 }
+
+// URL de solo lectura, restringida a ESTE repositorio y a ID decimal verificado.
+// No consume datos del usuario; no hay claves ni API de pagos.
+export function demoGithubRunUrl(buildInfo){
+ if(!buildInfo||buildInfo.githubProvenanceAvailable!==true||
+    typeof buildInfo.runId!=='string'||!RUN_ID.test(buildInfo.runId))return null;
+ return 'https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/'+buildInfo.runId;
+}
