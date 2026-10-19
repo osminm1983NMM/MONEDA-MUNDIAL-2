@@ -16,6 +16,9 @@ import { createClient } from '@supabase/supabase-js';
 import PartnerRegistryScreen from './PartnerRegistryScreen';
 import CoinStableDemoScreen from './CoinStableDemoScreen';
 import InternationalPlannerDemoScreen from './InternationalPlannerDemoScreen';
+import {HOME_DEMO_TEXT} from './src/digital-money/home-demo-i18n.mjs';
+import {detectInternationalDemoLanguage} from './src/digital-money/international-demo-i18n.mjs';
+import {INTERNATIONAL_DEMO_LANGUAGE_KEY,decodeInternationalDemoLanguagePreference,resolveInternationalDemoLanguage,saveInternationalDemoLanguagePreference} from './src/digital-money/international-demo-language-preference.mjs';
 import DemoAssetSummaryCard from './DemoAssetSummaryCard';
 import { createDemoSessionGuard, createDemoOperationGate } from './src/digital-money/demo-session-guard.mjs';
 import { mwdPendingStorageKey, serializeMwdPending, deserializeMwdPending, buildMwdDemoRetry } from './src/digital-money/mwd-pending-operation-demo.mjs';
@@ -91,6 +94,21 @@ function Btn({ title, onPress, secondary = false, disabled = false }) {
 }
 
 export default function App() {
+  const [deviceLanguage]=useState(detectInternationalDemoLanguage);
+  const [languagePreference,setLanguagePreference]=useState('auto');
+  const lang=resolveInternationalDemoLanguage(languagePreference,deviceLanguage);
+  const homeText=HOME_DEMO_TEXT[lang];
+  useEffect(()=>{
+    let active=true;
+    AsyncStorage.getItem(INTERNATIONAL_DEMO_LANGUAGE_KEY).then(value=>{
+      if(active)setLanguagePreference(decodeInternationalDemoLanguagePreference(value));
+    }).catch(()=>{});
+    return ()=>{active=false;};
+  },[]);
+  async function chooseHomeLanguage(next){
+    try { await saveInternationalDemoLanguagePreference(AsyncStorage,next);setLanguagePreference(next); }
+    catch { message('Language / Idioma',homeText.languageError); }
+  }
   const [authLoading, setAuthLoading] = useState(true);
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState('');
@@ -386,89 +404,95 @@ export default function App() {
       <StatusBar barStyle="light-content" backgroundColor="#07111f" />
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <Text style={styles.logo}>🌐 MONEDA MUNDIAL</Text>
-        <Text style={styles.sub}>MWD • Versión 2.0 • Supabase</Text>
-        <Text style={styles.warning}>SOLO DEMOSTRACIÓN • SIN DINERO REAL</Text>
+        <Text style={styles.sub}>{homeText.subtitle}</Text>
+        <Text style={styles.warning}>{homeText.warning}</Text>
+        <View style={{flexDirection:'row',justifyContent:'center',flexWrap:'wrap',marginBottom:9}}>
+          {['auto','es','en'].map(x=><TouchableOpacity key={x} accessibilityRole="button" onPress={()=>chooseHomeLanguage(x)}
+            style={[styles.buttonSecondary,{padding:9,borderRadius:8,marginHorizontal:4,marginBottom:4},languagePreference===x&&{borderWidth:1,borderColor:'#f4cc81'}]}>
+            <Text style={styles.buttonText}>{x==='auto'?'Auto':x==='es'?'Español':'English'}</Text>
+          </TouchableOpacity>)}
+        </View>
 
         {authLoading ? <ActivityIndicator color="#4a8dff" size="large" /> : !session ? (
           <View style={styles.card}>
-            <Text style={styles.heading}>Accede a Moneda Mundial</Text>
-            <Text style={styles.muted}>Crea una cuenta de prueba o inicia sesión.</Text>
-            <TextInput style={styles.input} placeholder="Correo electrónico"
+            <Text style={styles.heading}>{homeText.loginHeading}</Text>
+            <Text style={styles.muted}>{homeText.loginHelp}</Text>
+            <TextInput style={styles.input} placeholder={homeText.email}
               placeholderTextColor="#9fb1c8" keyboardType="email-address"
               autoCapitalize="none" autoCorrect={false} value={email} onChangeText={setEmail} />
-            <TextInput style={styles.input} placeholder="Contraseña (8 caracteres mínimo)"
+            <TextInput style={styles.input} placeholder={homeText.password}
               placeholderTextColor="#9fb1c8" autoCapitalize="none"
               secureTextEntry value={password} onChangeText={setPassword} />
-            <Btn title={authBusy ? 'Espera...' : 'Iniciar sesión'} onPress={() => authenticate('login')} disabled={authBusy} />
-            <Btn title="Crear cuenta de prueba" secondary onPress={() => authenticate('register')} disabled={authBusy} />
-            <Text style={styles.muted}>Cada cuenta nueva recibe 10,000 MWD ficticios. Si Supabase solicita confirmar el correo, revisa tu bandeja de entrada.</Text>
+            <Btn title={authBusy ? homeText.wait : homeText.signIn} onPress={() => authenticate('login')} disabled={authBusy} />
+            <Btn title={homeText.signUp} secondary onPress={() => authenticate('register')} disabled={authBusy} />
+            <Text style={styles.muted}>{homeText.signupHelp}</Text>
           </View>
         ) : (
           <>
-            {screen !== 'Inicio' && <Btn title="← Volver al inicio" secondary onPress={() => navigate('Inicio')} disabled={busy} />}
+            {screen !== 'Inicio' && <Btn title={homeText.back} secondary onPress={() => navigate('Inicio')} disabled={busy} />}
             {screen === 'Inicio' && <>
               <View style={styles.card}>
-                <Text style={styles.muted}>TU CUENTA PERSONAL DE PRUEBA</Text>
+                <Text style={styles.muted}>{homeText.account}</Text>
                 <Text style={styles.small}>{session.user.email}</Text>
                 <Text style={styles.balance}>{wallet ? formatMWD(wallet.balance_cents) : '...'} MWD</Text>
-                <Text style={styles.muted}>Saldo ficticio en Supabase</Text>
+                <Text style={styles.muted}>{homeText.balance}</Text>
                 <Text selectable style={styles.code}>{wallet?.account_code || 'Cargando identificador...'}</Text>
               </View>
-              {!!mwdPending&&<Text style={styles.warning}>Hay una operación MWD ficticia pendiente de verificación.</Text>}
-              {!!mwdPending&&!mwdPending.unavailable&&<Text selectable style={styles.muted}>Referencia: {mwdPending.id}{'\n'}Tipo: {mwdPending.type==='transfer'?'Transferencia':'Aportación'} · {formatMWD(mwdPending.cents)} MWD de prueba{mwdPending.type==='transfer'?' · Beneficiario: '+mwdPending.code:''}</Text>}
-              {!!mwdPending&&!mwdPending.unavailable&&<Btn title="Consultar estado MWD anterior" onPress={()=>checkPendingMwd(false)} disabled={busy} />}
-              {!!mwdPending&&!mwdPending.unavailable&&<Btn title="Reintentar MISMA operación (DEMO)" secondary disabled={busy} onPress={()=>
+              {!!mwdPending&&<Text style={styles.warning}>{homeText.pending}</Text>}
+              {!!mwdPending&&!mwdPending.unavailable&&<Text selectable style={styles.muted}>Referencia: {mwdPending.id}{'\n'}{homeText.kind}: {mwdPending.type==='transfer'?homeText.transfer:homeText.contribution} · {formatMWD(mwdPending.cents)} MWD de prueba{mwdPending.type==='transfer'?' · '+homeText.recipient+': '+mwdPending.code:''}</Text>}
+              {!!mwdPending&&!mwdPending.unavailable&&<Btn title={homeText.checkPending} onPress={()=>checkPendingMwd(false)} disabled={busy} />}
+              {!!mwdPending&&!mwdPending.unavailable&&<Btn title={homeText.retryPending} secondary disabled={busy} onPress={()=>
                 confirmAction('Reintento idempotente de DEMO',
                   'Se consultará primero el registro. Solo si no está confirmada se repetirá exactamente la misma referencia, cantidad y beneficiario. Nunca utiliza dinero real.',
                   ()=>checkPendingMwd(true))
               } />}
-              <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet} />
-              <Btn title="Planificar envío internacional (DEMO)" secondary onPress={() => navigate('Internacional')} />
-              <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
-              <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
-              <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
-              <Btn title="Actualizar saldo e historial" secondary onPress={() => refreshAccount()} disabled={syncing} />
+              <Btn title={homeText.transferButton} onPress={() => navigate('Transferir')} disabled={!wallet} />
+              <Btn title={homeText.internationalButton} secondary onPress={() => navigate('Internacional')} />
+              <Btn title={homeText.contributionButton} onPress={() => navigate('Aportar')} disabled={!wallet} />
+              <Btn title={homeText.historyButton} secondary onPress={() => navigate('Historial')} />
+              <Btn title={homeText.receiveButton} secondary onPress={() => navigate('Cuenta')} />
+              <Btn title={homeText.refreshButton} secondary onPress={() => refreshAccount()} disabled={syncing} />
               <DemoAssetSummaryCard key={userId} userId={userId} supabase={supabase} onOpenConversion={() => navigate('Conversión')} />
-              <Btn title="Entrega sin teléfono (DEMO)" secondary onPress={() => navigate('Entrega')} />
-              <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
-              <Btn title="Cerrar sesión" secondary onPress={logout} />
+              <Btn title={homeText.cashPickupButton} secondary onPress={() => navigate('Entrega')} />
+              <Btn title={homeText.adminButton} secondary onPress={() => navigate('Admin')} />
+              <Btn title={homeText.logoutButton} secondary onPress={logout} />
             </>}
 
             {screen === 'Transferir' && <View style={styles.card}>
-              <Text style={styles.heading}>Transferencia de prueba</Text>
-              <Text style={styles.muted}>Pide a la otra persona su código MWD para enviarle créditos de demostración.</Text>
-              <TextInput style={styles.input} placeholder="Ejemplo: MWD-0123456789ABCDEF"
+              <Text style={styles.heading}>{homeText.transferTitle}</Text>
+              <Text style={styles.muted}>{homeText.transferHelp}</Text>
+              <TextInput style={styles.input} placeholder={homeText.recipientPlaceholder}
                 autoCapitalize="characters" autoCorrect={false} placeholderTextColor="#9fb1c8"
                 value={recipientCode} onChangeText={changeRecipient} />
-              <TextInput style={styles.input} placeholder="Cantidad MWD" keyboardType="decimal-pad"
+              <TextInput style={styles.input} placeholder={homeText.amountPlaceholder} keyboardType="decimal-pad"
                 placeholderTextColor="#9fb1c8" value={amount} onChangeText={changeAmount} />
-              <Btn title={busy ? 'Procesando...' : 'Confirmar transferencia ficticia'}
+              <Btn title={busy ? homeText.processing : homeText.confirmTransfer}
                 onPress={() => prepareOperation('transfer')} disabled={busy} />
             </View>}
 
             {screen === 'Aportar' && <View style={styles.card}>
-              <Text style={styles.heading}>Aportación de prueba</Text>
-              <Text style={styles.muted}>La cantidad se descontará de tu saldo ficticio y quedará en el historial. No se recibirá dinero real.</Text>
-              <TextInput style={styles.input} placeholder="Cantidad MWD" keyboardType="decimal-pad"
+              <Text style={styles.heading}>{homeText.contributionTitle}</Text>
+              <Text style={styles.muted}>{homeText.contributionHelp}</Text>
+              <TextInput style={styles.input} placeholder={homeText.amountPlaceholder} keyboardType="decimal-pad"
                 placeholderTextColor="#9fb1c8" value={amount} onChangeText={changeAmount} />
-              <Btn title={busy ? 'Procesando...' : 'Confirmar aportación ficticia'}
+              <Btn title={busy ? homeText.processing : homeText.confirmContribution}
                 onPress={() => prepareOperation('contribution')} disabled={busy} />
             </View>}
 
             {screen === 'Cuenta' && <View style={styles.card}>
-              <Text style={styles.heading}>Mi identificador para recibir</Text>
+              <Text style={styles.heading}>{homeText.receiveTitle}</Text>
               <Text selectable style={styles.code}>{wallet?.account_code}</Text>
-              <Text style={styles.muted}>Comparte este identificador con otra cuenta de prueba. No compartas tu contraseña.</Text>
+              <Text style={styles.muted}>{homeText.receiveHelp}</Text>
               <Text style={styles.small}>Correo: {session.user.email}</Text>
             </View>}
 
             {screen === 'Historial' && <>
-              <Text style={styles.heading}>Mis últimos movimientos</Text>
-              {operations.length === 0 && <Text style={styles.muted}>Todavía no hay movimientos en línea.</Text>}
+              <Text style={styles.heading}>{homeText.historyTitle}</Text>
+              {operations.length === 0 && <Text style={styles.muted}>{homeText.noHistory}</Text>}
               {operations.map(op => {
                 const sent = op.kind === 'contribution' || op.source_user_id === userId;
-                const label = op.kind === 'contribution' ? 'Aportación ficticia' :
-                  sent ? 'Transferencia enviada' : 'Transferencia recibida';
+                const label = op.kind === 'contribution' ? homeText.contributionHistory :
+                  sent ? homeText.sent : homeText.received;
                 return (
                   <View style={styles.entry} key={op.id}>
                     <Text style={styles.itemHeading}>{label}</Text>
@@ -495,7 +519,7 @@ export default function App() {
             </View>}
           </>
         )}
-        <Text style={styles.footer}>Moneda Mundial • Prototipo conectado a Supabase • No es un servicio financiero</Text>
+        <Text style={styles.footer}>{homeText.footer}</Text>
       </ScrollView>
     </View>
   );
