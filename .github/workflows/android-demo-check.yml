@@ -44,6 +44,8 @@ on:
       - 'tests/international-provider-assessment-demo.test.mjs'
       - 'src/digital-money/international-provider-adapter-contract-demo.mjs'
       - 'tests/international-provider-adapter-contract-demo.test.mjs'
+      - 'scripts/android_demo_locale_ui.py'
+      - 'tests/test_android_demo_locale_ui.py'
       - 'scripts/android_launcher_anr.py'
       - 'tests/test_android_launcher_anr.py'
       - 'package.json'
