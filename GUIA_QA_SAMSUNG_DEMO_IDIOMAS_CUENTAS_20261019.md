@@ -1,23 +1,23 @@
 # Moneda Mundial 2.0 — validación en Samsung desde un solo teléfono
 **Fecha:** 19 de octubre de 2026 · **Tipo:** laboratorio con créditos ficticios.
 
-## APK verificada de esta etapa (evidencia confirmada en GitHub Actions)
+## APK de DEMOSTRACIÓN verificada más reciente (19 de octubre de 2026)
 
-- **Commit exacto del código compilado:** `8a003a7cbc6344766903d7995da642530c3e635f`.
-- **Run de compilación y arranque:** https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/39319745682
-- **Resultado:** `success` en ambos trabajos: compilación Android y arranque en emulador con aviso de demostración.
-- **Artefacto a descargar:** `moneda-mundial-demo-apk-arranque-verificado` (identificador `12219638940`).
-- **Enlace directo al artefacto de GitHub:** https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/39319745682/artifacts/12219638940
-- **Caducidad aproximada del ZIP:** 26 de octubre de 2026 a las 20:39 UTC; comprobar antes de descargar.
-- **SHA-256 de `app-release.apk`:** `e7682e1c583d7cac8cb7acf06f6e0494e40c36fdcd2cb8aee98640c13924647a`.
-- **Tamaño APK extraída:** `57,107,979` bytes (aprox. 54.5 MiB). No confundir con el tamaño comprimido del ZIP (aprox. 24 MB).
-- **Comprobación adicional:** el APK facilitado directamente en esta conversación fue comparado byte por byte por hash SHA-256 con la APK contenida en el ZIP del artefacto `12219638940`; coinciden. Esta verificación demuestra igualdad de los archivos, **no** certifica ausencia de vulnerabilidades ni prueba en Samsung físico.
+- **Commit del proyecto compilado:** `a35862f38c8b75894bdd93c8c15e86ac56d33602`.
+- **Ejecución de GitHub Actions:** https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/39325303813
+- **Resultado:** `success` en ambos trabajos: compilación de APK y prueba de instalación/arranque sin sesión en emulador Android.
+- **Artefacto exacto:** `moneda-mundial-demo-apk-arranque-verificado` (ID `12222650240`).
+- **Descarga oficial del artefacto:** https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/39325303813/artifacts/12222650240
+- **Caducidad de GitHub:** 26 de octubre de 2026 a las 21:17 UTC.
+- **SHA-256 del APK extraído:** `5cafcbc13a9343a70de2e244dcdcc012b7157df4c076900e155493a005cc8899`.
+- **Tamaño APK:** `57,111,151` bytes (54.47 MiB). El ZIP pesa menos por compresión.
+- **Funciones de esta versión:** pantalla de diagnóstico con versión y procedencia del APK, preferencias de idioma ES/EN, planificación internacional sin fondos reales.
 
-- **Importante:** una revisión posterior del documento o del repositorio NO significa que la APK corresponda a ese commit posterior. Esta APK corresponde exactamente al identificador indicado arriba.
+La APK se extrajo del ZIP oficial y pasó prueba de integridad ZIP local. El SHA anterior permite identificar el archivo preciso. La prueba en emulador no equivale a auditoría de seguridad ni comprueba el Samsung físico, la autenticación contra Supabase ni la operativa con dinero real.
 
-**Sin necesidad de computadora:** desde el Samsung iniciar sesión en GitHub, abrir el enlace del artefacto, descargar el ZIP, abrir **Mis archivos → Descargas → Extraer**, y localizar `app-release.apk`. Si la instalación exige ignorar controles de seguridad, detenerse. Si hay una versión previa con operación DEMO pendiente, no desinstalar para cambiar de firma: primero resolver su estado.
+**Desde Samsung, sin computadora:** abrir la descarga de GitHub o el archivo APK facilitado en esta conversación; comprobar que proviene de este run. Instalar solo si Android lo permite con sus protecciones normales; no desactivar Play Protect. Si hay una instalación anterior con operaciones DEMO pendientes, NO desinstalarla para cambiar la firma: primero conciliar el movimiento.
 
-**Alcance:** la prueba automatizada verificó que se instala e inicia **sin iniciar sesión** en un emulador Android. No valida funcionamiento en un Samsung físico ni confirma login, MWD/COIN/Digital autenticados o servicios financieros reales.
+**Versión anterior (histórica, no la última):** commit `8a003a7cbc6344766903d7995da642530c3e635f`, run `39319745682`. Evitar confundir ambas.
 
 ## Regla de entrada: no instalar compilaciones sin verificar
 1. Comprobar que el flujo «Compilar APK Android de demostración» haya terminado con **success**, incluyendo el segundo trabajo **Instalar APK del mismo commit y verificar aviso DEMO**.
