@@ -305,7 +305,19 @@ export default function App() {
       if (!sessionGuardRef.current.sameSession(sessionTicket)) return;
       if (response.error) throw response.error;
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
-        throw new Error('La operación no pudo ser confirmada.');
+        throw new Error('Respuesta de operación sin confirmación verificable.');
+      }
+      // Consultar en lectura el registro del servidor ANTES de borrar la referencia.
+      // Tras perder la red, la operación pudo completarse: jamás volver a enviarla
+      // con otra referencia para "resolver" la incertidumbre.
+      const checked=await supabase.rpc('mwd_operation_status_demo',{p_request_id:requestId});
+      if(!sessionGuardRef.current.sameSession(sessionTicket))return;
+      if(checked.error)throw checked.error;
+      if(classifyMwdOperationStatus(checked.data,pendingRef.current)!=='processed'){
+        throw new Error('La operación requiere conciliación. No intentes otro envío.');
+      }
+      if(response.data.operation_id!==checked.data.operationId){
+        throw new Error('El recibo de la operación no coincide con el registro de Supabase.');
       }
       await AsyncStorage.removeItem(key);
       if(!sessionGuardRef.current.sameSession(sessionTicket))return;
@@ -320,8 +332,9 @@ export default function App() {
       await refreshAccount();
     } catch (error) {
       if(sessionGuardRef.current.sameSession(sessionTicket))
-        message('Operación no confirmada',
-          (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
+        message('Operación pendiente de verificación',
+          (error.message || 'No fue posible verificar el estado.') +
+          '\nNo realices otro envío: usa «Verificar operación MWD anterior» en Inicio.');
     } finally {
       if(operationGateRef.current.release(operationToken) && sessionGuardRef.current.sameSession(sessionTicket))setBusy(false);
     }
@@ -394,6 +407,7 @@ export default function App() {
                 <Text selectable style={styles.code}>{wallet?.account_code || 'Cargando identificador...'}</Text>
               </View>
               {!!mwdPending&&<Text style={styles.warning}>Hay una operación MWD ficticia pendiente de verificación.</Text>}
+              {!!mwdPending&&!mwdPending.unavailable&&<Text selectable style={styles.muted}>Referencia: {mwdPending.id}{'\n'}Tipo: {mwdPending.type==='transfer'?'Transferencia':'Aportación'} · {formatMWD(mwdPending.cents)} MWD de prueba{mwdPending.type==='transfer'?' · Beneficiario: '+mwdPending.code:''}</Text>}
               {!!mwdPending&&!mwdPending.unavailable&&<Btn title="Verificar operación MWD anterior" onPress={checkPendingMwd} disabled={busy} />}
               <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet} />
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
