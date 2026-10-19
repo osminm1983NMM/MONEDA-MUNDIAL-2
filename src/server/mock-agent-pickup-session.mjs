@@ -7,7 +7,13 @@ export function createMockAgentPickupSession({sessionGateway,pickupVerifier}={})
    throw Error('Requiere sesión y verificador sólo de laboratorio');
  return Object.freeze({
   mode:'mock',moneyMovementEnabled:false,realBeneficiaryVerification:false,
-  verifySample({sessionToken,caseId,sampleCode,beneficiaryAlias}={}){
+  verifySample(input={}){
+   // No admitir flags "paid", datos personales ni país elegido por el móvil.
+   if(!input||typeof input!=='object'||Array.isArray(input)||
+      Object.getPrototypeOf(input)!==Object.prototype||
+      Object.keys(input).sort().join('|')!=='beneficiaryAlias|caseId|sampleCode|sessionToken')
+     throw Error('Solicitud de agente de demostración inválida');
+   const {sessionToken,caseId,sampleCode,beneficiaryAlias}=input;
    const auth=sessionGateway.authorizeMockSession({
     sessionToken,action:'verify_mock_cash_pickup',
    });
