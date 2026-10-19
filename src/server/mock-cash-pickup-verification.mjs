@@ -109,7 +109,14 @@ export function createMockCashPickupVerifier(options={}){
   inspectSample(caseId){
    if(typeof caseId!=='string'||!CASE.test(caseId)||!cases.has(caseId))
     fail('Caso de prueba inexistente');
-   return publicCase(cases.get(caseId));
+   const item=cases.get(caseId);
+   // La consulta de seguimiento también refleja la caducidad del SAMPLE.
+   // Nunca permite canjearlo ni regenerarlo, y audita la expiración una sola vez.
+   if(item.status==='issued_mock' && now()>=item.expiresAt){
+    item.status='expired_mock';
+    audit.push(readonly({kind:'sample_expired_mock',caseId}));
+   }
+   return publicCase(item);
   },
   sanitizedAudit(){
    return Object.freeze(audit.map(x=>readonly(x)));
