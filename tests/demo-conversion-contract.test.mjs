@@ -68,3 +68,19 @@ test('historial DEMO rechaza duplicados, importes incoherentes y fechas sin zona
  assert.equal(validateDemoHistory([inverse])?.length,1);
  assert.equal(validateDemoHistory([{...inverse,feeOutMicro:20001}]),null);
 });
+
+test('un recibo de reintento DEMO no acepta campos explícitos que contradigan la cotización',()=>{
+ const baseline={status:'already_processed',quoteId:id,conversionId:other,realPaymentsEnabled:false};
+ assert.equal(validateDemoReceipt(baseline,q),true);
+ assert.equal(validateDemoReceipt({...baseline,fromAsset:'COIN',toAsset:'STABLE',
+   amountInMicro:'1000000',amountOutMicro:'124687',feeOutMicro:'313',mode:'sandbox_only'},q),true);
+ for(const mutation of [
+   {mode:'live'},{mode:null},
+   {fromAsset:'STABLE'},{toAsset:'COIN'},
+   {amountInMicro:999999},{amountOutMicro:124688},
+   {feeOutMicro:314},{feeOutMicro:null},{feeOutMicro:-1},
+   {amountOutMicro:'1e6'},{fromAsset:null}
+ ]){
+   assert.equal(validateDemoReceipt({...baseline,...mutation},q),false,JSON.stringify(mutation));
+ }
+});
