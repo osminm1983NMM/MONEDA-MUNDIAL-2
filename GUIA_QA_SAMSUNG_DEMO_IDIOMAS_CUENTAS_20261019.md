@@ -9,6 +9,10 @@
 - **Artefacto a descargar:** `moneda-mundial-demo-apk-arranque-verificado` (identificador `12219638940`).
 - **Enlace directo al artefacto de GitHub:** https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/39319745682/artifacts/12219638940
 - **Caducidad aproximada del ZIP:** 26 de octubre de 2026 a las 20:39 UTC; comprobar antes de descargar.
+- **SHA-256 de `app-release.apk`:** `e7682e1c583d7cac8cb7acf06f6e0494e40c36fdcd2cb8aee98640c13924647a`.
+- **Tamaño APK extraída:** `57,107,979` bytes (aprox. 54.5 MiB). No confundir con el tamaño comprimido del ZIP (aprox. 24 MB).
+- **Comprobación adicional:** el APK facilitado directamente en esta conversación fue comparado byte por byte por hash SHA-256 con la APK contenida en el ZIP del artefacto `12219638940`; coinciden. Esta verificación demuestra igualdad de los archivos, **no** certifica ausencia de vulnerabilidades ni prueba en Samsung físico.
+
 - **Importante:** una revisión posterior del documento o del repositorio NO significa que la APK corresponda a ese commit posterior. Esta APK corresponde exactamente al identificador indicado arriba.
 
 **Sin necesidad de computadora:** desde el Samsung iniciar sesión en GitHub, abrir el enlace del artefacto, descargar el ZIP, abrir **Mis archivos → Descargas → Extraer**, y localizar `app-release.apk`. Si la instalación exige ignorar controles de seguridad, detenerse. Si hay una versión previa con operación DEMO pendiente, no desinstalar para cambiar de firma: primero resolver su estado.
