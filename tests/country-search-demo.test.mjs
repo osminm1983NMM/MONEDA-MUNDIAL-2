@@ -17,3 +17,13 @@ test('selección normaliza acentos y nunca activa un corredor',()=>{
  assert.deepEqual(searchCountryOptionsDemo('zzz'),[]);
  assert.deepEqual(searchCountryOptionsDemo('hn',0),[]);
 });
+
+test('nombres internacionalizados o respaldo por código cubren los 249 países',()=>{
+ for(const x of countryOptionsDemo){
+  assert.equal(typeof x.name,'string');
+  assert.ok(x.name.length>=2);
+  assert.ok(x.label.includes('('+x.code+')'));
+  assert.equal(searchCountryOptionsDemo(x.code,249).some(y=>y.code===x.code),true,x.code);
+ }
+ assert.equal(searchCountryOptionsDemo('México')[0]?.code,'MX');
+});
