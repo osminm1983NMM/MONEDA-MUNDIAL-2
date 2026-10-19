@@ -27,30 +27,14 @@ sleep 24
 adb exec-out screencap -p > smoke-results/inicio.png
 test -s smoke-results/inicio.png || { echo "::error::Pantalla vacía"; exit 1; }
 
-# La app ofrece idioma Auto/ES/EN. El emulador de GitHub suele iniciar en inglés.
-# Validar una combinación COHERENTE de marca + aviso de fondos ficticios + login,
-# nunca relajar la exigencia del rótulo ni aceptar solo la presencia del paquete.
-verify_demo_ui() {
-  local file="$1"
-  test -s "$file" || return 1
-  grep -Fq 'MONEDA MUNDIAL' "$file" || return 1
-  if grep -Fq 'SOLO DEMOSTRACIÓN' "$file" &&
-     grep -Eq 'Accede a Moneda Mundial|Iniciar sesi[oó]n|Crear cuenta de prueba' "$file"; then
-    return 0
-  fi
-  if grep -Fq 'DEMO ONLY' "$file" &&
-     grep -Eq 'Welcome to Moneda Mundial|Sign in|Create test account' "$file"; then
-    return 0
-  fi
-  return 1
-}
+. scripts/check-demo-launch-ui.sh
 
 # Accesibilidad puede tardar tras instalar un APK compilado para release.
 found=false
 for attempt in 1 2 3; do
   adb shell uiautomator dump /sdcard/moneda-ui.xml > smoke-results/uiautomator.log 2>&1 || true
   if adb pull /sdcard/moneda-ui.xml smoke-results/ui.xml >/dev/null 2>&1 && [ -s smoke-results/ui.xml ]; then
-    if verify_demo_ui smoke-results/ui.xml; then
+    if verify_demo_launch_ui smoke-results/ui.xml; then
       found=true
       break
     fi
@@ -71,7 +55,7 @@ if [ -s smoke-results/ui.xml ]; then
     adb shell uiautomator dump /sdcard/moneda-ui.xml > smoke-results/uiautomator-reintento.log 2>&1 || true
     adb pull /sdcard/moneda-ui.xml smoke-results/ui.xml >/dev/null 2>&1 || true
     found=false
-    if verify_demo_ui smoke-results/ui.xml; then
+    if verify_demo_launch_ui smoke-results/ui.xml; then
       found=true
     fi
   elif [ "$anr_state" != none ]; then
