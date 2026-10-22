@@ -63,3 +63,48 @@ test('rechaza inicialización fuera de simulación y referencias desconocidas',(
  const {claims}=make();
  assert.throws(()=>claims.reportMockClaim({requestId:'claim-unknown-order-1',orderId:'00000000-0000-4000-8000-000000000000',reason:'reported_missing_refund'}),/inexistente/);
 });
+
+test('cola prioriza alegaciones de duplicado sin darlas por comprobadas',()=>{
+ const {claims,lifecycle,order}=make();
+ const second=lifecycle.createMockOrder({
+   requestId:'customer-claims-order-0002',destination:'NI',amountCents:50000,
+ });
+ const standard=claims.reportMockClaim({
+   requestId:'claim-order-standard-01',orderId:order.orderId,reason:'reported_incorrect_amount',
+ });
+ const urgent=claims.reportMockClaim({
+   requestId:'claim-order-urgent-0001',orderId:second.orderId,reason:'reported_duplicate_charge',
+ });
+ const queue=claims.getMockReviewQueue();
+ assert.equal(queue.length,2);
+ assert.equal(queue[0].caseId,urgent.caseId);
+ assert.equal(queue[0].reviewPriority,'urgent_manual_review_mock');
+ assert.equal(queue[0].allegedChargeVerified,false);
+ assert.equal(queue[0].canAutoRefund,false);
+ assert.equal(queue[1].caseId,standard.caseId);
+ assert.deepEqual({...claims.getMockQueueSummary()},{
+   openMockCases:2,urgentMockCases:1,standardMockCases:1,
+   realMoneyEnabled:false,automaticDecisionsEnabled:false,
+ });
+ assert.equal(Object.isFrozen(queue),true);
+ assert.equal(Object.isFrozen(queue[0]),true);
+});
+test('incidente de devolución escala al detectar dos fallos (sin nuevo envío)',()=>{
+ const {claims,order,lifecycle}=make();
+ const row=claims.reportMockClaim({
+   requestId:'claim-report-escalation-01',orderId:order.orderId,
+   reason:'reported_missing_refund',
+ });
+ assert.equal(row.reviewPriority,'standard_manual_review_mock');
+ event(lifecycle,order,'funding_settled_mock','claim-fund-escalate-01');
+ lifecycle.requestMockRefund({orderId:order.orderId,requestId:'claim-start-escalate-001'});
+ event(lifecycle,order,'refund_failed_mock','claim-refund-failed-003');
+ assert.equal(claims.getMockQueueSummary().urgentMockCases,0);
+ lifecycle.retryMockRefundAfterFailure({orderId:order.orderId,requestId:'claim-retry-escalate-001'});
+ event(lifecycle,order,'refund_failed_mock','claim-refund-failed-004');
+ assert.equal(claims.getMockReviewQueue()[0].reviewPriority,'urgent_manual_review_mock');
+ assert.equal(claims.getMockReviewQueue()[0].followUp,'escalate_repeated_refund_failures_mock');
+ assert.equal(claims.getMockQueueSummary().urgentMockCases,1);
+ assert.equal(lifecycle.inspectMockOrder(order.orderId).status,'refund_failed_mock');
+ assert.equal(claims.getMockClaimAudit().length,1);
+});
