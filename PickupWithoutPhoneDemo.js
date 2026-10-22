@@ -45,7 +45,7 @@ async function create(){
  const cents=parseDemoAmountCents(amount),destination=normalizeDemoCountry(country);
  if(cents===null||destination===null)throw Error('Usa un país de dos letras y un importe de 1 a 1000');
  const signature=destination+'|'+cents;
- if(requestRef.current&&requestRef.current.signature!==signature)
+ if(requestRef.current&&(requestRef.current.country!==destination||requestRef.current.cents!==cents))
    throw Error('Existe una solicitud de prueba con resultado incierto. No cambies la cantidad ni país hasta resolverla.');
  if(!requestRef.current){
   const newReq={signature,id:uuid(),country:destination,cents};
