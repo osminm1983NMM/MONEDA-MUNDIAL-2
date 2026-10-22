@@ -141,3 +141,44 @@ test('reembolso repetido después de la liquidación devuelve respuesta original
  assert.equal(m.inspectMockOrder(o.orderId).status,'refunded_mock');
  assert.throws(()=>m.requestMockPayout({orderId:o.orderId,requestId:'pay-after-refund-01'}),/prohibida/);
 });
+
+test('tras devolución ficticia fallida permite reintento manual idempotente',()=>{
+ const m=make(),o=create(m);
+ emit(m,o,'funding_settled_mock','fund-retry');
+ m.requestMockRefund({orderId:o.orderId,requestId:'refund-start-123456'});
+ emit(m,o,'refund_failed_mock','first-failure');
+ assert.equal(m.inspectMockOrder(o.orderId).status,'refund_failed_mock');
+ const retry=m.retryMockRefundAfterFailure({orderId:o.orderId,requestId:'refund-retry-safe-001'});
+ assert.equal(retry.status,'refund_pending_mock');
+ assert.equal(retry.realMoneyEnabled,false);
+ assert.equal(m.retryMockRefundAfterFailure({orderId:o.orderId,requestId:'refund-retry-safe-001'}).alreadyProcessed,true);
+ assert.throws(()=>m.retryMockRefundAfterFailure({orderId:o.orderId,requestId:'refund-retry-safe-002'}),/prohibida/);
+ emit(m,o,'refund_settled_mock','second-settled');
+ assert.equal(m.inspectMockOrder(o.orderId).status,'refunded_mock');
+ assert.equal(m.getAccountingProposals(o.orderId).length,2);
+ assert.equal(m.getAuditLog().filter(x=>x.type==='refund_retry_requested_mock').length,1);
+ assert.throws(()=>m.retryMockRefundAfterFailure({orderId:o.orderId,requestId:'refund-after-settled-001'}),/prohibida/);
+});
+test('reintento de devolución no puede aplicarse a pago ni a una orden nueva',()=>{
+ const m=make(),o=create(m,'NI');
+ assert.throws(()=>m.retryMockRefundAfterFailure({orderId:o.orderId,requestId:'retry-before-funded-01'}),/prohibida/);
+ emit(m,o,'funding_settled_mock','fund-and-pay');
+ m.requestMockPayout({orderId:o.orderId,requestId:'payout-pay-before-refund'});
+ emit(m,o,'payout_settled_mock','paid-no-refund');
+ assert.throws(()=>m.retryMockRefundAfterFailure({orderId:o.orderId,requestId:'retry-after-payout-001'}),/prohibida/);
+ assert.equal(m.inspectMockOrder(o.orderId).status,'paid_mock');
+});
+test('fallos repetidos de reembolso siguen bloqueados hasta decisión manual distinta',()=>{
+ const m=make(),o=create(m);
+ emit(m,o,'funding_settled_mock','fund-multiple');
+ m.requestMockRefund({orderId:o.orderId,requestId:'refund-attempt-first'});
+ emit(m,o,'refund_failed_mock','fail-1');
+ m.retryMockRefundAfterFailure({orderId:o.orderId,requestId:'refund-attempt-second'});
+ emit(m,o,'refund_failed_mock','fail-2');
+ assert.equal(m.inspectMockOrder(o.orderId).status,'refund_failed_mock');
+ assert.equal(m.getAccountingProposals(o.orderId).length,1);
+ assert.equal(m.getAuditLog().filter(x=>x.type==='refund_failed_mock').length,2);
+ const retry=m.retryMockRefundAfterFailure({orderId:o.orderId,requestId:'refund-attempt-third'});
+ assert.equal(retry.status,'refund_pending_mock');
+ assert.equal(m.getAccountingProposals(o.orderId).length,1);
+});

@@ -136,6 +136,14 @@ export function createMockPaymentLifecycle({
    }
    return action('refund_requested_mock',orderId,requestId,before,STATE.refundPending);
   },
+  // Reintento MANUAL de una devolución de laboratorio fallida.
+  // Nunca se permite si la orden ya fue pagada, reembolsada o aún se procesa.
+  // La misma requestId devuelve el resultado original; una clave diferente
+  // representa una decisión nueva, registrada sólo en la auditoría ficticia.
+  retryMockRefundAfterFailure({orderId,requestId}={}){
+   return action('refund_retry_requested_mock',orderId,requestId,
+     STATE.refundFailed,STATE.refundPending);
+  },
   makeTestWebhook({eventId,orderId,phase}={}){
    checkId(eventId);
    const o=get(orderId);
