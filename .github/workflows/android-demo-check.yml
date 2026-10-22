@@ -18,6 +18,10 @@ on:
       - 'tests/demo-pending-confirmation.test.mjs'
       - 'src/digital-money/demo-confirm-and-reconcile.mjs'
       - 'tests/demo-confirm-and-reconcile.test.mjs'
+      - 'src/digital-money/demo-repeat-conversion-warning.mjs'
+      - 'src/digital-money/demo-confirmation-preflight.mjs'
+      - 'tests/demo-repeat-conversion-warning.test.mjs'
+      - 'tests/demo-confirmation-preflight.test.mjs'
       - 'src/digital-money/demo-session-guard.mjs'
       - 'tests/demo-session-guard.test.mjs'
       - 'src/digital-money/mwd-operation-status-demo.mjs'
@@ -93,6 +97,8 @@ jobs:
         run: node --test tests/demo-pending-confirmation.test.mjs
       - name: Exigir conciliación del recibo antes de liberar saldo DEMO
         run: node --test tests/demo-confirm-and-reconcile.test.mjs
+      - name: Verificar prevención de conversiones repetidas y preflight
+        run: node --test tests/demo-repeat-conversion-warning.test.mjs tests/demo-confirmation-preflight.test.mjs
       - name: Validar datos y presentación de Coin y Digital (DEMO)
         run: node --test tests/demo-asset-summary.test.mjs
       - name: Verificar aislamiento de cuentas y respuestas obsoletas

@@ -39,3 +39,37 @@ test('rechaza recibo incompatible y cancela cuando cambia la sesión',async()=>{
  await assert.rejects(reconcileMwdPendingDemo({request:req,allowRetry:true,isCurrent:()=>current,rpc:async()=>{count++;current=false;return {data:unconfirmed};}}));
  assert.equal(count,1);
 });
+
+test('un fallo de internet al consultar estado no debe llamar a transferencia ni aportación',async()=>{
+ const calls=[];
+ const rpc=async(name)=>{calls.push(name);throw new Error('internet desconectado');};
+ await assert.rejects(reconcileMwdPendingDemo({request:req,rpc,allowRetry:true}),/internet desconectado/);
+ assert.deepEqual(calls,['mwd_operation_status_demo']);
+});
+test('si la red falla después de reintentar, no se inventa éxito ni se envía otra referencia',async()=>{
+ const calls=[];
+ const rpc=async(name,params)=>{
+  calls.push({name,params});
+  if(calls.length===1)return {data:unconfirmed};
+  if(calls.length===2)return {data:{status:'ok',operation_id:opId}};
+  throw new Error('sin red durante conciliación');
+ };
+ await assert.rejects(reconcileMwdPendingDemo({request:req,rpc,allowRetry:true}),/sin red/);
+ assert.deepEqual(calls.map(x=>x.name),['mwd_operation_status_demo','mwd_transfer_demo','mwd_operation_status_demo']);
+ assert.equal(calls[1].params.p_request_id,req.id);
+});
+test('tras caída de red, próxima consulta detecta ejecución anterior sin repetirla',async()=>{
+ const calls=[];
+ const rpc=async(name,params)=>{calls.push(name);return {data:processed};};
+ const result=await reconcileMwdPendingDemo({request:req,rpc,allowRetry:true});
+ assert.equal(result.retried,false);
+ assert.equal(result.state,'processed');
+ assert.deepEqual(calls,['mwd_operation_status_demo']);
+});
+test('cambio de sesión entre consultar y reintentar impide todo envío',async()=>{
+ let active=true;
+ const calls=[];
+ const rpc=async name=>{calls.push(name);active=false;return {data:unconfirmed};};
+ await assert.rejects(reconcileMwdPendingDemo({request:req,rpc,allowRetry:true,isCurrent:()=>active}),/sesión cambió/);
+ assert.deepEqual(calls,['mwd_operation_status_demo']);
+});

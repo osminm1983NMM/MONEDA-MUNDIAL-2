@@ -8,6 +8,7 @@ import {parseDemoAssetBalances,formatDemoMicro} from './src/digital-money/demo-a
 import {validateDemoQuote,validateDemoHistory} from './src/digital-money/demo-conversion-contract.mjs';
 import {confirmAndReconcileDemo} from './src/digital-money/demo-confirm-and-reconcile.mjs';
 import {createDemoOperationGate} from './src/digital-money/demo-session-guard.mjs';
+import {inspectDemoConfirmationPreflight} from './src/digital-money/demo-confirmation-preflight.mjs';
 
 const MICRO = 1000000;
 const MAX = 10000;
@@ -138,9 +139,9 @@ export default function CoinStableDemoScreen({supabase,userId}) {
     } catch(e){if(mounted.current&&requestVersion.current===ticket)setError(e.message||'No se pudo obtener cotización');}
     finally{operationGate.current.release(operationToken);if(mounted.current&&requestVersion.current===ticket)setBusy(false);}
   }
-  async function confirm() {
+  async function confirm(expectedQuoteId) {
     const current=activeQuote.current;
-    if(!current||busy||operationGate.current.isBusy()||pendingRef.current||Date.parse(current.expiresAt)<=Date.now())return;
+    if(!current||current.quoteId!==expectedQuoteId||busy||operationGate.current.isBusy()||pendingRef.current||Date.parse(current.expiresAt)<=Date.now())return;
     const operationToken=operationGate.current.acquire();
     if(!operationToken)return;
     const ticket=requestVersion.current;
@@ -226,10 +227,37 @@ export default function CoinStableDemoScreen({supabase,userId}) {
       <Text style={s.text}>Comisión simulada: {fmt(quote.feeOutMicro)} {quote.toAsset}</Text>
       <Text style={s.text}>Precio sintético: 1 COIN = {quote.stablePerCoin} STABLE</Text>
       <Text style={s.warning}>{expired?'Cotización vencida. Solicita otra.':'Válida durante 90 segundos desde su emisión.'}</Text>
-      <Btn label="Confirmar conversión FICTICIA" disabled={busy||pendingLoading||!!pending||!!expired||quote.status==='executed'} onPress={()=>{
-        Alert.alert('Solo demostración','No representa dinero ni monedas negociables.',[
-          {text:'Cancelar',style:'cancel'},{text:'Confirmar prueba',onPress:confirm}
-        ]);
+      <Btn label="Confirmar conversión FICTICIA" disabled={busy||pendingLoading||!!pending||!!expired||quote.status==='executed'} onPress={async()=>{
+        const expectedQuoteId=quote.quoteId;
+        const expectedVersion=requestVersion.current;
+        if(pendingRef.current||operationGate.current.isBusy())return;
+        const token=operationGate.current.acquire();
+        if(!token)return;
+        setBusy(true);
+        try{
+          const check=await inspectDemoConfirmationPreflight({
+            quote,
+            rpc:(name,params)=>supabase.rpc(name,params),
+            isCurrent:()=>mounted.current&&requestVersion.current===expectedVersion&&
+              activeQuote.current?.quoteId===expectedQuoteId&&!pendingRef.current
+          });
+          if(!mounted.current||requestVersion.current!==expectedVersion||
+             activeQuote.current?.quoteId!==expectedQuoteId)return;
+          const message=check.repeated
+            ? 'Ya hay una conversión reciente con el mismo importe y dirección. Confirma SOLO si deseas OTRA conversión ficticia distinta; esto NO reintenta la anterior.'
+            : 'No representa dinero ni monedas negociables.';
+          Alert.alert(check.repeated?'Posible conversión duplicada':'Solo demostración',message,[
+            {text:'Cancelar',style:'cancel'},
+            {text:check.repeated?'Sí, realizar OTRA prueba':'Confirmar prueba',
+              onPress:()=>confirm(expectedQuoteId)}
+          ]);
+        }catch(e){
+          if(mounted.current&&requestVersion.current===expectedVersion)
+            setError('No se puede confirmar: '+(e?.message||'No pudo verificarse la cotización'));
+        }finally{
+          operationGate.current.release(token);
+          if(mounted.current&&requestVersion.current===expectedVersion)setBusy(false);
+        }
       }}/>
     </View>}
     {!!error&&<Text style={s.warning}>{error}</Text>}

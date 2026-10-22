@@ -1,0 +1,21 @@
+name: Verificar retiro ficticio aislado en PostgreSQL
+on:
+  pull_request:
+    paths:
+      - 'tests/mwd-pickup-lifecycle-isolated.sql'
+      - 'database/mwd_pickup_without_phone_demo.sql'
+      - 'database/mwd_pickup_antifraud_demo.sql'
+      - '.github/workflows/pickup-lifecycle-isolated.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pickup-lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Iniciar PostgreSQL temporal (sin conexión a Supabase)
+        run: sudo systemctl start postgresql
+      - name: Verificar creación, aislamiento, códigos y doble canje ficticio
+        run: sudo -u postgres psql -X -v ON_ERROR_STOP=1 -f tests/mwd-pickup-lifecycle-isolated.sql

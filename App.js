@@ -512,7 +512,7 @@ export default function App() {
             {screen === 'Seguridad' && <DemoAccountSelfcheckScreen key={userId} supabase={supabase} userId={userId} sessionGuard={sessionGuardRef.current} labels={homeText} />}
             {screen === 'Internacional' && <InternationalPlannerDemoScreen languagePreference={languagePreference} onLanguageChange={chooseHomeLanguage} />}
             {screen === 'Conversión' && <CoinStableDemoScreen key={userId} userId={userId} supabase={supabase} />}
-            {screen === 'Entrega' && <PickupWithoutPhoneDemo supabase={supabase} isOwner={adminRole === 'owner'} />}
+            {screen === 'Entrega' && <PickupWithoutPhoneDemo key={userId} userId={userId} supabase={supabase} isOwner={adminRole === 'owner'} />}
             {screen === 'Admin' && <View style={styles.card}>
               <Text style={styles.heading}>Administración MWD</Text>
               {adminRole === 'owner' ? (

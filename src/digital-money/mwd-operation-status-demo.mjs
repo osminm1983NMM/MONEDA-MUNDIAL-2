@@ -3,7 +3,13 @@ const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}(?:-[0-9a-f]{4})
 export function classifyMwdOperationStatus(data, request) {
  if (!data || !request || !uuid(request.id) || data.mode !== 'sandbox_only' ||
      data.realPaymentsEnabled !== false || data.requestId !== request.id) return null;
- if (data.status === 'unconfirmed') return 'unconfirmed';
+ // Si el servidor informa «sin confirmar», no debe incluir simultáneamente
+ // ningún campo de una operación procesada. Ante contradicción: FALLAR CERRADO.
+ if (data.status === 'unconfirmed') {
+   if (['operationId','kind','amountCents','recipientCode'].some(
+       key => Object.prototype.hasOwnProperty.call(data,key))) return null;
+   return 'unconfirmed';
+ }
  if (data.status !== 'processed' || !uuid(data.operationId) ||
      data.kind !== request.type || Number(data.amountCents) !== request.cents ||
      !Number.isSafeInteger(Number(data.amountCents))) return null;
