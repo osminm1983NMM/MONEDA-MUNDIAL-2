@@ -48,5 +48,34 @@ function verifiedClaimDemoFeedback(response, expectedOrderId) {
  }
  return claimDemoFeedback(response);
 }
+// Cuando la respuesta de crear una solicitud es incierta NO permitir
+// generar silenciosamente otra referencia: podría duplicar la orden de prueba.
+// El código de retiro es de una sola visualización; un reintento de idéntica
+// referencia nunca revela de nuevo el código secreto.
+function validatePickupCreateReceiptDemo(response, request) {
+ const uuid=/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+ if(!response||!request||typeof response!=='object'||
+    !uuid.test(response.orderId||'')||
+    !uuid.test(request.id||'')||
+    response.realPaymentsEnabled!==false||
+    typeof response.expiresAt!=='string'||
+    !Number.isFinite(Date.parse(response.expiresAt))||
+    !/^[A-Z]{2}$/.test(request.country||'')||
+    !Number.isSafeInteger(request.cents)||
+    request.cents<100||request.cents>100000)return null;
+
+ if(response.status==='created'){
+   if(response.destinationCountry!==request.country||
+      response.amountCents!==request.cents||
+      response.isFunded!==false||response.canPayOut!==false||
+      !normalizePickupClaimDemo(response.pickupCode)||
+      normalizePickupClaimDemo(response.pickupCode)!==response.pickupCode)return null;
+   return {status:'created',orderId:response.orderId,pickupCode:response.pickupCode};
+ }
+ if(response.status==='already_created'&&response.pickupCode===null){
+   return {status:'already_created',orderId:response.orderId,pickupCode:null};
+ }
+ return null;
+}
 module.exports = { parseDemoAmountCents, normalizeDemoCountry, claimDemoFeedback,
- normalizePickupClaimDemo, verifiedClaimDemoFeedback };
+ normalizePickupClaimDemo, verifiedClaimDemoFeedback, validatePickupCreateReceiptDemo };
