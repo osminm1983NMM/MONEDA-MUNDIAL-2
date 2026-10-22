@@ -3,12 +3,13 @@ import 'react-native-get-random-values';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { demoPendingStorageKey, encodePendingDemoQuote, decodePendingDemoQuote, classifyDemoReconciliation } from './src/digital-money/demo-pending-confirmation.mjs';
+import { demoPendingStorageKey, encodePendingDemoQuote, decodePendingDemoQuote } from './src/digital-money/demo-pending-confirmation.mjs';
 import {parseDemoAssetBalances,formatDemoMicro} from './src/digital-money/demo-asset-summary.mjs';
 import {validateDemoQuote,validateDemoHistory} from './src/digital-money/demo-conversion-contract.mjs';
 import {confirmAndReconcileDemo} from './src/digital-money/demo-confirm-and-reconcile.mjs';
 import {createDemoOperationGate} from './src/digital-money/demo-session-guard.mjs';
 import {inspectDemoConfirmationPreflight} from './src/digital-money/demo-confirmation-preflight.mjs';
+import {inspectPendingConversionDemo} from './src/digital-money/demo-pending-reconcile-readonly.mjs';
 
 const MICRO = 1000000;
 const MAX = 10000;
@@ -151,6 +152,10 @@ export default function CoinStableDemoScreen({supabase,userId}) {
       const serialized=encodePendingDemoQuote(current);
       if(!serialized)throw new Error('No es posible conservar esta cotización de prueba.');
       await AsyncStorage.setItem(pendingKey,serialized);
+      // Si A cerró sesión mientras guardábamos, no pintar su operación en B.
+      // El registro persistido de A se mantiene para conciliación posterior.
+      if(!mounted.current||requestVersion.current!==ticket)
+        throw new Error('La sesión cambió; conservar operación pendiente');
       const persisted=decodePendingDemoQuote(serialized);
       pendingRef.current=persisted;
       setPending(persisted);
@@ -162,6 +167,8 @@ export default function CoinStableDemoScreen({supabase,userId}) {
       if(!mounted.current||requestVersion.current!==ticket)
         throw new Error('La sesión cambió; la operación queda pendiente');
       await AsyncStorage.removeItem(pendingKey);
+      if(!mounted.current||requestVersion.current!==ticket)
+        throw new Error('La sesión cambió; no modificar la operación de otra cuenta');
       pendingRef.current=null;setPending(null);
       activeQuote.current=null;
       setQuote(null);
@@ -183,18 +190,21 @@ export default function CoinStableDemoScreen({supabase,userId}) {
     const ticket=requestVersion.current;setBusy(true);setError('');
     try {
       // Solo consulta: no genera un nuevo cargo, ni confirma una cotización vigente.
-      const {data,error:e}=await supabase.rpc('mwd_conversion_reconcile_demo',{p_quote_id:current.quoteId});
-      if(!mounted.current||requestVersion.current!==ticket)
-        throw new Error('La sesión cambió');
-      if(e)throw e;
-      const state=classifyDemoReconciliation(data,current);
-      if(!state)throw new Error('Respuesta no verificable');
+      const {status:state}=await inspectPendingConversionDemo({
+        pending:current,
+        rpc:(name,params)=>supabase.rpc(name,params),
+        isCurrent:()=>mounted.current&&requestVersion.current===ticket&&
+          pendingRef.current===current
+      });
       if(state==='quoted') {
         setError('Cotización sin ejecutar, todavía vigente. Espera a que venza y consulta de nuevo. No se ha repetido ninguna operación.');
         return;
       }
       if(!pendingKey)throw new Error('Sesión inválida');
       await AsyncStorage.removeItem(pendingKey);
+      // La lectura pudo terminar en una sesión anterior durante el await.
+      if(!mounted.current||requestVersion.current!==ticket||pendingRef.current!==current)
+        throw new Error('La sesión cambió; conservar estado de la nueva sesión');
       pendingRef.current=null;setPending(null);activeQuote.current=null;setQuote(null);
       setNotice(state==='executed' ? 'Se verificó una sola conversión ficticia. Sin dinero real.' : 'La cotización ficticia venció sin ejecutarse. Puedes solicitar una nueva.');
       try{await load();}
