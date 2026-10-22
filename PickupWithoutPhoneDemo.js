@@ -12,11 +12,30 @@ export default function PickupWithoutPhoneDemo({supabase,isOwner=false,userId}){
 const [country,setCountry]=useState('NI'),[amount,setAmount]=useState('100'),[orders,setOrders]=useState([]),[ownerOrders,setOwnerOrders]=useState([]);
 const [code,setCode]=useState(null),[selected,setSelected]=useState(''),[claim,setClaim]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[security,setSecurity]=useState(null);
 const requestRef=useRef(null);
+// Candado síncrono: setBusy(true) no impide dos pulsaciones en el mismo frame.
+const actionRef=useRef(false);
+const mountedRef=useRef(false);
 const [pendingReady,setPendingReady]=useState(false);
 const [pendingNotice,setPendingNotice]=useState('');
 const currentSession=useRef(userId);
 currentSession.current=userId;
 const key=pickupPendingStorageKeyDemo(userId);
+useEffect(()=>{mountedRef.current=true;return()=>{mountedRef.current=false;};},[]);
+function beginAction(){
+ if(actionRef.current)return false;
+ actionRef.current=true;
+ if(mountedRef.current)setBusy(true);
+ return true;
+}
+function endAction(){
+ actionRef.current=false;
+ if(mountedRef.current)setBusy(false);
+}
+async function assertCurrentAccount(){
+ const {data,error:e}=await supabase.auth.getUser();
+ if(e||!data?.user||data.user.id!==userId||currentSession.current!==userId||
+    !mountedRef.current)throw Error('La sesión cambió o no pudo verificarse. No se envió ninguna solicitud.');
+}
 async function load(){
  const [{data,error:e},admin]=await Promise.all([supabase.rpc('mwd_pickup_my_orders_demo'),isOwner?supabase.rpc('mwd_owner_pickup_orders_demo'):Promise.resolve(null)]);
  if(e)throw e;if(admin?.error)throw admin.error;setOrders(data||[]);if(admin){setOwnerOrders(admin.data||[]);const report=await supabase.rpc('mwd_owner_pickup_security_demo');if(report.error)throw report.error;setSecurity(report.data);}
@@ -40,8 +59,10 @@ useEffect(()=>{
  return()=>{active=false;};
 },[key,userId]);
 async function create(){
- if(busy||!pendingReady||requestRef.current?.unavailable)return;setError('');setBusy(true);
+ if(!pendingReady||requestRef.current?.unavailable||!beginAction())return;
+ setError('');
  try{
+ await assertCurrentAccount();
  const cents=parseDemoAmountCents(amount),destination=normalizeDemoCountry(country);
  if(cents===null||destination===null)throw Error('Usa un país de dos letras y un importe de 1 a 1000');
  const signature=destination+'|'+cents;
@@ -51,29 +72,45 @@ async function create(){
   const newReq={signature,id:uuid(),country:destination,cents};
   const stored=serializePickupPendingDemo(newReq);
   if(!key||!stored)throw Error('No se pudo guardar una referencia segura.');
-  await AsyncStorage.setItem(key,stored); // Nunca enviar sin registrar la referencia.
-  if(currentSession.current!==userId)return;
+  // El guardado puede fallar ambiguamente: conservar la referencia también
+  // en memoria desde ANTES de intentar persistirla.
   requestRef.current=newReq;
+  try{await AsyncStorage.setItem(key,stored);}
+  catch{requestRef.current={unavailable:true};setPendingNotice('No se pudo guardar con seguridad la solicitud. Nuevas operaciones bloqueadas.');throw Error('Almacenamiento local no verificable; no se envió ninguna solicitud.');}
+  if(!mountedRef.current||currentSession.current!==userId)return;
  }
  const req=requestRef.current;
+ await assertCurrentAccount(); // Al cerrar sesión, no enviar con el usuario nuevo.
  const {data,error:e}=await supabase.rpc('mwd_pickup_create_demo',{p_destination_country:destination,p_amount_cents:cents,p_request_id:req.id});
  if(e)throw e;
  const receipt=validatePickupCreateReceiptDemo(data,req);
- if(currentSession.current!==userId)return;
+ if(!mountedRef.current||currentSession.current!==userId)return;
  if(!receipt)throw Error('Respuesta de creación no verificable. Se conserva la misma referencia.');
  await AsyncStorage.removeItem(key);
- if(currentSession.current!==userId)return;
+ if(!mountedRef.current||currentSession.current!==userId)return;
  if(receipt.status==='created')setCode(receipt.pickupCode);
  else {setCode(null);setError('La solicitud ya existe. El código secreto no se vuelve a mostrar; consulta tus solicitudes.');}
  requestRef.current=null;setPendingNotice('');
  try{await load();}catch(e){setError('Solicitud reconocida; no se pudo actualizar el historial. Actualiza solicitudes.');}
- }catch(e){setError(e.message||'No se creó la orden');}
- finally{setBusy(false);}
+ }catch(e){if(mountedRef.current)setError(e.message||'No se creó la orden');}
+ finally{endAction();}
 }
-async function cancel(orderId){if(busy)return;setBusy(true);setError('');try{const {error:e}=await supabase.rpc('mwd_pickup_cancel_demo',{p_order_id:orderId});if(e)throw e;await load();}catch(e){setError(e.message);}finally{setBusy(false);}}
-async function collect(){
- if(busy||!isOwner||!selected)return;setBusy(true);setError('');
+async function cancel(orderId){
+ if(!beginAction())return;
+ setError('');
  try{
+  await assertCurrentAccount();
+  const {error:e}=await supabase.rpc('mwd_pickup_cancel_demo',{p_order_id:orderId});
+  if(e)throw e;
+  if(mountedRef.current)await load();
+ }catch(e){if(mountedRef.current)setError(e.message);}
+ finally{endAction();}
+}
+async function collect(){
+ if(!isOwner||!selected||!beginAction())return;
+ setError('');
+ try{
+ await assertCurrentAccount();
  const validatedCode=normalizePickupClaimDemo(claim);
  if(!validatedCode)throw Error('Formato inválido. El código de prueba debe comenzar por SIM- y tener 32 caracteres hexadecimales. No se envió ningún intento.');
  const selectedOrderId=selected;
@@ -81,11 +118,13 @@ async function collect(){
   p_order_id:selectedOrderId,p_pickup_code:validatedCode
  });
  if(e)throw e;
+ if(!mountedRef.current||currentSession.current!==userId)return;
  const outcome=verifiedClaimDemoFeedback(data,selectedOrderId);
  if(outcome.ok)setClaim('');
  else setError(outcome.message);
  await load();
- }catch(e){setError(e.message||'No se completó la simulación');}finally{setBusy(false);}
+ }catch(e){if(mountedRef.current)setError(e.message||'No se completó la simulación');}
+ finally{endAction();}
 }
 return <View style={css.card}>
  <Text style={css.title}>Entrega sin teléfono (DEMO)</Text>
