@@ -56,3 +56,24 @@ test('fuera de orden no ejecuta inspección',async()=>{
  let count=0;const run=createTwoAccountDemoVerification({inspect:async()=>{count++;}});
  await assert.rejects(run.finishB(args),/fuera de orden/);assert.equal(count,0);
 });
+
+test('bloquea filtración HISTÓRICA de A visible en B aunque la conversión nueva sea otra',async()=>{
+ const q=snapshots();
+ const oldA='55555555-5555-4555-8555-555555555555';
+ q[0].history=[op(oldA,'COIN',2000000,240000)];
+ q[1].history=[op(ca,'COIN',1000000,120000),op(oldA,'COIN',2000000,240000)];
+ q[2].history=[op(oldA,'COIN',2000000,240000)];
+ const run=createTwoAccountDemoVerification({inspect:async()=>q.shift()});
+ await run.prepareA(args);await run.finishA(args);
+ await assert.rejects(run.prepareB(args),/otra cuenta/);
+});
+test('bloquea filtración HISTÓRICA de B visible en A al volver',async()=>{
+ const q=snapshots();
+ const oldB='66666666-6666-4666-8666-666666666666';
+ q[2].history=[op(oldB,'STABLE',2000000,14000000)];
+ q[3].history=[op(cb,'STABLE',1000000,7000000),op(oldB,'STABLE',2000000,14000000)];
+ q[4].history.push(op(oldB,'STABLE',2000000,14000000));
+ const run=createTwoAccountDemoVerification({inspect:async()=>q.shift()});
+ await run.prepareA(args);await run.finishA(args);await run.prepareB(args);await run.finishB(args);
+ await assert.rejects(run.verifyA(args),/otra cuenta/);
+});
