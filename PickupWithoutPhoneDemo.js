@@ -1,7 +1,7 @@
 // Prototipo de retiros sin telefono. SIN DINERO REAL.
 import React,{useEffect,useRef,useState} from 'react';
 import {View,Text,TextInput,TouchableOpacity,Alert,Platform} from 'react-native';
-const {parseDemoAmountCents,normalizeDemoCountry,claimDemoFeedback}=require('./pickupDemoRules');
+const {parseDemoAmountCents,normalizeDemoCountry,verifiedClaimDemoFeedback,normalizePickupClaimDemo}=require('./pickupDemoRules');
 const css={card:{padding:16,backgroundColor:'#142a45',borderRadius:12,marginVertical:10},title:{color:'#fff',fontWeight:'bold',fontSize:20,marginBottom:10},text:{color:'#dbe8f8',marginBottom:9},alert:{color:'#ffdc96',marginBottom:12},input:{backgroundColor:'#263c58',padding:12,color:'#fff',borderRadius:8,marginVertical:7},btn:{backgroundColor:'#2867e8',padding:12,borderRadius:8,marginVertical:6},btntxt:{color:'#fff',fontWeight:'bold',textAlign:'center'}};
 function Btn({label,onPress,disabled}){return <TouchableOpacity accessibilityRole="button" disabled={disabled} onPress={onPress} style={[css.btn,disabled&&{opacity:.45}]}><Text style={css.btntxt}>{label}</Text></TouchableOpacity>;}
 function uuid(){if(!globalThis.crypto?.getRandomValues)throw Error('Aleatoriedad segura no disponible');const b=new Uint8Array(16);globalThis.crypto.getRandomValues(b);b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;const h=Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');return [h.slice(0,8),h.slice(8,12),h.slice(12,16),h.slice(16,20),h.slice(20)].join('-');}
@@ -30,9 +30,19 @@ async function create(){
 }
 async function cancel(orderId){if(busy)return;setBusy(true);setError('');try{const {error:e}=await supabase.rpc('mwd_pickup_cancel_demo',{p_order_id:orderId});if(e)throw e;await load();}catch(e){setError(e.message);}finally{setBusy(false);}}
 async function collect(){
- if(busy||!selected)return;setBusy(true);setError('');
- try{const {data,error:e}=await supabase.rpc('mwd_owner_pickup_simulate_demo',{p_order_id:selected,p_pickup_code:claim.trim().toUpperCase()});
- if(e)throw e;setClaim('');await load();const outcome=claimDemoFeedback(data);if(!outcome.ok)setError(outcome.message);
+ if(busy||!isOwner||!selected)return;setBusy(true);setError('');
+ try{
+ const validatedCode=normalizePickupClaimDemo(claim);
+ if(!validatedCode)throw Error('Formato inválido. El código de prueba debe comenzar por SIM- y tener 32 caracteres hexadecimales. No se envió ningún intento.');
+ const selectedOrderId=selected;
+ const {data,error:e}=await supabase.rpc('mwd_owner_pickup_simulate_demo',{
+  p_order_id:selectedOrderId,p_pickup_code:validatedCode
+ });
+ if(e)throw e;
+ const outcome=verifiedClaimDemoFeedback(data,selectedOrderId);
+ if(outcome.ok)setClaim('');
+ else setError(outcome.message);
+ await load();
  }catch(e){setError(e.message||'No se completó la simulación');}finally{setBusy(false);}
 }
 return <View style={css.card}>
@@ -51,10 +61,13 @@ return <View style={css.card}>
  {orders.map(o=><View key={o.orderId} style={css.card}><Text style={css.text}>{o.destinationCountry} · {(o.amountCents/100).toFixed(2)} USD ficticios · {o.status}</Text><Text selectable style={css.text}>{o.orderId}</Text>{o.status==='pending'&&<Btn label="Cancelar" disabled={busy} onPress={()=>confirm('Cancelar demostración','No se moverá dinero.',()=>cancel(o.orderId))}/>}</View>)}
  {isOwner&&<View style={css.card}>
  <Text style={css.title}>Simulación de agente pagador (solo dueño)</Text>
- {ownerOrders.map(o=><Btn key={o.orderId} disabled={busy} label={o.destinationCountry+' · '+o.status+' · '+o.orderId.slice(0,8)} onPress={()=>setSelected(o.orderId)}/>)}
+ {ownerOrders.map(o=><Btn key={o.orderId} disabled={busy} label={o.destinationCountry+' · '+o.status+' · '+o.orderId.slice(0,8)} onPress={()=>{setSelected(o.orderId);setClaim('');setError('');}}/>)}
  <Text selectable style={css.text}>Orden seleccionada: {selected||'ninguna'}</Text>
  {security&&<Text style={css.alert}>Seguridad: {security.invalidAttemptsLastHour} intentos incorrectos en la última hora; {security.temporarilyBlockedOrders} órdenes bloqueadas temporalmente.</Text>}
- <TextInput style={css.input} value={claim} onChangeText={setClaim} placeholder="Código SIM-..." placeholderTextColor="#b5c7dc" autoCapitalize="characters"/>
+ <TextInput style={css.input} value={claim} onChangeText={setClaim}
+   placeholder="Código SIM-..." placeholderTextColor="#b5c7dc"
+   accessibilityLabel="Código ficticio de retiro" autoCorrect={false}
+   secureTextEntry={true} maxLength={36} autoCapitalize="characters"/>
  <Btn label="Registrar entrega FICTICIA" disabled={busy||!selected} onPress={()=>confirm('Simulación únicamente','No se entregará efectivo.',collect)}/>
  </View>}
 </View>;
