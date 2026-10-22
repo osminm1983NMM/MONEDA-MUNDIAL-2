@@ -2,7 +2,7 @@ name: Compilar APK Android de demostración
 on:
   workflow_dispatch:
   pull_request:
-    branches: ['integracion/demo-unificada-20261016', 'feature/wallet-dual-asset-summary-demo-20261018']
+    branches: ['integracion/demo-unificada-20261016', 'feature/wallet-dual-asset-summary-demo-20261018', 'feature/account-selfcheck-jwt-readonly-20261022']
     paths:
       - 'App.js'
       - '*.js'
@@ -12,6 +12,12 @@ on:
       - 'tests/demo-pending-confirmation.test.mjs'
       - 'tests/demo-confirm-and-reconcile.test.mjs'
       - 'tests/demo-session-guard.test.mjs'
+      - 'tests/demo-confirmation-preflight.test.mjs'
+      - 'tests/demo-repeat-conversion-warning.test.mjs'
+      - 'tests/pickupDemoRules.test.cjs'
+      - 'tests/pickupPendingRules.test.cjs'
+      - 'pickupDemoRules.js'
+      - 'pickupPendingRules.js'
       - 'scripts/smoke-wallet-demo-android.sh'
       - '.github/workflows/android-apk-demo.yml'
   push:
@@ -59,7 +65,7 @@ jobs:
           node --test tests/demo-session-guard.test.mjs
           node --test tests/demo-asset-summary.test.mjs
       - name: Ejecutar todas las pruebas de JavaScript de la demo antes de generar APK
-        run: node --test tests/*.test.mjs
+        run: node --test tests/*.test.mjs tests/*.test.cjs
       - name: Comprobar barreras de dinero real antes de empaquetar
         shell: bash
         run: |
