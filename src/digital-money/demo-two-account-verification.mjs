@@ -37,8 +37,10 @@ export function createTwoAccountDemoVerification({inspect=inspectTwoAccountDemoS
   const getStage=()=>stage;
   const reset=()=>{assert(!busy,'Verificación en curso');stage='start';a=null;b=null;};
   const without=items=>new Set(items.map(o=>o.id.toLowerCase()));
-  const noLeak=(snapshot,foreignId)=>assert(
-    !snapshot.history.some(x=>x.id.toLowerCase()===foreignId),
+  // Revisar TODOS los identificadores observados, no solo la conversión nueva.
+  // Una filtración antigua también debe impedir el resultado PASS.
+  const noLeak=(snapshot,foreignIds)=>assert(
+    !snapshot.history.some(x=>foreignIds.has(x.id.toLowerCase())),
     'El historial contiene una conversión de otra cuenta. Detén las pruebas.');
   const changed=(before,after,direction)=>{
     const added=after.history.filter(x=>!before.ids.has(x.id.toLowerCase()));
@@ -75,22 +77,25 @@ export function createTwoAccountDemoVerification({inspect=inspectTwoAccountDemoS
       }else if(kind==='finishA'){
         assert(uid===a.uid,'Se esperaba la misma cuenta A');
         a.conversionId=changed(a.initial,snap,'COIN');
-        a.after={coinMicro:snap.coinMicro,stableMicro:snap.stableMicro};
+        a.after={coinMicro:snap.coinMicro,stableMicro:snap.stableMicro,
+          ids:without(snap.history)};
+        a.knownIds=new Set([...a.initial.ids,...a.after.ids]);
         stage='a_after';
       }else if(kind==='prepareB'){
         assert(uid!==a.uid,'B debe ser una cuenta DISTINTA de A');
-        noLeak(snap,a.conversionId);
+        noLeak(snap,a.knownIds);
         b={uid,initial:{coinMicro:snap.coinMicro,stableMicro:snap.stableMicro,
           ids:without(snap.history)}};
         stage='b_before';
       }else if(kind==='finishB'){
         assert(uid===b.uid,'Se esperaba la misma cuenta B');
-        noLeak(snap,a.conversionId);
+        noLeak(snap,a.knownIds);
         b.conversionId=changed(b.initial,snap,'STABLE');
+        b.knownIds=new Set([...b.initial.ids,...without(snap.history)]);
         stage='b_after';
       }else{
         assert(uid===a.uid,'Debes volver a entrar en la cuenta A');
-        noLeak(snap,b.conversionId);
+        noLeak(snap,b.knownIds);
         assert(snap.history.some(x=>x.id.toLowerCase()===a.conversionId),
           'No se encontró la conversión de A en su propio historial');
         assert(snap.coinMicro===a.after.coinMicro&&snap.stableMicro===a.after.stableMicro,
