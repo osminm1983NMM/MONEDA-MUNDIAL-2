@@ -57,8 +57,14 @@ export function createMockCustomerClaimsDesk({lifecycle,clock=()=>Date.now()}={}
       nextStep='compare_simulated_receipt_with_external_evidence_mock';
     else if(order.status==='cancelled_mock')
       nextStep='investigate_reported_charge_on_cancelled_order_mock';
+    // Prioridad basada en alegaciones (no pruebas de cargo real).
+    // Las reclamaciones de duplicación siempre reciben atención preferente.
+    const highPriority=c.reason==='reported_duplicate_charge'||
+      (c.reason==='reported_missing_refund'&&refundFailures>=2)||
+      (c.reason==='reported_missing_payout'&&order.status==='paid_mock');
     return Object.freeze({
       caseId:c.caseId,orderId:c.orderId,reason:c.reason,
+      reviewPriority:highPriority?'urgent_manual_review_mock':'standard_manual_review_mock',
       caseStatus:'awaiting_manual_review_mock',
       mockOrderStatus:order.status,refundFailuresObserved:refundFailures,
       followUp:nextStep,createdAtMs:c.createdAtMs,alreadyProcessed,
@@ -102,6 +108,25 @@ export function createMockCustomerClaimsDesk({lifecycle,clock=()=>Date.now()}={}
     },
     listMockClaims(){
       return Object.freeze([...claims.keys()].map(id=>view(id)));
+    },
+    // Cola sólo de consulta. No resuelve casos, mueve fondos o asigna operadores.
+    getMockReviewQueue(){
+      const rows=[...claims.keys()].map(id=>view(id));
+      rows.sort((a,b)=>{
+        const weight=v=>v.reviewPriority==='urgent_manual_review_mock'?0:1;
+        return weight(a)-weight(b)||a.createdAtMs-b.createdAtMs||
+          a.caseId.localeCompare(b.caseId);
+      });
+      return Object.freeze(rows);
+    },
+    getMockQueueSummary(){
+      const queue=[...claims.keys()].map(id=>view(id));
+      return Object.freeze({
+        openMockCases:queue.length,
+        urgentMockCases:queue.filter(v=>v.reviewPriority==='urgent_manual_review_mock').length,
+        standardMockCases:queue.filter(v=>v.reviewPriority==='standard_manual_review_mock').length,
+        realMoneyEnabled:false,automaticDecisionsEnabled:false,
+      });
     },
     getMockClaimAudit(){
       return Object.freeze(audit.map(row=>Object.freeze({...row})));
