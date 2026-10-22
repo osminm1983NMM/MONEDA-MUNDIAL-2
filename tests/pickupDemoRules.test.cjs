@@ -1,6 +1,6 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {parseDemoAmountCents,normalizeDemoCountry,claimDemoFeedback,normalizePickupClaimDemo,verifiedClaimDemoFeedback}=require('../pickupDemoRules');
+const {parseDemoAmountCents,normalizeDemoCountry,claimDemoFeedback,normalizePickupClaimDemo,verifiedClaimDemoFeedback,validatePickupCreateReceiptDemo}=require('../pickupDemoRules');
 test('Importes exactos en centavos, límites y entradas inválidas',()=>{
  for(const [input,expected] of [['1',100],['100',10000],['1.02',102],['1,2',120],['1000.00',100000],['0.99',null],['1000.01',null],['10.001',null],['1e3',null],['-1',null],['NaN',null],['1.2.3',null],['',null]]) {
  assert.equal(parseDemoAmountCents(input),expected,input);
@@ -31,4 +31,20 @@ test('Un supuesto pago requiere referencia correcta y banderas de DEMO',()=>{
   {orderId:'22222222-2222-4222-8222-222222222222'},
   {cashDisbursed:true},{realPaymentsEnabled:true},{cashDisbursed:undefined}
  ])assert.equal(verifiedClaimDemoFeedback({...valid,...override},id).ok,false);
+});
+
+test('creación exige recibo correcto y no vuelve a revelar código al reintentar',()=>{
+ const id='11111111-1111-4111-8111-111111111111';
+ const request={id,country:'HN',cents:2500};
+ const base={status:'created',orderId:'22222222-2222-4222-8222-222222222222',
+ realPaymentsEnabled:false,expiresAt:'2026-10-23T12:00:00Z',destinationCountry:'HN',
+ amountCents:2500,isFunded:false,canPayOut:false,pickupCode:'SIM-'+'A'.repeat(32)};
+ assert.equal(validatePickupCreateReceiptDemo(base,request)?.status,'created');
+ assert.equal(validatePickupCreateReceiptDemo({...base,amountCents:2501},request),null);
+ assert.equal(validatePickupCreateReceiptDemo({...base,realPaymentsEnabled:true},request),null);
+ assert.equal(validatePickupCreateReceiptDemo({...base,isFunded:true},request),null);
+ assert.equal(validatePickupCreateReceiptDemo({...base,pickupCode:'SIM-123'},request),null);
+ assert.deepEqual(validatePickupCreateReceiptDemo({...base,status:'already_created',pickupCode:null},request),
+ {status:'already_created',orderId:base.orderId,pickupCode:null});
+ assert.equal(validatePickupCreateReceiptDemo({...base,status:'already_created'},request),null);
 });
