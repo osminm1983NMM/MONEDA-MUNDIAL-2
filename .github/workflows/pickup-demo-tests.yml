@@ -18,4 +18,4 @@ jobs:
         with:
           node-version: '22'
       - name: Validar entradas y estados sin claves ni conexión financiera
-        run: node --test tests/pickupDemoRules.test.cjs
+        run: node --test tests/pickupDemoRules.test.cjs tests/pickupPendingRules.test.cjs
