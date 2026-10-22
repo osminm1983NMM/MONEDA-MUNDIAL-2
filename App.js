@@ -18,6 +18,7 @@ import CoinStableDemoScreen from './CoinStableDemoScreen';
 import InternationalPlannerDemoScreen from './InternationalPlannerDemoScreen';
 import DemoDiagnosticsScreen from './DemoDiagnosticsScreen';
 import DemoAccountSelfcheckScreen from './DemoAccountSelfcheckScreen';
+import DemoTwoAccountVerificationScreen from './DemoTwoAccountVerificationScreen';
 import {HOME_DEMO_TEXT} from './src/digital-money/home-demo-i18n.mjs';
 import {detectInternationalDemoLanguage} from './src/digital-money/international-demo-i18n.mjs';
 import {INTERNATIONAL_DEMO_LANGUAGE_KEY,decodeInternationalDemoLanguagePreference,resolveInternationalDemoLanguage,saveInternationalDemoLanguagePreference} from './src/digital-money/international-demo-language-preference.mjs';
@@ -454,6 +455,7 @@ export default function App() {
               <Btn title={homeText.historyButton} secondary onPress={() => navigate('Historial')} />
               <Btn title={homeText.receiveButton} secondary onPress={() => navigate('Cuenta')} />
               <Btn title={homeText.selfcheckButton} secondary onPress={() => navigate('Seguridad')} />
+              <Btn title={lang==='en'?'A / B Coin-Digital check (DEMO)':'Prueba dos cuentas Coin/Digital (DEMO)'} secondary onPress={() => navigate('Prueba A/B')} />
               <Btn title={homeText.refreshButton} secondary onPress={() => refreshAccount()} disabled={syncing} />
               <DemoAssetSummaryCard key={userId} userId={userId} supabase={supabase} onOpenConversion={() => navigate('Conversión')} />
               <Btn title={homeText.cashPickupButton} secondary onPress={() => navigate('Entrega')} />
@@ -506,6 +508,7 @@ export default function App() {
               })}
             </>}
 
+            {screen === 'Prueba A/B' && <DemoTwoAccountVerificationScreen key={userId} userId={userId} supabase={supabase} sessionGuard={sessionGuardRef.current} language={lang} />}
             {screen === 'Seguridad' && <DemoAccountSelfcheckScreen key={userId} supabase={supabase} userId={userId} sessionGuard={sessionGuardRef.current} labels={homeText} />}
             {screen === 'Internacional' && <InternationalPlannerDemoScreen languagePreference={languagePreference} onLanguageChange={chooseHomeLanguage} />}
             {screen === 'Conversión' && <CoinStableDemoScreen key={userId} userId={userId} supabase={supabase} />}
