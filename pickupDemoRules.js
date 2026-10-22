@@ -31,4 +31,22 @@ function claimDemoFeedback(response) {
       return { ok: false, message: 'La entrega ficticia no fue confirmada.' };
   }
 }
-module.exports = { parseDemoAmountCents, normalizeDemoCountry, claimDemoFeedback };
+// La app jamás envía al servidor un código incompleto o malformado: evita
+// contabilizar errores de tecleo como intentos fraudulentos en este DEMO.
+function normalizePickupClaimDemo(raw) {
+ if (typeof raw !== 'string') return null;
+ const v=raw.trim().toUpperCase();
+ return /^SIM-[A-F0-9]{32}$/.test(v) ? v : null;
+}
+
+function verifiedClaimDemoFeedback(response, expectedOrderId) {
+ const uuid=/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+ if (typeof expectedOrderId!=='string'||!uuid.test(expectedOrderId)||
+     !response||response.orderId!==expectedOrderId||
+     response.cashDisbursed!==false||response.realPaymentsEnabled!==false) {
+  return {ok:false,message:'Respuesta del servidor no verificable. Consulta el estado antes de repetir.'};
+ }
+ return claimDemoFeedback(response);
+}
+module.exports = { parseDemoAmountCents, normalizeDemoCountry, claimDemoFeedback,
+ normalizePickupClaimDemo, verifiedClaimDemoFeedback };
