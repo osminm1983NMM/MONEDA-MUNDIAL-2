@@ -2,13 +2,15 @@
 -- Ejecutar con administrador SQL en la BASE DE PRUEBAS, nunca en producción.
 -- Este test usa una cuenta existente que NO sea owner, sin leer email, contraseña ni PII.
 -- No crea usuarios, no cobra, no altera billeteras, no activa dinero real.
--- Usa SET LOCAL y ROLLBACK, siguiendo la guía de pruebas RLS de Supabase.
+-- Usa BEGIN TRANSACTION READ ONLY, SET LOCAL y ROLLBACK; ninguna modificación de datos.
+-- Validado contra Supabase LAB el 22-10-2026: 9/9 rechazos para autenticado no-owner
+-- y 9/9 rechazos para rol anon. Identidad SQL/JWT simulada; NO se usó API JWT real.
 --
 -- LIMITACIÓN: simula rol/JWT dentro de PostgreSQL. NO reemplaza sesiones reales
 -- por la API, ni demuestra la seguridad de las 37 RPC owner con parámetros.
 -- Solo prueba las 9 funciones de lectura sin argumentos enumeradas abajo.
 
-BEGIN;
+BEGIN TRANSACTION READ ONLY;
 
 -- Capturar un ID de cuenta autenticada que NO sea propietaria sin mostrarlo.
 DO $actor$
@@ -68,7 +70,7 @@ END $non_owner_checks$;
 
 ROLLBACK;
 
-BEGIN;
+BEGIN TRANSACTION READ ONLY;
 SET LOCAL ROLE anon;
 
 DO $anon_checks$
