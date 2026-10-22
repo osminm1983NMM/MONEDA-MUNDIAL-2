@@ -77,3 +77,13 @@ test('bloquea filtración HISTÓRICA de B visible en A al volver',async()=>{
  await run.prepareA(args);await run.finishA(args);await run.prepareB(args);await run.finishB(args);
  await assert.rejects(run.verifyA(args),/otra cuenta/);
 });
+
+test('historial Coin/Digital de 20 entradas no puede aprobar prueba incompleta',async()=>{
+ const history=Array.from({length:20},(_,i)=>op(
+  '77777777-7777-4777-8777-'+String(i).padStart(12,'0'),'COIN',1000000,120000));
+ const run=createTwoAccountDemoVerification({inspect:async()=>({
+  userId:A,coinMicro:100000000,stableMicro:1000000000,history
+ })});
+ await assert.rejects(run.prepareA(args),/Historial incompleto/);
+ assert.equal(run.getStage(),'start');
+});
