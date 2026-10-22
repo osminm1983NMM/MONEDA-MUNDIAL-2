@@ -69,6 +69,11 @@ export function createTwoAccountDemoVerification({inspect=inspectTwoAccountDemoS
       assert(snap&&typeof snap.userId==='string'&&
         Number.isSafeInteger(snap.coinMicro)&&Number.isSafeInteger(snap.stableMicro)&&
         Array.isArray(snap.history),'Respuesta incompleta');
+      // El servidor devuelve como máximo 20 conversiones.
+      // Al llegar al límite podrían quedar operaciones antiguas ocultas;
+      // no aprobar una separación de cuentas con historial truncado.
+      assert(snap.history.length<20,
+        'Historial incompleto (20 conversiones): se requiere auditoría paginada.');
       const uid=snap.userId.toLowerCase();
       if(kind==='prepareA'){
         a={uid,initial:{coinMicro:snap.coinMicro,stableMicro:snap.stableMicro,
