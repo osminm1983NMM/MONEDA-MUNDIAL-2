@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'src/digital-money/demo-account-selfcheck.mjs'
+      - 'App.js'
+      - 'DemoAccountSelfcheckScreen.js'
+      - 'src/digital-money/home-demo-i18n.mjs'
+      - 'tests/demo-account-selfcheck-ui.test.mjs'
       - 'tests/demo-account-selfcheck.test.mjs'
       - '.github/workflows/demo-account-selfcheck.yml'
   workflow_dispatch:
@@ -20,6 +24,6 @@ jobs:
         with:
           node-version: '22'
       - name: Verificar aislamiento de cuenta con clientes simulados
-        run: node --test tests/demo-account-selfcheck.test.mjs
+        run: node --test tests/demo-account-selfcheck.test.mjs tests/demo-account-selfcheck-ui.test.mjs
       - name: Declarar alcance
         run: echo 'Los tests emplean clientes falsos. No se usan JWT reales, Supabase conectado ni dinero.'
