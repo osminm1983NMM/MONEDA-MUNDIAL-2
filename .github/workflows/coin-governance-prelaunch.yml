@@ -1,0 +1,25 @@
+name: Revisar modelo legal y distribución Coin DEMO
+on:
+  pull_request:
+    paths:
+      - 'src/digital-money/coin-governance-prelaunch.mjs'
+      - 'tests/coin-governance-prelaunch.test.mjs'
+      - '.github/workflows/coin-governance-prelaunch.yml'
+  push:
+    branches: [governance/coin-prelaunch-legal-guardrails-20261023]
+    paths:
+      - 'src/digital-money/coin-governance-prelaunch.mjs'
+      - 'tests/coin-governance-prelaunch.test.mjs'
+      - '.github/workflows/coin-governance-prelaunch.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  coin-governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/coin-governance-prelaunch.test.mjs tests/tokenomics-scenarios.test.mjs tests/crypto-release-gates.test.mjs tests/mock-coin-primary-sale.test.mjs
