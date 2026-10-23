@@ -178,7 +178,33 @@ test('fallos repetidos de reembolso siguen bloqueados hasta decisión manual dis
  assert.equal(m.inspectMockOrder(o.orderId).status,'refund_failed_mock');
  assert.equal(m.getAccountingProposals(o.orderId).length,1);
  assert.equal(m.getAuditLog().filter(x=>x.type==='refund_failed_mock').length,2);
- const retry=m.retryMockRefundAfterFailure({orderId:o.orderId,requestId:'refund-attempt-third'});
- assert.equal(retry.status,'refund_pending_mock');
+ const hold=m.inspectMockRefundSafetyHold(o.orderId);
+ assert.equal(hold.refundFailuresObserved,2);
+ assert.equal(hold.blockedForManualReview,true);
+ assert.equal(hold.canRequestMockRetry,false);
+ assert.equal(hold.bankRefundVerified,false);
+ assert.equal(Object.isFrozen(hold),true);
+ assert.throws(()=>m.retryMockRefundAfterFailure({orderId:o.orderId,requestId:'refund-attempt-third'}),/revisión manual requerida/);
+ const replay=m.retryMockRefundAfterFailure({orderId:o.orderId,requestId:'refund-attempt-second'});
+ assert.equal(replay.alreadyProcessed,true);
+ assert.equal(replay.status,'refund_pending_mock');
+ assert.equal(m.inspectMockOrder(o.orderId).status,'refund_failed_mock');
  assert.equal(m.getAccountingProposals(o.orderId).length,1);
+ assert.equal(m.getAuditLog().filter(x=>x.type==='refund_retry_requested_mock').length,1);
+});
+
+test('fallos de Honduras no bloquean la orden de Nicaragua',()=>{
+ const m=make(),hn=create(m,'HN'),ni=create(m,'NI');
+ emit(m,hn,'funding_settled_mock','fund-hn-separate');
+ m.requestMockRefund({orderId:hn.orderId,requestId:'refund-hn-start-002'});
+ emit(m,hn,'refund_failed_mock','hn-fail-a');
+ m.retryMockRefundAfterFailure({orderId:hn.orderId,requestId:'refund-hn-retry-002'});
+ emit(m,hn,'refund_failed_mock','hn-fail-b');
+ emit(m,ni,'funding_settled_mock','fund-ni-separate');
+ m.requestMockRefund({orderId:ni.orderId,requestId:'refund-ni-start-002'});
+ emit(m,ni,'refund_failed_mock','ni-fail-a');
+ assert.equal(m.inspectMockRefundSafetyHold(hn.orderId).blockedForManualReview,true);
+ assert.equal(m.inspectMockRefundSafetyHold(ni.orderId).canRequestMockRetry,true);
+ assert.equal(m.retryMockRefundAfterFailure({orderId:ni.orderId,requestId:'refund-ni-retry-002'}).status,'refund_pending_mock');
+ assert.equal(m.inspectMockOrder(hn.orderId).status,'refund_failed_mock');
 });

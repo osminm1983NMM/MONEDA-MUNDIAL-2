@@ -3,14 +3,19 @@ on:
   pull_request:
     paths:
       - 'src/server/mock-customer-claims-desk.mjs'
+      - 'src/server/mock-payment-lifecycle.mjs'
       - 'tests/mock-customer-claims-desk.test.mjs'
+      - 'tests/mock-payment-lifecycle.test.mjs'
       - '.github/workflows/test-mock-customer-claims.yml'
   push:
     branches:
       - safety/demo-customer-claims-desk-20261022
+      - safety/demo-refund-two-failures-hard-stop-20261023
     paths:
       - 'src/server/mock-customer-claims-desk.mjs'
+      - 'src/server/mock-payment-lifecycle.mjs'
       - 'tests/mock-customer-claims-desk.test.mjs'
+      - 'tests/mock-payment-lifecycle.test.mjs'
       - '.github/workflows/test-mock-customer-claims.yml'
   workflow_dispatch:
 permissions:
