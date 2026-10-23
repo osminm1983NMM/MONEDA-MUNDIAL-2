@@ -1,0 +1,25 @@
+name: Coin DEMO venta FIFO y cambios de precio
+on:
+  pull_request:
+    paths:
+      - 'src/digital-money/mock-coin-fifo-sale.mjs'
+      - 'tests/mock-coin-fifo-sale.test.mjs'
+      - '.github/workflows/test-mock-coin-fifo-sale.yml'
+  push:
+    branches: [safety/demo-coin-fifo-sale-price-change-20261023]
+    paths:
+      - 'src/digital-money/mock-coin-fifo-sale.mjs'
+      - 'tests/mock-coin-fifo-sale.test.mjs'
+      - '.github/workflows/test-mock-coin-fifo-sale.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-fifo-sale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/mock-coin-fifo-sale.test.mjs tests/mock-coin-primary-sale.test.mjs tests/mock-coin-purchase-guard.test.mjs
