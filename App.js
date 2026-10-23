@@ -31,6 +31,7 @@ import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentReque
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
 import { canApplySessionResponse } from './src/session-guards.mjs';
+import {validateDemoAccountSnapshot,isCurrentDemoWalletRefresh} from './src/demo-wallet-refresh-safety.mjs';
 import { canReusePendingDemoOperation, demoOperationStillBelongsToUser, claimDemoOperationLock, retainPendingDemoRequest, canConfirmDemoOperation } from './src/demo-operation-session.mjs';
 import {parseRecoveryDeepLink,validateRecoveryPassword} from './src/auth/recovery-link.mjs';
 import { isLatestRequest, isValidDemoQuoteResponse, isValidDemoPaymentPreview } from './src/async-demo-guards.mjs';
@@ -521,6 +522,7 @@ export default function App() {
   const [paymentCode, setPaymentCode] = useState('');
   const [paymentPreview, setPaymentPreview] = useState(null);
   const sessionEpochRef = useRef(0);
+  const walletRefreshSequenceRef = useRef(0);
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
   const quoteSequenceRef = useRef(0);
@@ -600,6 +602,7 @@ export default function App() {
   useEffect(() => {
     // No mantener información de la cuenta anterior mientras carga una nueva sesión.
     // También se descartan formularios e identificadores de operación pendientes.
+    walletRefreshSequenceRef.current += 1;
     setWallet(null);
     setOperations([]);
     setSelectedReceiptId(null);
@@ -755,6 +758,12 @@ export default function App() {
   async function refreshAccount(id = userId) {
     if (!id) return;
     const requestedEpoch = sessionEpochRef.current;
+    const requestedSequence = ++walletRefreshSequenceRef.current;
+    // No mostrar ni autorizar acciones con un saldo que está siendo actualizado.
+    setWallet(null);
+    setOperations([]);
+    setAdminRole(null);
+    setSelectedReceiptId(null);
     setSyncing(true);
     try {
       const [w, h, a] = await Promise.all([
@@ -764,20 +773,31 @@ export default function App() {
         supabase.rpc('mwd_history_demo'),
         supabase.from('mwd_admin_roles').select('role').eq('user_id', id).maybeSingle(),
       ]);
-      if (w.error) throw w.error;
-      if (h.error) throw h.error;
-      if (a.error) throw a.error;
-      const { data: { session: activeSession } } = await supabase.auth.getSession();
-      if (!canApplySessionResponse(id, activeSession) ||
-          sessionEpochRef.current !== requestedEpoch) return;
-      setWallet(w.data);
-      setOperations(h.data || []);
-      setAdminRole(a.data?.role || null);
+      if (w.error || h.error || a.error) throw new Error('Consulta de prueba fallida');
+      const {data:{session:activeSession},error:sessionError}=await supabase.auth.getSession();
+      if (sessionError || !isCurrentDemoWalletRefresh({
+        requestedUserId:id,activeSession,requestedEpoch,
+        currentEpoch:sessionEpochRef.current,requestedSequence,
+        currentSequence:walletRefreshSequenceRef.current,
+      })) return;
+      const checked=validateDemoAccountSnapshot({
+        wallet:w.data,operations:h.data,adminRow:a.data,expectedUserId:id,
+      });
+      // Validación síncrona, sin nueva espera entre comprobación y publicación.
+      setWallet(checked.wallet);
+      setOperations(checked.operations);
+      setAdminRole(checked.adminRole);
     } catch (error) {
-      if (sessionEpochRef.current === requestedEpoch)
-        showMessage('Sincronización', error.message || 'No se pudo consultar Supabase.');
+      if (sessionEpochRef.current === requestedEpoch &&
+          walletRefreshSequenceRef.current === requestedSequence) {
+        setWallet(null);
+        setOperations([]);
+        setAdminRole(null);
+        showMessage('Sincronización', 'No se pudo verificar la billetera de prueba. Actualiza la cuenta.');
+      }
     } finally {
-      if (sessionEpochRef.current === requestedEpoch) setSyncing(false);
+      if (sessionEpochRef.current === requestedEpoch &&
+          walletRefreshSequenceRef.current === requestedSequence) setSyncing(false);
     }
   }
 
