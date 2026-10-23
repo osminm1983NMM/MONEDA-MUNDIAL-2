@@ -1,0 +1,25 @@
+name: Probar beneficiario vinculado a retiro DEMO
+on:
+  pull_request:
+    paths:
+      - 'src/server/mock-beneficiary-bound-pickup.mjs'
+      - 'tests/mock-beneficiary-bound-pickup.test.mjs'
+      - '.github/workflows/test-mock-beneficiary-bound-pickup.yml'
+  push:
+    branches: [safety/demo-beneficiary-bound-pickup-20261023]
+    paths:
+      - 'src/server/mock-beneficiary-bound-pickup.mjs'
+      - 'tests/mock-beneficiary-bound-pickup.test.mjs'
+      - '.github/workflows/test-mock-beneficiary-bound-pickup.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  beneficiary-binding:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/mock-beneficiary-bound-pickup.test.mjs tests/mock-cash-pickup-verification.test.mjs tests/mock-pickup-binding.test.mjs tests/mock-agent-pickup-session.test.mjs tests/provider-integration-port.test.mjs
