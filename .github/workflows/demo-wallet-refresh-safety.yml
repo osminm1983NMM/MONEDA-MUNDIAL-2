@@ -1,0 +1,27 @@
+name: Verificar refresco seguro de billetera DEMO
+on:
+  pull_request:
+    paths:
+      - 'src/demo-wallet-refresh-safety.mjs'
+      - 'tests/demo-wallet-refresh-safety.test.mjs'
+      - 'App.js'
+      - '.github/workflows/demo-wallet-refresh-safety.yml'
+  push:
+    branches: [safety/demo-wallet-refresh-validation-20261023]
+    paths:
+      - 'src/demo-wallet-refresh-safety.mjs'
+      - 'tests/demo-wallet-refresh-safety.test.mjs'
+      - 'App.js'
+      - '.github/workflows/demo-wallet-refresh-safety.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  wallet-guard-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/demo-wallet-refresh-safety.test.mjs tests/demo-receipts.test.mjs tests/session-guards.test.mjs
