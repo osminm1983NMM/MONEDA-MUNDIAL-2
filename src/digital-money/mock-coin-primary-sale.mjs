@@ -105,7 +105,10 @@ export function createMockCoinPrimarySale({config,clock=()=>Date.now()}={}){
   custodyPartnerConnected:false,realMoneyEnabled:false,
   // La empresa sólo controla el inventario que AÚN es suyo en este ejemplo.
   // Ningún método permite quitar unidades que ya fueron atribuidas al comprador.
-  previewPrimaryPurchase({requestId,buyerAlias:alias,spendUsdCents}={}){
+  previewPrimaryPurchase(input={}){
+   if(!exact(input,['requestId','buyerAlias','spendUsdCents']))
+    bad('Sólo importes y alias sintéticos permitidos; prohibidos datos bancarios');
+   const {requestId,buyerAlias:alias,spendUsdCents}=input;
    if(typeof requestId!=='string'||!ID.test(requestId))
     bad('Referencia de intento ficticio inválida');
    buyerAlias(alias);
