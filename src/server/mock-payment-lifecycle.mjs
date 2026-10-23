@@ -136,11 +136,30 @@ export function createMockPaymentLifecycle({
    }
    return action('refund_requested_mock',orderId,requestId,before,STATE.refundPending);
   },
-  // Reintento MANUAL de una devolución de laboratorio fallida.
-  // Nunca se permite si la orden ya fue pagada, reembolsada o aún se procesa.
-  // La misma requestId devuelve el resultado original; una clave diferente
-  // representa una decisión nueva, registrada sólo en la auditoría ficticia.
+  // Control de sólo lectura: independiente de que exista una reclamación abierta.
+  // SOLO DEMO: eventos y bloqueos desaparecen al reiniciar este proceso.
+  inspectMockRefundSafetyHold(orderId){
+   const o=get(orderId);
+   const failures=audit.filter(e=>e.orderId===o.id&&e.type==='refund_failed_mock').length;
+   return Object.freeze({
+     orderId:o.id,orderStatus:o.status,refundFailuresObserved:failures,
+     blockedForManualReview:failures>=2,
+     canRequestMockRetry:o.status===STATE.refundFailed&&failures<2,
+     bankRefundVerified:false,realMoneyEnabled:false,
+   });
+  },
+  // Después de dos fallos ficticios se requiere revisión humana.
+  // No existe una opción de bypass: sólo el reenvío idempotente de una
+  // requestId antigua devuelve su resultado ORIGINAL, sin nueva transición.
   retryMockRefundAfterFailure({orderId,requestId}={}){
+   checkId(requestId);
+   if(actionIds.has(requestId))
+     return action('refund_retry_requested_mock',orderId,requestId,
+       STATE.refundFailed,STATE.refundPending);
+   const o=get(orderId);
+   const failures=audit.filter(e=>e.orderId===o.id&&e.type==='refund_failed_mock').length;
+   if(failures>=2)
+     fail('Reembolso ficticio bloqueado por dos fallos: revisión manual requerida');
    return action('refund_retry_requested_mock',orderId,requestId,
      STATE.refundFailed,STATE.refundPending);
   },
