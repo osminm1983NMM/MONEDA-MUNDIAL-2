@@ -1,0 +1,25 @@
+name: Probar intención de remesas internacionales MOCK
+on:
+  pull_request:
+    paths:
+      - 'src/server/mock-international-transfer-guard.mjs'
+      - 'tests/mock-international-transfer-guard.test.mjs'
+      - '.github/workflows/mock-international-transfer-guard.yml'
+  push:
+    branches: [safety/demo-international-transfer-intent-guard-20261023]
+    paths:
+      - 'src/server/mock-international-transfer-guard.mjs'
+      - 'tests/mock-international-transfer-guard.test.mjs'
+      - '.github/workflows/mock-international-transfer-guard.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  transfer-intent-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/mock-international-transfer-guard.test.mjs tests/mock-payment-lifecycle.test.mjs tests/mock-customer-claims-desk.test.mjs
