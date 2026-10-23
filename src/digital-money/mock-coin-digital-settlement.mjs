@@ -167,6 +167,16 @@ export function createMockCoinDigitalSettlement({mode='mock',clock=()=>Date.now(
   },
   getDemoOperation(operationId){expireLocks();const op=operations.get(operationId);
     return op?response(op):null;},
+  // Consulta por requestId: permite verificar una reserva de DEMO tras perder
+  // respuesta de red SIN volver a llamar reserveScenario (sólo lectura de estado).
+  // NO usar como endpoint público: el motor no autentica clientes verdaderos.
+  getDemoReservationByRequest({requestId,userId=DEMO_USER}={}){
+    checkUserId(userId);reqId(requestId);expireLocks();
+    const found=requests.get(requestId);
+    if(!found||found.userId!==userId)return null;
+    const op=operations.get(found.operationId);
+    return op?response(op):null;
+  },
   auditEvents(){return Object.freeze(events.map(v=>({...v})));},
  });
 }
