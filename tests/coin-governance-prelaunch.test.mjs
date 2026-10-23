@@ -53,7 +53,7 @@ test('riesgos de impresión ilimitada, confiscación, restricciones ocultas y re
 test('propuestas que exceden las monedas disponibles no producen distribución',()=>{
  for(const v of [
   {...sample(),plannedPublicUnits:'1000000001'},
-  {...sample(),initialCompanyTreasuryUnits:'500000000'},
+  {...sample(),initialCompanyTreasuryUnits:'200000000'},
   {...sample(),plannedPartnerUnits:'-1'},
   {...sample(),plannedPartnerUnits:'100.5'},
   {...sample(),plannedPartnerUnits:100000000},
