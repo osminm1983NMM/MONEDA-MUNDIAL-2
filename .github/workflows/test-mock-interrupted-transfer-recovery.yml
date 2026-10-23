@@ -1,0 +1,25 @@
+name: Recuperación de transferencia interrumpida MOCK
+on:
+  pull_request:
+    paths:
+      - 'src/server/mock-interrupted-transfer-recovery.mjs'
+      - 'tests/mock-interrupted-transfer-recovery.test.mjs'
+      - '.github/workflows/test-mock-interrupted-transfer-recovery.yml'
+  push:
+    branches: [safety/demo-interrupted-transfer-readonly-recovery-20261023]
+    paths:
+      - 'src/server/mock-interrupted-transfer-recovery.mjs'
+      - 'tests/mock-interrupted-transfer-recovery.test.mjs'
+      - '.github/workflows/test-mock-interrupted-transfer-recovery.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-demo-recovery:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/mock-interrupted-transfer-recovery.test.mjs tests/mock-international-transfer-guard.test.mjs tests/mock-payment-lifecycle.test.mjs
