@@ -1,11 +1,15 @@
-name: APK Android DEMO del historial PR99 con emulador
+name: APK Android DEMO Etapa 124 con emulador
 
 on:
   push:
-    branches: [feature/mwd-secure-history-pagination-20261024]
+    branches: [feature/mwd-history-android-preview-stage124-20261024]
     paths:
       - '.github/workflows/demo-android-emulator-exact-commit.yml'
       - 'App.js'
+      - 'DemoTourScreen.js'
+      - 'DemoHistoryRecentScreen.js'
+      - 'GuestHistoryPreviewScreen.js'
+      - 'tests/**'
       - 'PagedDemoHistoryScreen.js'
       - 'src/**'
       - 'scripts/**'
@@ -41,6 +45,11 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Validar compatibilidad
         run: npx expo install --check
+      - name: Verificar modelos y contrato del historial inventado
+        run: |
+          node tests/demo-history-view.test.mjs
+          node tests/demo-history-guest-fixture.test.mjs
+          python3 -m unittest discover -s tests -p 'test_android_history_preview_contract.py'
       - name: Generar proyecto Android
         run: CI=1 npx expo prebuild --platform android --no-install --non-interactive
       - name: Preparar NDK Android con reintentos
@@ -80,7 +89,7 @@ jobs:
       - name: Guardar APK independiente de demostración
         uses: actions/upload-artifact@v4
         with:
-          name: moneda-mundial-2-demo-pr99-independiente
+          name: moneda-mundial-2-demo-etapa124-independiente
           path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
@@ -99,7 +108,7 @@ jobs:
       - name: Descargar artefacto APK creado en este mismo flujo
         uses: actions/download-artifact@v4
         with:
-          name: moneda-mundial-2-demo-pr99-independiente
+          name: moneda-mundial-2-demo-etapa124-independiente
           path: apk-test
       - name: Registrar procedencia de la prueba
         run: |
@@ -161,12 +170,17 @@ jobs:
           test -s smoke-results/guest-after-readiness.xml
           test -s smoke-results/guest-after-crypto.xml
           test -s smoke-results/guest-tour-return-ready.xml
+          test -s smoke-results/guest-history-top.xml
+          test -s smoke-results/guest-history-incoming-top.xml
+          test -s smoke-results/guest-history-merchant-top.xml
+          test -s smoke-results/guest-history-receipt-top.xml
+          test -s smoke-results/guest-tour-after-history-bottom.xml
           test -s smoke-results/guest-return.xml
           echo "Run: ${{ github.run_id }}, commit: ${{ github.sha }}"
       - name: Publicar APK Android DEMO verificada por el emulador
         uses: actions/upload-artifact@v4
         with:
-          name: moneda-mundial-2-demo-pr99-apk-verificada
+          name: moneda-mundial-2-demo-etapa124-apk-verificada
           path: apk-test/app-release.apk
           if-no-files-found: error
           retention-days: 14
@@ -174,7 +188,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: moneda-mundial-pr99-android-smoke-test
+          name: moneda-mundial-etapa124-android-smoke-test
           path: smoke-results/
           if-no-files-found: warn
           retention-days: 7

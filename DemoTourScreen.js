@@ -4,6 +4,7 @@ import GuestCryptoPreviewScreen from './GuestCryptoPreviewScreen';
 import GuestReadinessPreviewScreen from './GuestReadinessPreviewScreen';
 import GuestCashPickupPreviewScreen from './GuestCashPickupPreviewScreen';
 import GuestWorldCountriesScreen from './GuestWorldCountriesScreen';
+import GuestHistoryPreviewScreen from './GuestHistoryPreviewScreen';
 import {View,Text,TouchableOpacity} from 'react-native';
 import {DEMO_PREVIEW_REAL_PAYMENTS_ENABLED,getPublicDemoTour} from './src/demo-tour.mjs';
 const s={
@@ -21,9 +22,11 @@ export default function DemoTourScreen({language='es',onClose}){
  const [viewReadiness,setViewReadiness]=useState(false);
  const [viewCashPickup,setViewCashPickup]=useState(false);
  const [viewWorldCountries,setViewWorldCountries]=useState(false);
+ const [viewHistory,setViewHistory]=useState(false);
  const content=getPublicDemoTour(language);
  if(DEMO_PREVIEW_REAL_PAYMENTS_ENABLED) throw Error('Offline demo preview must not enable real payments');
  if(viewWorldCountries)return <GuestWorldCountriesScreen language={language} onBack={()=>setViewWorldCountries(false)}/>;
+ if(viewHistory)return <GuestHistoryPreviewScreen language={language} onBack={()=>setViewHistory(false)}/>;
  if(viewCashPickup)return <GuestCashPickupPreviewScreen language={language} onBack={()=>setViewCashPickup(false)}/>;
  if(viewCrypto)return <GuestCryptoPreviewScreen language={language} onBack={()=>setViewCrypto(false)}/>;
  if(viewReadiness)return <View style={s.box}><GuestReadinessPreviewScreen/><TouchableOpacity accessibilityRole="button" style={s.button} onPress={()=>setViewReadiness(false)}><Text style={s.buttonText}>Volver al recorrido de Moneda Mundial</Text></TouchableOpacity></View>;
@@ -46,6 +49,11 @@ export default function DemoTourScreen({language='es',onClose}){
     accessibilityLabel={language==='en'?'Explore countries worldwide':'Explorar países del mundo'}
     onPress={()=>setViewWorldCountries(true)}>
     <Text style={s.buttonText}>{language==='en'?'Explore all countries (research only)':'Explorar países del mundo (solo investigación)'}</Text>
+  </TouchableOpacity>
+  <TouchableOpacity accessibilityRole="button" style={s.button}
+    accessibilityLabel={language==='en'?'History preview with invented data':'Vista previa del Historial con datos inventados'}
+    onPress={()=>setViewHistory(true)}>
+    <Text style={s.buttonText}>{language==='en'?'History preview (invented data)':'Vista previa del Historial (datos inventados)'}</Text>
   </TouchableOpacity>
   <Text style={s.text}>{content.footer}</Text>
   <TouchableOpacity accessibilityRole="button" style={s.button} onPress={onClose}
