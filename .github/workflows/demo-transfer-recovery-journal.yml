@@ -1,0 +1,26 @@
+name: Recuperación de transferencias interrumpidas DEMO
+
+on:
+  push:
+    branches:
+      - feature/mwd-shared-recovery-journal-stage136-20261024
+    paths:
+      - 'src/server/mock-interrupted-transfer-recovery.mjs'
+      - 'tests/mock-interrupted-transfer-recovery.test.mjs'
+      - '.github/workflows/demo-transfer-recovery-journal.yml'
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  impedir-duplicaciones-demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verificar pendientes, cuentas, reintentos y reconstrucción de controlador
+        run: node --test tests/mock-interrupted-transfer-recovery.test.mjs tests/mock-international-transfer-guard.test.mjs tests/mock-transfer-reconciliation.test.mjs

@@ -44,16 +44,67 @@ function verifyReceipt(r,p){
   r.beneficiaryIdentityVerified===false;
 }
 
+// Registro compartido VOLÁTIL para reconstruir una pantalla sin reenviar.
+// No usa AsyncStorage, servidores ni disco: NO protege frente a reinicio real.
+export function createMockTransferRecoveryJournal(){
+ const pending=new Map(),resolved=new Map();
+ const actorOk=actor=>{
+  if(typeof actor!=='string'||!ALIAS.test(actor))fail('Cuenta sintética inválida');
+ };
+ return frozen({
+  mode:'mock_only',realMoneyEnabled:false,persistentStorageConnected:false,
+  survivesDeviceRestart:false,
+  pendingFor(actor){actorOk(actor);return pending.get(actor)||null;},
+  resolvedFor(actor,requestId){
+   actorOk(actor);
+   if(!REQUEST.test(requestId||''))fail('Referencia ficticia inválida');
+   return resolved.get(actor)?.get(requestId)||null;
+  },
+  beginPending(actor,record){
+   actorOk(actor);
+   if(!record||!record.preview||record.preview.senderAlias!==actor||
+      !REQUEST.test(record.preview.requestId||'')||
+      record.acknowledgeDistinctDuplicate!==record.preview.duplicateRiskDetected)
+    fail('Registro pendiente de prueba inválido');
+   if(pending.has(actor))fail('Hay una remesa pendiente: no reenviar');
+   pending.set(actor,frozen(record));
+  },
+  completePending(actor,requestId,record){
+   actorOk(actor);
+   const item=pending.get(actor);
+   if(!item||item.preview.requestId!==requestId||
+      !record||record.fingerprint!==fingerprint(item.preview)||
+      !verifyReceipt(record.receipt,item.preview))
+    fail('No se puede liberar una remesa pendiente no verificada');
+   if(!resolved.has(actor))resolved.set(actor,new Map());
+   const prior=resolved.get(actor).get(requestId);
+   if(prior&&prior.fingerprint!==record.fingerprint)
+    fail('Referencia ya asociada con una remesa distinta');
+   resolved.get(actor).set(requestId,frozen({
+    fingerprint:record.fingerprint,
+    preview:item.preview,
+    receipt:frozen({...record.receipt})
+   }));
+   pending.delete(actor);
+  },
+ });
+}
+
 export function createMockInterruptedTransferRecovery({
- transport,getSession,clock=()=>Date.now()
+ transport,getSession,clock=()=>Date.now(),journal=createMockTransferRecoveryJournal()
 }={}){
  if(transport?.mode!=='mock_only'||transport?.realMoneyEnabled!==false||
     transport?.bankConnected!==false||
     typeof transport.submitMockTransfer!=='function'||
     typeof transport.inspectMockTransfer!=='function'||
-    typeof getSession!=='function'||typeof clock!=='function')
+    typeof getSession!=='function'||typeof clock!=='function'||
+    journal?.mode!=='mock_only'||journal?.realMoneyEnabled!==false||
+    journal?.persistentStorageConnected!==false||
+    typeof journal.pendingFor!=='function'||
+    typeof journal.resolvedFor!=='function'||
+    typeof journal.beginPending!=='function'||
+    typeof journal.completePending!=='function')
   fail('Controlador disponible sólo para conexiones DEMO');
- const pendingByActor=new Map(),resolvedByActor=new Map();
  function session(){
   const x=getSession();
   if(!x||typeof x!=='object'||!ALIAS.test(x.actorAlias||'')||
@@ -92,7 +143,7 @@ export function createMockInterruptedTransferRecovery({
   mode:'mock_only',realMoneyEnabled:false,persistentStorageConnected:false,
   customerIdentityVerified:false,
   inspectLocalPending(){
-   const s=session(),p=pendingByActor.get(s.actorAlias);
+   const s=session(),p=journal.pendingFor(s.actorAlias);
    return p?safePending(p.preview):null;
   },
   // Esta función es la ÚNICA vía que confirma el ejemplo remoto.
@@ -102,17 +153,18 @@ export function createMockInterruptedTransferRecovery({
    if(typeof acknowledgeDistinctDuplicate!=='boolean'||
       acknowledgeDistinctDuplicate!==p.duplicateRiskDetected)
     fail('La confirmación explícita de duplicación no corresponde');
-   const current=pendingByActor.get(s.actorAlias);
+   const current=journal.pendingFor(s.actorAlias);
    if(current)
     fail('Hay una remesa pendiente: verificar sólo en lectura, no reenviar');
-   const resolved=resolvedByActor.get(s.actorAlias)?.get(p.requestId);
+   const resolved=journal.resolvedFor(s.actorAlias,p.requestId);
    if(resolved){
     if(resolved.fingerprint!==fingerprint(p))
      fail('Referencia reutilizada para otra remesa ficticia');
     return safeVerified(resolved.preview,resolved.receipt,true);
    }
    const pending=frozen({preview:p,acknowledgeDistinctDuplicate});
-   pendingByActor.set(s.actorAlias,pending);
+   // Se bloquea un segundo envío ANTES de invocar el servicio ficticio.
+   journal.beginPending(s.actorAlias,pending);
    try{
     const reply=await transport.submitMockTransfer({
      requestId:p.requestId,preflightId:p.preflightId,
@@ -121,22 +173,26 @@ export function createMockInterruptedTransferRecovery({
     assertCurrent(s);
     if(!verifyReceipt(reply,p))
      fail('Respuesta no verificable, se conserva referencia pendiente');
-    if(!resolvedByActor.has(s.actorAlias))
-     resolvedByActor.set(s.actorAlias,new Map());
-    resolvedByActor.get(s.actorAlias).set(p.requestId,frozen({
+    journal.completePending(s.actorAlias,p.requestId,frozen({
      fingerprint:fingerprint(p),preview:p,receipt:frozen({...reply})
     }));
-    pendingByActor.delete(s.actorAlias);
     return safeVerified(p,reply);
    }catch(err){
     // Un timeout puede ocurrir DESPUÉS del commit remoto: nunca reintentar submit.
     assertCurrent(s);
+    // Otra pantalla pudo confirmar en lectura mientras este request esperaba.
+    const verified=journal.resolvedFor(s.actorAlias,p.requestId);
+    if(verified){
+     if(verified.fingerprint!==fingerprint(p))
+      fail('Referencia reutilizada para otra remesa ficticia');
+     return safeVerified(verified.preview,verified.receipt,true);
+    }
     return safePending(p);
    }
   },
   // Solamente LECTURA, incluso si inspect devuelve null o falla la conexión.
   async inspectWithoutResubmitting(){
-   const s=session(),pending=pendingByActor.get(s.actorAlias);
+   const s=session(),pending=journal.pendingFor(s.actorAlias);
    if(!pending)return null;
    const p=pending.preview;
    let reply;
@@ -151,12 +207,16 @@ export function createMockInterruptedTransferRecovery({
     return frozen({...safePending(p),status:'not_observed_mock'});
    if(!verifyReceipt(reply,p))
     return frozen({...safePending(p),status:'inconsistent_response_mock'});
-   if(!resolvedByActor.has(s.actorAlias))
-    resolvedByActor.set(s.actorAlias,new Map());
-   resolvedByActor.get(s.actorAlias).set(p.requestId,frozen({
-    fingerprint:fingerprint(p),preview:p,receipt:frozen({...reply})
-   }));
-   pendingByActor.delete(s.actorAlias);
+   try{
+    journal.completePending(s.actorAlias,p.requestId,frozen({
+     fingerprint:fingerprint(p),preview:p,receipt:frozen({...reply})
+    }));
+   }catch(err){
+    const prior=journal.resolvedFor(s.actorAlias,p.requestId);
+    if(prior?.fingerprint===fingerprint(p))
+     return safeVerified(prior.preview,prior.receipt,true);
+    return frozen({...safePending(p),status:'inconsistent_response_mock'});
+   }
    return safeVerified(p,reply);
   },
  });

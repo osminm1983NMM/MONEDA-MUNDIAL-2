@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createMockPaymentLifecycle} from '../src/server/mock-payment-lifecycle.mjs';
 import {createMockInternationalTransferGuard} from '../src/server/mock-international-transfer-guard.mjs';
-import {createMockInterruptedTransferRecovery} from '../src/server/mock-interrupted-transfer-recovery.mjs';
+import {createMockInterruptedTransferRecovery,createMockTransferRecoveryJournal} from '../src/server/mock-interrupted-transfer-recovery.mjs';
 
 const T=1800000000000;
 const SECRET='only-mock-network-recovery-32-characters';
-const make=({onSubmit,onInspect}={})=>{
+const make=({onSubmit,onInspect,journal=createMockTransferRecoveryJournal()}={})=>{
  const lifecycle=createMockPaymentLifecycle({webhookSecret:SECRET,clock:()=>T});
  const guard=createMockInternationalTransferGuard({lifecycle,clock:()=>T});
  let identity={actorAlias:'SIM-US-SEND001',revision:1};
@@ -24,18 +24,91 @@ const make=({onSubmit,onInspect}={})=>{
    return guard.inspectMockTransfer(requestId);
   }
  };
- const recovery=createMockInterruptedTransferRecovery({
-  transport,getSession:()=>identity,clock:()=>T
+ const remount=()=>createMockInterruptedTransferRecovery({
+  transport,getSession:()=>identity,clock:()=>T,journal
  });
+ const recovery=remount();
  const intent=(id='test',dest='HN',rec='SIM-HN-RECIP01')=>({
   requestId:'recovery-transfer-'+id+'-1234',
   senderAlias:identity.actorAlias,recipientAlias:rec,destination:dest,
   amountCents:10000,
  });
- return {lifecycle,guard,recovery,calls,intent,
+ return {lifecycle,guard,recovery,remount,journal,calls,intent,
   switchIdentity:x=>{identity=x;}
  };
 };
+
+test('recrear la pantalla conserva el bloqueo pendiente mediante registro compartido DEMO',async()=>{
+ const x=make({onSubmit:(guard,args)=>{
+  guard.submitMockTransfer(args);throw Error('respuesta perdida');
+ }});
+ const p=x.guard.previewMockTransfer(x.intent('remount-pending'));
+ assert.equal((await x.recovery.submitOnce({preview:p})).status,'pending_verification_mock');
+ const nuevaPantalla=x.remount();
+ assert.equal(nuevaPantalla.inspectLocalPending().requestId,p.requestId);
+ await assert.rejects(nuevaPantalla.submitOnce({preview:p}),/pendiente/);
+ assert.equal((await nuevaPantalla.inspectWithoutResubmitting()).status,'verified_mock');
+ assert.equal(x.calls.submits,1);
+ assert.equal(x.calls.inspections,1);
+ assert.equal(nuevaPantalla.inspectLocalPending(),null);
+ assert.equal(x.journal.persistentStorageConnected,false);
+ assert.equal(x.journal.survivesDeviceRestart,false);
+});
+
+test('recrear la pantalla conserva idempotencia de recibo ya verificado',async()=>{
+ const x=make(),p=x.guard.previewMockTransfer(x.intent('remount-settled'));
+ const first=await x.recovery.submitOnce({preview:p});
+ const second=await x.remount().submitOnce({preview:p});
+ assert.equal(second.orderId,first.orderId);
+ assert.equal(second.alreadyProcessed,true);
+ assert.equal(x.calls.submits,1);
+});
+
+test('dos instancias simultáneas de pantalla no pueden generar dos órdenes DEMO',async()=>{
+ let deliver;
+ const x=make({onSubmit:(guard,args)=>new Promise(resolve=>{
+  deliver=()=>resolve(guard.submitMockTransfer(args));
+ })});
+ const first=x.guard.previewMockTransfer(x.intent('same-actor-1'));
+ const other=x.guard.previewMockTransfer(x.intent('same-actor-2'));
+ const pending=x.recovery.submitOnce({preview:first});
+ const afterRemount=x.remount();
+ await assert.rejects(afterRemount.submitOnce({preview:other}),/pendiente/);
+ assert.equal(x.calls.submits,1);
+ deliver();
+ assert.equal((await pending).status,'verified_mock');
+ assert.equal(x.calls.submits,1);
+});
+
+test('si otra pantalla verifica primero, la respuesta tardía no vuelve a dejar pendiente',async()=>{
+ let deliver;
+ const x=make({onSubmit:(guard,args)=>new Promise(resolve=>{
+  const reply=guard.submitMockTransfer(args);
+  deliver=()=>resolve(reply);
+ })});
+ const p=x.guard.previewMockTransfer(x.intent('racing-inspect'));
+ const original=x.recovery.submitOnce({preview:p});
+ const revisada=await x.remount().inspectWithoutResubmitting();
+ assert.equal(revisada.status,'verified_mock');
+ deliver();
+ const tardia=await original;
+ assert.equal(tardia.status,'verified_mock');
+ assert.equal(tardia.alreadyProcessed,true);
+ assert.equal(x.calls.submits,1);
+ assert.equal(x.calls.inspections,1);
+ assert.equal(x.recovery.inspectLocalPending(),null);
+});
+
+test('impide conectar un registro compartido que afirme manejar dinero real',()=>{
+ const x=make();
+ assert.throws(()=>createMockInterruptedTransferRecovery({
+  transport:{mode:'mock_only',realMoneyEnabled:false,bankConnected:false,
+   submitMockTransfer:async()=>null,inspectMockTransfer:async()=>null},
+  getSession:()=>({actorAlias:'SIM-US-SEND001',revision:1}),
+  journal:{mode:'live',realMoneyEnabled:true,persistentStorageConnected:true},
+ }),/sólo/);
+ assert.equal(x.recovery.persistentStorageConnected,false);
+});
 
 test('éxito con recibo validado borra pendiente, sin pagos ni retiros reales',async()=>{
  const x=make(),preview=x.guard.previewMockTransfer(x.intent('safe'));
