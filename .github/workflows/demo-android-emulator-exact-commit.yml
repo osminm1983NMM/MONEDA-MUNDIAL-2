@@ -1,0 +1,180 @@
+name: APK Android DEMO del historial PR99 con emulador
+
+on:
+  push:
+    branches: [feature/mwd-secure-history-pagination-20261024]
+    paths:
+      - '.github/workflows/demo-android-emulator-exact-commit.yml'
+      - 'App.js'
+      - 'PagedDemoHistoryScreen.js'
+      - 'src/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'app.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Solo mantener la ejecución más reciente de esta compilación en la rama.
+# Evita que pruebas de APK antiguas compitan por recursos con la versión vigente.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preparar-apk-independiente:
+    # Do not build untrusted fork PR code on the expensive Android runner.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+      - name: Validar compatibilidad
+        run: npx expo install --check
+      - name: Generar proyecto Android
+        run: CI=1 npx expo prebuild --platform android --no-install --non-interactive
+      - name: Preparar NDK Android con reintentos
+        shell: bash
+        run: |
+          set -euo pipefail
+          NDK_VERSION="27.1.12297006"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            echo "::error::Android sdkmanager no está disponible"
+            exit 1
+          fi
+          for attempt in 1 2 3; do
+            if "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "ndk;$NDK_VERSION"; then
+              if [ -f "$SDK_ROOT/ndk/$NDK_VERSION/source.properties" ]; then
+                echo "NDK instalado correctamente en intento $attempt"
+                break
+              fi
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::No se pudo instalar el NDK luego de 3 intentos"
+              exit 1
+            fi
+            echo "::warning::El servidor SDK devolvió un archivo incompleto; reintentando"
+            rm -rf "$SDK_ROOT/ndk/$NDK_VERSION"
+            sleep 20
+          done
+      - name: Compilar APK independiente de demostración
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --no-daemon
+      - name: Verificar paquete de JavaScript incorporado
+        run: |
+          unzip -Z1 android/app/build/outputs/apk/release/app-release.apk | grep -E 'assets/index.android.bundle$'
+      - name: Guardar APK independiente de demostración
+        uses: actions/upload-artifact@v4
+        with:
+          name: moneda-mundial-2-demo-pr99-independiente
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  smoke-android-emulator:
+    name: Instalar la APK de este mismo commit y verificar arranque
+    needs: preparar-apk-independiente
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Descargar artefacto APK creado en este mismo flujo
+        uses: actions/download-artifact@v4
+        with:
+          name: moneda-mundial-2-demo-pr99-independiente
+          path: apk-test
+      - name: Registrar procedencia de la prueba
+        run: |
+          mkdir -p smoke-results
+          echo "Commit APK: ${{ github.sha }}" > smoke-results/compilacion-probada.txt
+          echo "Run: ${{ github.run_id }}" >> smoke-results/compilacion-probada.txt
+      - name: Registrar la huella SHA-256 de la APK exacta que se probará
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum apk-test/app-release.apk >smoke-results/sha256-apk-probada.txt
+          cat smoke-results/sha256-apk-probada.txt
+      # Habilitar KVM según la guía de reactivecircus/android-emulator-runner.
+      # Sin aceleración hardware, el arranque puede tardar más de 15 minutos
+      # y el sistema Android puede mostrar errores de falta de respuesta.
+      - name: Habilitar aceleración KVM para el emulador
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -e /dev/kvm ]; then
+            echo "::error::Este runner no ofrece KVM; no es apto para la prueba automatizada."
+            exit 1
+          fi
+          # Evitar dependencia de udevadm en runners donde las reglas
+          # no se pueden recargar. La aceleración existe si /dev/kvm
+          # es accesible desde la cuenta que ejecuta el emulador.
+          sudo chmod 666 /dev/kvm
+          if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
+            echo "::error::No hay acceso KVM para este runner."
+            exit 1
+          fi
+      - name: Emulador Android sin credenciales ni dinero real
+        timeout-minutes: 35
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-boot-timeout: 900
+          disable-animations: true
+          script: |
+            bash scripts/probar-apk-emulador.sh
+            bash scripts/probar-recorrido-invitado-emulador.sh
+      # Solo llega aquí si instalar, abrir y recorrer la demo en el
+      # emulador de este mismo commit ha terminado SIN errores.
+      - name: Confirmar la huella y las evidencias del recorrido público
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum --check smoke-results/sha256-apk-probada.txt
+          test -s smoke-results/ui.xml
+          test -s smoke-results/guest-tour.xml
+          test -s smoke-results/guest-tour-bottom.xml
+          test -s smoke-results/guest-crypto.xml
+          test -s smoke-results/guest-crypto-bottom.xml
+          test -s smoke-results/guest-readiness.xml
+          test -s smoke-results/guest-readiness-bottom.xml
+          test -s smoke-results/guest-after-readiness.xml
+          test -s smoke-results/guest-after-crypto.xml
+          test -s smoke-results/guest-tour-return-ready.xml
+          test -s smoke-results/guest-return.xml
+          echo "Run: ${{ github.run_id }}, commit: ${{ github.sha }}"
+      - name: Publicar APK Android DEMO verificada por el emulador
+        uses: actions/upload-artifact@v4
+        with:
+          name: moneda-mundial-2-demo-pr99-apk-verificada
+          path: apk-test/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Guardar evidencias del arranque
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moneda-mundial-pr99-android-smoke-test
+          path: smoke-results/
+          if-no-files-found: warn
+          retention-days: 7
