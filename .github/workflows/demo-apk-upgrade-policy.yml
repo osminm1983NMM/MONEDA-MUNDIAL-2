@@ -4,11 +4,15 @@ on:
   push:
     branches:
       - feature/mwd-android-upgrade-guard-stage131-20261024
+      - feature/mwd-android-version-guard-stage132-20261024
     paths:
       - 'scripts/comprobar-actualizacion-android.mjs'
       - 'scripts/comprobar-firma-android.mjs'
       - 'tests/android-apk-upgrade-policy.test.mjs'
       - 'tests/android-apk-signature-policy.test.mjs'
+      - 'tests/android-apk-version-match.test.mjs'
+      - 'scripts/comprobar-version-android-demo.mjs'
+      - 'app.json'
       - '.github/workflows/demo-apk-upgrade-policy.yml'
   pull_request:
     paths:
@@ -16,6 +20,9 @@ on:
       - 'scripts/comprobar-firma-android.mjs'
       - 'tests/android-apk-upgrade-policy.test.mjs'
       - 'tests/android-apk-signature-policy.test.mjs'
+      - 'tests/android-apk-version-match.test.mjs'
+      - 'scripts/comprobar-version-android-demo.mjs'
+      - 'app.json'
       - '.github/workflows/demo-apk-upgrade-policy.yml'
 
 permissions:
@@ -31,4 +38,4 @@ jobs:
         with:
           node-version: '22'
       - name: Bloquear firmas, paquetes y versiones incompatibles
-        run: node --test tests/android-apk-signature-policy.test.mjs tests/android-apk-upgrade-policy.test.mjs
+        run: node --test tests/android-apk-signature-policy.test.mjs tests/android-apk-upgrade-policy.test.mjs tests/android-apk-version-match.test.mjs

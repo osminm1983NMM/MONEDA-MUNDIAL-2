@@ -6,6 +6,7 @@ on:
       - feature/mwd-visual-modernization-stage126-20261024
       - feature/mwd-apk-signature-guard-stage128-20261024
       - feature/mwd-history-consistent-pagination-stage129-20261024
+      - feature/mwd-android-version-guard-stage132-20261024
     paths:
       - '.github/workflows/demo-android-emulator-exact-commit.yml'
       - 'App.js'
@@ -50,6 +51,7 @@ jobs:
         run: npx expo install --check
       - name: Verificar modelos y contrato del historial inventado
         run: |
+          node --test tests/android-apk-signature-policy.test.mjs tests/android-apk-upgrade-policy.test.mjs tests/android-apk-version-match.test.mjs
           node tests/demo-history-readonly.test.mjs
           node tests/demo-history-view.test.mjs
           node tests/demo-history-guest-fixture.test.mjs
@@ -138,6 +140,16 @@ jobs:
           APKSIGNER_PATH="$SDK_ROOT/build-tools/35.0.1/apksigner" \
             node scripts/comprobar-firma-android.mjs apk-test/app-release.apk --demo | tee smoke-results/firma-apk-demo.txt
           test -s smoke-results/firma-apk-demo.txt
+      - name: Confirmar paquete y versionCode reales de la APK contra app.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          test -x "$SDK_ROOT/build-tools/35.0.1/aapt"
+          AAPT_PATH="$SDK_ROOT/build-tools/35.0.1/aapt" \
+            node scripts/comprobar-version-android-demo.mjs apk-test/app-release.apk app.json \
+            | tee smoke-results/version-apk-demo.txt
+          test -s smoke-results/version-apk-demo.txt
       # Habilitar KVM según la guía de reactivecircus/android-emulator-runner.
       # Sin aceleración hardware, el arranque puede tardar más de 15 minutos
       # y el sistema Android puede mostrar errores de falta de respuesta.

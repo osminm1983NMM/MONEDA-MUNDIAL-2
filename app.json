@@ -6,7 +6,8 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "android": {
-      "package": "com.monedamundial.app"
+      "package": "com.monedamundial.app",
+      "versionCode": 2
     },
     "scheme": "monedamundial"
   }
