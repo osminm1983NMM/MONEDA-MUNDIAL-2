@@ -5,8 +5,8 @@ import {
  MOBILE_PROVIDER_OUTREACH_AUTOSEND_ENABLED,
 } from '../src/digital-money/mobile-provider-outreach.mjs';
 
-const providers=['CANDIDATE-NIUM','CANDIDATE-TERRAPAY','CANDIDATE-THUNES'];
-test('tres borradores específicos en inglés solo para estudio EEUU-Honduras',()=>{
+const providers=['CANDIDATE-MONEYGRAM','CANDIDATE-NIUM','CANDIDATE-TERRAPAY','CANDIDATE-THUNES'];
+test('cuatro borradores específicos en inglés solo para estudio EEUU-Honduras',()=>{
  for(const providerId of providers){
   const d=getMobileProviderOutreachDraft({providerId,destination:'HN'});
   assert.equal(d.providerId,providerId);

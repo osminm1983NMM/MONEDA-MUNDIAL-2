@@ -2,6 +2,24 @@
 // No email is sent automatically; no account, provider API, credentials or funds are used.
 // This catalogue is research only and cannot activate a corridor.
 const CANDIDATES=Object.freeze({
+ 'CANDIDATE-MONEYGRAM':Object.freeze({
+  name:'MoneyGram',
+  // Official MoneyGram enterprise enquiry page, not an authenticated API endpoint.
+  contactUrl:'https://business.moneygram.com/',
+  subject:'MoneyGram business partnership - exploratory US to Honduras remittance inquiry',
+  message:`Hello MoneyGram Business Partnerships Team,
+
+We are researching Moneda Mundial 2.0, a pre-incorporation mobile wallet and remittance prototype with fictitious credits only. No real transfers or partner credentials are in use.
+
+Could you clarify whether an eligible future business may integrate MoneyGram as a Service or the Money Transfer API for consumer remittances originating in the United States and paying out in Honduras? We would like to assess bank deposits and in-person cash pickup separately, including whether a recipient can collect cash without our app or a smartphone.
+
+Please explain the contracting entity, supported US state and Honduras scope, licensing or sponsorship model, funding responsibilities, customer-funds protection, recipient verification, KYC/AML and sanctions roles, FX and fee disclosures, cancellations, refunds, reconciliation and duplicate-payment prevention. We also wish to evaluate Nicaragua and other countries individually later.
+
+Does MoneyGram accept preliminary enquiries before incorporation? What documentation is required for an authorized sandbox and, separately, live eligibility? We are not requesting real-money access, production keys or personal information at this stage.
+
+Thank you,
+Moneda Mundial 2.0 - Project team`,
+ }),
  'CANDIDATE-NIUM':Object.freeze({
   name:'Nium',
   contactUrl:'https://www.nium.com/talk-to-us',
