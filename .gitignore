@@ -1,0 +1,18 @@
+# Artefactos generados, sesiones locales y secretos; nunca versionar claves.
+node_modules/
+.expo/
+android/
+ios/
+*.apk
+*.aab
+.env
+.env.*
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pk8
+*.pem
+*.key
+*credentials*.json
+*service-account*.json

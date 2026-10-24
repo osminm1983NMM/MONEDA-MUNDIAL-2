@@ -8,6 +8,7 @@ on:
       - feature/mwd-history-consistent-pagination-stage129-20261024
       - feature/mwd-android-version-guard-stage132-20261024
       - feature/mwd-apk-build-provenance-stage133-20261024
+      - feature/mwd-signing-secrets-guard-stage134-20261024
     paths:
       - '.github/workflows/demo-android-emulator-exact-commit.yml'
       - 'App.js'
@@ -39,6 +40,8 @@ jobs:
     timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
+      - name: Bloquear claves privadas y credenciales de firma versionadas
+        run: node scripts/proteger-claves-firma-android.mjs
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
