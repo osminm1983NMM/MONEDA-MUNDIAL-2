@@ -1,0 +1,61 @@
+name: Conciliacion dos billeteras PostgreSQL DEMO etapa 139
+
+on:
+  push:
+    branches:
+      - feature/mwd-ledger-checkpoint-reconcile-stage139-20261024
+    paths:
+      - 'research/ledger/mock-checkpoint-ledger-bridge.sql'
+      - 'research/ledger/tests/mock-checkpoint-ledger-*.sql'
+      - '.github/workflows/verificar-checkpoint-libro-mayor-demo.yml'
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  libro-mayor-checkpoint-ficticio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: only-throwaway-ledger-test
+          POSTGRES_DB: ledger_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ledger_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 8
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: ledger_test
+      PGUSER: postgres
+      PGPASSWORD: only-throwaway-ledger-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Impedir conexión a un servidor financiero
+        run: test "$PGDATABASE" = ledger_test
+      - name: Roles cliente ficticios sin inicio de sesión
+        run: psql -X -v ON_ERROR_STOP=1 -c 'CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN;'
+      - name: Instalar libro mayor DEMO privado
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/postgres-double-entry-research.sql
+      - name: Validar partida doble y rechazo de asientos desbalanceados
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/ledger-assertions.sql
+      - name: Instalar checkpoint persistente privado
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/mock-recovery-reservations.sql
+      - name: Dos solicitudes ficticias en conexión inicial
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/mock-recovery-reservations-first-session.sql
+      - name: Recuperar reservas en una conexión nueva
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/mock-recovery-reservations-second-session.sql
+      - name: Instalar vínculo idempotente de solicitudes y asientos
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/mock-checkpoint-ledger-bridge.sql
+      - name: Sesión uno saldos historial y rechazo de pendientes
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/mock-checkpoint-ledger-first-session.sql
+      - name: Sesión nueva dos cuentas y saldos persistidos
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/mock-checkpoint-ledger-second-session.sql
