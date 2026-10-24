@@ -24,12 +24,27 @@ read_accessibility() {
   return 1
 }
 
+# El recorrido crece al mejorar su legibilidad. Una sola pasada de scroll
+# ya no alcanza el botón de regreso en teléfonos con fuentes grandes.
+# Navegar hasta los extremos sin reutilizar XML de una pantalla anterior.
+scroll_tour_to_bottom() {
+  for pass in 1 2 3; do
+    adb shell input swipe 550 1900 550 650 470
+    sleep 1
+  done
+}
+scroll_tour_to_top() {
+  for pass in 1 2 3; do
+    adb shell input swipe 550 650 550 1900 470
+    sleep 1
+  done
+}
+
 adb exec-out screencap -p >smoke-results/guest-tour.png || true
 read_accessibility guest-tour
 # A long ScrollView may expose only a subset of its children; scroll down
 # and read a second accessibility snapshot before evaluating tour content.
-adb shell input swipe 550 1900 550 700 550
-sleep 2
+scroll_tour_to_bottom
 read_accessibility guest-tour-bottom
 python3 scripts/android_guest_tour_contract.py tour smoke-results/guest-tour.xml smoke-results/guest-tour-bottom.xml
 
@@ -91,11 +106,11 @@ echo "Regresando desde Coin/Digital al recorrido de invitado..."
 adb shell input tap "$x" "$y"
 sleep 3
 # Do not accept returning straight to login or another unintended screen.
+scroll_tour_to_top
 read_accessibility guest-after-crypto
 # Re-read this NEW visit's bottom content: reusing old tour XML would let
 # an incorrect return screen pass merely because the original tour was valid.
-adb shell input swipe 550 1900 550 700 500
-sleep 2
+scroll_tour_to_bottom
 read_accessibility guest-tour-return-ready
 python3 scripts/android_guest_tour_contract.py tour smoke-results/guest-after-crypto.xml smoke-results/guest-tour-return-ready.xml
 
@@ -112,9 +127,9 @@ python3 scripts/android_guest_tour_contract.py readiness smoke-results/guest-rea
 read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py readiness-back smoke-results/guest-readiness-bottom.xml)"
 adb shell input tap "$x" "$y"
 sleep 3
+scroll_tour_to_top
 read_accessibility guest-after-readiness
-adb shell input swipe 550 1900 550 700 500
-sleep 2
+scroll_tour_to_bottom
 read_accessibility guest-tour-return-ready
 python3 scripts/android_guest_tour_contract.py tour smoke-results/guest-after-readiness.xml smoke-results/guest-tour-return-ready.xml
 # El catálogo mundial es público. Verificar la pantalla REAL de este APK
@@ -136,25 +151,17 @@ adb shell input tap "$x" "$y"
 sleep 3
 # Regresar desde una lista desplazada puede conservar la posición de ScrollView.
 # Capturar de nuevo la cabecera ANTES de verificar los elementos del final.
-adb shell input swipe 550 650 550 1900 550
-sleep 2
+scroll_tour_to_top
 read_accessibility guest-after-world
-adb shell input swipe 550 1900 550 700 500
-sleep 2
+scroll_tour_to_bottom
 read_accessibility guest-tour-after-world-bottom
 python3 scripts/android_guest_tour_contract.py tour smoke-results/guest-after-world.xml smoke-results/guest-tour-after-world-bottom.xml
 # Vista previa de Historial, sin cuenta ni conexión financiera: filtros y comprobante.
 bash scripts/probar-historial-invitado-emulador.sh
 # Releer recorrido AHORA, después de volver, sin reutilizar capturas previas.
-adb shell input swipe 550 650 550 1900 470
-sleep 2
-adb shell input swipe 550 650 550 1900 470
-sleep 2
+scroll_tour_to_top
 read_accessibility guest-after-history
-adb shell input swipe 550 1900 550 650 470
-sleep 2
-adb shell input swipe 550 1900 550 650 470
-sleep 2
+scroll_tour_to_bottom
 read_accessibility guest-tour-after-history-bottom
 python3 scripts/android_guest_tour_contract.py tour smoke-results/guest-after-history.xml smoke-results/guest-tour-after-history-bottom.xml
 read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py return-button smoke-results/guest-tour-after-history-bottom.xml)"
