@@ -143,10 +143,24 @@ adb shell input swipe 550 1900 550 700 500
 sleep 2
 read_accessibility guest-tour-after-world-bottom
 python3 scripts/android_guest_tour_contract.py tour smoke-results/guest-after-world.xml smoke-results/guest-tour-after-world-bottom.xml
-read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py return-button smoke-results/guest-tour-after-world-bottom.xml)"
+# Vista previa de Historial, sin cuenta ni conexión financiera: filtros y comprobante.
+bash scripts/probar-historial-invitado-emulador.sh
+# Releer recorrido AHORA, después de volver, sin reutilizar capturas previas.
+adb shell input swipe 550 650 550 1900 470
+sleep 2
+adb shell input swipe 550 650 550 1900 470
+sleep 2
+read_accessibility guest-after-history
+adb shell input swipe 550 1900 550 650 470
+sleep 2
+adb shell input swipe 550 1900 550 650 470
+sleep 2
+read_accessibility guest-tour-after-history-bottom
+python3 scripts/android_guest_tour_contract.py tour smoke-results/guest-after-history.xml smoke-results/guest-tour-after-history-bottom.xml
+read -r x y <<< "$(python3 scripts/android_guest_tour_contract.py return-button smoke-results/guest-tour-after-history-bottom.xml)"
 echo "Volviendo a la pantalla pública de inicio..."
 adb shell input tap "$x" "$y"
 sleep 3
 read_accessibility guest-return
 python3 scripts/android_guest_tour_contract.py return smoke-results/guest-return.xml
-echo "OK: invitado → Coin/Digital → compra/venta ficticia → recorrido → inicio, sin cuenta ni dinero."
+echo "OK: invitado → Coin/Digital → países → Historial ficticio → inicio, sin cuenta ni dinero."
