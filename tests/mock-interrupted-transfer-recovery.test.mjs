@@ -24,8 +24,8 @@ const make=({onSubmit,onInspect,journal=createMockTransferRecoveryJournal()}={})
    return guard.inspectMockTransfer(requestId);
   }
  };
- const remount=()=>createMockInterruptedTransferRecovery({
-  transport,getSession:()=>identity,clock:()=>T,journal
+ const remount=(restoredJournal=journal)=>createMockInterruptedTransferRecovery({
+  transport,getSession:()=>identity,clock:()=>T,journal:restoredJournal
  });
  const recovery=remount();
  const intent=(id='test',dest='HN',rec='SIM-HN-RECIP01')=>({
@@ -108,6 +108,68 @@ test('impide conectar un registro compartido que afirme manejar dinero real',()=
   journal:{mode:'live',realMoneyEnabled:true,persistentStorageConnected:true},
  }),/sólo/);
  assert.equal(x.recovery.persistentStorageConnected,false);
+});
+
+test('serializar y restaurar una remesa pendiente no provoca otro envío',async()=>{
+ const x=make({onSubmit:(guard,args)=>{
+  guard.submitMockTransfer(args);throw Error('respuesta perdida');
+ }});
+ const p=x.guard.previewMockTransfer(x.intent('checkpoint-pending'));
+ assert.equal((await x.recovery.submitOnce({preview:p})).status,'pending_verification_mock');
+ // Simula una lectura de datos guardados por OTRO componente tras reiniciar.
+ const snapshot=JSON.parse(JSON.stringify(x.journal.exportSnapshot()));
+ const restored=createMockTransferRecoveryJournal({snapshot});
+ const newController=x.remount(restored);
+ assert.equal(newController.inspectLocalPending().requestId,p.requestId);
+ await assert.rejects(newController.submitOnce({preview:p}),/pendiente/);
+ assert.equal((await newController.inspectWithoutResubmitting()).status,'verified_mock');
+ assert.equal(x.calls.submits,1);
+ assert.equal(x.calls.inspections,1);
+ assert.equal(newController.inspectLocalPending(),null);
+});
+
+test('restaurar recibo confirmado mantiene idempotencia para la misma cuenta',async()=>{
+ const x=make(),p=x.guard.previewMockTransfer(x.intent('checkpoint-confirmed'));
+ const first=await x.recovery.submitOnce({preview:p});
+ const snapshot=JSON.parse(JSON.stringify(x.journal.exportSnapshot()));
+ assert.equal(snapshot.pending.length,0);
+ assert.equal(snapshot.resolved.length,1);
+ const saved=createMockTransferRecoveryJournal({snapshot});
+ const replay=await x.remount(saved).submitOnce({preview:p});
+ assert.equal(replay.orderId,first.orderId);
+ assert.equal(replay.alreadyProcessed,true);
+ assert.equal(x.calls.submits,1);
+});
+
+test('restauración mantiene pendientes separados para dos cuentas sintéticas',async()=>{
+ const x=make({onSubmit:()=>{throw Error('red no disponible');}});
+ const a=x.guard.previewMockTransfer(x.intent('checkpoint-a'));
+ await x.recovery.submitOnce({preview:a});
+ x.switchIdentity({actorAlias:'SIM-US-SEND002',revision:2});
+ const b=x.guard.previewMockTransfer(x.intent('checkpoint-b'));
+ await x.recovery.submitOnce({preview:b});
+ const snapshot=JSON.parse(JSON.stringify(x.journal.exportSnapshot()));
+ assert.equal(snapshot.pending.length,2);
+ const restored=createMockTransferRecoveryJournal({snapshot});
+ const controller=x.remount(restored);
+ assert.equal(controller.inspectLocalPending().requestId,b.requestId);
+ x.switchIdentity({actorAlias:'SIM-US-SEND001',revision:3});
+ assert.equal(controller.inspectLocalPending().requestId,a.requestId);
+ assert.equal(x.calls.submits,2);
+});
+
+test('checkpoint truncado o alterado bloquea restauración; no se asume vacío',async()=>{
+ const x=make({onSubmit:()=>{throw Error('timeout');}});
+ const p=x.guard.previewMockTransfer(x.intent('checkpoint-tamper'));
+ await x.recovery.submitOnce({preview:p});
+ const saved=JSON.parse(JSON.stringify(x.journal.exportSnapshot()));
+ assert.throws(()=>createMockTransferRecoveryJournal({snapshot:{...saved,sha256:'0'.repeat(64)}}),/alterado/);
+ const altered=JSON.parse(JSON.stringify(saved));
+ altered.pending[0].preview.amountCents+=100;
+ assert.throws(()=>createMockTransferRecoveryJournal({snapshot:altered}),/alterado/);
+ assert.throws(()=>createMockTransferRecoveryJournal({snapshot:{...saved,pending:undefined}}),/inválido/);
+ assert.equal(x.journal.persistentStorageConnected,false);
+ assert.equal(x.journal.survivesDeviceRestart,false);
 });
 
 test('éxito con recibo validado borra pendiente, sin pagos ni retiros reales',async()=>{

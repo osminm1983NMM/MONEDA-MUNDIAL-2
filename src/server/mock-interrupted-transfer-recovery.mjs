@@ -2,11 +2,21 @@
 // Controlador volátil, sin API bancaria, autenticación real, almacenamiento ni dinero.
 // Si una confirmación da resultado incierto, NUNCA se vuelve a ejecutar el envío:
 // se consulta únicamente inspectMockTransfer con la misma referencia.
+import {createHash} from 'node:crypto';
 const ALIAS=/^SIM-([A-Z]{2})-[A-Z0-9]{3,12}$/;
 const REQUEST=/^[A-Za-z0-9_-]{12,90}$/;
 const UUID=/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const frozen=o=>Object.freeze(o);
 const fail=m=>{throw new Error(m)};
+const only=(x,names)=>Boolean(x&&typeof x==='object'&&!Array.isArray(x)&&
+ Object.keys(x).length===names.length&&names.every(k=>Object.hasOwn(x,k)));
+const SNAPSHOT_FIELDS=['schemaVersion','mode','pending','resolved','sha256'];
+const PREVIEW_FIELDS=['requestId','preflightId','senderAlias','recipientAlias',
+ 'destination','amountCents','expiresAtMs','duplicateRiskDetected'];
+const RECEIPT_FIELDS=['status','orderId','requestId','preflightId','senderAlias',
+ 'recipientAlias','destination','amountCents','realMoneyEnabled','canMoveRealMoney',
+ 'fundingRealConfirmed','payoutRealConfirmed','beneficiaryIdentityVerified'];
+const hashSnapshot=x=>createHash('sha256').update(JSON.stringify(x)).digest('hex');
 
 function verifyPreview(p,actor,t){
  if(!p||typeof p!=='object'||Array.isArray(p)||
@@ -44,16 +54,84 @@ function verifyReceipt(r,p){
   r.beneficiaryIdentityVerified===false;
 }
 
+function checkedPreview(p,actor){
+ if(!only(p,PREVIEW_FIELDS)||!ALIAS.test(actor||'')||
+    p.senderAlias!==actor||!REQUEST.test(p.requestId||'')||
+    !UUID.test(p.preflightId||'')||!ALIAS.test(p.recipientAlias||'')||
+    p.recipientAlias.slice(4,6)!==p.destination||
+    !Number.isSafeInteger(p.amountCents)||p.amountCents<100||p.amountCents>10000000||
+    !Number.isSafeInteger(p.expiresAtMs)||p.expiresAtMs<1||
+    typeof p.duplicateRiskDetected!=='boolean')
+  fail('Referencia pendiente de checkpoint DEMO inválida');
+ return frozen({...p});
+}
+function checkedReceipt(r,p){
+ // No serializar propiedades extra de respuestas remotas o datos personales.
+ const safe=Object.fromEntries(RECEIPT_FIELDS.map(k=>[k,r?.[k]]));
+ if(!verifyReceipt(safe,p))fail('Recibo de checkpoint DEMO inválido');
+ return frozen(safe);
+}
+
 // Registro compartido VOLÁTIL para reconstruir una pantalla sin reenviar.
-// No usa AsyncStorage, servidores ni disco: NO protege frente a reinicio real.
-export function createMockTransferRecoveryJournal(){
+// Puede serializar un CHECKPOINT que otro componente deberá guardar de forma
+// fiable ANTES de la red. Sin ese almacenamiento, NO resiste reinicios reales.
+export function createMockTransferRecoveryJournal({snapshot}={}){
  const pending=new Map(),resolved=new Map();
  const actorOk=actor=>{
   if(typeof actor!=='string'||!ALIAS.test(actor))fail('Cuenta sintética inválida');
  };
+ if(snapshot!==undefined){
+  if(!only(snapshot,SNAPSHOT_FIELDS)||snapshot.schemaVersion!==1||
+     snapshot.mode!=='mock_only'||!Array.isArray(snapshot.pending)||
+     !Array.isArray(snapshot.resolved)||snapshot.pending.length>1000||
+     snapshot.resolved.length>1000||
+     typeof snapshot.sha256!=='string'||!/^[a-f0-9]{64}$/.test(snapshot.sha256))
+   fail('Checkpoint DEMO inválido: no restaurar como vacío');
+  const core={schemaVersion:1,mode:'mock_only',pending:snapshot.pending,resolved:snapshot.resolved};
+  if(hashSnapshot(core)!==snapshot.sha256)
+   fail('Checkpoint DEMO alterado: bloquear nuevas confirmaciones');
+  for(const item of snapshot.pending){
+   if(!only(item,['actor','preview','acknowledgeDistinctDuplicate']))
+    fail('Checkpoint DEMO contiene pendiente inválido');
+   const p=checkedPreview(item.preview,item.actor);
+   if(item.acknowledgeDistinctDuplicate!==p.duplicateRiskDetected||pending.has(item.actor))
+    fail('Checkpoint DEMO contiene pendiente duplicado o contradictorio');
+   pending.set(item.actor,frozen({preview:p,
+    acknowledgeDistinctDuplicate:item.acknowledgeDistinctDuplicate}));
+  }
+  for(const item of snapshot.resolved){
+   if(!only(item,['actor','requestId','preview','receipt']))
+    fail('Checkpoint DEMO contiene recibo inválido');
+   const p=checkedPreview(item.preview,item.actor);
+   if(item.requestId!==p.requestId || !only(item.receipt,RECEIPT_FIELDS))
+    fail('Checkpoint DEMO contiene recibo inconsistente');
+   const receipt=checkedReceipt(item.receipt,p);
+   if(pending.get(item.actor)?.preview.requestId===item.requestId)
+    fail('Checkpoint DEMO contradictorio: referencia pendiente y resuelta');
+   if(!resolved.has(item.actor))resolved.set(item.actor,new Map());
+   if(resolved.get(item.actor).has(item.requestId))
+    fail('Checkpoint DEMO contiene recibo duplicado');
+   resolved.get(item.actor).set(item.requestId,frozen({
+    fingerprint:fingerprint(p),preview:p,receipt
+   }));
+  }
+ }
  return frozen({
   mode:'mock_only',realMoneyEnabled:false,persistentStorageConnected:false,
-  survivesDeviceRestart:false,
+  survivesDeviceRestart:false,supportsSerializedCheckpoint:true,
+  exportSnapshot(){
+   const pendingRows=[...pending.entries()].map(([actor,row])=>({
+    actor,preview:{...row.preview},
+    acknowledgeDistinctDuplicate:row.acknowledgeDistinctDuplicate
+   })).sort((a,b)=>a.actor.localeCompare(b.actor));
+   const resolvedRows=[...resolved.entries()].flatMap(([actor,rows])=>
+    [...rows.entries()].map(([requestId,row])=>({
+     actor,requestId,preview:{...row.preview},receipt:{...row.receipt}
+    })));
+   resolvedRows.sort((a,b)=>a.actor.localeCompare(b.actor)||a.requestId.localeCompare(b.requestId));
+   const core={schemaVersion:1,mode:'mock_only',pending:pendingRows,resolved:resolvedRows};
+   return frozen({...core,sha256:hashSnapshot(core)});
+  },
   pendingFor(actor){actorOk(actor);return pending.get(actor)||null;},
   resolvedFor(actor,requestId){
    actorOk(actor);
@@ -62,12 +140,13 @@ export function createMockTransferRecoveryJournal(){
   },
   beginPending(actor,record){
    actorOk(actor);
-   if(!record||!record.preview||record.preview.senderAlias!==actor||
-      !REQUEST.test(record.preview.requestId||'')||
+   if(!record||!record.preview||
       record.acknowledgeDistinctDuplicate!==record.preview.duplicateRiskDetected)
     fail('Registro pendiente de prueba inválido');
+   const p=checkedPreview(record.preview,actor);
    if(pending.has(actor))fail('Hay una remesa pendiente: no reenviar');
-   pending.set(actor,frozen(record));
+   pending.set(actor,frozen({preview:p,
+    acknowledgeDistinctDuplicate:record.acknowledgeDistinctDuplicate}));
   },
   completePending(actor,requestId,record){
    actorOk(actor);
@@ -83,7 +162,7 @@ export function createMockTransferRecoveryJournal(){
    resolved.get(actor).set(requestId,frozen({
     fingerprint:record.fingerprint,
     preview:item.preview,
-    receipt:frozen({...record.receipt})
+    receipt:checkedReceipt(record.receipt,item.preview)
    }));
    pending.delete(actor);
   },
