@@ -1,0 +1,27 @@
+name: Revisión técnica previa a actualización pública DEMO
+
+on:
+  push:
+    branches:
+      - feature/mwd-release-update-preflight-stage135-20261024
+    paths:
+      - 'scripts/comprobar-candidato-actualizacion-publica.mjs'
+      - 'tests/android-release-update-preflight.test.mjs'
+      - '.github/workflows/demo-release-update-preflight.yml'
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ensayo-bloqueos-publicacion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirmar que DEMO, firmas extrañas y downgrades quedan bloqueados
+        run: node --test tests/android-release-update-preflight.test.mjs
+
