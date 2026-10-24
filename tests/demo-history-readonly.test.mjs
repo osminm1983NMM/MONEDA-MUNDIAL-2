@@ -16,12 +16,13 @@ function mockSupabase({ sessions = [USER_A], wallets = [], operations = [], igno
     } },
     from(table) {
       calls.push(['from', table]);
-      const state = { table, equals: null, or: null, range: null, order: null };
+      const state = { table, equals: null, or: null, allowed: null, range: null, orders: [] };
       const builder = {
         select(columns, options) { calls.push(['select', columns, options]); return builder; },
         eq(column, value) { state.equals = [column, value]; calls.push(['eq', column, value]); return builder; },
         or(value) { state.or = value; calls.push(['or', value]); return builder; },
-        order(column, options) { state.order = [column, options]; return builder; },
+        in(column, values) { state.allowed = [column, values]; calls.push(['in', column, values]); return builder; },
+        order(column, options) { state.orders.push([column, options]); calls.push(['order', column, options]); return builder; },
         range(start, end) { state.range = [start, end]; calls.push(['range', start, end]); return builder; },
         maybeSingle() { return Promise.resolve(result(true)); },
         then(resolve, reject) { return Promise.resolve(result(false)).then(resolve, reject); },
@@ -35,8 +36,15 @@ function mockSupabase({ sessions = [USER_A], wallets = [], operations = [], igno
             const id = state.or.match(/source_user_id\.eq\.([^,]+)/)?.[1];
             items = items.filter(x => x.source_user_id === id || x.destination_user_id === id);
           }
+          if (state.allowed) items = items.filter(x => state.allowed[1].includes(x[state.allowed[0]]));
         }
-        if (state.order) items.sort((a, b) => b.created_at.localeCompare(a.created_at));
+        if (state.orders.length) items.sort((a, b) => {
+          for (const [column, options] of state.orders) {
+            const order = String(a[column]).localeCompare(String(b[column]));
+            if (order) return options?.ascending ? order : -order;
+          }
+          return 0;
+        });
         const count = items.length;
         if (state.range) items = items.slice(state.range[0], state.range[1] + 1);
         return { data: single ? (items[0] ?? null) : items, error: null, count };
@@ -69,10 +77,11 @@ test('historial clasifica enviado, recibido y aportación', async () => {
     row('4', USER_B, USER_C),
   ] });
   const result = await loadMyDemoHistory(db);
-  assert.deepEqual(result.rows.map(x => x.direction), ['enviado', 'recibido', 'aportacion']);
-  assert.equal(result.rows[0].amountMwd, '25.00');
+  assert.deepEqual(Object.fromEntries(result.rows.map(x => [x.id, x.direction])),
+    { '1': 'enviado', '2': 'recibido', '3': 'aportacion' });
+  assert.equal(result.rows.find(x => x.id === '1').amountMwd, '25.00');
   assert.equal(result.rows.some(x => x.id === '4'), false);
-  assert.equal(result.rows[0].source_user_id, undefined);
+  assert.equal(result.rows.every(x => x.source_user_id === undefined), true);
 });
 
 test('segunda barrera oculta filas ajenas aunque un servidor mal configurado las devuelva', async () => {
@@ -101,6 +110,25 @@ test('paginación fija los límites, sin lecturas ilimitadas', async () => {
   assert.deepEqual(result.rows.map(x => x.id), ['c']);
   assert.equal(result.total, 3);
   assert.ok(calls.some(x => x[0] === 'range' && x[1] === 2 && x[2] === 3));
+});
+
+test('paginación cuenta sólo movimientos visibles y ordena empates por identificador', async () => {
+  const instant = '2026-10-24T12:00:00Z';
+  const { db, calls } = mockSupabase({ operations: [
+    row('a', USER_A, USER_B, 'transfer', 100, instant),
+    row('b', USER_A, USER_B, 'payment', 999, instant),
+    row('c', USER_B, USER_A, 'transfer', 200, instant),
+    row('d', USER_A, null, 'contribution', 300, instant),
+  ] });
+  const first = await loadMyDemoHistory(db, {page: 0, pageSize: 2});
+  const second = await loadMyDemoHistory(db, {page: 1, pageSize: 2});
+  assert.equal(first.total, 3);
+  assert.deepEqual(first.rows.map(x => x.id), ['d', 'c']);
+  assert.deepEqual(second.rows.map(x => x.id), ['a']);
+  assert.equal(second.total, 3);
+  assert.ok(calls.some(x => x[0] === 'in' && x[1] === 'kind' &&
+    x[2].join(',') === 'transfer,contribution'));
+  assert.ok(calls.some(x => x[0] === 'order' && x[1] === 'id'));
 });
 
 test('descarta páginas excesivas y valores inválidos', async () => {

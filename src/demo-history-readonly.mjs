@@ -2,8 +2,7 @@
  * Moneda Mundial 2.0 — Etapa 103: consultas de lectura para el historial MWD de pruebas.
  *
  * Integra las tablas YA EXISTENTES de Supabase: public.mwd_wallets y public.mwd_operations.
- * Se entrega como módulo de integración para React Native / Expo; aún NO está instalado
- * en el repositorio móvil ni conectado a una APK.
+ * Utilizado por la pantalla de historial paginado de React Native / Expo.
  *
  * Seguridad: la separación real de filas depende de las políticas RLS de Supabase.
  * Este módulo añade filtros de defensa en profundidad y no contiene claves privadas.
@@ -131,7 +130,13 @@ export async function loadMyDemoHistory(supabase, { page = 0, pageSize = 20 } = 
     response = await supabase.from('mwd_operations')
       .select(HISTORY_COLUMNS, { count: 'exact' })
       .or(`source_user_id.eq.${userId},destination_user_id.eq.${userId}`)
+      // El conteo y el desplazamiento deben considerar exactamente los tipos
+      // que puede representar esta pantalla: nunca crear páginas vacías por
+      // movimientos de otra clase (pagos, devoluciones, etc.).
+      .in('kind', ['transfer', 'contribution'])
       .order('created_at', { ascending: false })
+      // Orden estable cuando dos movimientos comparten el mismo instante.
+      .order('id', { ascending: false })
       .range(from, to);
   } catch (_) {
     reject('READ_FAILED', 'No se pudo consultar el historial.');
