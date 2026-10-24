@@ -1,8 +1,10 @@
-name: APK Android DEMO Etapa 126 con emulador
+name: APK Android DEMO Etapa 128 con firma auditada y emulador
 
 on:
   push:
-    branches: [feature/mwd-visual-modernization-stage126-20261024]
+    branches:
+      - feature/mwd-visual-modernization-stage126-20261024
+      - feature/mwd-apk-signature-guard-stage128-20261024
     paths:
       - '.github/workflows/demo-android-emulator-exact-commit.yml'
       - 'App.js'
@@ -121,6 +123,12 @@ jobs:
           set -euo pipefail
           sha256sum apk-test/app-release.apk >smoke-results/sha256-apk-probada.txt
           cat smoke-results/sha256-apk-probada.txt
+      - name: Auditar la firma Android y marcar explícitamente DEMO no publicable
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/comprobar-firma-android.mjs apk-test/app-release.apk --demo | tee smoke-results/firma-apk-demo.txt
+          test -s smoke-results/firma-apk-demo.txt
       # Habilitar KVM según la guía de reactivecircus/android-emulator-runner.
       # Sin aceleración hardware, el arranque puede tardar más de 15 minutos
       # y el sistema Android puede mostrar errores de falta de respuesta.
@@ -177,10 +185,10 @@ jobs:
           test -s smoke-results/guest-tour-after-history-bottom.xml
           test -s smoke-results/guest-return.xml
           echo "Run: ${{ github.run_id }}, commit: ${{ github.sha }}"
-      - name: Publicar APK Android DEMO verificada por el emulador
+      - name: Guardar APK Android DEMO probada (NO PUBLICAR)
         uses: actions/upload-artifact@v4
         with:
-          name: moneda-mundial-2-demo-etapa126-apk-verificada
+          name: moneda-mundial-2-demo-etapa128-apk-emulador-no-publicar
           path: apk-test/app-release.apk
           if-no-files-found: error
           retention-days: 14
