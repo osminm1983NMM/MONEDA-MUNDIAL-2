@@ -1,10 +1,11 @@
-name: APK Android DEMO Etapa 128 con firma auditada y emulador
+name: APK Android DEMO Etapa 129 con firma auditada y emulador
 
 on:
   push:
     branches:
       - feature/mwd-visual-modernization-stage126-20261024
       - feature/mwd-apk-signature-guard-stage128-20261024
+      - feature/mwd-history-consistent-pagination-stage129-20261024
     paths:
       - '.github/workflows/demo-android-emulator-exact-commit.yml'
       - 'App.js'
@@ -49,6 +50,7 @@ jobs:
         run: npx expo install --check
       - name: Verificar modelos y contrato del historial inventado
         run: |
+          node tests/demo-history-readonly.test.mjs
           node tests/demo-history-view.test.mjs
           node tests/demo-history-guest-fixture.test.mjs
           python3 -m unittest discover -s tests -p 'test_android_history_preview_contract.py'
@@ -91,7 +93,7 @@ jobs:
       - name: Guardar APK independiente de demostración
         uses: actions/upload-artifact@v4
         with:
-          name: moneda-mundial-2-demo-etapa126-independiente
+          name: moneda-mundial-2-demo-etapa129-independiente
           path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
@@ -110,7 +112,7 @@ jobs:
       - name: Descargar artefacto APK creado en este mismo flujo
         uses: actions/download-artifact@v4
         with:
-          name: moneda-mundial-2-demo-etapa126-independiente
+          name: moneda-mundial-2-demo-etapa129-independiente
           path: apk-test
       - name: Registrar procedencia de la prueba
         run: |
@@ -188,7 +190,7 @@ jobs:
       - name: Guardar APK Android DEMO probada (NO PUBLICAR)
         uses: actions/upload-artifact@v4
         with:
-          name: moneda-mundial-2-demo-etapa128-apk-emulador-no-publicar
+          name: moneda-mundial-2-demo-etapa129-apk-emulador-no-publicar
           path: apk-test/app-release.apk
           if-no-files-found: error
           retention-days: 14
@@ -196,7 +198,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: moneda-mundial-etapa126-android-smoke-test
+          name: moneda-mundial-etapa129-android-smoke-test
           path: smoke-results/
           if-no-files-found: warn
           retention-days: 7
