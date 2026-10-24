@@ -1,0 +1,40 @@
+name: Validar paquete JavaScript Android DEMO
+on:
+  pull_request:
+    paths:
+      - 'App.js'
+      - 'PagedDemoHistoryScreen.js'
+      - 'src/**'
+      - 'package.json'
+      - 'app.json'
+      - '.github/workflows/demo-android-bundle-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-js-bundle:
+    name: Empaquetar JavaScript de Android sin generar APK
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Obtener código
+        uses: actions/checkout@v4
+      - name: Usar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias de Expo
+        run: npm install --no-audit --no-fund
+      - name: Verificar compatibilidad Expo
+        run: npx expo install --check
+      - name: Comprobar que Metro compile el código Android
+        run: CI=1 npx expo export --platform android --output-dir dist-android
+      - name: Confirmar que se generaron archivos
+        run: test -n "$(find dist-android -type f -print -quit)"
