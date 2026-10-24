@@ -7,6 +7,7 @@ on:
       - feature/mwd-apk-signature-guard-stage128-20261024
       - feature/mwd-history-consistent-pagination-stage129-20261024
       - feature/mwd-android-version-guard-stage132-20261024
+      - feature/mwd-apk-build-provenance-stage133-20261024
     paths:
       - '.github/workflows/demo-android-emulator-exact-commit.yml'
       - 'App.js'
@@ -52,6 +53,7 @@ jobs:
       - name: Verificar modelos y contrato del historial inventado
         run: |
           node --test tests/android-apk-signature-policy.test.mjs tests/android-apk-upgrade-policy.test.mjs tests/android-apk-version-match.test.mjs
+          node --test tests/android-apk-provenance.test.mjs
           node tests/demo-history-readonly.test.mjs
           node tests/demo-history-view.test.mjs
           node tests/demo-history-guest-fixture.test.mjs
@@ -150,6 +152,16 @@ jobs:
             node scripts/comprobar-version-android-demo.mjs apk-test/app-release.apk app.json \
             | tee smoke-results/version-apk-demo.txt
           test -s smoke-results/version-apk-demo.txt
+      - name: Registrar identidad del APK exacto con huellas y commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          APKSIGNER_PATH="$SDK_ROOT/build-tools/35.0.1/apksigner" \
+          AAPT_PATH="$SDK_ROOT/build-tools/35.0.1/aapt" \
+            node scripts/registrar-identidad-apk-demo.mjs apk-test/app-release.apk app.json \
+            | tee smoke-results/identidad-apk-demo.json
+          test -s smoke-results/identidad-apk-demo.json
       # Habilitar KVM según la guía de reactivecircus/android-emulator-runner.
       # Sin aceleración hardware, el arranque puede tardar más de 15 minutos
       # y el sistema Android puede mostrar errores de falta de respuesta.
@@ -189,6 +201,7 @@ jobs:
         run: |
           set -euo pipefail
           sha256sum --check smoke-results/sha256-apk-probada.txt
+          test -s smoke-results/identidad-apk-demo.json
           test -s smoke-results/ui.xml
           test -s smoke-results/guest-tour.xml
           test -s smoke-results/guest-tour-bottom.xml
