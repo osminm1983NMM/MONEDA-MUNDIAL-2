@@ -36,7 +36,7 @@ const COPY = {
 
 export default function DemoHistoryRecentScreen({
   operations, userId, language='es', selectedReceiptId, setSelectedReceiptId,
-  onShareReceipt, onRefresh, refreshing=false,
+  onShareReceipt, onRefresh, refreshing=false, allowShare=true, allowRefresh=true,
 }) {
   const t = COPY[language] || COPY.es;
   const [filter, setFilter] = useState('all');
@@ -132,20 +132,22 @@ export default function DemoHistoryRecentScreen({
               <Text style={styles.receiptLine}>{t.amount} {row.movement.sign}{formatMWD(op.amount_cents)} MWD</Text>
               <Text style={styles.receiptLine}>{t.date} {formatLocalizedDate(op.created_at,language)}</Text>
               <Text style={styles.receiptWarning}>{t.disclaimer}</Text>
-              <TouchableOpacity accessibilityRole="button" style={styles.shareButton}
-                onPress={() => onShareReceipt(op)}>
-                <Text style={styles.shareText}>{t.share}</Text>
-              </TouchableOpacity>
+              {allowShare && typeof onShareReceipt === 'function' &&
+                <TouchableOpacity accessibilityRole="button" style={styles.shareButton}
+                  onPress={() => onShareReceipt(op)}>
+                  <Text style={styles.shareText}>{t.share}</Text>
+                </TouchableOpacity>}
             </View>}
           </View>
         );
       })}
-      <TouchableOpacity accessibilityRole="button" disabled={refreshing}
-        accessibilityState={{disabled:refreshing}}
-        style={[styles.refreshButton, refreshing && styles.disabled]}
-        onPress={onRefresh}>
-        <Text style={styles.refreshText}>{refreshing ? t.updating : t.refresh}</Text>
-      </TouchableOpacity>
+      {allowRefresh && typeof onRefresh === 'function' &&
+        <TouchableOpacity accessibilityRole="button" disabled={refreshing}
+          accessibilityState={{disabled:refreshing}}
+          style={[styles.refreshButton, refreshing && styles.disabled]}
+          onPress={onRefresh}>
+          <Text style={styles.refreshText}>{refreshing ? t.updating : t.refresh}</Text>
+        </TouchableOpacity>}
     </View>
   );
 }
