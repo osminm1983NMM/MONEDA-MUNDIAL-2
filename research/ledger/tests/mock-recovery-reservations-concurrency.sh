@@ -8,6 +8,7 @@ if [[ "$PGDATABASE" != ledger_test ]]; then
   exit 90
 fi
 TEMP_MWD=$(mktemp -d)
+export TEMP_MWD
 trap 'rm -rf "$TEMP_MWD"' EXIT
 PSQL=(psql -X -qAt -v ON_ERROR_STOP=1)
 
@@ -16,16 +17,16 @@ BEGIN;
 SELECT mwd_recovery_research.reserve_mock_request(
  'SIM-US-RACE001','checkpoint-race-request-001',
  '00000000-0000-4000-8000-000000000011','SIM-HN-RECIP01','HN',10000);
-SELECT 'FIRST_RESERVED';
+\! touch "$TEMP_MWD/first_ready"
 SELECT pg_sleep(3);
 COMMIT;
 SQL
 FIRST_PID=$!
 for attempt in 1 2 3 4 5 6 7 8 9 10; do
-  if rg -q 'FIRST_RESERVED' "$TEMP_MWD/first.log"; then break; fi
+  if [[ -f "$TEMP_MWD/first_ready" ]]; then break; fi
   sleep 0.2
 done
-if ! rg -q 'FIRST_RESERVED' "$TEMP_MWD/first.log"; then
+if [[ ! -f "$TEMP_MWD/first_ready" ]]; then
   echo 'No se estableció la primera reserva' >&2
   wait "$FIRST_PID" || true
   exit 1
@@ -39,7 +40,7 @@ SQL
 SECOND_PID=$!
 wait "$FIRST_PID" || { echo 'Falló primera conexión' >&2; exit 1; }
 wait "$SECOND_PID" || { echo 'Falló segunda conexión' >&2; exit 1; }
-rg -q '"already_processed": true' "$TEMP_MWD/second.log" || {
+grep -q '"already_processed": true' "$TEMP_MWD/second.log" || {
   echo 'La segunda conexión no detectó idempotencia' >&2
   exit 1
 }
