@@ -28,6 +28,7 @@ import MockAlertsAdminScreen from './MockAlertsAdminScreen';
 import MockAuditPreviewScreen from './MockAuditPreviewScreen';
 import MockRefundCancellationGuide from './MockRefundCancellationGuide';
 import PagedDemoHistoryScreen from './PagedDemoHistoryScreen';
+import DemoHistoryRecentScreen from './DemoHistoryRecentScreen';
 import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentRequestId } from './src/demo-money.mjs';
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
@@ -1557,33 +1558,11 @@ export default function App() {
             </View>}
 
             {screen === 'Historial' && <>
-              <Text style={styles.heading}>Mis últimos movimientos</Text>
-              {operations.length === 0 && <Text style={styles.muted}>Todavía no hay movimientos en línea.</Text>}
-              {operations.map(op => {
-                const movement = classifyDemoOperation(op, userId);
-                if (!movement) return null;
-                return (
-                  <View style={styles.entry} key={op.id}>
-                    <Text style={styles.itemHeading}>{translate(movement.label, language)}</Text>
-                    <Text style={styles.amount}>{movement.sign}{formatMWD(op.amount_cents)} MWD</Text>
-                    <Text style={styles.muted}>{formatLocalizedDate(op.created_at, language)}</Text>
-                    <Btn title={selectedReceiptId === op.id ? 'Ocultar comprobante de prueba' : 'Ver comprobante de prueba'}
-                      secondary onPress={() => setSelectedReceiptId(selectedReceiptId === op.id ? null : op.id)} />
-                    {selectedReceiptId === op.id && (
-                      <View style={styles.panel}>
-                        <Text style={styles.small}>COMPROBANTE FICTICIO · SIN DINERO REAL</Text>
-                        <Text style={styles.muted}>Referencia:</Text>
-                        <Text selectable style={styles.code}>{op.id}</Text>
-                        <Text style={styles.muted}>Tipo: {translate(movement.label, language)}</Text>
-                        <Text style={styles.muted}>Monto: {movement.sign}{formatMWD(op.amount_cents)} MWD de prueba</Text>
-                        <Text style={styles.muted}>Fecha: {formatLocalizedDate(op.created_at, language)}</Text>
-                        <Text style={styles.warning}>Este comprobante NO acredita ningún movimiento de dinero real.</Text>
-                        <Btn title="Compartir comprobante ficticio" secondary onPress={() => shareReceipt(op)} />
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
+              <DemoHistoryRecentScreen
+                operations={operations} userId={userId} language={language}
+                selectedReceiptId={selectedReceiptId} setSelectedReceiptId={setSelectedReceiptId}
+                onShareReceipt={shareReceipt} onRefresh={() => refreshAccount()}
+                refreshing={syncing} />
               <PagedDemoHistoryScreen supabase={supabase} userId={userId} language={language} />
             </>}
 
