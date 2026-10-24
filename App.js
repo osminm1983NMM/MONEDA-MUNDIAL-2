@@ -27,6 +27,7 @@ import ProviderResearchScreen from './ProviderResearchScreen';
 import MockAlertsAdminScreen from './MockAlertsAdminScreen';
 import MockAuditPreviewScreen from './MockAuditPreviewScreen';
 import MockRefundCancellationGuide from './MockRefundCancellationGuide';
+import PagedDemoHistoryScreen from './PagedDemoHistoryScreen';
 import { amountToCents, formatMWD, normalizeRecipientCode, normalizePaymentRequestId } from './src/demo-money.mjs';
 import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mjs';
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
@@ -1583,6 +1584,7 @@ export default function App() {
                   </View>
                 );
               })}
+              <PagedDemoHistoryScreen supabase={supabase} userId={userId} language={language} />
             </>}
 
             {screen === 'PaisesMundo' && <View style={styles.card}>
