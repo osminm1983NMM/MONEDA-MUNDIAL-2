@@ -1,0 +1,34 @@
+name: Comprobar actualizaciones APK DEMO etapa 131
+
+on:
+  push:
+    branches:
+      - feature/mwd-android-upgrade-guard-stage131-20261024
+    paths:
+      - 'scripts/comprobar-actualizacion-android.mjs'
+      - 'scripts/comprobar-firma-android.mjs'
+      - 'tests/android-apk-upgrade-policy.test.mjs'
+      - 'tests/android-apk-signature-policy.test.mjs'
+      - '.github/workflows/demo-apk-upgrade-policy.yml'
+  pull_request:
+    paths:
+      - 'scripts/comprobar-actualizacion-android.mjs'
+      - 'scripts/comprobar-firma-android.mjs'
+      - 'tests/android-apk-upgrade-policy.test.mjs'
+      - 'tests/android-apk-signature-policy.test.mjs'
+      - '.github/workflows/demo-apk-upgrade-policy.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  politica-actualizacion-apk-demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Bloquear firmas, paquetes y versiones incompatibles
+        run: node --test tests/android-apk-signature-policy.test.mjs tests/android-apk-upgrade-policy.test.mjs
