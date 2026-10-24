@@ -33,6 +33,7 @@ const STRINGS=Object.freeze({
   nextAction:'Solicitar confirmación formal escrita de cobertura, licencias y producto por corredor.',
   methods:Object.freeze({bank_account:'Cuenta bancaria',card:'Tarjeta compatible',cash_pickup:'Retiro de efectivo'}),
   studies:Object.freeze({
+   'CANDIDATE-MONEYGRAM':'Consultar retiro de efectivo y abono bancario',
    'CANDIDATE-NIUM':'Cuenta bancaria y tarjeta',
    'CANDIDATE-TERRAPAY':'Abono bancario y validación',
    'CANDIDATE-THUNES':'Consultar retiro de efectivo presencial',
@@ -70,6 +71,7 @@ const STRINGS=Object.freeze({
   nextAction:'Request written confirmation of corridor coverage, licenses and available products.',
   methods:Object.freeze({bank_account:'Bank account',card:'Compatible card',cash_pickup:'Cash pickup'}),
   studies:Object.freeze({
+   'CANDIDATE-MONEYGRAM':'Ask about cash pickup and bank payout',
    'CANDIDATE-NIUM':'Bank account and card',
    'CANDIDATE-TERRAPAY':'Bank credit and verification',
    'CANDIDATE-THUNES':'Ask about in-person cash pickup',

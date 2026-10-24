@@ -3,9 +3,10 @@
 import {assessProviderCorridorDiligence} from '../server/provider-corridor-diligence.mjs';
 import {RESEARCH_DESTINATIONS} from './project-launch-status.mjs';
 export const RESEARCH_PROVIDERS=Object.freeze([
- Object.freeze({id:'CANDIDATE-NIUM',name:'Nium',study:'Cuenta bancaria y tarjeta',methods:Object.freeze(['bank_account','card'])}),
- Object.freeze({id:'CANDIDATE-TERRAPAY',name:'TerraPay',study:'Abono bancario y validación',methods:Object.freeze(['bank_account'])}),
+ Object.freeze({id:'CANDIDATE-MONEYGRAM',name:'MoneyGram',study:'Consultar retiro de efectivo y abono bancario',methods:Object.freeze(['cash_pickup','bank_account'])}),
  Object.freeze({id:'CANDIDATE-THUNES',name:'Thunes',study:'Consultar retiro de efectivo presencial',methods:Object.freeze(['cash_pickup'])}),
+ Object.freeze({id:'CANDIDATE-TERRAPAY',name:'TerraPay',study:'Abono bancario y validación',methods:Object.freeze(['bank_account'])}),
+ Object.freeze({id:'CANDIDATE-NIUM',name:'Nium',study:'Cuenta bancaria y tarjeta',methods:Object.freeze(['bank_account','card'])}),
 ]);
 export const RESEARCH_PAYOUTS=Object.freeze({
  bank_account:'Cuenta bancaria',card:'Tarjeta compatible',cash_pickup:'Retiro de efectivo',
