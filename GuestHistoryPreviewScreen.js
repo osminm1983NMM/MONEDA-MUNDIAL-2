@@ -28,10 +28,10 @@ export default function GuestHistoryPreviewScreen({language='es',onBack}) {
 }
 
 const styles=StyleSheet.create({
-  wrapper:{backgroundColor:'#071321',borderRadius:14,padding:8,marginVertical:8},
-  notice:{backgroundColor:'#263323',borderWidth:1,borderColor:'#7F7148',borderRadius:12,padding:13,marginBottom:16},
-  heading:{color:'#F5D59A',fontSize:12,fontWeight:'800',letterSpacing:0.5},
-  note:{color:'#E6D8B8',fontSize:12,marginTop:7,lineHeight:18},
-  backButton:{backgroundColor:'#24556F',borderRadius:12,alignItems:'center',padding:15,marginVertical:15},
-  backText:{color:'#FFFFFF',fontWeight:'800',fontSize:14,textAlign:'center'},
+  wrapper:{backgroundColor:'#070D21',borderColor:'#263B73',borderWidth:1,borderRadius:22,padding:12,marginVertical:8},
+  notice:{backgroundColor:'#27213F',borderWidth:1,borderColor:'#7560BE',borderRadius:16,padding:16,marginBottom:18},
+  heading:{color:'#F8DFA7',fontSize:13,fontWeight:'800',letterSpacing:0.5},
+  note:{color:'#E1DDF3',fontSize:14,marginTop:8,lineHeight:21},
+  backButton:{backgroundColor:'#283F83',borderColor:'#607DE0',borderWidth:1,borderRadius:14,alignItems:'center',padding:16,marginVertical:16},
+  backText:{color:'#FFFFFF',fontWeight:'800',fontSize:15,textAlign:'center'},
 });
