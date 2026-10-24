@@ -13,10 +13,15 @@ export function evaluarFirmaAndroid(salida,{modo='demo',huellaAprobada=''}={}){
   const signers=salida.match(/^Number of signers:\s*(\d+)\s*$/m);
   if(!signers || Number(signers[1])!==1)
     throw new Error('Se requiere exactamente un firmante APK verificable');
-  const dn=salida.match(/^Signer #1 certificate DN:\s*(.+)\s*$/m)?.[1]?.trim();
-  const huella=salida.match(/^Signer #1 certificate SHA-256 digest:\s*([a-fA-F0-9:]+)\s*$/m)?.[1]?.replaceAll(':','').toLowerCase();
-  if(!dn || !HEX_SHA256.test(huella||''))
-    throw new Error('No se pudo identificar el certificado APK verificado');
+  // apksigner muestra "Signer #1" en compilaciones normales y puede usar
+  // "Signer (minSdkVersion=..., maxSdkVersion=...)" según la versión del SDK.
+  // No aceptar informes con varios certificados ambiguos para distribución.
+  const nombres=[...salida.matchAll(/^Signer(?: #1)?(?: \([^\r\n)]*\))? certificate DN:[ \t]*(.+?)[ \t]*\r?$/gm)];
+  const huellas=[...salida.matchAll(/^Signer(?: #1)?(?: \([^\r\n)]*\))? certificate SHA-256 digest:[ \t]*([a-fA-F0-9:]+)[ \t]*\r?$/gm)];
+  const dn=nombres[0]?.[1]?.trim();
+  const huella=huellas[0]?.[1]?.replaceAll(':','').toLowerCase();
+  if(nombres.length!==1 || huellas.length!==1 || !dn || !HEX_SHA256.test(huella||''))
+    throw new Error(`No se pudo identificar el certificado APK verificado (DN=${nombres.length}, SHA256=${huellas.length})`);
   const debug=/(?:^|,)\s*CN\s*=\s*Android Debug\s*(?:,|$)/i.test(dn);
   const aprobada=typeof huellaAprobada==='string' ? huellaAprobada.replaceAll(':','').toLowerCase() : '';
   if(modo==='distribucion'){

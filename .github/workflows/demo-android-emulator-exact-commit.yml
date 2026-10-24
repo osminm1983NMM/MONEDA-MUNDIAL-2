@@ -129,7 +129,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/comprobar-firma-android.mjs apk-test/app-release.apk --demo | tee smoke-results/firma-apk-demo.txt
+          # Version estable del verificador, independiente del SDK más reciente
+          # que pueda estar preinstalado en ubuntu-latest.
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install 'build-tools;35.0.1'
+          test -x "$SDK_ROOT/build-tools/35.0.1/apksigner"
+          APKSIGNER_PATH="$SDK_ROOT/build-tools/35.0.1/apksigner" \
+            node scripts/comprobar-firma-android.mjs apk-test/app-release.apk --demo | tee smoke-results/firma-apk-demo.txt
           test -s smoke-results/firma-apk-demo.txt
       # Habilitar KVM según la guía de reactivecircus/android-emulator-runner.
       # Sin aceleración hardware, el arranque puede tardar más de 15 minutos

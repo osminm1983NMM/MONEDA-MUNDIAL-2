@@ -34,3 +34,21 @@ test('informe incompleto o varios firmantes bloquean por precaución',()=>{
   assert.throws(()=>evaluarFirmaAndroid('Number of signers: 1\nSigner #1 certificate DN: CN=NoDigest'),/identificar/);
   assert.throws(()=>evaluarFirmaAndroid(release,{modo:'otra'}),/modo inválido/);
 });
+
+test('admite formatos de certificado con rango Android SDK sin rebajar verificaciones',()=>{
+  const variant=release.replaceAll('Signer #1 certificate',
+    'Signer (minSdkVersion=24, maxSdkVersion=35) certificate').replaceAll('\n','\r\n');
+  const result=evaluarFirmaAndroid(variant,{modo:'demo'});
+  assert.equal(result.huellaSha256,RELEASE);
+  assert.equal(result.aptoParaPublicacion,false);
+  const numbered=release.replaceAll('Signer #1 certificate',
+    'Signer #1 (minSdkVersion=24, maxSdkVersion=35) certificate');
+  assert.equal(evaluarFirmaAndroid(numbered,{modo:'demo'}).huellaSha256,RELEASE);
+});
+
+test('bloquea certificados repetidos o contradictorios aunque el contador diga uno',()=>{
+  const duplicated=release+'Signer #1 certificate DN: CN=Otro\nSigner #1 certificate SHA-256 digest: '+DEBUG+'\n';
+  assert.throws(()=>evaluarFirmaAndroid(duplicated,{modo:'demo'}),/DN=2, SHA256=2/);
+  assert.throws(()=>evaluarFirmaAndroid(release.replace('Signer #1 certificate DN:',
+    'Signer #2 certificate DN:'),{modo:'demo'}),/DN=0/);
+});
