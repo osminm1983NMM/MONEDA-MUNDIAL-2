@@ -1,0 +1,54 @@
+name: Checkpoint de dos cuentas y concurrencia PostgreSQL DEMO
+
+on:
+  push:
+    branches:
+      - feature/mwd-postgres-recovery-reservations-stage138-20261024
+    paths:
+      - 'research/ledger/mock-recovery-reservations.sql'
+      - 'research/ledger/tests/mock-recovery-reservations-*.sql'
+      - 'research/ledger/tests/mock-recovery-reservations-*.sh'
+      - '.github/workflows/verificar-checkpoint-postgres-demo.yml'
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checkpoint-postgres-desechable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: only-throwaway-test-db
+          POSTGRES_DB: ledger_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ledger_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 8
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: ledger_test
+      PGUSER: postgres
+      PGPASSWORD: only-throwaway-test-db
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar base desechable, nunca proyecto Supabase activo
+        run: test "$PGDATABASE" = ledger_test
+      - name: Crear roles API falsos sin inicio de sesión
+        run: psql -X -v ON_ERROR_STOP=1 -c 'CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN;'
+      - name: Crear reservas ficticias con índice único y RLS
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/mock-recovery-reservations.sql
+      - name: Reservas y bloqueos en primera conexión PostgreSQL
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/mock-recovery-reservations-first-session.sql
+      - name: Recuperar dos cuentas y confirmar idempotencia en nueva conexión
+        run: psql -X -v ON_ERROR_STOP=1 -f research/ledger/tests/mock-recovery-reservations-second-session.sql
+      - name: Carrera de dos conexiones por la misma referencia
+        run: bash research/ledger/tests/mock-recovery-reservations-concurrency.sh
