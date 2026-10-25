@@ -50,6 +50,8 @@ jobs:
           node tests/demo-history-view.test.mjs
           node tests/demo-history-guest-fixture.test.mjs
           python3 -m unittest discover -s tests -p 'test_android_history_preview_contract.py'
+      - name: Probar la barrera de firma de APK
+        run: python3 -m unittest discover -s tests -p 'test_apk_signature_guard.py'
       - name: Generar proyecto Android
         run: CI=1 npx expo prebuild --platform android --no-install --non-interactive
       - name: Preparar NDK Android con reintentos
@@ -86,6 +88,8 @@ jobs:
       - name: Verificar paquete de JavaScript incorporado
         run: |
           unzip -Z1 android/app/build/outputs/apk/release/app-release.apk | grep -E 'assets/index.android.bundle$'
+      - name: Auditar firma de la APK - SOLO DEMO, NO DISTRIBUIR
+        run: python3 scripts/apk_signature_guard.py android/app/build/outputs/apk/release/app-release.apk --purpose audit
       - name: Guardar APK independiente de demostración
         uses: actions/upload-artifact@v4
         with:
