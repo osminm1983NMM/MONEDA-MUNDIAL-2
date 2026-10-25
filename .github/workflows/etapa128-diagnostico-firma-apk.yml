@@ -40,3 +40,16 @@ jobs:
           "$SIGNER" verify --print-certs apk-auditar/app-release.apk | head -n 80
       - name: Probar verificador de etapa 128 con esta APK de laboratorio
         run: python3 scripts/apk_signature_guard.py apk-auditar/app-release.apk --purpose audit
+      - name: Confirmar que la APK Debug no pasa por distribucion
+        shell: bash
+        run: |
+          set -euo pipefail
+          if python3 scripts/apk_signature_guard.py apk-auditar/app-release.apk --purpose distribution; then
+            echo "::error::Fallo de seguridad: distribucion permitida sin huella aprobada"
+            exit 1
+          fi
+          if MWD_RELEASE_CERT_SHA256=fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c python3 scripts/apk_signature_guard.py apk-auditar/app-release.apk --purpose distribution; then
+            echo "::error::Fallo de seguridad: certificado Debug permitido como release"
+            exit 1
+          fi
+          echo "PASS: APK de depuracion rechazada en ambos escenarios"
