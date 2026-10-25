@@ -35,4 +35,8 @@
 - Para operaciones antiguas fuera del conjunto reciente, la página seguirá mostrando «Enviado»/«Recibido». Un historial comercial completo requeriría una API paginada que devuelva la clasificación verificada por el servidor, diseñada y auditada por separado.
 - Sigue bloqueada la distribución oficial de compilaciones firmadas con Android Debug. No desactivar Play Protect.
 
+### Ensayo Android efímero propuesto
+
+Se agregó el flujo `demo-android-ephemeral-smoke-stage142.yml` para compilar la APK de laboratorio en un runner estándar de GitHub Actions, comprobar el paquete, la firma y la versión, e intentar el recorrido de invitado en emulador Android. **No contiene carga de artefactos ni despliegue**: el instalador y las capturas permanecen temporales dentro del runner y desaparecen al terminar el trabajo. La ejecución y su resultado aún deben verificarse por separado; un resultado verde no autorizaría instalación en Samsung ni distribución.
+
 **Criterio de salida:** revisión de la rama, pruebas Android en entorno aislado, firma y huellas verificadas; después prueba segura en Samsung de la misma referencia comercial, mensaje visible de actualización y conservación del historial. El proyecto sigue siendo exclusivamente DEMO.

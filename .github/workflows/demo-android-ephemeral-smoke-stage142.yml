@@ -1,0 +1,104 @@
+name: Etapa 142 Android DEMO efimero sin APK publicada
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/demo-android-ephemeral-smoke-stage142.yml'
+      - 'App.js'
+      - 'DemoHistoryRecentScreen.js'
+      - 'PagedDemoHistoryScreen.js'
+      - 'src/**'
+      - 'tests/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mwd-stage142-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compilar-y-probar-sin-publicar:
+    # Sólo PR de ramas del propio repositorio; nunca ejecutar código de forks.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar ausencia de claves privadas versionadas
+        run: node scripts/proteger-claves-firma-android.mjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias de demostración
+        run: npm install --no-audit --no-fund
+      - name: Comprobar Expo y pruebas unitarias
+        run: |
+          npx expo install --check
+          npm test
+          python3 -m unittest discover -s tests -p 'test_android_history_preview_contract.py'
+      - name: Generar proyecto Android temporal
+        run: CI=1 npx expo prebuild --platform android --no-install --non-interactive
+      - name: Preparar NDK para compilación
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" --install 'ndk;27.1.12297006'
+          test -f "$SDK_ROOT/ndk/27.1.12297006/source.properties"
+      - name: Compilar APK de laboratorio
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --no-daemon
+      - name: Verificar paquete, versión y firma sin publicarlo
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apk-test smoke-results
+          cp android/app/build/outputs/apk/release/app-release.apk apk-test/app-release.apk
+          unzip -Z1 apk-test/app-release.apk | grep -E 'assets/index.android.bundle$'
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" --install 'build-tools;35.0.1'
+          APKSIGNER_PATH="$SDK_ROOT/build-tools/35.0.1/apksigner" \
+            node scripts/comprobar-firma-android.mjs apk-test/app-release.apk --demo
+          AAPT_PATH="$SDK_ROOT/build-tools/35.0.1/aapt" \
+            node scripts/comprobar-version-android-demo.mjs apk-test/app-release.apk app.json
+          sha256sum apk-test/app-release.apk > smoke-results/sha256-apk-probada.txt
+          echo 'APK DEMO temporal. No publicable ni distribuible.'
+      - name: Habilitar KVM para el emulador
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+      - name: Verificar apertura y recorrido inventado en emulador
+        timeout-minutes: 35
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-boot-timeout: 900
+          disable-animations: true
+          script: |
+            bash scripts/probar-apk-emulador.sh
+            bash scripts/probar-recorrido-invitado-emulador.sh
+      - name: Confirmar evidencia local sin subir capturas ni APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum --check smoke-results/sha256-apk-probada.txt
+          test -s smoke-results/ui.xml
+          test -s smoke-results/guest-return.xml
+          echo 'Prueba DEMO completada en runner efímero. Sin artifact upload.'
+
+# Intencionalmente NO hay actions/upload-artifact ni despliegue.
+# La APK y las capturas existen sólo temporalmente en el runner de CI.
