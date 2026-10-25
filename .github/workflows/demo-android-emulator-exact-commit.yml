@@ -2,7 +2,9 @@ name: APK Android DEMO Etapa 126 con emulador
 
 on:
   push:
-    branches: [feature/mwd-visual-modernization-stage126-20261024]
+    branches:
+      - feature/mwd-visual-modernization-stage126-20261024
+      - feature/mwd-apk-signature-gate-stage128-20261024
     paths:
       - '.github/workflows/demo-android-emulator-exact-commit.yml'
       - 'App.js'
