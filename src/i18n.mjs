@@ -63,6 +63,8 @@ const EN = Object.freeze({
   'Mi comercio y solicitudes de cobro': 'My business and payment requests',
   'Actualizando cuenta...': 'Updating account...',
   'Actualizar saldo e historial': 'Refresh balance and history',
+  'Datos ficticios actualizados correctamente.': 'Demo data refreshed successfully.',
+  'No se pudieron actualizar los datos ficticios.': 'Could not refresh demo data.',
   'Países del mundo y disponibilidad': 'Countries and availability worldwide',
   'Simulador internacional de comisiones': 'International fee simulator',
   'Administración': 'Administration',

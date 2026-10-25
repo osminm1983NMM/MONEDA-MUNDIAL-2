@@ -512,6 +512,7 @@ export default function App() {
   const [feeSaving, setFeeSaving] = useState(false);
   const [ownerLoading, setOwnerLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [refreshFeedback, setRefreshFeedback] = useState(null);
   const [recipientCode, setRecipientCode] = useState('');
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
@@ -614,6 +615,7 @@ export default function App() {
     setWallet(null);
     setOperations([]);
     setSelectedReceiptId(null);
+    setRefreshFeedback(null);
     setAdminRole(null);
     setDraftPartners([]);
     setDraftBranches([]);
@@ -784,8 +786,9 @@ export default function App() {
     }
   }
 
-  async function refreshAccount(id = userId) {
+  async function refreshAccount(id = userId, showFeedback = false) {
     if (!id) return;
+    if (showFeedback) setRefreshFeedback(null);
     const requestedEpoch = sessionEpochRef.current;
     const requestedSequence = ++walletRefreshSequenceRef.current;
     // No mostrar ni autorizar acciones con un saldo que está siendo actualizado.
@@ -816,12 +819,14 @@ export default function App() {
       setWallet(checked.wallet);
       setOperations(checked.operations);
       setAdminRole(checked.adminRole);
+      if (showFeedback) setRefreshFeedback('success');
     } catch (error) {
       if (sessionEpochRef.current === requestedEpoch &&
           walletRefreshSequenceRef.current === requestedSequence) {
         setWallet(null);
         setOperations([]);
         setAdminRole(null);
+        if (showFeedback) setRefreshFeedback('error');
         showMessage('Sincronización', 'No se pudo verificar la billetera de prueba. Actualiza la cuenta.');
       }
     } finally {
@@ -1451,7 +1456,13 @@ export default function App() {
                 <Btn title="Enviar sin tener saldo (próximamente)"
                   secondary onPress={() => navigate('EnviarSinSaldoInformacion')} />
                 <Btn title={syncing ? 'Actualizando cuenta...' : 'Actualizar saldo e historial'} secondary
-                  onPress={() => refreshAccount()} disabled={syncing} />
+                  onPress={() => refreshAccount(userId, true)} disabled={syncing} />
+                {refreshFeedback && <Text accessibilityLiveRegion="polite"
+                  style={refreshFeedback === 'success' ? styles.refreshSuccess : styles.refreshError}>
+                  {translate(refreshFeedback === 'success'
+                    ? 'Datos ficticios actualizados correctamente.'
+                    : 'No se pudieron actualizar los datos ficticios.', language)}
+                </Text>}
                 <Btn title="Países del mundo y disponibilidad" secondary onPress={() => { navigate('PaisesMundo'); loadWorldCountries(); }} />
                 <Btn title="Simulador internacional de comisiones" secondary onPress={() => navigate('SimuladorInternacional')} />
                 <Btn title="Billetera → Remesa internacional (solo diseño)" secondary onPress={() => navigate('PuenteRemesasDemo')} />
@@ -1671,9 +1682,16 @@ export default function App() {
               <DemoHistoryRecentScreen
                 operations={operations} userId={userId} language={language}
                 selectedReceiptId={selectedReceiptId} setSelectedReceiptId={setSelectedReceiptId}
-                onShareReceipt={shareReceipt} onRefresh={() => refreshAccount()}
+                onShareReceipt={shareReceipt} onRefresh={() => refreshAccount(userId, true)}
                 refreshing={syncing} />
-              <PagedDemoHistoryScreen supabase={supabase} userId={userId} language={language} />
+              {refreshFeedback && <Text accessibilityLiveRegion="polite"
+                style={refreshFeedback === 'success' ? styles.refreshSuccess : styles.refreshError}>
+                {translate(refreshFeedback === 'success'
+                  ? 'Datos ficticios actualizados correctamente.'
+                  : 'No se pudieron actualizar los datos ficticios.', language)}
+              </Text>}
+              <PagedDemoHistoryScreen supabase={supabase} userId={userId}
+                language={language} recentOperations={operations} />
             </>}
 
             {screen === 'PaisesMundo' && <View style={styles.card}>
@@ -1885,6 +1903,8 @@ const styles = StyleSheet.create({
   demoBanner: { padding: 12, backgroundColor: '#263323', borderRadius: 11, borderWidth: 1, borderColor: '#6B653A', marginBottom: 17 },
   demoBannerText: { color: '#F3D49A', textAlign: 'center', fontWeight: '700', letterSpacing: 0.5, fontSize: 11 },
   warning: { color: '#F3D49A', textAlign: 'center', marginVertical: 19, fontSize: 12 },
+  refreshSuccess: { color: '#7FE0CA', fontWeight: '700', fontSize: 12, marginTop: 8, marginBottom: 10, textAlign: 'center' },
+  refreshError: { color: '#FFBBA8', fontWeight: '700', fontSize: 12, marginTop: 8, marginBottom: 10, textAlign: 'center' },
   hero: { backgroundColor: '#123849', borderRadius: 23, padding: 22, marginBottom: 25, borderWidth: 1, borderColor: '#286B78' },
   heroTopLine: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: 29, gap: 8 },
   heroEyebrow: { color: '#D6EAEC', fontSize: 11, letterSpacing: 1.4, fontWeight: '800' },

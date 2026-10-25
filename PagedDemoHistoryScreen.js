@@ -3,6 +3,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
 import {loadMyDemoHistory} from './src/demo-history-readonly.mjs';
 import {formatLocalizedDate} from './src/i18n.mjs';
+import {verifiedPagedMerchantDirection} from './src/demo-history-view.mjs';
 
 const PAGE_SIZE = 20;
 
@@ -12,6 +13,7 @@ const COPY = {
     loading: 'Consultando movimientos de tu cuenta...', empty: 'Sin movimientos en esta página.',
     error: 'No se pudo verificar tu historial. Vuelve a intentarlo.',
     sent: 'Enviado', received: 'Recibido', contribution: 'Aportación',
+    merchantSent: 'Pago ficticio a comercio', merchantReceived: 'Cobro ficticio de comercio',
     previous: 'Anterior', next: 'Siguiente', page: 'Página', retry: 'Reintentar',
     warning: 'Créditos MWD ficticios. No es un comprobante de dinero real.',
   },
@@ -20,13 +22,16 @@ const COPY = {
     loading: 'Loading your account activity...', empty: 'No transactions on this page.',
     error: 'Could not verify your history. Please try again.',
     sent: 'Sent', received: 'Received', contribution: 'Contribution',
+    merchantSent: 'Demo merchant payment', merchantReceived: 'Demo merchant collection',
     previous: 'Previous', next: 'Next', page: 'Page', retry: 'Retry',
     warning: 'Fictitious MWD credits. Not proof of real-money payment.',
   },
 };
 
-function OperationLabel({item, t, language}) {
-  const title = item.direction === 'enviado' ? t.sent
+function OperationLabel({item, t, language, recentOperations, userId}) {
+  const verifiedMerchant = verifiedPagedMerchantDirection(item, recentOperations, userId);
+  const title = verifiedMerchant ? t[verifiedMerchant]
+    : item.direction === 'enviado' ? t.sent
     : item.direction === 'recibido' ? t.received : t.contribution;
   const sign = item.direction === 'recibido' ? '+' : '−';
   return (
@@ -45,7 +50,7 @@ function OperationLabel({item, t, language}) {
  * El servidor aplica RLS. Además, cada petición se vincula al usuario y al
  * número de secuencia para no mostrar respuestas de otra sesión o pantalla.
  */
-export default function PagedDemoHistoryScreen({supabase, userId, language = 'es'}) {
+export default function PagedDemoHistoryScreen({supabase, userId, language = 'es', recentOperations = []}) {
   const t = COPY[language] || COPY.es;
   const requestSequence = useRef(0);
   const [expanded, setExpanded] = useState(false);
@@ -117,7 +122,8 @@ export default function PagedDemoHistoryScreen({supabase, userId, language = 'es
         </>}
         {!loading && !error && rows.length === 0 &&
           <Text style={styles.muted}>{t.empty}</Text>}
-        {!loading && !error && rows.map(item => <OperationLabel key={item.id} item={item} t={t} language={language} />)}
+        {!loading && !error && rows.map(item => <OperationLabel key={item.id} item={item}
+          t={t} language={language} recentOperations={recentOperations} userId={userId} />)}
         {!error && <View style={styles.navigation}>
           <TouchableOpacity accessibilityRole="button" style={[styles.smallButton, (page === 0 || loading) && styles.disabled]}
             disabled={page === 0 || loading} onPress={() => setPage(value => Math.max(0, value - 1))}>
