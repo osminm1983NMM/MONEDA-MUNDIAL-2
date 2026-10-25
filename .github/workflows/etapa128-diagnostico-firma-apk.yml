@@ -6,6 +6,8 @@ on:
       - feature/mwd-apk-signature-gate-stage128-20261024
     paths:
       - '.github/workflows/etapa128-diagnostico-firma-apk.yml'
+      - 'scripts/apk_signature_guard.py'
+      - 'tests/test_apk_signature_guard.py'
   workflow_dispatch:
 
 permissions:
