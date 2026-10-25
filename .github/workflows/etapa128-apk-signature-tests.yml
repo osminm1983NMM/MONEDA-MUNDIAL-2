@@ -1,0 +1,26 @@
+name: Etapa 128 - pruebas de firma APK (sin dinero real)
+
+on:
+  push:
+    branches:
+      - feature/mwd-apk-signature-gate-stage128-20261024
+    paths:
+      - 'scripts/apk_signature_guard.py'
+      - 'tests/test_apk_signature_guard.py'
+      - '.github/workflows/etapa128-apk-signature-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas-aisladas:
+    name: Comprobar barrera de firma sin llaves ni APK reales
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pruebas unitarias de rechazo y auditoria
+        run: python3 -m unittest discover -s tests -p 'test_apk_signature_guard.py' -v
+      - name: Compilar sintaxis Python
+        run: python3 -m py_compile scripts/apk_signature_guard.py tests/test_apk_signature_guard.py
