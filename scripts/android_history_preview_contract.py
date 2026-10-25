@@ -8,6 +8,7 @@ BOUNDS = re.compile(r"^\[(\d+),(\d+)\]\[(\d+),(\d+)\]$")
 BUTTONS = {
     "history-entry": ("vista previa del historial", "history preview"),
     "incoming-entry": ("entradas", "incoming"),
+    "outgoing-entry": ("salidas", "outgoing"),
     "merchant-entry": ("comercios", "merchants"),
     "receipt-entry": ("ver comprobante", "view receipt"),
     "history-back": ("volver al recorrido de moneda mundial", "back to moneda mundial tour"),
@@ -60,6 +61,12 @@ def verify(mode, nodes):
             ("entrada principal", ("+120.50",)),
             ("entrada de comercio", ("+6.40",)),
         ],
+        "outgoing": [
+            ("tres salidas", ("3 movimientos visibles", "3 visible transactions")),
+            ("transferencia enviada", ("-35.25", "−35.25")),
+            ("pago de comercio", ("-12.75", "−12.75")),
+            ("aportación ficticia", ("-9.00", "−9.00")),
+        ],
         "merchant": [
             ("dos movimientos de comercio", ("2 movimientos visibles", "2 visible transactions")),
             ("salida de comercio", ("-12.75", "−12.75")),
@@ -86,7 +93,7 @@ def main(argv):
         if len(argv) != 3:
             raise ValueError("Localizar requiere un XML de la pantalla actual")
         print(*locate(read_nodes(argv[2]), BUTTONS[action]))
-    elif action in ("overview", "incoming", "merchant", "receipt"):
+    elif action in ("overview", "incoming", "outgoing", "merchant", "receipt"):
         if len(argv) < 4:
             raise ValueError("Verificar requiere XML actuales superior e inferior")
         ns = [node for path in argv[2:] for node in read_nodes(path)]

@@ -1,4 +1,4 @@
-name: APK Android DEMO Etapa 129 con firma auditada y emulador
+name: APK Android DEMO Etapa 141 con firma auditada y emulador
 
 on:
   push:
@@ -10,6 +10,7 @@ on:
       - feature/mwd-apk-build-provenance-stage133-20261024
       - feature/mwd-signing-secrets-guard-stage134-20261024
       - feature/mwd-mobile-durable-retry-stage140
+      - feature/mwd-history-responsive-stage141
     paths:
       - '.github/workflows/demo-android-emulator-exact-commit.yml'
       - 'App.js'
@@ -102,7 +103,7 @@ jobs:
       - name: Guardar APK independiente de demostración
         uses: actions/upload-artifact@v4
         with:
-          name: moneda-mundial-2-demo-etapa129-independiente
+          name: moneda-mundial-2-demo-etapa141-independiente
           path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
@@ -121,7 +122,7 @@ jobs:
       - name: Descargar artefacto APK creado en este mismo flujo
         uses: actions/download-artifact@v4
         with:
-          name: moneda-mundial-2-demo-etapa129-independiente
+          name: moneda-mundial-2-demo-etapa141-independiente
           path: apk-test
       - name: Registrar procedencia de la prueba
         run: |
@@ -219,6 +220,7 @@ jobs:
           test -s smoke-results/guest-tour-return-ready.xml
           test -s smoke-results/guest-history-top.xml
           test -s smoke-results/guest-history-incoming-top.xml
+          test -s smoke-results/guest-history-outgoing-top.xml
           test -s smoke-results/guest-history-merchant-top.xml
           test -s smoke-results/guest-history-receipt-top.xml
           test -s smoke-results/guest-tour-after-history-bottom.xml
@@ -227,7 +229,7 @@ jobs:
       - name: Guardar APK Android DEMO probada (NO PUBLICAR)
         uses: actions/upload-artifact@v4
         with:
-          name: moneda-mundial-2-demo-etapa129-apk-emulador-no-publicar
+          name: moneda-mundial-2-demo-etapa141-apk-emulador-no-publicar
           path: apk-test/app-release.apk
           if-no-files-found: error
           retention-days: 14
@@ -235,7 +237,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: moneda-mundial-etapa129-android-smoke-test
+          name: moneda-mundial-etapa141-android-smoke-test
           path: smoke-results/
           if-no-files-found: warn
           retention-days: 7

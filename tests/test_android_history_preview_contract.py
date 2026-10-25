@@ -22,8 +22,9 @@ class ContractTest(unittest.TestCase):
     def test_fake_summary_and_filters(self):
         fake=[node(s) for s in ('Datos inventados','Tu actividad','MWD','Solo demostración',
             'Entradas','Salidas','Comercios','+126.90','−57.00','2 movimientos visibles',
-            '+120.50','+6.40','−12.75','Comprobante ficticio','Sin dinero real','Referencia:')]
-        for step in ('overview','incoming','merchant','receipt'):
+            '3 movimientos visibles','+120.50','+6.40','−35.25','−12.75','−9.00',
+            'Comprobante ficticio','Sin dinero real','Referencia:')]
+        for step in ('overview','incoming','outgoing','merchant','receipt'):
             verify(step,fake)
         with self.assertRaises(ValueError):
             verify('receipt',fake+[node('Compartir comprobante ficticio')])
@@ -31,6 +32,8 @@ class ContractTest(unittest.TestCase):
     def test_missing_filter_detected(self):
         with self.assertRaises(ValueError):
             verify('merchant',[node('2 movimientos visibles'),node('+6.40')])
+        with self.assertRaises(ValueError):
+            verify('outgoing',[node('3 movimientos visibles'),node('−35.25'),node('−12.75')])
 
 
 if __name__=='__main__':

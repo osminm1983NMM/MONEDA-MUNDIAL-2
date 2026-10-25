@@ -1,7 +1,7 @@
 // Moneda Mundial 2.0 — historial reciente de créditos ficticios MWD.
 // Presentación solamente: no envía dinero, no modifica saldos y no consulta tablas.
 import React, {useMemo, useState} from 'react';
-import {View, Text, TouchableOpacity, ScrollView, StyleSheet} from 'react-native';
+import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
 import {classifyDemoOperation} from './src/demo-receipts.mjs';
 import {formatMWD} from './src/demo-money.mjs';
 import {translate, formatLocalizedDate} from './src/i18n.mjs';
@@ -79,8 +79,7 @@ export default function DemoHistoryRecentScreen({
         <Text style={styles.summaryNote}>{t.summary}</Text>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}
-        contentContainerStyle={styles.filterContent}>
+      <View style={styles.filterGrid}>
         {filters.map(([key,label]) => (
           <TouchableOpacity key={key} accessibilityRole="button"
             accessibilityState={{selected:filter===key}}
@@ -89,7 +88,7 @@ export default function DemoHistoryRecentScreen({
             <Text style={[styles.filterText, filter===key && styles.filterTextSelected]}>{label}</Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
 
       <Text style={styles.countText}>{shown.length} {t.movements}</Text>
       {shown.length===0 && <View style={styles.emptyCard}>
@@ -110,6 +109,10 @@ export default function DemoHistoryRecentScreen({
               </View>
               <View style={styles.movementText}>
                 <Text style={styles.movementLabel}>{translate(row.movement.label,language)}</Text>
+              </View>
+            </View>
+            <View style={styles.movementDetailsRow}>
+              <View style={styles.movementDetails}>
                 <Text style={styles.dateText}>{formatLocalizedDate(op.created_at,language)}</Text>
                 <Text style={styles.recordText}>{t.registered}</Text>
               </View>
@@ -170,10 +173,10 @@ const styles=StyleSheet.create({
   summaryValue:{fontSize:22,fontWeight:'800',marginTop:7},
   incoming:{color:'#7BE4BC'},outgoing:{color:'#FFCEAD'},
   summaryNote:{color:'#B8C9E6',fontSize:12,lineHeight:18,marginTop:17},
-  filterScroll:{marginBottom:13},filterContent:{gap:8,paddingRight:8},
-  filterPill:{paddingHorizontal:16,paddingVertical:13,borderRadius:20,backgroundColor:'#192B55',borderWidth:1,borderColor:'#38538F'},
+  filterGrid:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:13},
+  filterPill:{flexBasis:'47%',flexGrow:1,minWidth:0,justifyContent:'center',alignItems:'center',paddingHorizontal:8,paddingVertical:13,minHeight:48,borderRadius:20,backgroundColor:'#192B55',borderWidth:1,borderColor:'#38538F'},
   filterPillSelected:{backgroundColor:'#3F3DB0',borderColor:'#A18AFF'},
-  filterText:{color:'#DAE5FA',fontWeight:'700',fontSize:14},
+  filterText:{color:'#DAE5FA',fontWeight:'700',fontSize:14,textAlign:'center'},
   filterTextSelected:{color:'#FFFFFF'},
   countText:{color:'#A9C5E5',fontSize:12,letterSpacing:0.3,marginBottom:12},
   emptyCard:{padding:26,backgroundColor:'#111D3B',borderRadius:16,alignItems:'center',marginBottom:12},
@@ -181,6 +184,8 @@ const styles=StyleSheet.create({
   emptyText:{color:'#D6E3F5',textAlign:'center',fontSize:14},
   movementCard:{backgroundColor:'#111D3B',borderWidth:1,borderColor:'#2B3F73',borderRadius:17,padding:15,marginBottom:11},
   movementRow:{flexDirection:'row',alignItems:'center'},
+  movementDetailsRow:{flexDirection:'row',alignItems:'flex-end',justifyContent:'space-between',marginTop:9},
+  movementDetails:{flex:1,minWidth:0},
   directionIcon:{width:40,height:40,borderRadius:13,alignItems:'center',justifyContent:'center',marginRight:10},
   directionIncoming:{backgroundColor:'#174A4E'},directionOutgoing:{backgroundColor:'#4D3448'},
   arrow:{fontSize:24,fontWeight:'700'},
@@ -188,7 +193,7 @@ const styles=StyleSheet.create({
   movementLabel:{color:'#F7FBFF',fontSize:14,fontWeight:'700'},
   dateText:{color:'#B8C9E6',fontSize:12,marginTop:5},
   recordText:{color:'#8BDFFC',fontSize:10,marginTop:6,letterSpacing:0.8,fontWeight:'800'},
-  amountBox:{alignItems:'flex-end',marginLeft:8},
+  amountBox:{alignItems:'flex-end',marginLeft:8,flexShrink:0},
   movementAmount:{fontSize:17,fontWeight:'800'},
   currency:{color:'#B8C9E6',fontSize:12,marginTop:4},
   receiptAction:{borderTopWidth:1,borderTopColor:'#304577',paddingTop:14,marginTop:14,minHeight:44},

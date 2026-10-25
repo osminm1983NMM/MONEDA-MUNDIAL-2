@@ -65,6 +65,12 @@ python3 scripts/android_history_preview_contract.py incoming smoke-results/guest
 
 adb shell input swipe 550 650 550 1900 470
 sleep 2
+find_and_tap outgoing-entry
+capture_three guest-history-outgoing
+python3 scripts/android_history_preview_contract.py outgoing smoke-results/guest-history-outgoing-top.xml smoke-results/guest-history-outgoing-mid.xml smoke-results/guest-history-outgoing-bottom.xml
+
+adb shell input swipe 550 650 550 1900 470
+sleep 2
 find_and_tap merchant-entry
 capture_three guest-history-merchant
 python3 scripts/android_history_preview_contract.py merchant smoke-results/guest-history-merchant-top.xml smoke-results/guest-history-merchant-mid.xml smoke-results/guest-history-merchant-bottom.xml
