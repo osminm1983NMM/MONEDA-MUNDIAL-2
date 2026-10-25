@@ -33,6 +33,8 @@ jobs:
           test -s apk-auditar/app-release.apk
           SIGNER="$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools" -type f -name apksigner | sort -V | tail -n1)"
           test -n "$SIGNER"
-          "$SIGNER" verify --verbose --print-certs apk-auditar/app-release.apk | grep -E 'Signer #|Verified using'
+          "$SIGNER" --version
+          "$SIGNER" verify --verbose --print-certs apk-auditar/app-release.apk | head -n 80
+          "$SIGNER" verify --print-certs apk-auditar/app-release.apk | head -n 80
       - name: Probar verificador de etapa 128 con esta APK de laboratorio
         run: python3 scripts/apk_signature_guard.py apk-auditar/app-release.apk --purpose audit
