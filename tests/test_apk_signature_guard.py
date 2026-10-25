@@ -23,12 +23,40 @@ def apksigner_output(digest=DEBUG, dn="CN=Android Debug, OU=Android, O=Unknown")
             f"Signer #1 certificate SHA-256 digest: {digest}\n")
 
 
+def modern_apksigner_output(digest=DEBUG, dn="CN=Android Debug, OU=Android, O=Unknown"):
+    return ("Verifies\nVerified using v2 scheme (APK Signature Scheme v2): true\n"
+            "Number of signers: 1\n"
+            f"V2 Signer: certificate DN: {dn}\n"
+            f"V2 Signer: certificate SHA-256 digest: {digest}\n")
+
+
 class SigningGateTests(unittest.TestCase):
     def test_debug_audit_is_informational_only(self):
         fp, dn = guard.parse_certificate_report(apksigner_output())
         allowed, notice = guard.evaluate_signature(fp, dn, "audit")
         self.assertTrue(allowed)
         self.assertIn("no autorizada", notice)
+
+    def test_new_android_sdk_v2_signer_format(self):
+        fp, dn = guard.parse_certificate_report(modern_apksigner_output())
+        self.assertEqual(fp, DEBUG)
+        self.assertIn("Android Debug", dn)
+
+    def test_multiple_schemes_same_certificate_are_accepted(self):
+        v3 = (f"V3 Signer: certificate DN: CN=Android Debug, OU=Android, O=Unknown\n"
+              f"V3 Signer: certificate SHA-256 digest: {DEBUG}\n")
+        fp, _ = guard.parse_certificate_report(modern_apksigner_output() + v3)
+        self.assertEqual(fp, DEBUG)
+
+    def test_reported_two_signers_is_blocked_even_if_only_one_printed(self):
+        with self.assertRaises(guard.SigningError):
+            guard.parse_certificate_report(modern_apksigner_output().replace("Number of signers: 1", "Number of signers: 2"))
+
+    def test_conflicting_schemes_are_blocked(self):
+        v3 = (f"V3 Signer: certificate DN: CN=Fake\n"
+              f"V3 Signer: certificate SHA-256 digest: {RELEASE}\n")
+        with self.assertRaises(guard.SigningError):
+            guard.parse_certificate_report(modern_apksigner_output() + v3)
 
     def test_debug_never_passes_distribution_even_with_allowlist(self):
         self.assertFalse(guard.evaluate_signature(DEBUG, "CN=Android Debug, O=Unknown", "distribution", DEBUG)[0])
