@@ -34,7 +34,8 @@ import { classifyDemoOperation, formatDemoReceipt } from './src/demo-receipts.mj
 import { DEMO_CORRIDORS } from './src/international-demo.mjs';
 import { canApplySessionResponse } from './src/session-guards.mjs';
 import {validateDemoAccountSnapshot,isCurrentDemoWalletRefresh} from './src/demo-wallet-refresh-safety.mjs';
-import { canReusePendingDemoOperation, demoOperationStillBelongsToUser, claimDemoOperationLock, retainPendingDemoRequest, canConfirmDemoOperation } from './src/demo-operation-session.mjs';
+import { canReusePendingDemoOperation, demoOperationStillBelongsToUser, claimDemoOperationLock, canConfirmDemoOperation } from './src/demo-operation-session.mjs';
+import { newDemoPending, readDemoPending, saveDemoPending, clearDemoPending, classifyDemoPendingStatus } from './src/demo-pending-storage.mjs';
 import {parseRecoveryDeepLink,validateRecoveryPassword} from './src/auth/recovery-link.mjs';
 import { isLatestRequest, isValidDemoQuoteResponse, isValidDemoPaymentPreview } from './src/async-demo-guards.mjs';
 import { needsDemoFeeReview, demoFeeShortfallCents } from './src/quote-risk.mjs';
@@ -514,6 +515,9 @@ export default function App() {
   const [recipientCode, setRecipientCode] = useState('');
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
+  const [pendingRecord, setPendingRecord] = useState(null);
+  const [pendingReady, setPendingReady] = useState(false);
+  const [pendingLoadError, setPendingLoadError] = useState('');
   const [merchant, setMerchant] = useState(null);
   const [merchantName, setMerchantName] = useState('');
   const [merchantCountry, setMerchantCountry] = useState('US');
@@ -527,6 +531,7 @@ export default function App() {
   const walletRefreshSequenceRef = useRef(0);
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
+  const pendingOwnerRef = useRef(null);
   const quoteSequenceRef = useRef(0);
   const paymentLookupSequenceRef = useRef(0);
   const recoveryInProgressRef = useRef(false);
@@ -603,7 +608,8 @@ export default function App() {
 
   useEffect(() => {
     // No mantener información de la cuenta anterior mientras carga una nueva sesión.
-    // También se descartan formularios e identificadores de operación pendientes.
+    // Se descarta la copia en memoria de la cuenta anterior. La solicitud
+    // sin confirmar se conserva por usuario en almacenamiento local.
     walletRefreshSequenceRef.current += 1;
     setWallet(null);
     setOperations([]);
@@ -628,9 +634,30 @@ export default function App() {
     setPaymentCode('');
     setInternationalQuote(null);
     pendingRef.current = null;
-    if (!userId) return;
+    pendingOwnerRef.current = null;
+    setPendingRecord(null);
+    setPendingReady(false);
+    setPendingLoadError('');
+    if (!userId) {
+      setPendingReady(true);
+      return;
+    }
+    let active = true;
+    readDemoPending(AsyncStorage, userId).then(record => {
+      if (!active) return;
+      pendingRef.current = record;
+      pendingOwnerRef.current = userId;
+      setPendingRecord(record);
+      setPendingReady(true);
+    }).catch(() => {
+      if (!active) return;
+      // Fallo cerrado: no generar otro UUID si existe un envío no legible.
+      setPendingLoadError('No pudimos leer la solicitud pendiente. No envíes otra hasta revisarlo.');
+      setPendingReady(false);
+    });
     refreshAccount(userId);
     refreshMerchant(userId);
+    return () => { active = false; };
   }, [userId]);
 
   async function refreshDemoFeeCatalog() {
@@ -1068,17 +1095,20 @@ export default function App() {
 
   function changeAmount(value) {
     setAmount(value);
-    pendingRef.current = null;
   }
   function changeRecipient(value) {
     setRecipientCode(value);
-    pendingRef.current = null;
   }
 
   async function executeOperation(type, cents, code = '') {
     if (!claimDemoOperationLock(busyRef)) return;
     const requestedUserId = userId;
     const requestedEpoch = sessionEpochRef.current;
+    if (!pendingReady || pendingLoadError || pendingOwnerRef.current !== requestedUserId) {
+      busyRef.current = false;
+      showMessage('Protección de prueba', 'Primero recupera la solicitud local y la cuenta.');
+      return;
+    }
     if (!await demoOperationStillBelongsToUser(supabase.auth, requestedUserId) ||
         sessionEpochRef.current !== requestedEpoch) {
       busyRef.current = false;
@@ -1088,10 +1118,22 @@ export default function App() {
     setBusy(true);
     try {
       const requested = {userId:requestedUserId,type,cents,code};
-      if (!canReusePendingDemoOperation(pendingRef.current, requested)) {
-        pendingRef.current = { ...requested, id: uniqueRequestId() };
+      let record = pendingRef.current;
+      if (record && !canReusePendingDemoOperation(record, requested)) {
+        throw new Error('Existe otra operación sin confirmar. Revísala desde Inicio.');
       }
-      const requestId = pendingRef.current.id;
+      if (!record) {
+        record = newDemoPending({...requested,id:uniqueRequestId()});
+        // Nunca enviar al servidor antes de guardar el mismo UUID en el teléfono.
+        await saveDemoPending(AsyncStorage, record);
+        if (sessionEpochRef.current !== requestedEpoch ||
+            pendingOwnerRef.current !== requestedUserId) return;
+        pendingRef.current = record;
+        setPendingRecord(record);
+        if (!await canConfirmDemoOperation(supabase.auth, requestedUserId,
+            sessionEpochRef, requestedEpoch)) return;
+      }
+      const requestId = record.id;
       const response = type === 'transfer'
         ? await supabase.rpc('mwd_transfer_demo', {
           p_recipient_code: code, p_amount_cents: cents, p_request_id: requestId,
@@ -1104,15 +1146,17 @@ export default function App() {
           sessionEpochRef.current !== requestedEpoch) {
         // The DEMO server could have recorded the request, but do not show
         // another user's result or erase an unverified pending request.
-        if (!retainPendingDemoRequest(requestedEpoch, sessionEpochRef.current))
-          pendingRef.current = null;
         return;
       }
       if (response.error) throw response.error;
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
+      await clearDemoPending(AsyncStorage, record);
+      if (!await canConfirmDemoOperation(supabase.auth, requestedUserId,
+          sessionEpochRef, requestedEpoch)) return;
       pendingRef.current = null;
+      setPendingRecord(null);
       setAmount('');
       setRecipientCode('');
       setScreen('Inicio');
@@ -1127,9 +1171,47 @@ export default function App() {
           await demoOperationStillBelongsToUser(supabase.auth, requestedUserId) &&
           sessionEpochRef.current === requestedEpoch)
         showMessage('Operación no confirmada',
-          (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
-      else if (!retainPendingDemoRequest(requestedEpoch, sessionEpochRef.current))
-        pendingRef.current = null;
+          (error.message || 'Error desconocido') +
+          '\nRevisa la solicitud pendiente desde Inicio; no crees otra.');
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }
+
+  async function verifyPendingOperation() {
+    const record = pendingRef.current;
+    if (!record || !pendingReady || pendingOwnerRef.current !== userId ||
+        !claimDemoOperationLock(busyRef)) return;
+    const epoch = sessionEpochRef.current;
+    setBusy(true);
+    try {
+      if (!await canConfirmDemoOperation(supabase.auth, record.userId,
+          sessionEpochRef, epoch)) return;
+      const {data,error} = await supabase.rpc('mwd_operation_status_demo', {
+        p_request_id:record.id,
+      });
+      if (!await canConfirmDemoOperation(supabase.auth, record.userId,
+          sessionEpochRef, epoch)) return;
+      if (error) throw error;
+      const status = classifyDemoPendingStatus(record, data);
+      if (status === 'unconfirmed') {
+        showMessage('Aún sin confirmar',
+          'El servidor no encuentra esta solicitud. Puedes reintentar exactamente la misma, con el mismo identificador.');
+        return;
+      }
+      await clearDemoPending(AsyncStorage, record);
+      if (!await canConfirmDemoOperation(supabase.auth, record.userId,
+          sessionEpochRef, epoch)) return;
+      pendingRef.current = null;
+      setPendingRecord(null);
+      await refreshAccount(record.userId);
+      showMessage('Solicitud recuperada', 'Se encontró la operación ficticia anterior sin descontar nuevamente.');
+    } catch (error) {
+      if (await canConfirmDemoOperation(supabase.auth, record.userId,
+          sessionEpochRef, epoch))
+        showMessage('Verificación pendiente',
+          (error.message || 'Sin conexión') + '\nEl registro local se conserva.');
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -1138,6 +1220,12 @@ export default function App() {
 
   function prepareOperation(type) {
     if (busyRef.current) return;
+    if (!pendingReady || pendingOwnerRef.current !== userId || pendingLoadError)
+      return showMessage('Protección de prueba',
+        'Todavía no se pudo verificar el registro local de operaciones.');
+    if (pendingRef.current)
+      return showMessage('Operación anterior pendiente',
+        'Consulta su estado o reintenta la misma solicitud desde Inicio.');
     const cents = amountToCents(amount);
     if (cents === null) {
       return showMessage('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
@@ -1199,7 +1287,6 @@ export default function App() {
     setScreen(to);
     setAmount('');
     setRecipientCode('');
-    pendingRef.current = null;
     setSelectedReceiptId(null);
   }
 
@@ -1311,11 +1398,33 @@ export default function App() {
                 <Btn title="Compartir código para recibir" secondary
                   onPress={() => shareDemoCode('wallet', wallet?.account_code)} disabled={!wallet} />
               </View>
+              {(!pendingReady || pendingLoadError) && <View style={styles.card}>
+                <Text style={styles.heading}>Protección de solicitudes</Text>
+                <Text style={styles.warning}>{pendingLoadError ||
+                  'Estamos recuperando operaciones pendientes de este dispositivo.'}</Text>
+                <Text style={styles.muted}>Los envíos ficticios quedan bloqueados hasta completar esta comprobación.</Text>
+              </View>}
+              {pendingReady && pendingRecord?.userId === userId && <View style={styles.card}>
+                <Text style={styles.heading}>Operación pendiente de verificación</Text>
+                <Text style={styles.warning}>No envíes una nueva solicitud hasta resolver esta.</Text>
+                <Text style={styles.muted}>
+                  {pendingRecord.type === 'transfer' ? 'Transferencia' : 'Aportación'} de
+                  {' ' + formatMWD(pendingRecord.cents) + ' MWD ficticios'}
+                </Text>
+                {pendingRecord.type === 'transfer' &&
+                  <Text style={styles.muted}>Destino: {pendingRecord.code}</Text>}
+                <Btn title={busy ? 'Consultando...' : 'Consultar estado de la solicitud'}
+                  secondary onPress={verifyPendingOperation} disabled={busy} />
+                <Btn title={busy ? 'Espera...' : 'Reintentar exactamente la misma solicitud'}
+                  onPress={() => executeOperation(pendingRecord.type, pendingRecord.cents, pendingRecord.code)}
+                  disabled={busy} />
+              </View>}
               <Text style={styles.sectionEyebrow}>MOVIMIENTOS</Text>
               <Text style={styles.sectionTitle}>¿Qué quieres hacer hoy?</Text>
               <View style={styles.quickRow}>
                 <TouchableOpacity accessibilityRole="button" accessibilityLabel="Enviar MWD de demostración"
-                  style={styles.quickAction} onPress={() => navigate('Transferir')} disabled={!wallet}>
+                  style={styles.quickAction} onPress={() => navigate('Transferir')}
+                  disabled={!wallet || !pendingReady || !!pendingRecord}>
                   <Text style={styles.quickIcon}>⇄</Text><Text style={styles.quickText}>Enviar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity accessibilityRole="button" accessibilityLabel="Recibir MWD de demostración"
@@ -1334,7 +1443,8 @@ export default function App() {
               <Text style={styles.sectionEyebrow}>SERVICIOS</Text>
               <View style={styles.panel}>
                 <Text style={styles.panelTitle}>Más opciones</Text>
-                <Btn title="Aportaciones de demostración" secondary onPress={() => navigate('Aportar')} disabled={!wallet} />
+                <Btn title="Aportaciones de demostración" secondary onPress={() => navigate('Aportar')}
+                  disabled={!wallet || !pendingReady || !!pendingRecord} />
                 <Btn title="Mi comercio y solicitudes de cobro" secondary onPress={() => navigate('Comercio')} />
                 <Btn title="Agregar dinero a mi billetera (próximamente)"
                   secondary onPress={() => navigate('AgregarDineroInformacion')} />
@@ -1468,7 +1578,7 @@ export default function App() {
               <TextInput style={styles.input} placeholder="Cantidad MWD" keyboardType="decimal-pad"
                 placeholderTextColor="#9fb1c8" value={amount} onChangeText={changeAmount} />
               <Btn title={busy ? 'Procesando...' : 'Confirmar transferencia ficticia'}
-                onPress={() => prepareOperation('transfer')} disabled={busy} />
+                onPress={() => prepareOperation('transfer')} disabled={busy || !pendingReady || !!pendingRecord} />
             </View>}
 
             {screen === 'Aportar' && <View style={styles.card}>
@@ -1477,7 +1587,7 @@ export default function App() {
               <TextInput style={styles.input} placeholder="Cantidad MWD" keyboardType="decimal-pad"
                 placeholderTextColor="#9fb1c8" value={amount} onChangeText={changeAmount} />
               <Btn title={busy ? 'Procesando...' : 'Confirmar aportación ficticia'}
-                onPress={() => prepareOperation('contribution')} disabled={busy} />
+                onPress={() => prepareOperation('contribution')} disabled={busy || !pendingReady || !!pendingRecord} />
             </View>}
 
             {screen === 'Comercio' && <>
