@@ -1,0 +1,38 @@
+name: Etapa 128 - diagnostico certificado de APK DEMO previa
+
+on:
+  push:
+    branches:
+      - feature/mwd-apk-signature-gate-stage128-20261024
+    paths:
+      - '.github/workflows/etapa128-diagnostico-firma-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  auditar-apk-preexistente:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Obtener APK de demostracion previamente validada en emulador
+        uses: actions/download-artifact@v4
+        with:
+          name: moneda-mundial-2-demo-etapa126-independiente
+          repository: osminm1983NMM/MONEDA-MUNDIAL-2
+          run-id: 40132829443
+          github-token: ${{ github.token }}
+          path: apk-auditar
+      - name: Mostrar exclusivamente campos publicos del certificado
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s apk-auditar/app-release.apk
+          SIGNER="$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools" -type f -name apksigner | sort -V | tail -n1)"
+          test -n "$SIGNER"
+          "$SIGNER" verify --verbose --print-certs apk-auditar/app-release.apk | grep -E 'Signer #|Verified using'
+      - name: Probar verificador de etapa 128 con esta APK de laboratorio
+        run: python3 scripts/apk_signature_guard.py apk-auditar/app-release.apk --purpose audit
