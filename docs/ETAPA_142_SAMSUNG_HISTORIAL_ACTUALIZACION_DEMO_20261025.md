@@ -20,12 +20,16 @@
 2. El historial paginado conserva una descripción genérica cuando no existe evidencia de clasificación comercial en los movimientos recientes. Es una limitación deliberada: `mwd_operations` no tiene una columna `is_merchant_payment`, y la RPC `mwd_history_demo` proporciona la clasificación de los registros recientes. No se agregó una RPC privilegiada ni se relajó RLS.
 3. La actualización manual del saldo e historial muestra una confirmación de éxito **solo después** de validar y aplicar la respuesta a la misma cuenta/sesión. Si la consulta falla, muestra un aviso de error. La carga automática al iniciar sesión no genera confirmaciones manuales engañosas.
 4. La etiqueta corta «SOLO DEMO» evita la división incómoda, manteniendo el aviso principal de «SIN DINERO REAL».
+5. Los filtros de actividad reciente exponen etiquetas Android explícitas («Entradas», «Salidas», «Comercios»). El recorrido del emulador vuelve al inicio de la vista antes de buscar controles y relee el árbol de accesibilidad después de cada desplazamiento.
 
 ### Verificación automática
 
 - `npm test`: 96 archivos de pruebas aprobados; 0 fallos.
 - `git diff --check`: sin errores.
 - Pruebas nuevas: coincidencia de pago y cobro comercial en paginación; rechazo de etiquetas de comercio ante cuenta, tipo, importe, fecha o dirección distintos.
+- En el commit `56658e011a6db657e6d220643e5621507e4418f4`, **9 de 9** verificaciones complementarias de GitHub Actions finalizaron con éxito.
+- [Prueba Android efímera aprobada, ejecución 40200045051](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/40200045051): compiló una APK DEMO, comprobó paquete, versión y firma, abrió la app en emulador y recorrió pantallas públicas sin iniciar sesión. El historial ficticio pasó vista general, filtros Entradas/Salidas/Comercios y comprobante, con regreso al inicio. No publicó instalador ni capturas.
+- El primer intento de la prueba Android, [40198877276](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/40198877276), falló en la búsqueda del filtro Entradas aunque la APK compiló y abrió. Se corrigieron la accesibilidad de los botones y el desplazamiento del recorrido; el segundo intento pasó.
 
 ### Límites y tareas pendientes
 
@@ -35,8 +39,8 @@
 - Para operaciones antiguas fuera del conjunto reciente, la página seguirá mostrando «Enviado»/«Recibido». Un historial comercial completo requeriría una API paginada que devuelva la clasificación verificada por el servidor, diseñada y auditada por separado.
 - Sigue bloqueada la distribución oficial de compilaciones firmadas con Android Debug. No desactivar Play Protect.
 
-### Ensayo Android efímero propuesto
+### Ensayo Android efímero realizado
 
-Se agregó el flujo `demo-android-ephemeral-smoke-stage142.yml` para compilar la APK de laboratorio en un runner estándar de GitHub Actions, comprobar el paquete, la firma y la versión, e intentar el recorrido de invitado en emulador Android. **No contiene carga de artefactos ni despliegue**: el instalador y las capturas permanecen temporales dentro del runner y desaparecen al terminar el trabajo. La ejecución y su resultado aún deben verificarse por separado; un resultado verde no autorizaría instalación en Samsung ni distribución.
+Se agregó y ejecutó el flujo `demo-android-ephemeral-smoke-stage142.yml` en un runner estándar de GitHub Actions. **No contiene carga de artefactos ni despliegue**: el instalador y las capturas permanecieron temporales dentro del runner y desaparecieron al terminar el trabajo. Su resultado final fue **correcto** para el recorrido público con datos inventados. Este resultado no valida el inicio de sesión, el backend en producción ni el botón de actualización sobre una cuenta real; tampoco autoriza instalación en Samsung ni distribución.
 
 **Criterio de salida:** revisión de la rama, pruebas Android en entorno aislado, firma y huellas verificadas; después prueba segura en Samsung de la misma referencia comercial, mensaje visible de actualización y conservación del historial. El proyecto sigue siendo exclusivamente DEMO.
