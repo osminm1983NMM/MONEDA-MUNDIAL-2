@@ -17,10 +17,11 @@ import sys
 
 
 FINGERPRINT = re.compile(r"^[a-f0-9]{64}$")
-SIGNER_DIGEST = re.compile(
-    r"^Signer #(\d+) certificate SHA-256 digest: ([a-fA-F0-9:]+)$", re.MULTILINE
+SIGNER_FIELD = re.compile(
+    r"^(?P<label>Signer #\d+|V\d+(?:\.\d+)? Signer(?::| #\d+:))"
+    r"\s+certificate (?P<field>DN|SHA-256 digest):\s*(?P<value>.+)$"
 )
-SIGNER_DN = re.compile(r"^Signer #(\d+) certificate DN: (.+)$", re.MULTILINE)
+SIGNER_COUNT = re.compile(r"^Number of signers:\s*(\d+)$")
 
 
 class SigningError(Exception):
@@ -35,16 +36,48 @@ def normalize_fingerprint(raw):
 
 
 def parse_certificate_report(output):
-    """Require one identifiable signer; apksigner exit status is checked upstream."""
-    digest_matches = SIGNER_DIGEST.findall(output)
-    dn_matches = SIGNER_DN.findall(output)
-    if len(digest_matches) != 1 or len(dn_matches) != 1:
-        raise SigningError("Se requiere exactamente un firmante identificable.")
-    digest_num, digest_raw = digest_matches[0]
-    dn_num, dn = dn_matches[0]
-    if digest_num != dn_num:
-        raise SigningError("No coincide la identidad del firmante con su huella.")
-    return normalize_fingerprint(digest_raw), dn.strip()
+    """Read old numbered and newer V2/V3 apksigner labels, failing closed.
+
+    Multiple signature *schemes* can report the same certificate. Multiple
+    distinct certificates or incomplete certificate records are rejected.
+    Signature verification itself is enforced by apksigner's exit code upstream.
+    """
+    signers = {}
+    reported_counts = []
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        count = SIGNER_COUNT.fullmatch(line)
+        if count:
+            reported_counts.append(int(count.group(1)))
+        match = SIGNER_FIELD.fullmatch(line)
+        if not match:
+            continue
+        label, field, value = match.group("label", "field", "value")
+        value = normalize_fingerprint(value) if field == "SHA-256 digest" else value.strip()
+        fields = signers.setdefault(label, {})
+        if field in fields and fields[field] != value:
+            raise SigningError("Certificados contradictorios para el mismo firmante.")
+        fields[field] = value
+
+    if reported_counts and (len(set(reported_counts)) != 1 or reported_counts[0] != 1):
+        raise SigningError("La APK no reporta exactamente un firmante.")
+    if not signers or any(set(fields) != {"DN", "SHA-256 digest"} for fields in signers.values()):
+        raise SigningError("Se requiere un certificado completo e identificable.")
+    signer_numbers_by_scheme = {}
+    for label in signers:
+        if label.startswith("Signer #"):
+            scheme, signer_number = "legacy", int(label.split("#", 1)[1])
+        else:
+            scheme = label.split(" Signer", 1)[0]
+            signer_number = int(label.rsplit("#", 1)[1].rstrip(":")) if "#" in label else 1
+        signer_numbers_by_scheme.setdefault(scheme, set()).add(signer_number)
+    if any(len(numbers) != 1 for numbers in signer_numbers_by_scheme.values()):
+        raise SigningError("Una firma presenta múltiples firmantes.")
+    fingerprints = {fields["SHA-256 digest"] for fields in signers.values()}
+    names = {fields["DN"] for fields in signers.values()}
+    if len(fingerprints) != 1 or len(names) != 1:
+        raise SigningError("Se detectaron firmantes o certificados inconsistentes.")
+    return fingerprints.pop(), names.pop()
 
 
 def evaluate_signature(fingerprint, dn, purpose, approved_fingerprint=None):
