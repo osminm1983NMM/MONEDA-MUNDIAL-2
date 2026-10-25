@@ -82,6 +82,7 @@ export default function DemoHistoryRecentScreen({
       <View style={styles.filterGrid}>
         {filters.map(([key,label]) => (
           <TouchableOpacity key={key} accessibilityRole="button"
+            accessibilityLabel={label}
             accessibilityState={{selected:filter===key}}
             onPress={() => setFilter(key)}
             style={[styles.filterPill, filter===key && styles.filterPillSelected]}>
