@@ -9,6 +9,7 @@ on:
       - feature/mwd-android-version-guard-stage132-20261024
       - feature/mwd-apk-build-provenance-stage133-20261024
       - feature/mwd-signing-secrets-guard-stage134-20261024
+      - feature/mwd-mobile-durable-retry-stage140
     paths:
       - '.github/workflows/demo-android-emulator-exact-commit.yml'
       - 'App.js'
@@ -57,6 +58,7 @@ jobs:
         run: |
           node --test tests/android-apk-signature-policy.test.mjs tests/android-apk-upgrade-policy.test.mjs tests/android-apk-version-match.test.mjs
           node --test tests/android-apk-provenance.test.mjs
+          node --test tests/demo-pending-storage.test.mjs
           node tests/demo-history-readonly.test.mjs
           node tests/demo-history-view.test.mjs
           node tests/demo-history-guest-fixture.test.mjs
