@@ -1,7 +1,8 @@
 {
   "expo": {
     "name": "Moneda Mundial 2.0",
-    "slug": "moneda-mundial-2",
+    "slug": "moneda-mundial-20",
+    "owner": "12051983",
     "version": "2.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
@@ -9,6 +10,11 @@
       "package": "com.monedamundial.app",
       "versionCode": 2
     },
-    "scheme": "monedamundial"
+    "scheme": "monedamundial",
+    "extra": {
+      "eas": {
+        "projectId": "93c31768-4d1e-49f3-888b-9b5845c31e53"
+      }
+    }
   }
 }

@@ -1,0 +1,45 @@
+name: Etapa 143 verificar Android LAB sin APK
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/lab-android-prebuild-stage143.yml'
+      - 'app.config.js'
+      - 'app.json'
+      - 'eas.json'
+      - 'scripts/check-lab-android-prebuild.mjs'
+      - 'tests/*samsung-lab*'
+      - 'package.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mwd-lab-prebuild-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar-identidad-android-lab:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias de prueba
+        run: npm install --no-audit --no-fund
+      - name: Revisar configuración Expo normal y LAB
+        run: node --test tests/android-samsung-lab-variant.test.mjs tests/expo-resolved-samsung-lab-config.test.mjs
+      - name: Generar proyecto Android LAB temporal sin APK
+        run: CI=1 MWD_APP_VARIANT=samsung-lab npx expo prebuild --platform android --no-install --non-interactive
+      - name: Validar ID y versionCode del código nativo
+        run: MWD_APP_VARIANT=samsung-lab node scripts/check-lab-android-prebuild.mjs
+      - name: Confirmar que no existe artefacto ni firma de distribución
+        run: |
+          test ! -f android/app/build/outputs/apk/release/app-release.apk
+          test ! -f android/app/build/outputs/bundle/release/app-release.aab
+          echo 'LAB prebuild verificado; no se compiló ni publicó ningún instalador.'
+
+# No contiene EAS Build, credenciales, claves, upload-artifact ni despliegue.
