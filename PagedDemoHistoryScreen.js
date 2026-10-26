@@ -50,7 +50,7 @@ function OperationLabel({item, t, language, recentOperations, userId}) {
  * El servidor aplica RLS. Además, cada petición se vincula al usuario y al
  * número de secuencia para no mostrar respuestas de otra sesión o pantalla.
  */
-export default function PagedDemoHistoryScreen({supabase, userId, language = 'es', recentOperations = []}) {
+export default function PagedDemoHistoryScreen({supabase, userId, language = 'es', recentOperations = [], refreshTick = 0}) {
   const t = COPY[language] || COPY.es;
   const requestSequence = useRef(0);
   const [expanded, setExpanded] = useState(false);
@@ -92,7 +92,7 @@ export default function PagedDemoHistoryScreen({supabase, userId, language = 'es
         if (requestSequence.current === current) setLoading(false);
       });
     return () => {requestSequence.current += 1;};
-  }, [expanded, page, userId, supabase, retry]);
+  }, [expanded, page, userId, supabase, retry, refreshTick]);
 
   function toggle() {
     setExpanded(value => !value);
