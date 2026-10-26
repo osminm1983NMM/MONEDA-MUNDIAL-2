@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   prepareRecentDemoHistory, summarizeRecentDemoHistory, filterRecentDemoHistory,
+  verifiedPagedMerchantDirection,
 } from '../src/demo-history-view.mjs';
 
 const me = '11111111-1111-4111-8111-111111111111';
@@ -58,4 +59,27 @@ test('no muestra operaciones si cambia o falta usuario', () => {
   assert.deepEqual(prepareRecentDemoHistory(input,outsider,classify),[
     ...prepareRecentDemoHistory([input[3]],outsider,classify),
   ]);
+});
+
+test('historial completo identifica pago y cobro a comercio solo con evidencia de la misma operación', () => {
+  const sent=input[1];
+  const row={id:sent.id,kind:'transfer',direction:'enviado',amountMwd:'22.50',createdAt:validDate};
+  assert.equal(verifiedPagedMerchantDirection(row,input,me),'merchantSent');
+
+  const received=mk('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','transfer',other,me,350,
+    {is_merchant_payment:true});
+  assert.equal(verifiedPagedMerchantDirection({id:received.id,kind:'transfer',
+    direction:'recibido',amountMwd:'3.50',createdAt:validDate},[received],me),'merchantReceived');
+});
+
+test('no atribuye pago comercial sin coincidencia de cuenta, monto, fecha, tipo y marcador', () => {
+  const sent=input[1];
+  const row={id:sent.id,kind:'transfer',direction:'enviado',amountMwd:'22.50',createdAt:validDate};
+  assert.equal(verifiedPagedMerchantDirection(row,[],me),null);
+  assert.equal(verifiedPagedMerchantDirection(row,input,other),null);
+  assert.equal(verifiedPagedMerchantDirection({...row,amountMwd:'22.51'},input,me),null);
+  assert.equal(verifiedPagedMerchantDirection({...row,createdAt:'2026-10-24T10:00:01Z'},input,me),null);
+  assert.equal(verifiedPagedMerchantDirection({...row,kind:'contribution'},input,me),null);
+  assert.equal(verifiedPagedMerchantDirection({...row,direction:'recibido'},input,me),null);
+  assert.equal(verifiedPagedMerchantDirection(row,[{...sent,is_merchant_payment:false}],me),null);
 });

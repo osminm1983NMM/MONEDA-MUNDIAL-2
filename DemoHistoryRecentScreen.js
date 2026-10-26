@@ -12,7 +12,7 @@ import {
 const COPY = {
   es: {
     title:'Tu actividad', eyebrow:'HISTORIAL', subtitle:'Movimientos recientes de tu billetera de prueba',
-    demo:'SOLO DEMOSTRACIÓN', incoming:'Entradas', outgoing:'Salidas',
+    demo:'SOLO DEMO', incoming:'Entradas', outgoing:'Salidas',
     all:'Todos', merchant:'Comercios', movements:'movimientos visibles',
     summary:'Resumen de los movimientos recientes cargados; no es tu saldo total.',
     empty:'No hay movimientos de prueba en esta selección.', registered:'REGISTRO DE PRUEBA',
@@ -82,6 +82,7 @@ export default function DemoHistoryRecentScreen({
       <View style={styles.filterGrid}>
         {filters.map(([key,label]) => (
           <TouchableOpacity key={key} accessibilityRole="button"
+            accessibilityLabel={label}
             accessibilityState={{selected:filter===key}}
             onPress={() => setFilter(key)}
             style={[styles.filterPill, filter===key && styles.filterPillSelected]}>

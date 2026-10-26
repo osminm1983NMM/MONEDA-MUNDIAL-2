@@ -20,7 +20,13 @@ find_and_tap() {
   local action="$1"
   local position=""
   local name="history-look-${action}"
-  for attempt in 1 2 3 4 5 6; do
+  # Comenzar desde arriba para no omitir filtros al volver de una captura
+  # que deja el historial al fondo. Cada intento usa XML nuevo.
+  for pass in 1 2 3 4; do
+    adb shell input swipe 550 650 550 1900 470
+    sleep 1
+  done
+  for attempt in 1 2 3 4 5 6 7 8; do
     read_screen "$name"
     if position="$(python3 scripts/android_history_preview_contract.py "$action" "smoke-results/${name}.xml" 2>/dev/null)"; then
       read -r x y <<< "$position"
