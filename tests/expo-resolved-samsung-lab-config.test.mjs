@@ -18,6 +18,15 @@ function resolvedExpoConfig(variant = '') {
   return JSON.parse(output);
 }
 
+test('Expo CLI conserva la identidad del proyecto EAS confirmado en la cuenta', () => {
+  for (const variant of ['', 'samsung-lab']) {
+    const config = resolvedExpoConfig(variant);
+    assert.equal(config.slug, 'moneda-mundial-20');
+    assert.equal(config.owner, '12051983');
+    assert.equal(config.extra?.eas?.projectId, '93c31768-4d1e-49f3-888b-9b5845c31e53');
+  }
+});
+
 test('Expo realmente resuelve el paquete original sin activar LAB', () => {
   const config = resolvedExpoConfig();
   assert.equal(config.name, 'Moneda Mundial 2.0');
