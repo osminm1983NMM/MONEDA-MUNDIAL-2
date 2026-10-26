@@ -3,7 +3,12 @@
 # Nunca envía dinero real ni utiliza credenciales de usuarios.
 set -euo pipefail
 APK_PATH="${APK_PATH:-apk-test/app-release.apk}"
-APP_ID="com.monedamundial.app"
+APP_ID="${MWD_ANDROID_DEMO_PACKAGE:-com.monedamundial.app}"
+# Aceptar solo las dos identidades DEMO conocidas; nunca instalar un paquete arbitrario.
+case "$APP_ID" in
+  com.monedamundial.app|com.monedamundial.app.samsunglab) ;;
+  *) echo "::error::Paquete Android de prueba no permitido: $APP_ID"; exit 1 ;;
+esac
 mkdir -p smoke-results
 
 if [ ! -f "$APK_PATH" ]; then
