@@ -20,6 +20,16 @@ function variantConfig(variant) {
   }
 }
 
+test('Expo EAS corresponde al proyecto existente de la cuenta 12051983', () => {
+  assert.equal(main.slug, 'moneda-mundial-20');
+  assert.equal(main.owner, '12051983');
+  assert.equal(main.extra?.eas?.projectId, '93c31768-4d1e-49f3-888b-9b5845c31e53');
+  const lab = variantConfig('samsung-lab');
+  assert.equal(lab.extra?.eas?.projectId, main.extra.eas.projectId);
+  assert.equal(lab.owner, main.owner);
+  assert.equal(lab.slug, main.slug);
+});
+
 test('configuración normal conserva la identidad de la APK existente', () => {
   assert.deepEqual(variantConfig(null), main);
   assert.equal(main.android.package, 'com.monedamundial.app');
