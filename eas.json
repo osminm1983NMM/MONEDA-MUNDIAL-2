@@ -5,6 +5,16 @@
       "android": {
         "buildType": "apk"
       }
+    },
+    "samsung-lab": {
+      "distribution": "internal",
+      "env": {
+        "MWD_APP_VARIANT": "samsung-lab"
+      },
+      "android": {
+        "buildType": "apk",
+        "image": "latest"
+      }
     }
   }
 }

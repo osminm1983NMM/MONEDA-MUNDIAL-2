@@ -1,0 +1,110 @@
+name: Etapa 143 Android LAB efimero sin publicacion
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/demo-android-lab-ephemeral-stage143.yml'
+      - 'app.config.js'
+      - 'eas.json'
+      - 'App.js'
+      - 'DemoHistoryRecentScreen.js'
+      - 'scripts/check-lab-apk-identity.mjs'
+      - 'scripts/probar-apk-emulador.sh'
+      - 'scripts/probar-recorrido-invitado-emulador.sh'
+      - 'src/**'
+      - 'tests/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mwd-stage143-lab-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compilar-y-recorrer-lab-sin-publicar:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+    env:
+      MWD_APP_VARIANT: samsung-lab
+      MWD_ANDROID_DEMO_PACKAGE: com.monedamundial.app.samsunglab
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bloquear claves privadas versionadas
+        run: node scripts/proteger-claves-firma-android.mjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias DEMO
+        run: npm install --no-audit --no-fund
+      - name: Verificar configuración y pruebas
+        run: |
+          npx expo install --check
+          npm test
+      - name: Generar proyecto Android LAB temporal
+        run: CI=1 npx expo prebuild --platform android --no-install --non-interactive
+      - name: Confirmar paquete nativo independiente
+        run: node scripts/check-lab-android-prebuild.mjs
+      - name: Preparar NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" --install 'ndk;27.1.12297006'
+          test -f "$SDK_ROOT/ndk/27.1.12297006/source.properties"
+      - name: Compilar APK LAB efimera
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --no-daemon
+      - name: Auditar firma Debug y paquete LAB; prohibir distribucion
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apk-test smoke-results
+          cp android/app/build/outputs/apk/release/app-release.apk apk-test/app-release.apk
+          unzip -Z1 apk-test/app-release.apk | grep -E 'assets/index.android.bundle$'
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" --install 'build-tools;35.0.1'
+          APKSIGNER_PATH="$SDK_ROOT/build-tools/35.0.1/apksigner" \
+            node scripts/comprobar-firma-android.mjs apk-test/app-release.apk --demo
+          AAPT_PATH="$SDK_ROOT/build-tools/35.0.1/aapt" \
+            node scripts/check-lab-apk-identity.mjs apk-test/app-release.apk
+          sha256sum apk-test/app-release.apk > smoke-results/sha256-apk-lab-probada.txt
+          echo 'APK LAB efimera firmada Android Debug: NO PUBLICAR NI DISTRIBUIR'
+      - name: Habilitar KVM para emulador
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+      - name: Abrir LAB y recorrer demo ficticia en emulador
+        timeout-minutes: 35
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-boot-timeout: 900
+          disable-animations: true
+          script: |
+            bash scripts/probar-apk-emulador.sh
+            bash scripts/probar-recorrido-invitado-emulador.sh
+      - name: Confirmar evidencias efimeras sin subir APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum --check smoke-results/sha256-apk-lab-probada.txt
+          test -s smoke-results/ui.xml
+          test -s smoke-results/guest-return.xml
+          echo 'LAB DEMO verificada solo en emulador. No se publica ningun instalador.'
+
+# Sin EAS Build, actions/upload-artifact, llaves release ni despliegue.
