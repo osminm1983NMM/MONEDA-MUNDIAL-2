@@ -12,7 +12,8 @@
         "MWD_APP_VARIANT": "samsung-lab"
       },
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "image": "latest"
       }
     }
   }
