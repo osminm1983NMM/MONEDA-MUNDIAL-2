@@ -64,7 +64,7 @@ test('perfil EAS LAB es interno y solo prepara APK, sin publicación automática
   const lab = eas.build['samsung-lab'];
   assert.equal(lab.distribution, 'internal');
   assert.equal(lab.android.buildType, 'apk');
-  assert.equal(lab.android.image, 'latest');
+  assert.equal(lab.android.image, 'sdk-54');
   assert.deepEqual(lab.env, {MWD_APP_VARIANT:'samsung-lab'});
   assert.equal(eas.build.preview.env?.MWD_APP_VARIANT, undefined);
 });
