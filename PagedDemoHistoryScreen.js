@@ -3,7 +3,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
 import {loadMyDemoHistory} from './src/demo-history-readonly.mjs';
 import {formatLocalizedDate} from './src/i18n.mjs';
-import {verifiedPagedMerchantDirection} from './src/demo-history-view.mjs';
+import {pagedDemoAmountTone, verifiedPagedMerchantDirection} from './src/demo-history-view.mjs';
 
 const PAGE_SIZE = 20;
 
@@ -37,7 +37,9 @@ function OperationLabel({item, t, language, recentOperations, userId}) {
   return (
     <View style={styles.entry}>
       <Text style={styles.entryTitle}>{title}</Text>
-      <Text style={styles.amount}>{sign}{item.amountMwd} MWD</Text>
+      <Text style={[styles.amount, pagedDemoAmountTone(item.direction) === 'debit' && styles.amountDebit]}>
+        {sign}{item.amountMwd} MWD
+      </Text>
       <Text style={styles.muted}>{item.createdAt ? formatLocalizedDate(item.createdAt, language) : ''}</Text>
     </View>
   );
@@ -150,6 +152,7 @@ const styles = StyleSheet.create({
   entry: {borderBottomWidth: 1, borderBottomColor: '#36526a', paddingVertical: 11},
   entryTitle: {color: '#f5fbff', fontWeight: '700'},
   amount: {color: '#58e5c0', fontSize: 17, fontWeight: '700', marginTop: 3},
+  amountDebit: {color: '#ffbca6'},
   navigation: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14},
   smallButton: {backgroundColor: '#1b6686', borderRadius: 9, padding: 10},
   disabled: {opacity: 0.35},
