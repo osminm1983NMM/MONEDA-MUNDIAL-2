@@ -23,7 +23,7 @@ test('Expo CLI conserva la identidad del proyecto EAS confirmado en la cuenta', 
     const config = resolvedExpoConfig(variant);
     assert.equal(config.slug, 'moneda-mundial-20');
     assert.equal(config.owner, '12051983');
-    assert.equal(config.extra?.eas?.projectId, '93c31768-4d1e-49f3-888b-9b5845c31e53');
+    assert.equal(config.extra?.eas?.projectId, '93c31760-4d1e-49f3-888b-9b5845c31e53');
   }
 });
 
