@@ -4,6 +4,12 @@ const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 
 export const RECENT_HISTORY_FILTERS = Object.freeze(['all', 'incoming', 'outgoing', 'merchant']);
 
+// El historial paginado usa direcciones en español. Las aportaciones y envíos
+// deben mostrarse como débitos, igual que en el historial reciente.
+export function pagedDemoAmountTone(direction) {
+  return direction === 'recibido' ? 'credit' : 'debit';
+}
+
 export function prepareRecentDemoHistory(operations, userId, classify) {
   if (!Array.isArray(operations) || !userId || typeof classify !== 'function') return [];
   return operations.flatMap(op => {

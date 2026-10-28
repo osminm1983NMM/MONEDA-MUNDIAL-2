@@ -513,6 +513,7 @@ export default function App() {
   const [ownerLoading, setOwnerLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [refreshFeedback, setRefreshFeedback] = useState(null);
+  const [historyRefreshSequence, setHistoryRefreshSequence] = useState(0);
   const [recipientCode, setRecipientCode] = useState('');
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
@@ -819,6 +820,8 @@ export default function App() {
       setWallet(checked.wallet);
       setOperations(checked.operations);
       setAdminRole(checked.adminRole);
+      // Notificar también al historial paginado tras una lectura confirmada.
+      setHistoryRefreshSequence(value => value + 1);
       if (showFeedback) setRefreshFeedback('success');
     } catch (error) {
       if (sessionEpochRef.current === requestedEpoch &&
@@ -1691,7 +1694,8 @@ export default function App() {
                   : 'No se pudieron actualizar los datos ficticios.', language)}
               </Text>}
               <PagedDemoHistoryScreen supabase={supabase} userId={userId}
-                language={language} recentOperations={operations} />
+                language={language} recentOperations={operations}
+                refreshSequence={historyRefreshSequence} />
             </>}
 
             {screen === 'PaisesMundo' && <View style={styles.card}>

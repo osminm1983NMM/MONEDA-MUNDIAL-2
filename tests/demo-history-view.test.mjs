@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   prepareRecentDemoHistory, summarizeRecentDemoHistory, filterRecentDemoHistory,
-  verifiedPagedMerchantDirection,
+  verifiedPagedMerchantDirection, pagedDemoAmountTone,
 } from '../src/demo-history-view.mjs';
 
 const me = '11111111-1111-4111-8111-111111111111';
@@ -44,6 +44,11 @@ test('filtros separan entradas, salidas y comercio', () => {
   assert.equal(filterRecentDemoHistory(rows,'outgoing').length,2);
   assert.equal(filterRecentDemoHistory(rows,'merchant').length,1);
   assert.equal(filterRecentDemoHistory(rows,'all').length,3);
+});
+test('el historial completo distingue visualmente créditos y débitos ficticios', () => {
+  assert.equal(pagedDemoAmountTone('recibido'),'credit');
+  assert.equal(pagedDemoAmountTone('enviado'),'debit');
+  assert.equal(pagedDemoAmountTone('aportacion'),'debit');
 });
 test('descarta importes malformados, fechas e identificadores inválidos', () => {
   const invalid=[
