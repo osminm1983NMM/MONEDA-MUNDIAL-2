@@ -51,7 +51,7 @@ Osmin confirmó en el panel de Expo, desde su Samsung:
 
 - Cuenta propietaria: `12051983`.
 - Slug de proyecto: `moneda-mundial-20`.
-- ID de proyecto: `93c31768-4d1e-49f3-888b-9b5845c31e53`.
+- ID de proyecto: `93c31760-4d1e-49f3-888b-9b5845c31e53` (verificado con la compilación LAB exitosa `10e1057`).
 - Enlace visible al repositorio GitHub `osminm1983NMM/MONEDA-MUNDIAL-2`.
 - Sin compilaciones EAS de desarrollo ni de producción en ese momento.
 
