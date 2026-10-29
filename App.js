@@ -20,6 +20,7 @@ import RemittanceTrackingDemoScreen from './RemittanceTrackingDemoScreen';
 import PayoutCandidateLinkScreen from './PayoutCandidateLinkScreen';
 import DemoTourScreen from './DemoTourScreen';
 import DigitalMoneyConceptScreen from './DigitalMoneyConceptScreen';
+import CoinDigitalLabScreen from './CoinDigitalLabScreen';
 import WalletRemittanceConceptScreen from './WalletRemittanceConceptScreen';
 import FullMoneyJourneyScreen from './FullMoneyJourneyScreen';
 import ProjectLaunchStatusScreen from './ProjectLaunchStatusScreen';
@@ -1474,6 +1475,7 @@ export default function App() {
                 <Btn title="Proveedores financieros por evaluar (sin contratos)" secondary onPress={() => navigate('ProveedoresInvestigacionDemo')} />
                 <Btn title="Retiro de efectivo con código (demostración)" secondary onPress={() => { navigate('RetiroEfectivoDemo'); loadWorldCountries(); }} />
                 <Btn title="Moneda Mundial Digital · Opción C" secondary onPress={() => navigate('MonedaDigitalConcepto')} />
+                <Btn title="Laboratorio Coin ↔ Digital · fichas ficticias" secondary onPress={() => navigate('CoinDigitalLab')} />
                 <Btn title="Configuración" secondary onPress={() => navigate('Configuracion')} />
                 <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
               </View>
@@ -1778,6 +1780,7 @@ export default function App() {
             {screen === 'EstadoLanzamientoDemo' && <ProjectLaunchStatusScreen />}
             {screen === 'ProveedoresInvestigacionDemo' && <ProviderResearchScreen language={language} />}
             {screen === 'MonedaDigitalConcepto' && <DigitalMoneyConceptScreen />}
+            {screen === 'CoinDigitalLab' && userId && <CoinDigitalLabScreen key={userId} userId={userId} />}
 
             {screen === 'Admin' && <View style={styles.card}>
               <Text style={styles.heading}>Administración MWD</Text>
