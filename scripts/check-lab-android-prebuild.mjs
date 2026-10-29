@@ -18,7 +18,7 @@ const version = build.match(/\bversionCode\s*(?:=\s*)?(\d+)\b/);
 assert.ok(appId, 'Gradle debe declarar applicationId');
 assert.ok(version, 'Gradle debe declarar versionCode');
 assert.equal(appId[1], 'com.monedamundial.app.samsunglab');
-assert.equal(Number(version[1]), 1);
+assert.equal(Number(version[1]), 2);
 assert.notEqual(appId[1], base.android.package);
 
 console.log('OK: Android nativo temporal identifica LAB como paquete independiente; app.json original intacto.');
