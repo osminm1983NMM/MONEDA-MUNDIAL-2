@@ -40,27 +40,41 @@ export default function CoinDigitalLabScreen({userId}){
   if(!record||!quote||busyRef.current||loading||saving)return;
   const owner=userId;
   const scenario={direction,amount,coinUsd,digitalUsd};
+  // Reservar la pulsación también durante el diálogo: no abrir dos confirmaciones.
+  busyRef.current=true;
   Alert.alert('Sólo conversión ficticia',
    `Registrar ${quote.fromAmount} ${quote.fromAsset.toUpperCase()} → ${quote.toAmount} ${quote.toAsset.toUpperCase()} en este Samsung? NO cambia MWD ni dinero real.`,
-   [{text:'Cancelar',style:'cancel'},
+   [{text:'Cancelar',style:'cancel',onPress:()=>{busyRef.current=false;}},
     {text:'Registrar prueba',onPress:async()=>{
-      if(busyRef.current||activeUserRef.current!==owner)return;
-      busyRef.current=true;setSaving(true);
+      if(activeUserRef.current!==owner){busyRef.current=false;return;}
+      setSaving(true);
+      const requestId='lab_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,12);
       try{
-       const requestId='lab_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,12);
        const result=await saveLocalLabConversion(AsyncStorage,owner,scenario,requestId);
        if(activeUserRef.current===owner){
         setRecord(result.state);
         Alert.alert('Prueba registrada','Se actualizaron únicamente las fichas locales Coin/Digital.');
        }
       }catch(error){
-       if(activeUserRef.current===owner)
-        Alert.alert('No se registró la prueba',error?.message||'No se guardaron cambios.');
+       // Si el almacenamiento escribió, pero perdió la confirmación, reconciliar
+       // por el mismo ID antes de permitir otra operación.
+       try{
+        const verified=await readLocalLab(AsyncStorage,owner);
+        if(activeUserRef.current===owner){
+         setRecord(verified);
+         if(verified.history.some(entry=>entry.id===requestId))
+          Alert.alert('Registro local confirmado','La ficha se guardó pese al error de respuesta. No la repitas.');
+         else Alert.alert('No se guardó la prueba','El historial no muestra la operación. Comprueba el saldo antes de reintentar.');
+        }
+       }catch{
+        if(activeUserRef.current===owner)
+         Alert.alert('Resultado sin verificar','No repitas la operación. Revisa el historial local al volver a abrir el laboratorio.');
+       }
       }finally{
        busyRef.current=false;
        if(activeUserRef.current===owner)setSaving(false);
       }
-    }}]);
+    }}],{cancelable:false});
  }
 
  return <View style={styles.card}>

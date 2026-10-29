@@ -80,6 +80,23 @@ test('fallo al guardar conserva el registro anterior y no presenta éxito',async
  assert.equal(viewLocalLab(await readLocalLab(storage,A),A).balances.digital,'100');
 });
 
+test('si el almacenamiento escribió pero perdió la confirmación, el mismo ID evita un segundo cargo',async()=>{
+ const map=new Map();
+ let loseAck=true;
+ const storage={
+  getItem:async key=>map.get(key)??null,
+  setItem:async(key,value)=>{map.set(key,value);if(loseAck)throw Error('confirmación perdida');}
+ };
+ await assert.rejects(saveLocalLabConversion(storage,A,first,id,at),/perdida/);
+ const checked=await readLocalLab(storage,A);
+ assert.equal(viewLocalLab(checked,A).balances.coin,'90');
+ assert.equal(checked.history[0].id,id);
+ loseAck=false;
+ const retry=await saveLocalLabConversion(storage,A,first,id,at);
+ assert.equal(retry.duplicate,true);
+ assert.equal(viewLocalLab(retry.state,A).balances.coin,'90');
+});
+
 test('un registro corrupto no se reinicia silenciosamente',async()=>{
  const storage={getItem:async()=>'{mal-json'};
  await assert.rejects(readLocalLab(storage,A),/ilegible/);
