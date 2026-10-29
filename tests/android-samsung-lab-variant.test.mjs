@@ -40,7 +40,7 @@ test('LAB se instala en paralelo y no comparte identidad ni enlaces de la app pr
   const lab = variantConfig('samsung-lab');
   assert.equal(lab.name, 'Moneda Mundial LAB DEMO');
   assert.equal(lab.android.package, 'com.monedamundial.app.samsunglab');
-  assert.equal(lab.android.versionCode, 1);
+  assert.equal(lab.android.versionCode, 2);
   assert.notEqual(lab.android.package, main.android.package);
   assert.notEqual(lab.scheme, main.scheme);
   assert.equal(lab.extra.mwdLabOnly, true);

@@ -16,7 +16,7 @@ try {
       encoding: 'utf8', timeout: 30_000, maxBuffer: 2 * 1024 * 1024,
     });
   const id = leerIdentidadAndroid(informe);
-  if (id.paquete !== 'com.monedamundial.app.samsunglab' || id.versionCode !== 1) {
+  if (id.paquete !== 'com.monedamundial.app.samsunglab' || id.versionCode !== 2) {
     throw new Error('Identidad LAB inesperada: APK no aceptada para el ensayo');
   }
   console.log(JSON.stringify({

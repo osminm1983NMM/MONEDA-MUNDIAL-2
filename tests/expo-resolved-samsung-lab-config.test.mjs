@@ -39,7 +39,7 @@ test('Expo realmente resuelve la identidad Samsung LAB sin sobrescribir la princ
   const config = resolvedExpoConfig('samsung-lab');
   assert.equal(config.name, 'Moneda Mundial LAB DEMO');
   assert.equal(config.android?.package, 'com.monedamundial.app.samsunglab');
-  assert.equal(config.android?.versionCode, 1);
+  assert.equal(config.android?.versionCode, 2);
   assert.equal(config.scheme, 'monedamundiallab');
   assert.equal(config.extra?.mwdLabOnly, true);
   assert.equal(resolvedExpoConfig().android?.package, 'com.monedamundial.app');
