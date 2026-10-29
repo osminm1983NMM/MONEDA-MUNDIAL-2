@@ -36,7 +36,7 @@ import { DEMO_CORRIDORS } from './src/international-demo.mjs';
 import { canApplySessionResponse } from './src/session-guards.mjs';
 import {validateDemoAccountSnapshot,isCurrentDemoWalletRefresh} from './src/demo-wallet-refresh-safety.mjs';
 import { canReusePendingDemoOperation, demoOperationStillBelongsToUser, claimDemoOperationLock, canConfirmDemoOperation } from './src/demo-operation-session.mjs';
-import { newDemoPending, readDemoPending, saveDemoPending, clearDemoPending, classifyDemoPendingStatus } from './src/demo-pending-storage.mjs';
+import { newDemoPending, readDemoPending, saveDemoPending, clearDemoPending, classifyDemoPendingStatus, resolveDefinitiveDemoRecipientRejection } from './src/demo-pending-storage.mjs';
 import {parseRecoveryDeepLink,validateRecoveryPassword} from './src/auth/recovery-link.mjs';
 import { isLatestRequest, isValidDemoQuoteResponse, isValidDemoPaymentPreview } from './src/async-demo-guards.mjs';
 import { needsDemoFeeReview, demoFeeShortfallCents } from './src/quote-risk.mjs';
@@ -1157,7 +1157,44 @@ export default function App() {
         // another user's result or erase an unverified pending request.
         return;
       }
-      if (response.error) throw response.error;
+      if (response.error) {
+        const resolution = await resolveDefinitiveDemoRecipientRejection({
+          pending:record,
+          error:response.error,
+          checkStatus:async (id) => {
+            if (!await canConfirmDemoOperation(supabase.auth, requestedUserId,
+                sessionEpochRef, requestedEpoch)) throw new Error('La sesión cambió durante la verificación.');
+            const checked = await supabase.rpc('mwd_operation_status_demo', {
+              p_request_id:id,
+            });
+            if (checked.error) throw checked.error;
+            if (!await canConfirmDemoOperation(supabase.auth, requestedUserId,
+                sessionEpochRef, requestedEpoch)) throw new Error('La sesión cambió durante la verificación.');
+            return checked.data;
+          },
+          clearPending:async (pending) => {
+            if (!await canConfirmDemoOperation(supabase.auth, requestedUserId,
+                sessionEpochRef, requestedEpoch)) throw new Error('La sesión cambió antes de resolver el rechazo.');
+            await clearDemoPending(AsyncStorage, pending);
+          },
+        });
+        if (resolution === 'rejected') {
+          if (!await canConfirmDemoOperation(supabase.auth, requestedUserId,
+              sessionEpochRef, requestedEpoch)) return;
+          pendingRef.current = null;
+          setPendingRecord(null);
+          setRecipientCode('');
+          setScreen('Inicio');
+          showMessage('Destinatario no disponible',
+            'La transferencia ficticia fue rechazada y el servidor confirmó que no hubo movimiento. No se descontaron MWD.');
+          return;
+        }
+        // Una confirmación contradictoria u otro error exige conservar la
+        // solicitud para consultar el estado, nunca crear un segundo UUID.
+        if (resolution === 'processed')
+          throw new Error('El servidor encontró una operación anterior. Consulta su estado desde Inicio.');
+        throw response.error;
+      }
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
@@ -1206,7 +1243,7 @@ export default function App() {
       const status = classifyDemoPendingStatus(record, data);
       if (status === 'unconfirmed') {
         showMessage('Aún sin confirmar',
-          'El servidor no encuentra esta solicitud. Puedes reintentar exactamente la misma, con el mismo identificador.');
+          'El servidor no encuentra esta solicitud. Revisa el destino antes de decidir si reintentas: el envío podría ejecutarse. Se conservará el mismo identificador.');
         return;
       }
       await clearDemoPending(AsyncStorage, record);
@@ -1225,6 +1262,15 @@ export default function App() {
       busyRef.current = false;
       setBusy(false);
     }
+  }
+
+  function confirmPendingRetry(record) {
+    if (!record || busyRef.current) return;
+    showConfirm('Reintentar solicitud pendiente',
+      `Se usará el mismo identificador de prueba. Si el servidor todavía no procesó la solicitud, podría ejecutarla ahora. ` +
+      (record.type === 'transfer' ? `Comprueba el destino ${record.code} antes de confirmar.` :
+        'Comprueba la aportación antes de confirmar.'),
+      () => executeOperation(record.type, record.cents, record.code));
   }
 
   function prepareOperation(type) {
@@ -1425,7 +1471,7 @@ export default function App() {
                 <Btn title={busy ? 'Consultando...' : 'Consultar estado de la solicitud'}
                   secondary onPress={verifyPendingOperation} disabled={busy} />
                 <Btn title={busy ? 'Espera...' : 'Reintentar exactamente la misma solicitud'}
-                  onPress={() => executeOperation(pendingRecord.type, pendingRecord.cents, pendingRecord.code)}
+                  onPress={() => confirmPendingRetry(pendingRecord)}
                   disabled={busy} />
               </View>}
               <Text style={styles.sectionEyebrow}>MOVIMIENTOS</Text>

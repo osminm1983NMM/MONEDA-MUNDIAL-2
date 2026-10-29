@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   newDemoPending, readDemoPending, saveDemoPending, clearDemoPending,
   classifyDemoPendingStatus, pendingDemoKey,
+  isDefinitiveDemoRecipientRejection, resolveDefinitiveDemoRecipientRejection,
 } from '../src/demo-pending-storage.mjs';
 
 const ALICE = '11111111-1111-4111-8111-111111111111';
@@ -118,4 +119,70 @@ test('aportación ficticia no guarda código de destinatario', async () => {
     mode:'sandbox_only',realPaymentsEnabled:false,status:'processed',
     requestId:ID2,kind:'contribution',amountCents:200,
   }), 'processed');
+});
+
+test('rechazo definitivo del destinatario se verifica y libera sólo el mismo UUID', async () => {
+  const storage = memoryStorage();
+  await saveDemoPending(storage, pending());
+  let checkedId;
+  const result = await resolveDefinitiveDemoRecipientRejection({
+    pending:pending(), error:{code:'P0001',message:'Cuenta destinataria no disponible'},
+    checkStatus:async id => {
+      checkedId=id;
+      return {mode:'sandbox_only',realPaymentsEnabled:false,status:'unconfirmed',requestId:id};
+    },
+    clearPending:record=>clearDemoPending(storage,record),
+  });
+  assert.equal(result,'rejected');
+  assert.equal(checkedId,ID);
+  assert.equal(await readDemoPending(storage,ALICE),null);
+});
+
+test('errores de red y errores desconocidos nunca limpian el pendiente', async () => {
+  const storage = memoryStorage();
+  await saveDemoPending(storage, pending());
+  for (const error of [
+    {message:'Failed to fetch'},
+    {code:'504',message:'Gateway Timeout'},
+    {code:'P0001',message:'Saldo ficticio insuficiente'},
+    {code:'P0001',message:'Cuenta destinataria no disponible ',details:'texto diferente'},
+  ]) {
+    const result=await resolveDefinitiveDemoRecipientRejection({
+      pending:pending(),error,
+      checkStatus:()=>{throw Error('No se debe consultar');},
+      clearPending:()=>{throw Error('No se debe borrar');},
+    });
+    assert.equal(result,'unknown');
+  }
+  assert.deepEqual(await readDemoPending(storage,ALICE),pending());
+});
+
+test('si falla la consulta o devuelve datos contradictorios se conserva el pendiente', async () => {
+  const storage=memoryStorage();
+  await saveDemoPending(storage,pending());
+  const error={code:'P0001',message:'Cuenta destinataria no disponible'};
+  for(const checkStatus of [
+    async()=>{throw Error('Sin conexión');},
+    async()=>({mode:'sandbox_only',realPaymentsEnabled:false,status:'unconfirmed',requestId:ID2}),
+  ]) {
+    await assert.rejects(resolveDefinitiveDemoRecipientRejection({
+      pending:pending(),error,checkStatus,
+      clearPending:record=>clearDemoPending(storage,record),
+    }));
+    assert.deepEqual(await readDemoPending(storage,ALICE),pending());
+  }
+});
+
+test('si el servidor dice procesado, no se borra por un rechazo contradictorio', async () => {
+  const storage=memoryStorage();
+  await saveDemoPending(storage,pending());
+  const result=await resolveDefinitiveDemoRecipientRejection({
+    pending:pending(),error:{code:'P0001',message:'Cuenta destinataria no disponible'},
+    checkStatus:async id=>({mode:'sandbox_only',realPaymentsEnabled:false,
+      status:'processed',requestId:id,kind:'transfer',amountCents:123,recipientCode:account}),
+    clearPending:record=>clearDemoPending(storage,record),
+  });
+  assert.equal(result,'processed');
+  assert.deepEqual(await readDemoPending(storage,ALICE),pending());
+  assert.equal(isDefinitiveDemoRecipientRejection(pending(),{code:'P0001',message:'Cuenta destinataria no disponible'}),true);
 });

@@ -42,7 +42,8 @@ module.exports = ({config}) => {
     android: {
       ...config.android,
       package: LAB_PACKAGE,
-      versionCode: 1,
+      // Permite actualizar la APK LAB instalada sin borrar sus datos locales.
+      versionCode: 2,
     },
     extra: {
       ...config.extra,

@@ -88,3 +88,26 @@ export function classifyDemoPendingStatus(pending, response) {
   }
   return 'processed';
 }
+
+// Sólo un rechazo concreto del RPC de transferencia puede considerarse
+// definitivo. Un error de conexión, timeout o una respuesta inesperada
+// conserva la solicitud para evitar duplicaciones.
+export function isDefinitiveDemoRecipientRejection(pending, error) {
+  return isValidDemoPending(pending) && pending.type === 'transfer' &&
+    error?.code === 'P0001' &&
+    error?.message === 'Cuenta destinataria no disponible';
+}
+
+// Después del rechazo, verificar en el servidor que ese mismo UUID no tenga
+// un movimiento registrado ANTES de retirar el bloqueo local. Si no se puede
+// comprobar, el registro permanece intacto.
+export async function resolveDefinitiveDemoRecipientRejection({
+  pending, error, checkStatus, clearPending,
+}) {
+  if (!isDefinitiveDemoRecipientRejection(pending, error)) return 'unknown';
+  const response = await checkStatus(pending.id);
+  const status = classifyDemoPendingStatus(pending, response);
+  if (status === 'processed') return 'processed';
+  await clearPending(pending);
+  return 'rejected';
+}
