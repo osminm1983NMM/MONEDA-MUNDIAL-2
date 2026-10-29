@@ -1,9 +1,17 @@
 {
   "build": {
-    "preview": {"node": "22.23.3",
+    "preview": {
+      "node": "22.23.3",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      }
+    },
+    "isolated-test": {
+      "extends": "preview",
+      "environment": "preview",
+      "env": {
+        "MWD_APP_VARIANT": "isolated-test"
       }
     },
     "samsung-lab": {
