@@ -46,3 +46,5 @@ jobs:
         run: npm install --ignore-scripts --no-audit --no-fund
       - name: Validar configuración pública de Expo
         run: npx expo config --type public
+      - name: Verificar compatibilidad de dependencias con Expo SDK
+        run: npx expo install --check
