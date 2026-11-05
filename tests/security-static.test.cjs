@@ -62,3 +62,14 @@ test('los mensajes de error de operaciones se restringen al usuario activo', () 
   assert.match(app, /if \(activeUserRef\.current === userId\) message\('Operación no confirmada'/);
   assert.match(app, /if \(activeUserRef\.current === item\.userId\) message\('Reintento sin confirmar'/);
 });
+
+test('si cambia la cuenta después de guardar, no se envía la transferencia', () => {
+  const start = app.indexOf('async function executeOperation');
+  const end = app.indexOf('function prepareOperation', start);
+  assert.ok(start >= 0 && end > start);
+  const fn = app.slice(start, end);
+  const storage = fn.indexOf('await AsyncStorage.setItem');
+  const sessionGuard = fn.indexOf('if (activeUserRef.current !== item.userId) return;');
+  const rpc = fn.indexOf("supabase.rpc('mwd_transfer_demo'");
+  assert.ok(storage >= 0 && sessionGuard > storage && rpc > sessionGuard);
+});
