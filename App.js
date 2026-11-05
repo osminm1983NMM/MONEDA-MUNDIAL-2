@@ -262,15 +262,15 @@ export default function App() {
         setPendingOperation(null);
         setPendingUnconfirmed(false);
         await refreshAccount(userId);
-        message('Operación confirmada', 'Supabase confirmó que esta operación ficticia ya fue procesada.');
+        if (activeUserRef.current === item.userId) message('Operación confirmada', 'Supabase confirmó que esta operación ficticia ya fue procesada.');
       } else if (data?.status === 'unconfirmed') {
         setPendingUnconfirmed(true);
-        message('Operación sin confirmar', 'No aparece procesada. Conservamos su referencia. No se ha realizado un segundo envío.');
+        if (activeUserRef.current === item.userId) message('Operación sin confirmar', 'No aparece procesada. Conservamos su referencia. No se ha realizado un segundo envío.');
       } else {
         throw new Error('Estado desconocido. Conservamos la referencia para revisión.');
       }
     } catch (error) {
-      message('Verificación pendiente', error.message || 'No se pudo consultar el estado.');
+      if (activeUserRef.current === item.userId) message('Verificación pendiente', error.message || 'No se pudo consultar el estado.');
     } finally {
       if (activeUserRef.current === item.userId) setRecovering(false);
     }
@@ -306,9 +306,9 @@ export default function App() {
           pendingRef.current = null;
           setPendingOperation(null);
           await refreshAccount(item.userId);
-          message('Operación confirmada', 'La solicitud ficticia fue registrada sin generar un identificador nuevo.');
+          if (activeUserRef.current === item.userId) message('Operación confirmada', 'La solicitud ficticia fue registrada sin generar un identificador nuevo.');
         } catch (error) {
-          message('Reintento sin confirmar', (error.message || 'Error desconocido') +
+          if (activeUserRef.current === item.userId) message('Reintento sin confirmar', (error.message || 'Error desconocido') +
             '\nConservamos la referencia. Consulta nuevamente el estado antes de reintentar.');
         } finally {
           // Una respuesta tardía de A no debe desbloquear una operación de B.
@@ -356,7 +356,7 @@ export default function App() {
       setRecipientCode('');
       setScreen('Inicio');
       await refreshAccount();
-      message('Operación ficticia confirmada', type === 'transfer'
+      if (activeUserRef.current === userId) message('Operación ficticia confirmada', type === 'transfer'
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
     } catch (error) {
@@ -365,7 +365,7 @@ export default function App() {
       if (pendingRef.current?.userId === userId) {
         setPendingOperation(pendingRef.current);
       }
-      message('Operación no confirmada',
+      if (activeUserRef.current === userId) message('Operación no confirmada',
         (error.message || 'Error desconocido') + '\nNo inicies otra operación. Verifica primero el estado pendiente desde Inicio.');
     } finally {
       // No modificar el indicador de actividad de una sesión diferente.
