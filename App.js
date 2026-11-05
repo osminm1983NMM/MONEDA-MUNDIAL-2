@@ -127,6 +127,11 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
+    // La actividad visual y el bloqueo en memoria pertenecen a la sesión actual.
+    // Los procesos antiguos comprueban activeUserRef antes de limpiar su estado.
+    busyRef.current = false;
+    setBusy(false);
+    setRecovering(false);
     pendingRef.current = null;
     setPendingOperation(null);
     setPendingLoading(true);
