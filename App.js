@@ -420,7 +420,7 @@ export default function App() {
                 {pendingUnconfirmed && <Btn title="Reintentar misma solicitud" secondary onPress={retryPending} disabled={busy || recovering} />}
               </View>}
               <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet || !!pendingOperation || pendingLoading || pendingStorageError || recovering} />
-              <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet || !!pendingOperation} />
+              <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet || !!pendingOperation || pendingLoading || pendingStorageError || recovering || busy} />
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
               <Btn title="Actualizar saldo e historial" secondary onPress={() => refreshAccount()} disabled={syncing} />
