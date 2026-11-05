@@ -42,3 +42,19 @@ test('respuestas tardías no limpian el estado de otra cuenta', () => {
 test('sin funciones de pago real en esta pantalla', () => {
   assert.match(app, /SOLO DEMOSTRACIÓN • SIN DINERO REAL/);
 });
+
+test('las consultas de saldo ignoran respuestas de otra sesión', () => {
+  assert.match(app, /activeUserRef\.current !== id \|\| sequence !== refreshSequenceRef\.current/);
+});
+test('la recuperación consulta el estado de la solicitud original', () => {
+  const start = app.indexOf('async function recoverPending');
+  const end = app.indexOf('async function retryPending', start);
+  const fn = app.slice(start, end);
+  assert.match(fn, /mwd_operation_status_demo/);
+  assert.match(fn, /p_request_id: item\.id/);
+  assert.match(fn, /activeUserRef\.current !== item\.userId/);
+});
+test('los mensajes de error de operaciones se restringen al usuario activo', () => {
+  assert.match(app, /if \(activeUserRef\.current === userId\) message\('Operación no confirmada'/);
+  assert.match(app, /if \(activeUserRef\.current === item\.userId\) message\('Reintento sin confirmar'/);
+});
