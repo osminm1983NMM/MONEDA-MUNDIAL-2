@@ -96,6 +96,8 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
+  const [pendingOperation, setPendingOperation] = useState(null);
+  const [recovering, setRecovering] = useState(false);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -116,6 +118,28 @@ export default function App() {
     });
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    pendingRef.current = null;
+    setPendingOperation(null);
+    if (!userId) return () => { active = false; };
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(`mwd_pending_${userId}`);
+        if (active && raw) {
+          const item = JSON.parse(raw);
+          if (item?.id && item?.userId === userId) {
+            pendingRef.current = item;
+            setPendingOperation(item);
+          }
+        }
+      } catch (error) {
+        if (active) message('Recuperación', 'No se pudo leer la operación pendiente. No realices otra transferencia hasta revisar el historial.');
+      }
+    })();
+    return () => { active = false; };
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) {
@@ -181,11 +205,32 @@ export default function App() {
 
   function changeAmount(value) {
     setAmount(value);
-    pendingRef.current = null;
   }
   function changeRecipient(value) {
     setRecipientCode(value);
-    pendingRef.current = null;
+  }
+
+  async function recoverPending() {
+    const item = pendingRef.current || pendingOperation;
+    if (!item || !userId || item.userId !== userId || recovering) return;
+    setRecovering(true);
+    try {
+      const { data, error } = await supabase.rpc('mwd_operation_status_demo', { p_request_id: item.id });
+      if (error) throw error;
+      if (data?.status === 'processed') {
+        await AsyncStorage.removeItem(`mwd_pending_${userId}`);
+        pendingRef.current = null;
+        setPendingOperation(null);
+        await refreshAccount(userId);
+        message('Operación confirmada', 'Supabase confirmó que esta operación ficticia ya fue procesada.');
+      } else {
+        message('Operación sin confirmar', 'No aparece procesada. Conservamos su referencia. No se ha realizado un segundo envío.');
+      }
+    } catch (error) {
+      message('Verificación pendiente', error.message || 'No se pudo consultar el estado.');
+    } finally {
+      setRecovering(false);
+    }
   }
 
   async function executeOperation(type, cents, code = '') {
@@ -193,11 +238,13 @@ export default function App() {
     busyRef.current = true;
     setBusy(true);
     try {
-      const pending = pendingRef.current;
-      if (!pending || pending.type !== type || pending.cents !== cents || pending.code !== code) {
-        pendingRef.current = { type, cents, code, id: uniqueRequestId() };
-      }
-      const requestId = pendingRef.current.id;
+      if (pendingOperation) throw new Error('Existe una operación pendiente. Verifica su estado antes de continuar.');
+      const item = { type, cents, code, id: uniqueRequestId(), userId };
+      // Persistir ANTES de enviar la solicitud; si falla el almacenamiento, no enviarla.
+      await AsyncStorage.setItem(`mwd_pending_${userId}`, JSON.stringify(item));
+      pendingRef.current = item;
+      setPendingOperation(item);
+      const requestId = item.id;
       const response = type === 'transfer'
         ? await supabase.rpc('mwd_transfer_demo', {
           p_recipient_code: code, p_amount_cents: cents, p_request_id: requestId,
@@ -209,7 +256,9 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
+      await AsyncStorage.removeItem(`mwd_pending_${userId}`);
       pendingRef.current = null;
+      setPendingOperation(null);
       setAmount('');
       setRecipientCode('');
       setScreen('Inicio');
@@ -227,7 +276,8 @@ export default function App() {
   }
 
   function prepareOperation(type) {
-    if (busyRef.current) return;
+    if (busyRef.current || recovering) return;
+    if (pendingOperation) return message('Operación pendiente', 'Consulta primero el estado de la operación anterior.');
     const cents = amountToCents(amount);
     if (cents === null) {
       return message('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
@@ -255,7 +305,7 @@ export default function App() {
     setScreen(to);
     setAmount('');
     setRecipientCode('');
-    pendingRef.current = null;
+    // No borrar referencias persistidas al navegar.
   }
 
   return (
@@ -291,8 +341,13 @@ export default function App() {
                 <Text style={styles.muted}>Saldo ficticio en Supabase</Text>
                 <Text selectable style={styles.code}>{wallet?.account_code || 'Cargando identificador...'}</Text>
               </View>
-              <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet} />
-              <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
+              {pendingOperation && <View style={styles.card}>
+                <Text style={styles.heading}>Operación pendiente de verificación</Text>
+                <Text style={styles.muted}>No inicies otra operación hasta comprobar el resultado en Supabase.</Text>
+                <Btn title={recovering ? 'Consultando...' : 'Verificar operación pendiente'} onPress={recoverPending} disabled={recovering || busy} />
+              </View>}
+              <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet || !!pendingOperation} />
+              <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet || !!pendingOperation} />
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
               <Btn title="Actualizar saldo e historial" secondary onPress={() => refreshAccount()} disabled={syncing} />
