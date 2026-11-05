@@ -127,7 +127,7 @@ export default function App() {
     refreshAccount(userId);
   }, [userId]);
 
-  async function refreshAccount(id = userId) {
+  async function refreshAccount(id = userId, notifySuccess = false) {
     if (!id) return;
     setSyncing(true);
     try {
@@ -147,6 +147,7 @@ export default function App() {
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
+      if (notifySuccess) message('Actualización completada', 'Saldo e historial de prueba sincronizados correctamente.');
     } catch (error) {
       message('Sincronización', error.message || 'No se pudo consultar Supabase.');
     } finally {
@@ -295,7 +296,7 @@ export default function App() {
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
-              <Btn title="Actualizar saldo e historial" secondary onPress={() => refreshAccount()} disabled={syncing} />
+              <Btn title="Actualizar saldo e historial" secondary onPress={() => refreshAccount(userId, true)} disabled={syncing} />
               <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
               <Btn title="Cerrar sesión" secondary onPress={logout} />
             </>}
