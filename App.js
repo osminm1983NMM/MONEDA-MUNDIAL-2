@@ -187,7 +187,7 @@ export default function App() {
       if (w.error) throw w.error;
       if (h.error) throw h.error;
       if (a.error) throw a.error;
-      if (supabase.auth.getUser && supabase.auth && id !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      if (activeUserRef.current !== id) return;
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
@@ -232,7 +232,8 @@ export default function App() {
 
   async function recoverPending() {
     const item = pendingRef.current || pendingOperation;
-    if (!item || !userId || item.userId !== userId || recovering || busyRef.current) return;
+    if (!item || !userId || item.userId !== userId || recovering || busyRef.current || pendingLoading || pendingStorageError) return;
+    setPendingUnconfirmed(false);
     setRecovering(true);
     try {
       const { data, error } = await supabase.rpc('mwd_operation_status_demo', { p_request_id: item.id });
@@ -266,7 +267,8 @@ export default function App() {
     confirmAction('Reintento protegido',
       'Se enviará la MISMA solicitud ficticia con el MISMO identificador. Supabase debe impedir el doble descuento.',
       async () => {
-        if (busyRef.current || !pendingRef.current || pendingRef.current.id !== item.id) return;
+        if (busyRef.current || activeUserRef.current !== item.userId ||
+            !pendingRef.current || pendingRef.current.id !== item.id) return;
         busyRef.current = true;
         setBusy(true);
         setPendingUnconfirmed(false);
@@ -291,7 +293,7 @@ export default function App() {
           message('Operación confirmada', 'La solicitud ficticia fue registrada sin generar un identificador nuevo.');
         } catch (error) {
           message('Reintento sin confirmar', (error.message || 'Error desconocido') +
-            '\\nConservamos la referencia. Consulta nuevamente el estado antes de reintentar.');
+            '\nConservamos la referencia. Consulta nuevamente el estado antes de reintentar.');
         } finally {
           busyRef.current = false;
           setBusy(false);
@@ -310,6 +312,7 @@ export default function App() {
       const item = { type, cents, code, id: uniqueRequestId(), userId };
       // Persistir ANTES de enviar la solicitud; si falla el almacenamiento, no enviarla.
       await AsyncStorage.setItem(`mwd_pending_${userId}`, JSON.stringify(item));
+      if (activeUserRef.current !== item.userId) return;
       pendingRef.current = item;
       setPendingOperation(item);
       const requestId = item.id;
