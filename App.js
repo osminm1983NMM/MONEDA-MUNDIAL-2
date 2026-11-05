@@ -166,12 +166,11 @@ export default function App() {
   }, [userId]);
 
   useEffect(() => {
-    if (!userId) {
-      setWallet(null);
-      setOperations([]);
-      setAdminRole(null);
-      return;
-    }
+    // No mostrar información de la cuenta anterior mientras carga la nueva.
+    setWallet(null);
+    setOperations([]);
+    setAdminRole(null);
+    if (!userId) return;
     refreshAccount(userId);
   }, [userId]);
 
