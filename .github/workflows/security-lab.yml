@@ -9,6 +9,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: security-lab-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -25,4 +29,4 @@ jobs:
         with:
           node-version: '22'
       - name: Ejecutar verificaciones
-        run: node --test tests/security-static.test.cjs
+        run: npm test
