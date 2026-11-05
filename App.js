@@ -219,8 +219,41 @@ export default function App() {
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
     } catch (error) {
+      // Ante un error de red, consultar el estado antes de recomendar un reintento.
+      // La consulta es de solo lectura y se limita a la operación del usuario.
+      const requestId = pendingRef.current?.id;
+      if (requestId) {
+        try {
+          const { data: status, error: statusError } = await supabase.rpc(
+            'mwd_operation_status_demo', { p_request_id: requestId }
+          );
+          if (statusError) throw statusError;
+          const sameOperation = status?.status === 'processed'
+            && status.kind === (type === 'transfer' ? 'transfer' : 'contribution')
+            && Number(status.amountCents) === cents
+            && (type !== 'transfer' || status.recipientCode === code);
+          if (sameOperation) {
+            pendingRef.current = null;
+            setAmount('');
+            setRecipientCode('');
+            setScreen('Inicio');
+            await refreshAccount();
+            message('Operación ficticia confirmada',
+              'La operación ya estaba registrada. No se envió una segunda vez.');
+            return;
+          }
+          if (status?.status === 'processed') {
+            message('Revisión necesaria',
+              'La referencia existe, pero sus datos no coinciden. No vuelvas a enviar.');
+            return;
+          }
+        } catch (_statusError) {
+          // Sin confirmación: conservar la referencia original para un reintento seguro.
+        }
+      }
       message('Operación no confirmada',
-        (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
+        (error.message || 'Error desconocido') +
+        '\nNo cambies los datos si reintentas. La misma referencia se conservará.');
     } finally {
       busyRef.current = false;
       setBusy(false);
