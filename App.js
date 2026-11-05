@@ -387,6 +387,12 @@ export default function App() {
   }
 
   async function logout() {
+    // Evitar cambios de cuenta mientras una RPC o recuperación sigue activa.
+    // Si existe una referencia pendiente, se conserva por usuario para recuperarla.
+    if (busyRef.current || recovering || pendingLoading) {
+      message('Operación en curso', 'Espera a que termine la verificación antes de cerrar sesión.');
+      return;
+    }
     const { error } = await supabase.auth.signOut();
     if (error) message('Salida', error.message);
   }
@@ -445,7 +451,7 @@ export default function App() {
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
               <Btn title="Actualizar saldo e historial" secondary onPress={() => refreshAccount()} disabled={syncing} />
               <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
-              <Btn title="Cerrar sesión" secondary onPress={logout} />
+              <Btn title="Cerrar sesión" secondary onPress={logout} disabled={busy || recovering || pendingLoading} />
             </>}
 
             {screen === 'Transferir' && <View style={styles.card}>
