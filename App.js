@@ -312,6 +312,7 @@ export default function App() {
       const item = { type, cents, code, id: uniqueRequestId(), userId };
       // Persistir ANTES de enviar la solicitud; si falla el almacenamiento, no enviarla.
       await AsyncStorage.setItem(`mwd_pending_${userId}`, JSON.stringify(item));
+      // Mantener el bloqueo incluso si cambia la sesión mientras se guarda la referencia.
       if (activeUserRef.current !== item.userId) return;
       pendingRef.current = item;
       setPendingOperation(item);
@@ -340,6 +341,11 @@ export default function App() {
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
     } catch (error) {
+      // Si el almacenamiento falló antes de crear la referencia, no se envió la RPC.
+      // Si falló después, conservar el bloqueo y consultar el estado antes de reintentar.
+      if (pendingRef.current?.userId === userId) {
+        setPendingOperation(pendingRef.current);
+      }
       message('Operación no confirmada',
         (error.message || 'Error desconocido') + '\nNo inicies otra operación. Verifica primero el estado pendiente desde Inicio.');
     } finally {
