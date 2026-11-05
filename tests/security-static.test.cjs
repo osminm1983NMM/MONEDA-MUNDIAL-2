@@ -73,3 +73,10 @@ test('si cambia la cuenta después de guardar, no se envía la transferencia', (
   const rpc = fn.indexOf("supabase.rpc('mwd_transfer_demo'");
   assert.ok(storage >= 0 && sessionGuard > storage && rpc > sessionGuard);
 });
+
+test('un error tardío no restaura operaciones de otra sesión', () => {
+  const start = app.indexOf('async function executeOperation');
+  const end = app.indexOf('function prepareOperation', start);
+  const fn = app.slice(start, end);
+  assert.match(fn, /if \(activeUserRef\.current === userId && pendingRef\.current\?\.userId === userId\) \{\s*setPendingOperation\(pendingRef\.current\)/);
+});
