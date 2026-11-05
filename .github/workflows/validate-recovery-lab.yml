@@ -1,0 +1,21 @@
+name: Validate recovery lab
+on:
+  workflow_dispatch:
+
+jobs:
+  bundle-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install --no-package-lock --no-audit --no-fund
+      - name: Check Android JavaScript bundle
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+        run: npx expo export --platform android --output-dir /tmp/mwd-recovery-bundle
