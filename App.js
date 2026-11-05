@@ -103,6 +103,7 @@ export default function App() {
   const [pendingUnconfirmed, setPendingUnconfirmed] = useState(false);
   const userId = session?.user?.id;
   const activeUserRef = useRef(null);
+  const refreshSequenceRef = useRef(0);
   activeUserRef.current = userId;
 
   useEffect(() => {
@@ -180,6 +181,7 @@ export default function App() {
 
   async function refreshAccount(id = userId) {
     if (!id) return;
+    const sequence = ++refreshSequenceRef.current;
     setSyncing(true);
     try {
       const [w, h, a] = await Promise.all([
@@ -194,14 +196,16 @@ export default function App() {
       if (w.error) throw w.error;
       if (h.error) throw h.error;
       if (a.error) throw a.error;
-      if (activeUserRef.current !== id) return;
+      if (activeUserRef.current !== id || sequence !== refreshSequenceRef.current) return;
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
     } catch (error) {
-      message('Sincronización', error.message || 'No se pudo consultar Supabase.');
+      if (activeUserRef.current === id && sequence === refreshSequenceRef.current) {
+        message('Sincronización', error.message || 'No se pudo consultar Supabase.');
+      }
     } finally {
-      setSyncing(false);
+      if (activeUserRef.current === id && sequence === refreshSequenceRef.current) setSyncing(false);
     }
   }
 
