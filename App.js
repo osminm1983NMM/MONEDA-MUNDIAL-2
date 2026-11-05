@@ -362,7 +362,7 @@ export default function App() {
     } catch (error) {
       // Si el almacenamiento falló antes de crear la referencia, no se envió la RPC.
       // Si falló después, conservar el bloqueo y consultar el estado antes de reintentar.
-      if (pendingRef.current?.userId === userId) {
+      if (activeUserRef.current === userId && pendingRef.current?.userId === userId) {
         setPendingOperation(pendingRef.current);
       }
       if (activeUserRef.current === userId) message('Operación no confirmada',
