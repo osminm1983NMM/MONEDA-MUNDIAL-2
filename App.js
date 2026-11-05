@@ -140,9 +140,13 @@ export default function App() {
         const raw = await AsyncStorage.getItem(`mwd_pending_${userId}`);
         if (active && raw) {
           const item = JSON.parse(raw);
-          if (item?.id && item?.userId === userId &&
+          if (typeof item?.id === 'string' &&
+              /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.id) &&
+              item.userId === userId &&
               ['transfer', 'contribution'].includes(item.type) &&
-              Number.isSafeInteger(item.cents) && item.cents > 0) {
+              Number.isSafeInteger(item.cents) && item.cents >= 1 && item.cents <= LIMIT_CENTS &&
+              (item.type === 'contribution' ||
+                (typeof item.code === 'string' && /^MWD-[A-F0-9]{16}$/.test(item.code)))) {
             pendingRef.current = item;
             setPendingOperation(item);
           } else {
