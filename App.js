@@ -170,6 +170,10 @@ export default function App() {
     setWallet(null);
     setOperations([]);
     setAdminRole(null);
+    // Limpiar también los datos escritos en formularios de la cuenta anterior.
+    setAmount('');
+    setRecipientCode('');
+    setPendingUnconfirmed(false);
     if (!userId) return;
     refreshAccount(userId);
   }, [userId]);
