@@ -101,9 +101,9 @@ export default function App() {
   const [pendingLoading, setPendingLoading] = useState(true);
   const [pendingStorageError, setPendingStorageError] = useState(false);
   const [pendingUnconfirmed, setPendingUnconfirmed] = useState(false);
+  const userId = session?.user?.id;
   const activeUserRef = useRef(null);
   activeUserRef.current = userId;
-  const userId = session?.user?.id;
 
   useEffect(() => {
     let active = true;
