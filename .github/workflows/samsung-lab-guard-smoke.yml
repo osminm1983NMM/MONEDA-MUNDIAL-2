@@ -1,0 +1,28 @@
+name: Validar identidad Samsung LAB DEMO
+
+on:
+  pull_request:
+    paths:
+      - 'tests/samsung-lab-guard-smoke.test.mjs'
+      - '.github/workflows/samsung-lab-guard-smoke.yml'
+      - 'app.config.js'
+      - 'app.json'
+      - 'eas.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verificar-identidad:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Comprobar identidad Android sin compilar APK
+        run: node --test tests/samsung-lab-guard-smoke.test.mjs tests/android-samsung-lab-variant.test.mjs
+
+# No ejecuta Expo, EAS Build, instalaciones, secretos ni despliegues.
