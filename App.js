@@ -101,6 +101,8 @@ export default function App() {
   const [pendingLoading, setPendingLoading] = useState(true);
   const [pendingStorageError, setPendingStorageError] = useState(false);
   const [pendingUnconfirmed, setPendingUnconfirmed] = useState(false);
+  const activeUserRef = useRef(null);
+  activeUserRef.current = userId;
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -138,9 +140,13 @@ export default function App() {
         const raw = await AsyncStorage.getItem(`mwd_pending_${userId}`);
         if (active && raw) {
           const item = JSON.parse(raw);
-          if (item?.id && item?.userId === userId) {
+          if (item?.id && item?.userId === userId &&
+              ['transfer', 'contribution'].includes(item.type) &&
+              Number.isSafeInteger(item.cents) && item.cents > 0) {
             pendingRef.current = item;
             setPendingOperation(item);
+          } else {
+            throw new Error('Referencia pendiente inválida');
           }
         }
       } catch (error) {
@@ -231,8 +237,10 @@ export default function App() {
     try {
       const { data, error } = await supabase.rpc('mwd_operation_status_demo', { p_request_id: item.id });
       if (error) throw error;
+      if (activeUserRef.current !== item.userId) return;
       if (data?.status === 'processed') {
         await AsyncStorage.removeItem(`mwd_pending_${userId}`);
+        if (activeUserRef.current !== item.userId) return;
         pendingRef.current = null;
         setPendingOperation(null);
         setPendingUnconfirmed(false);
@@ -271,10 +279,12 @@ export default function App() {
                 p_amount_cents: item.cents, p_request_id: item.id,
               });
           if (response.error) throw response.error;
+          if (activeUserRef.current !== item.userId) return;
           if (!['ok', 'already_processed'].includes(response.data?.status)) {
             throw new Error('Supabase no confirmó el resultado.');
           }
           await AsyncStorage.removeItem(`mwd_pending_${item.userId}`);
+          if (activeUserRef.current !== item.userId) return;
           pendingRef.current = null;
           setPendingOperation(null);
           await refreshAccount(item.userId);
@@ -311,10 +321,12 @@ export default function App() {
           p_amount_cents: cents, p_request_id: requestId,
         });
       if (response.error) throw response.error;
+      if (activeUserRef.current !== item.userId) return;
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
       await AsyncStorage.removeItem(`mwd_pending_${userId}`);
+      if (activeUserRef.current !== item.userId) return;
       pendingRef.current = null;
       setPendingOperation(null);
       setAmount('');
