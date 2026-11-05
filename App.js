@@ -100,6 +100,7 @@ export default function App() {
   const [recovering, setRecovering] = useState(false);
   const [pendingLoading, setPendingLoading] = useState(true);
   const [pendingStorageError, setPendingStorageError] = useState(false);
+  const [pendingUnconfirmed, setPendingUnconfirmed] = useState(false);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -127,6 +128,7 @@ export default function App() {
     setPendingOperation(null);
     setPendingLoading(true);
     setPendingStorageError(false);
+    setPendingUnconfirmed(false);
     if (!userId) {
       setPendingLoading(false);
       return () => { active = false; };
@@ -233,9 +235,11 @@ export default function App() {
         await AsyncStorage.removeItem(`mwd_pending_${userId}`);
         pendingRef.current = null;
         setPendingOperation(null);
+        setPendingUnconfirmed(false);
         await refreshAccount(userId);
         message('Operación confirmada', 'Supabase confirmó que esta operación ficticia ya fue procesada.');
       } else if (data?.status === 'unconfirmed') {
+        setPendingUnconfirmed(true);
         message('Operación sin confirmar', 'No aparece procesada. Conservamos su referencia. No se ha realizado un segundo envío.');
       } else {
         throw new Error('Estado desconocido. Conservamos la referencia para revisión.');
@@ -245,6 +249,44 @@ export default function App() {
     } finally {
       setRecovering(false);
     }
+  }
+
+  async function retryPending() {
+    const item = pendingRef.current || pendingOperation;
+    if (!pendingUnconfirmed || !item || item.userId !== userId ||
+        pendingLoading || pendingStorageError || recovering || busyRef.current) return;
+    confirmAction('Reintento protegido',
+      'Se enviará la MISMA solicitud ficticia con el MISMO identificador. Supabase debe impedir el doble descuento.',
+      async () => {
+        if (busyRef.current || !pendingRef.current || pendingRef.current.id !== item.id) return;
+        busyRef.current = true;
+        setBusy(true);
+        setPendingUnconfirmed(false);
+        try {
+          const response = item.type === 'transfer'
+            ? await supabase.rpc('mwd_transfer_demo', {
+                p_recipient_code: item.code, p_amount_cents: item.cents, p_request_id: item.id,
+              })
+            : await supabase.rpc('mwd_contribute_demo', {
+                p_amount_cents: item.cents, p_request_id: item.id,
+              });
+          if (response.error) throw response.error;
+          if (!['ok', 'already_processed'].includes(response.data?.status)) {
+            throw new Error('Supabase no confirmó el resultado.');
+          }
+          await AsyncStorage.removeItem(`mwd_pending_${item.userId}`);
+          pendingRef.current = null;
+          setPendingOperation(null);
+          await refreshAccount(item.userId);
+          message('Operación confirmada', 'La solicitud ficticia fue registrada sin generar un identificador nuevo.');
+        } catch (error) {
+          message('Reintento sin confirmar', (error.message || 'Error desconocido') +
+            '\\nConservamos la referencia. Consulta nuevamente el estado antes de reintentar.');
+        } finally {
+          busyRef.current = false;
+          setBusy(false);
+        }
+      });
   }
 
   async function executeOperation(type, cents, code = '') {
@@ -363,6 +405,7 @@ export default function App() {
                 <Text style={styles.heading}>Operación pendiente de verificación</Text>
                 <Text style={styles.muted}>No inicies otra operación hasta comprobar el resultado en Supabase.</Text>
                 <Btn title={recovering ? 'Consultando...' : 'Verificar operación pendiente'} onPress={recoverPending} disabled={recovering || busy} />
+                {pendingUnconfirmed && <Btn title="Reintentar misma solicitud" secondary onPress={retryPending} disabled={busy || recovering} />}
               </View>}
               <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet || !!pendingOperation || pendingLoading || pendingStorageError || recovering} />
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet || !!pendingOperation} />
