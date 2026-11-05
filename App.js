@@ -98,6 +98,8 @@ export default function App() {
   const pendingRef = useRef(null);
   const [pendingOperation, setPendingOperation] = useState(null);
   const [recovering, setRecovering] = useState(false);
+  const [pendingLoading, setPendingLoading] = useState(true);
+  const [pendingStorageError, setPendingStorageError] = useState(false);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -123,7 +125,12 @@ export default function App() {
     let active = true;
     pendingRef.current = null;
     setPendingOperation(null);
-    if (!userId) return () => { active = false; };
+    setPendingLoading(true);
+    setPendingStorageError(false);
+    if (!userId) {
+      setPendingLoading(false);
+      return () => { active = false; };
+    }
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(`mwd_pending_${userId}`);
@@ -135,7 +142,12 @@ export default function App() {
           }
         }
       } catch (error) {
-        if (active) message('Recuperación', 'No se pudo leer la operación pendiente. No realices otra transferencia hasta revisar el historial.');
+        if (active) {
+          setPendingStorageError(true);
+          message('Recuperación', 'No se pudo leer la operación pendiente. Se bloquearon nuevas operaciones por seguridad.');
+        }
+      } finally {
+        if (active) setPendingLoading(false);
       }
     })();
     return () => { active = false; };
@@ -212,7 +224,7 @@ export default function App() {
 
   async function recoverPending() {
     const item = pendingRef.current || pendingOperation;
-    if (!item || !userId || item.userId !== userId || recovering) return;
+    if (!item || !userId || item.userId !== userId || recovering || busyRef.current) return;
     setRecovering(true);
     try {
       const { data, error } = await supabase.rpc('mwd_operation_status_demo', { p_request_id: item.id });
@@ -223,8 +235,10 @@ export default function App() {
         setPendingOperation(null);
         await refreshAccount(userId);
         message('Operación confirmada', 'Supabase confirmó que esta operación ficticia ya fue procesada.');
-      } else {
+      } else if (data?.status === 'unconfirmed') {
         message('Operación sin confirmar', 'No aparece procesada. Conservamos su referencia. No se ha realizado un segundo envío.');
+      } else {
+        throw new Error('Estado desconocido. Conservamos la referencia para revisión.');
       }
     } catch (error) {
       message('Verificación pendiente', error.message || 'No se pudo consultar el estado.');
@@ -238,7 +252,9 @@ export default function App() {
     busyRef.current = true;
     setBusy(true);
     try {
-      if (pendingOperation) throw new Error('Existe una operación pendiente. Verifica su estado antes de continuar.');
+      if (!userId || pendingLoading || pendingStorageError || pendingRef.current || pendingOperation) {
+        throw new Error('Existe una operación pendiente o una verificación incompleta. Revisa su estado antes de continuar.');
+      }
       const item = { type, cents, code, id: uniqueRequestId(), userId };
       // Persistir ANTES de enviar la solicitud; si falla el almacenamiento, no enviarla.
       await AsyncStorage.setItem(`mwd_pending_${userId}`, JSON.stringify(item));
@@ -268,7 +284,7 @@ export default function App() {
         : 'Aportación de demostración registrada en Supabase.');
     } catch (error) {
       message('Operación no confirmada',
-        (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
+        (error.message || 'Error desconocido') + '\nNo inicies otra operación. Verifica primero el estado pendiente desde Inicio.');
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -277,7 +293,7 @@ export default function App() {
 
   function prepareOperation(type) {
     if (busyRef.current || recovering) return;
-    if (pendingOperation) return message('Operación pendiente', 'Consulta primero el estado de la operación anterior.');
+    if (pendingLoading || pendingStorageError || pendingRef.current || pendingOperation) return message('Operación pendiente', 'Primero debemos verificar que no haya una operación anterior sin resolver.');
     const cents = amountToCents(amount);
     if (cents === null) {
       return message('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
@@ -341,12 +357,14 @@ export default function App() {
                 <Text style={styles.muted}>Saldo ficticio en Supabase</Text>
                 <Text selectable style={styles.code}>{wallet?.account_code || 'Cargando identificador...'}</Text>
               </View>
+              {pendingStorageError && <Text style={styles.warning}>No se pudo verificar el almacenamiento local. Las operaciones están bloqueadas hasta resolverlo.</Text>}
+              {pendingLoading && <Text style={styles.muted}>Verificando operaciones pendientes...</Text>}
               {pendingOperation && <View style={styles.card}>
                 <Text style={styles.heading}>Operación pendiente de verificación</Text>
                 <Text style={styles.muted}>No inicies otra operación hasta comprobar el resultado en Supabase.</Text>
                 <Btn title={recovering ? 'Consultando...' : 'Verificar operación pendiente'} onPress={recoverPending} disabled={recovering || busy} />
               </View>}
-              <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet || !!pendingOperation} />
+              <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet || !!pendingOperation || pendingLoading || pendingStorageError || recovering} />
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet || !!pendingOperation} />
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
