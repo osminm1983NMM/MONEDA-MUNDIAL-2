@@ -1,5 +1,8 @@
 name: Validate recovery lab
 on:
+  push:
+    branches:
+      - dev/recuperacion-transferencias
   workflow_dispatch:
 
 jobs:
