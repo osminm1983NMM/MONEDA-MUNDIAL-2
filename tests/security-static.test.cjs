@@ -21,8 +21,12 @@ test('la referencia se guarda antes de llamar a Supabase', () => {
   const start = app.indexOf('async function executeOperation');
   const end = app.indexOf('function prepareOperation', start);
   const fn = app.slice(start, end);
-  assert.ok(fn.indexOf('AsyncStorage.setItem') >= 0);
-  assert.ok(fn.indexOf('AsyncStorage.setItem') < fn.indexOf("supabase.rpc('mwd_transfer_demo'"));
+  const storageIndex = fn.indexOf('AsyncStorage.setItem');
+  const rpcIndex = fn.indexOf("supabase.rpc('mwd_transfer_demo'");
+  assert.ok(start >= 0 && end > start, 'Debe existir executeOperation');
+  assert.ok(storageIndex >= 0, 'Debe persistir la operación');
+  assert.ok(rpcIndex >= 0, 'Debe existir la llamada RPC');
+  assert.ok(storageIndex < rpcIndex, 'Debe guardar antes de enviar');
 });
 test('las transferencias repetidas reutilizan el identificador', () => {
   const start = app.indexOf('async function retryPending');
