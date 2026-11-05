@@ -30,3 +30,19 @@ jobs:
           node-version: '22'
       - name: Ejecutar verificaciones
         run: npm test
+
+  expo-config:
+    name: Validar configuración Expo (sin generar APK)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+      - name: Configurar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias del laboratorio
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Validar configuración pública de Expo
+        run: npx expo config --type public
