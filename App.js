@@ -267,7 +267,7 @@ export default function App() {
     } catch (error) {
       message('Verificación pendiente', error.message || 'No se pudo consultar el estado.');
     } finally {
-      setRecovering(false);
+      if (activeUserRef.current === item.userId) setRecovering(false);
     }
   }
 
@@ -306,8 +306,11 @@ export default function App() {
           message('Reintento sin confirmar', (error.message || 'Error desconocido') +
             '\nConservamos la referencia. Consulta nuevamente el estado antes de reintentar.');
         } finally {
-          busyRef.current = false;
-          setBusy(false);
+          // Una respuesta tardía de A no debe desbloquear una operación de B.
+          if (activeUserRef.current === item.userId) {
+            busyRef.current = false;
+            setBusy(false);
+          }
         }
       });
   }
@@ -360,8 +363,11 @@ export default function App() {
       message('Operación no confirmada',
         (error.message || 'Error desconocido') + '\nNo inicies otra operación. Verifica primero el estado pendiente desde Inicio.');
     } finally {
-      busyRef.current = false;
-      setBusy(false);
+      // No modificar el indicador de actividad de una sesión diferente.
+      if (activeUserRef.current === userId) {
+        busyRef.current = false;
+        setBusy(false);
+      }
     }
   }
 
