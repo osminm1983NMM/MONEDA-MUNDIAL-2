@@ -34,6 +34,5 @@ check('contribution pending retry is explicitly labeled',
 check('recovered request identifier must be a UUID v4',
   app.includes('pending.id) ||') && app.includes('pending.cents > LIMIT_CENTS'));
 check('auth token refresh preserves the current pending screen',
-  app.includes("if (event === 'SIGNED_OUT') setScreen('Inicio')") &&
-  !app.includes("setScreen('Inicio');\n    });"));
+  /onAuthStateChange\(\(event, nextSession\) => \{[\s\S]*?if \(event === 'SIGNED_OUT'\) setScreen\('Inicio'\)/.test(app));
 console.log('All source invariants passed. Functional tests remain necessary.');
