@@ -25,4 +25,6 @@ check('pending navigation is blocked', /function navigate\(to\) \{\s*if \(!pendi
 
 check('contribution type matches recovery', app.includes("!['transfer', 'contribution'].includes(pending.type)") && app.includes("prepareOperation('contribution')"));
 check('swap numeric regex is not double escaped', !app.includes('\\\\d*'));
+check('logout is blocked while a pending operation is unresolved',
+  /async function logout\(\) \{[\s\S]*?if \(pendingRef.current\)/.test(app));
 console.log('All source invariants passed. Functional tests remain necessary.');
