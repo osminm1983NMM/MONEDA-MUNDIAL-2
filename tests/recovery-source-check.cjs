@@ -22,4 +22,7 @@ check('unreadable recovery blocks new operations', app.includes('setPendingReady
 check('pending amount changes are blocked', /function changeAmount\(value\) \{\s*if \(pendingRef.current\)/.test(app));
 check('pending recipient changes are blocked', /function changeRecipient\(value\) \{\s*if \(pendingRef.current\)/.test(app));
 check('pending navigation is blocked', /function navigate\(to\) \{\s*if \(!pendingReady\)[\s\S]*?if \(pendingRef.current\)/.test(app));
+
+check('contribution type matches recovery', app.includes("!['transfer', 'contribution'].includes(pending.type)") && app.includes("prepareOperation('contribution')"));
+check('swap numeric regex is not double escaped', !app.includes('\\\\d*'));
 console.log('All source invariants passed. Functional tests remain necessary.');
