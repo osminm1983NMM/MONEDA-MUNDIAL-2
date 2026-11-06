@@ -21,7 +21,9 @@ check('user-scoped recovery', app.includes("AsyncStorage.getItem('mwd-demo-pendi
 check('unreadable recovery blocks new operations', app.includes('setPendingReady(!recoveryFailed)'));
 check('pending amount changes are blocked', /function changeAmount\(value\) \{\s*if \(pendingRef.current\)/.test(app));
 check('pending recipient changes are blocked', /function changeRecipient\(value\) \{\s*if \(pendingRef.current\)/.test(app));
-check('pending navigation is blocked', /function navigate\(to\) \{\s*if \(!pendingReady\)[\s\S]*?if \(pendingRef.current\)/.test(app));
+check('pending navigation permits read-only account and history without clearing recovery',
+  /function navigate\(to\) \{[\s\S]*?if \(pendingRef.current\) \{[\s\S]*?\['Inicio', 'Historial', 'Cuenta', pendingScreen\]\.includes\(to\)/.test(app) &&
+  /if \(pendingRef.current\) \{[\s\S]*?setScreen\(to\);\s*return;\s*\}/.test(app));
 
 check('contribution type matches recovery', app.includes("!['transfer', 'contribution'].includes(pending.type)") && app.includes("prepareOperation('contribution')"));
 check('swap numeric regex is not double escaped', !app.includes('\\\\d*'));
