@@ -245,6 +245,7 @@ export default function App() {
 
   async function executeOperation(type, cents, code = '') {
     if (busyRef.current || !pendingReady || !userId) return;
+    const operationUserId = userId;
     busyRef.current = true;
     setBusy(true);
     try {
@@ -272,6 +273,11 @@ export default function App() {
           p_amount_cents: cents, p_request_id: requestId,
         });
       if (response.error) throw response.error;
+      // Una sesión diferente no debe limpiar la recuperación de la cuenta anterior.
+      const currentSession = await supabase.auth.getSession();
+      if (currentSession.error || currentSession.data.session?.user?.id !== operationUserId) {
+        throw new Error('La sesión cambió durante la operación. Conserva el registro pendiente para verificarlo con la cuenta original.');
+      }
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
