@@ -408,9 +408,14 @@ export default function App() {
         message('Conversión ficticia', 'Operación registrada correctamente.');
       }
     } catch (error) {
-      message('Resultado de conversión pendiente',
-        (error.message || 'No se recibió respuesta del servidor.') +
-        '\\nNo solicites otra cotización todavía. Puedes volver a confirmar ESTA MISMA cotización para consultar si ya fue procesada.');
+      const detail = error?.message || 'No se recibió respuesta del servidor.';
+      if (/cotizaci[oó]n vencida/i.test(detail)) {
+        setSwapQuote(null);
+        message('Cotización vencida', 'La cotización expiró y no se realizó una conversión nueva. Consulta tus saldos y solicita otra cotización.');
+      } else {
+        message('Resultado de conversión pendiente',
+          detail + '\nNo solicites otra cotización todavía. Puedes volver a confirmar ESTA MISMA cotización para consultar si ya fue procesada.');
+      }
     } finally {
       setSwapBusy(false);
     }
