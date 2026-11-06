@@ -472,8 +472,10 @@ export default function App() {
                 value={recipientCode} onChangeText={changeRecipient} />
               <TextInput style={styles.input} placeholder="Cantidad MWD" keyboardType="decimal-pad"
                 placeholderTextColor="#9fb1c8" value={amount} onChangeText={changeAmount} />
-              <Btn title={busy ? 'Procesando...' : 'Confirmar transferencia ficticia'}
-                onPress={() => prepareOperation('transfer')} disabled={busy} />
+              {pendingRef.current?.type === 'transfer' &&
+                <Text style={styles.warning}>TRANSFERENCIA PENDIENTE DE VERIFICACIÓN. Reintenta con los mismos datos; no se generará otra solicitud.</Text>}
+              <Btn title={busy ? 'Procesando...' : pendingRef.current?.type === 'transfer' ? 'Verificar transferencia pendiente' : 'Confirmar transferencia ficticia'}
+                onPress={() => prepareOperation('transfer')} disabled={busy || !pendingReady} />
             </View>}
 
             {screen === 'Aportar' && <View style={styles.card}>
@@ -481,8 +483,10 @@ export default function App() {
               <Text style={styles.muted}>La cantidad se descontará de tu saldo ficticio y quedará en el historial. No se recibirá dinero real.</Text>
               <TextInput style={styles.input} placeholder="Cantidad MWD" keyboardType="decimal-pad"
                 placeholderTextColor="#9fb1c8" value={amount} onChangeText={changeAmount} />
-              <Btn title={busy ? 'Procesando...' : 'Confirmar aportación ficticia'}
-                onPress={() => prepareOperation('contribution')} disabled={busy} />
+              {pendingRef.current?.type === 'contribution' &&
+                <Text style={styles.warning}>APORTACIÓN PENDIENTE DE VERIFICACIÓN. Reintenta con los mismos datos; no se generará otra solicitud.</Text>}
+              <Btn title={busy ? 'Procesando...' : pendingRef.current?.type === 'contribution' ? 'Verificar aportación pendiente' : 'Confirmar aportación ficticia'}
+                onPress={() => prepareOperation('contribution')} disabled={busy || !pendingReady} />
             </View>}
 
             {screen === 'Cuenta' && <View style={styles.card}>
