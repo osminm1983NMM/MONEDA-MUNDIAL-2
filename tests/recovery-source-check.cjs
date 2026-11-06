@@ -33,4 +33,7 @@ check('contribution pending retry is explicitly labeled',
   app.includes('Verificar aportación pendiente') && app.includes('APORTACIÓN PENDIENTE DE VERIFICACIÓN'));
 check('recovered request identifier must be a UUID v4',
   app.includes('pending.id) ||') && app.includes('pending.cents > LIMIT_CENTS'));
+check('auth token refresh preserves the current pending screen',
+  app.includes("if (event === 'SIGNED_OUT') setScreen('Inicio')") &&
+  !app.includes("setScreen('Inicio');\n    });"));
 console.log('All source invariants passed. Functional tests remain necessary.');
