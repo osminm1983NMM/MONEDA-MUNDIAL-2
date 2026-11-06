@@ -39,6 +39,13 @@ check('RPC response is scoped to the original authenticated user',
   app.includes('const operationUserId = userId;') &&
   app.includes('currentSession.data.session?.user?.id !== operationUserId') &&
   app.includes('Conserva el registro pendiente'));
+check('expired quote has a distinct retry-safe message',
+  app.includes("if (/cotizaci[oó]n vencida/i.test(detail))") &&
+  app.includes("message('Cotización vencida', 'La cotización expiró y no se realizó una conversión nueva.") &&
+  app.includes('setSwapQuote(null);'));
+check('uncertain swap error uses an actual newline escape, not a literal backslash-n',
+  app.includes("detail + '\\nNo solicites otra cotización todavía.") &&
+  !app.includes("detail + '\\\\nNo solicites otra cotización todavía."));
 const expoConfig = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo;
 const easConfig = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
 check('Android LAB uses an isolated package and visible LAB label',
