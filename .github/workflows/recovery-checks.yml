@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'App.js'
+      - 'app.json'
+      - 'eas.json'
       - 'tests/recovery-source-check.cjs'
       - '.github/workflows/recovery-checks.yml'
   push:
@@ -10,6 +12,8 @@ on:
       - 'fix/swap-confirmation-recovery'
     paths:
       - 'App.js'
+      - 'app.json'
+      - 'eas.json'
       - 'tests/recovery-source-check.cjs'
       - '.github/workflows/recovery-checks.yml'
 jobs:
