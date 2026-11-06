@@ -312,6 +312,46 @@ export default function App() {
     }
   }
 
+  async function verifyPendingReadOnly() {
+    const pending = pendingRef.current;
+    if (!pending || busyRef.current || !pendingReady || !userId) return;
+    const owner = userId;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const { data, error } = pending.type === 'transfer'
+        ? await supabase.rpc('mwd_pending_recipient_check_demo', {
+            p_request_id: pending.id, p_recipient_code: pending.code,
+          })
+        : await supabase.rpc('mwd_operation_status_demo', { p_request_id: pending.id });
+      if (error) throw error;
+      const sessionResult = await supabase.auth.getSession();
+      if (sessionResult.error || sessionResult.data.session?.user?.id !== owner) {
+        throw new Error('La sesión cambió. Conserva la operación pendiente.');
+      }
+      if (data?.status === 'processed' || (data?.status === 'invalid_recipient' && pending.type === 'transfer')) {
+        await AsyncStorage.removeItem('mwd-demo-pending-' + owner);
+        pendingRef.current = null;
+        setAmount('');
+        setRecipientCode('');
+        if (data.status === 'processed') {
+          await refreshAccount();
+          message('Operación verificada', 'El servidor confirma que ya fue registrada. No se envió una nueva.');
+        } else {
+          message('Destino incorrecto', 'El código de destino no existe. Se liberó la solicitud fallida sin enviar MWD. Puedes introducir el código correcto.');
+        }
+      } else {
+        message('Operación sin confirmar', 'No es seguro descartar esta solicitud. Conserva los datos originales.');
+      }
+    } catch (error) {
+      message('Verificación no disponible', (error.message || 'Error de conexión') +
+        '\nSe conserva la operación pendiente para evitar duplicados.');
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }
+
   function prepareOperation(type) {
     if (busyRef.current || !pendingReady) return;
     if (pendingRef.current && pendingRef.current.type !== type) {
@@ -493,6 +533,7 @@ export default function App() {
                 placeholderTextColor="#9fb1c8" value={amount} onChangeText={changeAmount} />
               {pendingRef.current?.type === 'transfer' &&
                 <Text style={styles.warning}>TRANSFERENCIA PENDIENTE DE VERIFICACIÓN. Reintenta con los mismos datos; no se generará otra solicitud.</Text>}
+              {pendingRef.current?.type === 'transfer' && <Btn title="Consultar estado sin reenviar" secondary onPress={verifyPendingReadOnly} disabled={busy || !pendingReady} />}
               <Btn title={busy ? 'Procesando...' : pendingRef.current?.type === 'transfer' ? 'Verificar transferencia pendiente' : 'Confirmar transferencia ficticia'}
                 onPress={() => prepareOperation('transfer')} disabled={busy || !pendingReady} />
             </View>}
