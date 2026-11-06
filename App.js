@@ -157,9 +157,11 @@ export default function App() {
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
       setSyncNotice('Saldo e historial actualizados correctamente.');
+      return true;
     } catch (error) {
       setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
       message('Sincronización', error.message || 'No se pudo consultar Supabase.');
+      return false;
     } finally {
       setSyncing(false);
     }
@@ -224,10 +226,15 @@ export default function App() {
       setAmount('');
       setRecipientCode('');
       setScreen('Inicio');
-      await refreshAccount();
-      message('Operación ficticia confirmada', type === 'transfer'
-        ? 'Transferencia de demostración registrada en Supabase.'
-        : 'Aportación de demostración registrada en Supabase.');
+      const refreshed = await refreshAccount();
+      if (refreshed) {
+        message('Operación ficticia confirmada', type === 'transfer'
+          ? 'Transferencia de demostración registrada en Supabase.'
+          : 'Aportación de demostración registrada en Supabase.');
+      } else {
+        message('Operación registrada',
+          'La operación ficticia fue confirmada, pero no se pudieron actualizar los saldos. Pulsa Actualizar saldo e historial.');
+      }
     } catch (error) {
       message('Resultado de operación pendiente',
         (error.message || 'No se recibió respuesta del servidor.') +
