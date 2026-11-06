@@ -244,7 +244,10 @@ export default function App() {
     setBusy(true);
     try {
       const pending = pendingRef.current;
-      if (!pending || pending.type !== type || pending.cents !== cents || pending.code !== code) {
+      if (pending && (pending.type !== type || pending.cents !== cents || pending.code !== code)) {
+        return message('Operación pendiente', 'Los datos no coinciden con la operación pendiente. No se enviará otra solicitud.');
+      }
+      if (!pending) {
         pendingRef.current = { type, cents, code, id: uniqueRequestId() };
       }
       const requestId = pendingRef.current.id;
@@ -261,8 +264,15 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
-      await AsyncStorage.removeItem('mwd-demo-pending-' + userId);
-      pendingRef.current = null;
+      // La confirmación del servidor es definitiva aunque falle la limpieza local.
+      try {
+        await AsyncStorage.removeItem('mwd-demo-pending-' + userId);
+        pendingRef.current = null;
+      } catch (cleanupError) {
+        message('Operación confirmada',
+          'Supabase confirmó la operación, pero no se pudo limpiar el registro local. Reintenta la MISMA operación si vuelve a aparecer.');
+        return;
+      }
       setAmount('');
       setRecipientCode('');
       setScreen('Inicio');
