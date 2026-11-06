@@ -144,7 +144,7 @@ export default function App() {
         if (!active) return;
         if (saved) {
           const pending = JSON.parse(saved);
-          if (!pending || !['transfer', 'contribute'].includes(pending.type) ||
+          if (!pending || !['transfer', 'contribution'].includes(pending.type) ||
               !Number.isSafeInteger(pending.cents) || pending.cents <= 0 ||
               typeof pending.id !== 'string' || typeof pending.code !== 'string') {
             throw new Error('Datos de recuperación inválidos.');
