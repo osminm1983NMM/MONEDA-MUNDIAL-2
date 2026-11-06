@@ -27,4 +27,10 @@ check('contribution type matches recovery', app.includes("!['transfer', 'contrib
 check('swap numeric regex is not double escaped', !app.includes('\\\\d*'));
 check('logout is blocked while a pending operation is unresolved',
   /async function logout\(\) \{[\s\S]*?if \(pendingRef.current\)/.test(app));
+check('transfer pending retry is explicitly labeled',
+  app.includes('Verificar transferencia pendiente') && app.includes('TRANSFERENCIA PENDIENTE DE VERIFICACIÓN'));
+check('contribution pending retry is explicitly labeled',
+  app.includes('Verificar aportación pendiente') && app.includes('APORTACIÓN PENDIENTE DE VERIFICACIÓN'));
+check('recovered request identifier must be a UUID v4',
+  app.includes('pending.id) ||') && app.includes('pending.cents > LIMIT_CENTS'));
 console.log('All source invariants passed. Functional tests remain necessary.');
