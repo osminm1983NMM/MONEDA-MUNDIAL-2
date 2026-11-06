@@ -20,3 +20,10 @@ Rama: `fix/swap-confirmation-recovery`. Solo entorno DEMO; no dinero real.
 
 ## Criterio de aceptación
 No fusionar a `main` ni generar APK de reemplazo hasta ejecutar las pruebas pertinentes y revisar los resultados. No realizar pruebas destructivas en producción.
+
+## Pruebas adicionales: transferencias y aportaciones ficticias
+- [ ] Confirmar una transferencia y verificar un solo débito, un solo crédito y un asiento.
+- [ ] Reintentar con el mismo `p_request_id` después de perder la respuesta: no duplicar el movimiento.
+- [ ] Simular fallo en `refreshAccount()` tras una respuesta `ok`: mostrar «Operación registrada», nunca «Resultado pendiente».
+- [ ] Simular fallo antes de recibir confirmación: conservar `pendingRef.current.id` y los datos originales para reintento.
+- [ ] Cambiar importe o destinatario después de un resultado incierto: advertir al usuario que primero verifique la operación anterior (mejora de seguridad pendiente).
