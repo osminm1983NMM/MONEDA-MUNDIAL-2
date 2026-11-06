@@ -91,6 +91,7 @@ export default function App() {
   const [operations, setOperations] = useState([]);
   const [adminRole, setAdminRole] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [syncNotice, setSyncNotice] = useState('');
   const [recipientCode, setRecipientCode] = useState('');
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
@@ -130,6 +131,7 @@ export default function App() {
   async function refreshAccount(id = userId) {
     if (!id) return;
     setSyncing(true);
+    setSyncNotice('Actualizando...');
     try {
       const [w, h, a] = await Promise.all([
         supabase.from('mwd_wallets')
@@ -147,7 +149,9 @@ export default function App() {
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
+      setSyncNotice('Saldo e historial actualizados correctamente.');
     } catch (error) {
+      setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
       message('Sincronización', error.message || 'No se pudo consultar Supabase.');
     } finally {
       setSyncing(false);
@@ -295,7 +299,8 @@ export default function App() {
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
-              <Btn title="Actualizar saldo e historial" secondary onPress={() => refreshAccount()} disabled={syncing} />
+              <Btn title={syncing ? "Actualizando..." : "Actualizar saldo e historial"} secondary onPress={() => refreshAccount()} disabled={syncing} />
+              {!!syncNotice && <Text style={styles.muted}>{syncNotice}</Text>}
               <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
               <Btn title="Cerrar sesión" secondary onPress={logout} />
             </>}
