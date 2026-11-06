@@ -26,10 +26,10 @@ No fusionar a `main` ni generar APK de reemplazo hasta ejecutar las pruebas pert
 - [ ] Reintentar con el mismo `p_request_id` después de perder la respuesta: no duplicar el movimiento.
 - [ ] Simular fallo en `refreshAccount()` tras una respuesta `ok`: mostrar «Operación registrada», nunca «Resultado pendiente».
 - [ ] Simular fallo antes de recibir confirmación: conservar `pendingRef.current.id` y los datos originales para reintento.
-- [ ] Cambiar importe o destinatario después de un resultado incierto: advertir al usuario que primero verifique la operación anterior (mejora de seguridad pendiente).
+- [ ] Cambiar importe o destinatario después de un resultado incierto: comprobar en Android que se bloquea la modificación mientras exista una operación pendiente.
 
 ## Hallazgo abierto: reinicio de la aplicación
-El identificador de transferencia pendiente vive en `pendingRef` (memoria de React). Al cerrar o reiniciar la app se pierde; no se debe afirmar recuperación completa. Antes de aprobar para producción, implementar almacenamiento local por usuario y reconciliación con el servidor. La operación incierta no debe borrarse ni sustituirse por otra hasta que se confirme su estado. Evitar guardar tokens o datos sensibles en texto plano.
+La rama LAB ya guarda en AsyncStorage, por usuario, el identificador y los datos mínimos de transferencias/aportaciones pendientes antes de invocar Supabase; al reabrir intenta recuperarlos y conserva el mismo identificador para reintentar. **Esto aún no demuestra recuperación completa en Android ni reconciliación de operaciones ambiguas**. No borrar ni sustituir una operación incierta hasta verificar su estado en el servidor. No guardar tokens o credenciales en texto plano.
 
 - [ ] Reiniciar Android después de enviar la petición y antes de recibir respuesta; recuperar el identificador original.
 - [ ] Verificar que iniciar sesión con otra cuenta no recupere operaciones de un usuario diferente.
@@ -45,3 +45,12 @@ GitHub Actions completó satisfactoriamente la ejecución 42261540172 del flujo 
 - [ ] Validar el identificador EAS del proyecto y la configuración de firma Android.
 - [ ] Verificar que la instalación de la nueva APK no obligue a eliminar la versión anterior ni borre datos de recuperación.
 - [ ] Confirmar que ninguna pantalla sugiera que se maneja dinero real.
+
+## Identificación de APKs en Samsung (6 de noviembre de 2026)
+- LAB: `com.monedamundial.app.samsunglab`, versión Expo `2.0.1`, Android `versionCode` 2; compilación `preview` de la rama `fix/swap-confirmation-recovery` observada como exitosa en Expo. El nombre de la app es «Moneda Mundial 2.0 LAB».
+- Principal/antigua: identificador Android `com.monedamundial.app` en la configuración histórica; puede coexistir con LAB. **No atribuir saldos o pantallas a una versión sin identificar su paquete instalado**.
+- Capturas Samsung: 13:49 y 13:52 muestran 9,895 MWD; 13:51 muestra 9,894 MWD y controles de idioma distintos. La discrepancia **no demuestra pérdida ni duplicación de saldo**: revisar qué APK estaba abierta y consultar el historial por cuenta antes de concluir.
+- [ ] Abrir «Información de la aplicación» en Android para cada ícono y registrar nombre, versión y, si se muestra, paquete.
+- [ ] Confirmar qué aplicación corresponde al APK de Expo LAB y mantener ambas sin desinstalar.
+- [ ] Reiniciar únicamente LAB, consultar saldos MWD/COIN/DIGITAL y comparar contra movimientos sin realizar nuevas operaciones.
+- [ ] Ejecutar prueba controlada de solicitud pendiente/reintento con el mismo ID; comprobar un único asiento en el servidor.
