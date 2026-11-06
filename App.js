@@ -323,8 +323,9 @@ export default function App() {
         message('Conversión ficticia', 'Operación registrada correctamente.');
       }
     } catch (error) {
-      message('Conversión no confirmada', (error.message || 'Error desconocido') +
-        '\\nConsulta los saldos antes de intentar otra conversión.');
+      message('Resultado de conversión pendiente',
+        (error.message || 'No se recibió respuesta del servidor.') +
+        '\\nNo solicites otra cotización todavía. Puedes volver a confirmar ESTA MISMA cotización para consultar si ya fue procesada.');
     } finally {
       setSwapBusy(false);
     }
