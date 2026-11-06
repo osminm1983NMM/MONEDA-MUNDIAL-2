@@ -251,8 +251,14 @@ export default function App() {
         pendingRef.current = { type, cents, code, id: uniqueRequestId() };
       }
       const requestId = pendingRef.current.id;
-      // Persistir antes de enviar: permite recuperar el mismo ID tras reiniciar Android.
-      await AsyncStorage.setItem('mwd-demo-pending-' + userId, JSON.stringify(pendingRef.current));
+      // No enviar una operación si Android no puede guardar su identificador.
+      try {
+        await AsyncStorage.setItem('mwd-demo-pending-' + userId, JSON.stringify(pendingRef.current));
+      } catch (storageError) {
+        if (!pending) pendingRef.current = null;
+        return message('No se envió la operación',
+          'No fue posible guardar el identificador de recuperación en este teléfono. No se realizó la solicitud a Supabase.');
+      }
       const response = type === 'transfer'
         ? await supabase.rpc('mwd_transfer_demo', {
           p_recipient_code: code, p_amount_cents: cents, p_request_id: requestId,
