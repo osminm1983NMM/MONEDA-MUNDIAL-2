@@ -102,6 +102,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
+  const [pendingReady, setPendingReady] = useState(false);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -124,7 +125,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    pendingRef.current = null;
+    setPendingReady(false);
     if (!userId) {
+      setPendingReady(true);
       setWallet(null);
       setOperations([]);
       setAdminRole(null);
@@ -132,7 +137,33 @@ export default function App() {
       setSwapQuote(null);
       return;
     }
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem('mwd-demo-pending-' + userId);
+        if (!active) return;
+        if (saved) {
+          const pending = JSON.parse(saved);
+          if (!pending || !['transfer', 'contribute'].includes(pending.type) ||
+              !Number.isSafeInteger(pending.cents) || pending.cents <= 0 ||
+              typeof pending.id !== 'string' || typeof pending.code !== 'string') {
+            throw new Error('Datos de recuperación inválidos.');
+          }
+          pendingRef.current = pending;
+          setAmount(formatMWD(pending.cents));
+          setRecipientCode(pending.code);
+          setScreen(pending.type === 'transfer' ? 'Transferir' : 'Aportar');
+          message('Operación pendiente recuperada',
+            'Se recuperaron los datos de una operación ficticia sin confirmar. Verifica el resultado reintentando la MISMA operación.');
+        }
+      } catch (error) {
+        if (active) message('Recuperación pendiente',
+          'No se pudo recuperar una operación anterior. No envíes otra hasta revisar el historial. ' + error.message);
+      } finally {
+        if (active) setPendingReady(true);
+      }
+    })();
     refreshAccount(userId);
+    return () => { active = false; };
   }, [userId]);
 
   async function refreshAccount(id = userId) {
@@ -206,7 +237,7 @@ export default function App() {
   }
 
   async function executeOperation(type, cents, code = '') {
-    if (busyRef.current) return;
+    if (busyRef.current || !pendingReady || !userId) return;
     busyRef.current = true;
     setBusy(true);
     try {
@@ -215,6 +246,8 @@ export default function App() {
         pendingRef.current = { type, cents, code, id: uniqueRequestId() };
       }
       const requestId = pendingRef.current.id;
+      // Persistir antes de enviar: permite recuperar el mismo ID tras reiniciar Android.
+      await AsyncStorage.setItem('mwd-demo-pending-' + userId, JSON.stringify(pendingRef.current));
       const response = type === 'transfer'
         ? await supabase.rpc('mwd_transfer_demo', {
           p_recipient_code: code, p_amount_cents: cents, p_request_id: requestId,
@@ -226,6 +259,7 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
+      await AsyncStorage.removeItem('mwd-demo-pending-' + userId);
       pendingRef.current = null;
       setAmount('');
       setRecipientCode('');
@@ -250,7 +284,7 @@ export default function App() {
   }
 
   function prepareOperation(type) {
-    if (busyRef.current) return;
+    if (busyRef.current || !pendingReady) return;
     if (pendingRef.current && pendingRef.current.type !== type) {
       return message('Operación pendiente', 'Primero verifica la operación original antes de iniciar otra diferente.');
     }
@@ -259,7 +293,8 @@ export default function App() {
       return message('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
     }
     if (!wallet) return message('Espera', 'Primero carga tu cuenta.');
-    if (cents > wallet.balance_cents) return message('Saldo insuficiente', 'No tienes suficientes MWD ficticios.');
+    const retry = pendingRef.current && pendingRef.current.type === type && pendingRef.current.cents === cents;
+    if (!retry && cents > wallet.balance_cents) return message('Saldo insuficiente', 'No tienes suficientes MWD ficticios.');
     const code = recipientCode.trim().toUpperCase();
     if (type === 'transfer') {
       if (!/^MWD-[A-F0-9]{16}$/.test(code)) {
@@ -347,6 +382,7 @@ export default function App() {
   }
 
   function navigate(to) {
+    if (!pendingReady) return message('Espera', 'Recuperando operaciones pendientes.');
     if (pendingRef.current) {
       return message('Operación pendiente', 'Verifica primero la transferencia o aportación pendiente antes de cambiar de pantalla.');
     }
