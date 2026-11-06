@@ -39,4 +39,13 @@ check('RPC response is scoped to the original authenticated user',
   app.includes('const operationUserId = userId;') &&
   app.includes('currentSession.data.session?.user?.id !== operationUserId') &&
   app.includes('Conserva el registro pendiente'));
+const expoConfig = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo;
+const easConfig = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
+check('Android LAB uses an isolated package and visible LAB label',
+  expoConfig.android.package === 'com.monedamundial.app.samsunglab' &&
+  expoConfig.name === 'Moneda Mundial 2.0 LAB' &&
+  expoConfig.extra.mwdLabOnly === true);
+check('Expo preview generates an internal Android APK',
+  easConfig.build.preview.distribution === 'internal' &&
+  easConfig.build.preview.android.buildType === 'apk');
 console.log('All source invariants passed. Functional tests remain necessary.');
