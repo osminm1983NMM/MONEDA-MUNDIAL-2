@@ -229,8 +229,9 @@ export default function App() {
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
     } catch (error) {
-      message('Operación no confirmada',
-        (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
+      message('Resultado de operación pendiente',
+        (error.message || 'No se recibió respuesta del servidor.') +
+        '\nSi se interrumpió la conexión, no cambies los datos: reintenta la misma operación para comprobar si ya fue registrada.');
     } finally {
       busyRef.current = false;
       setBusy(false);
