@@ -330,6 +330,12 @@ export default function App() {
   }
 
   async function logout() {
+    if (busyRef.current || !pendingReady) {
+      return message('Espera', 'Finaliza la operación o recuperación en curso antes de cerrar sesión.');
+    }
+    if (pendingRef.current) {
+      return message('Operación pendiente', 'Verifica la operación pendiente antes de cerrar sesión para no perder el seguimiento.');
+    }
     const { error } = await supabase.auth.signOut();
     if (error) message('Salida', error.message);
   }
