@@ -92,6 +92,11 @@ export default function App() {
   const [adminRole, setAdminRole] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [syncNotice, setSyncNotice] = useState('');
+  const [swapWallet, setSwapWallet] = useState(null);
+  const [swapFrom, setSwapFrom] = useState('COIN');
+  const [swapAmount, setSwapAmount] = useState('');
+  const [swapQuote, setSwapQuote] = useState(null);
+  const [swapBusy, setSwapBusy] = useState(false);
   const [recipientCode, setRecipientCode] = useState('');
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
@@ -123,6 +128,8 @@ export default function App() {
       setWallet(null);
       setOperations([]);
       setAdminRole(null);
+      setSwapWallet(null);
+      setSwapQuote(null);
       return;
     }
     refreshAccount(userId);
@@ -255,8 +262,77 @@ export default function App() {
     if (error) message('Salida', error.message);
   }
 
+  const microDisplay = value => (Number(value || 0) / 1000000).toFixed(6);
+
+  async function loadSwapWallet() {
+    setSwapBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('mwd_conversion_wallet_demo');
+      if (error) throw error;
+      setSwapWallet(data);
+    } catch (error) {
+      message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
+    } finally {
+      setSwapBusy(false);
+    }
+  }
+
+  async function requestSwapQuote() {
+    const normalized = swapAmount.trim().replace(',', '.');
+    if (!/^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$/.test(normalized)) {
+      return message('Cantidad inválida', 'Usa hasta seis decimales.');
+    }
+    const [whole, fraction = ''] = normalized.split('.');
+    const micro = Number(whole) * 1000000 + Number(fraction.padEnd(6, '0'));
+    if (!Number.isSafeInteger(micro) || micro < 1000000 || micro > 10000000000) {
+      return message('Cantidad inválida', 'Introduce entre 1 y 10,000 unidades de prueba.');
+    }
+    setSwapBusy(true);
+    setSwapQuote(null);
+    try {
+      const { data, error } = await supabase.rpc('mwd_conversion_quote_demo', {
+        p_from_asset: swapFrom, p_amount_micro: micro, p_client_request_id: uniqueRequestId(),
+      });
+      if (error) throw error;
+      setSwapQuote(data);
+    } catch (error) {
+      message('Cotización', error.message || 'No se pudo cotizar.');
+    } finally {
+      setSwapBusy(false);
+    }
+  }
+
+  async function confirmSwap() {
+    if (!swapQuote?.quoteId || swapBusy) return;
+    const quote = swapQuote;
+    if (new Date(quote.expiresAt).getTime() <= Date.now()) {
+      setSwapQuote(null);
+      return message('Cotización vencida', 'Solicita una cotización nueva.');
+    }
+    setSwapBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('mwd_conversion_confirm_demo', {
+        p_quote_id: quote.quoteId,
+      });
+      if (error) throw error;
+      if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
+      setSwapQuote(null);
+      setSwapAmount('');
+      const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
+      if (walletResponse.error) throw walletResponse.error;
+      setSwapWallet(walletResponse.data);
+      message('Conversión ficticia', 'Operación registrada correctamente.');
+    } catch (error) {
+      message('Conversión no confirmada', (error.message || 'Error desconocido') +
+        '\\nConsulta los saldos antes de intentar otra conversión.');
+    } finally {
+      setSwapBusy(false);
+    }
+  }
+
   function navigate(to) {
     setScreen(to);
+    if (to === 'Convertir') loadSwapWallet();
     setAmount('');
     setRecipientCode('');
     pendingRef.current = null;
@@ -298,6 +374,7 @@ export default function App() {
               <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet} />
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
+              <Btn title="Coin / Digital (simulador)" secondary onPress={() => navigate('Convertir')} />
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
               <Btn title={syncing ? "Actualizando..." : "Actualizar saldo e historial"} secondary onPress={() => refreshAccount()} disabled={syncing} />
               {!!syncNotice && <Text style={styles.muted}>{syncNotice}</Text>}
@@ -349,6 +426,32 @@ export default function App() {
                 );
               })}
             </>}
+
+            {screen === 'Convertir' && <View style={styles.card}>
+              <Text style={styles.heading}>Coin ↔ Digital</Text>
+              <Text style={styles.warning}>SIMULADOR • SIN PRECIO DE MERCADO NI RESPALDO REAL</Text>
+              <Text style={styles.muted}>Coin: {swapWallet ? microDisplay(swapWallet.coinMicro) : '...'} COIN</Text>
+              <Text style={styles.muted}>Digital: {swapWallet ? microDisplay(swapWallet.stableMicro) : '...'} DIGITAL</Text>
+              <Btn title="Consultar saldos" secondary onPress={loadSwapWallet} disabled={swapBusy} />
+              <Btn title={swapFrom === 'COIN' ? 'Origen: COIN (cambiar)' : 'Origen: DIGITAL (cambiar)'}
+                secondary disabled={swapBusy} onPress={() => {
+                  setSwapFrom(swapFrom === 'COIN' ? 'STABLE' : 'COIN');
+                  setSwapQuote(null);
+                }} />
+              <TextInput style={styles.input} placeholder="Cantidad (mínimo 1)"
+                keyboardType="decimal-pad" placeholderTextColor="#9fb1c8"
+                value={swapAmount} onChangeText={value => { setSwapAmount(value); setSwapQuote(null); }} />
+              <Btn title={swapBusy ? 'Procesando...' : 'Solicitar cotización ficticia'}
+                disabled={swapBusy || !swapWallet} onPress={requestSwapQuote} />
+              {swapQuote && <View>
+                <Text style={styles.muted}>Recibirías: {microDisplay(swapQuote.amountOutMicro)} {swapQuote.toAsset === 'STABLE' ? 'DIGITAL' : 'COIN'}</Text>
+                <Text style={styles.muted}>Comisión: {microDisplay(swapQuote.feeOutMicro)} {swapQuote.toAsset === 'STABLE' ? 'DIGITAL' : 'COIN'}</Text>
+                <Text style={styles.muted}>Cotización válida hasta: {new Date(swapQuote.expiresAt).toLocaleTimeString()}</Text>
+                <Btn title="Confirmar conversión ficticia" disabled={swapBusy}
+                  onPress={() => confirmAction('Confirmar conversión ficticia',
+                    'Esta operación modificará únicamente los saldos de prueba.', confirmSwap)} />
+              </View>}
+            </View>}
 
             {screen === 'Admin' && <View style={styles.card}>
               <Text style={styles.heading}>Administración MWD</Text>
