@@ -27,3 +27,10 @@ No fusionar a `main` ni generar APK de reemplazo hasta ejecutar las pruebas pert
 - [ ] Simular fallo en `refreshAccount()` tras una respuesta `ok`: mostrar «Operación registrada», nunca «Resultado pendiente».
 - [ ] Simular fallo antes de recibir confirmación: conservar `pendingRef.current.id` y los datos originales para reintento.
 - [ ] Cambiar importe o destinatario después de un resultado incierto: advertir al usuario que primero verifique la operación anterior (mejora de seguridad pendiente).
+
+## Hallazgo abierto: reinicio de la aplicación
+El identificador de transferencia pendiente vive en `pendingRef` (memoria de React). Al cerrar o reiniciar la app se pierde; no se debe afirmar recuperación completa. Antes de aprobar para producción, implementar almacenamiento local por usuario y reconciliación con el servidor. La operación incierta no debe borrarse ni sustituirse por otra hasta que se confirme su estado. Evitar guardar tokens o datos sensibles en texto plano.
+
+- [ ] Reiniciar Android después de enviar la petición y antes de recibir respuesta; recuperar el identificador original.
+- [ ] Verificar que iniciar sesión con otra cuenta no recupere operaciones de un usuario diferente.
+- [ ] Ofrecer una vía segura para resolver una operación rechazada definitivamente sin dejar al usuario bloqueado.
