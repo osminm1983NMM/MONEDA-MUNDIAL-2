@@ -193,12 +193,16 @@ export default function App() {
   }
 
   function changeAmount(value) {
+    if (pendingRef.current) {
+      return message('Operación pendiente', 'Primero reintenta la operación original para comprobar su resultado. No cambies el importe todavía.');
+    }
     setAmount(value);
-    pendingRef.current = null;
   }
   function changeRecipient(value) {
+    if (pendingRef.current) {
+      return message('Operación pendiente', 'Primero reintenta la operación original para comprobar su resultado. No cambies el destinatario todavía.');
+    }
     setRecipientCode(value);
-    pendingRef.current = null;
   }
 
   async function executeOperation(type, cents, code = '') {
@@ -247,6 +251,9 @@ export default function App() {
 
   function prepareOperation(type) {
     if (busyRef.current) return;
+    if (pendingRef.current && pendingRef.current.type !== type) {
+      return message('Operación pendiente', 'Primero verifica la operación original antes de iniciar otra diferente.');
+    }
     const cents = amountToCents(amount);
     if (cents === null) {
       return message('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
@@ -340,11 +347,13 @@ export default function App() {
   }
 
   function navigate(to) {
+    if (pendingRef.current) {
+      return message('Operación pendiente', 'Verifica primero la transferencia o aportación pendiente antes de cambiar de pantalla.');
+    }
     setScreen(to);
     if (to === 'Convertir') loadSwapWallet();
     setAmount('');
     setRecipientCode('');
-    pendingRef.current = null;
   }
 
   return (
