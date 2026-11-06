@@ -35,4 +35,8 @@ check('recovered request identifier must be a UUID v4',
   app.includes('pending.id) ||') && app.includes('pending.cents > LIMIT_CENTS'));
 check('auth token refresh preserves the current pending screen',
   /onAuthStateChange\(\(event, nextSession\) => \{[\s\S]*?if \(event === 'SIGNED_OUT'\) setScreen\('Inicio'\)/.test(app));
+check('RPC response is scoped to the original authenticated user',
+  app.includes('const operationUserId = userId;') &&
+  app.includes('currentSession.data.session?.user?.id !== operationUserId') &&
+  app.includes('Conserva el registro pendiente'));
 console.log('All source invariants passed. Functional tests remain necessary.');
