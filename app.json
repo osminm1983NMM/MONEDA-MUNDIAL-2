@@ -2,12 +2,12 @@
   "expo": {
     "name": "Moneda Mundial 2.0 LAB",
     "slug": "moneda-mundial-20",
-    "version": "2.0.2",
+    "version": "2.0.3",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "android": {
       "package": "com.monedamundial.app.samsunglab",
-      "versionCode": 3
+      "versionCode": 4
     },
     "owner": "12051983",
     "extra": {
