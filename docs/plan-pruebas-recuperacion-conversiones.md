@@ -34,3 +34,14 @@ El identificador de transferencia pendiente vive en `pendingRef` (memoria de Rea
 - [ ] Reiniciar Android después de enviar la petición y antes de recibir respuesta; recuperar el identificador original.
 - [ ] Verificar que iniciar sesión con otra cuenta no recupere operaciones de un usuario diferente.
 - [ ] Ofrecer una vía segura para resolver una operación rechazada definitivamente sin dejar al usuario bloqueado.
+
+## Estado de integración continua
+GitHub Actions completó satisfactoriamente la ejecución 42261540172 del flujo `Demo recovery source checks` (commit 8b7de68). Esto verifica invariantes de código fuente, **no** operaciones reales contra Supabase ni instalación Android.
+
+## Puerta antes de generar la APK
+- [ ] Ejecutar pruebas funcionales con dos cuentas de laboratorio, sin datos de usuarios reales.
+- [ ] Confirmar idempotencia de transferencias y aportaciones en Supabase.
+- [ ] Probar reconexión y reinicio Android en una compilación de prueba.
+- [ ] Validar el identificador EAS del proyecto y la configuración de firma Android.
+- [ ] Verificar que la instalación de la nueva APK no obligue a eliminar la versión anterior ni borre datos de recuperación.
+- [ ] Confirmar que ninguna pantalla sugiera que se maneja dinero real.
