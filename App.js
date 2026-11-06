@@ -424,7 +424,14 @@ export default function App() {
   function navigate(to) {
     if (!pendingReady) return message('Espera', 'Recuperando operaciones pendientes.');
     if (pendingRef.current) {
-      return message('Operación pendiente', 'Verifica primero la transferencia o aportación pendiente antes de cambiar de pantalla.');
+      // La consulta de pantallas no debe encerrar al usuario en una operación rechazada.
+      // Conservar el identificador, importe y destinatario para una verificación segura.
+      const pendingScreen = pendingRef.current.type === 'transfer' ? 'Transferir' : 'Aportar';
+      if (!['Inicio', 'Historial', 'Cuenta', pendingScreen].includes(to)) {
+        return message('Operación pendiente', 'Puedes consultar tu cuenta e historial, pero primero verifica la operación original antes de iniciar otra.');
+      }
+      setScreen(to);
+      return;
     }
     setScreen(to);
     if (to === 'Convertir') loadSwapWallet();
