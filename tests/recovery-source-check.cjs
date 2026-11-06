@@ -48,6 +48,23 @@ check('expired quote has a distinct retry-safe message',
 check('uncertain swap error uses an actual newline escape, not a literal backslash-n',
   app.includes("detail + '\\nNo solicites otra cotización todavía.") &&
   !app.includes("detail + '\\\\nNo solicites otra cotización todavía."));
+const readOnly = app.split('async function verifyPendingReadOnly()')[1]?.split('function prepareOperation(')[0];
+check('read-only recovery function exists', Boolean(readOnly));
+check('read-only recovery does not invoke transfer or contribution RPC',
+  !readOnly.includes("supabase.rpc('mwd_transfer_demo'") &&
+  !readOnly.includes("supabase.rpc('mwd_contribute_demo'"));
+check('read-only recovery checks server before clearing local request',
+  readOnly.indexOf("supabase.rpc('mwd_pending_recipient_check_demo'") >= 0 &&
+  readOnly.indexOf("supabase.rpc('mwd_pending_recipient_check_demo'") <
+  readOnly.indexOf("AsyncStorage.removeItem('mwd-demo-pending-'"));
+check('only processed or invalid recipient result can release pending transfer',
+  readOnly.includes("data?.status === 'processed' || (data?.status === 'invalid_recipient' && pending.type === 'transfer')"));
+check('unconfirmed result retains pending operation', readOnly.includes('No es seguro descartar esta solicitud'));
+check('read-only recovery checks original authenticated account',
+  readOnly.includes('sessionResult.data.session?.user?.id !== owner'));
+check('read-only recovery button is available during pending transfer',
+  app.includes('title="Consultar estado sin reenviar" secondary onPress={verifyPendingReadOnly}'));
+
 const expoConfig = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo;
 const easConfig = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
 check('Android LAB uses an isolated package and visible LAB label',
