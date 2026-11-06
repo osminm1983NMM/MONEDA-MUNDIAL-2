@@ -138,6 +138,7 @@ export default function App() {
       return;
     }
     (async () => {
+      let recoveryFailed = false;
       try {
         const saved = await AsyncStorage.getItem('mwd-demo-pending-' + userId);
         if (!active) return;
@@ -156,10 +157,11 @@ export default function App() {
             'Se recuperaron los datos de una operación ficticia sin confirmar. Verifica el resultado reintentando la MISMA operación.');
         }
       } catch (error) {
+        recoveryFailed = true;
         if (active) message('Recuperación pendiente',
           'No se pudo recuperar una operación anterior. No envíes otra hasta revisar el historial. ' + error.message);
       } finally {
-        if (active) setPendingReady(true);
+        if (active) setPendingReady(!recoveryFailed);
       }
     })();
     refreshAccount(userId);
