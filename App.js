@@ -115,11 +115,12 @@ export default function App() {
       .catch(error => message('Sesión', error.message))
       .finally(() => { if (active) setAuthLoading(false); });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
       setSession(nextSession);
       setAuthLoading(false);
-      setScreen('Inicio');
+      // TOKEN_REFRESHED no debe ocultar el formulario de una operación pendiente.
+      if (event === 'SIGNED_OUT') setScreen('Inicio');
     });
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
