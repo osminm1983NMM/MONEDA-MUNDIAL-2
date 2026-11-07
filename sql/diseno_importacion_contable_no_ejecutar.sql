@@ -1,0 +1,38 @@
+-- MWD: diseño de importación contable. NO EJECUTAR EN PRODUCCIÓN.
+-- Este archivo es un borrador para revisión; no altera billeteras.
+-- Una importación real debe ejecutarse en una sola transacción,
+-- bloquear las billeteras y operaciones implicadas y usar referencias únicas.
+-- Verificar el esquema y los triggers antes de habilitarlo.
+--
+-- Asientos propuestos (moneda MWD ficticia):
+-- Apertura por billetera (10,000.00 MWD):
+--   DEBIT  suspense-demo-MWD  1,000,000 centésimos
+--   CREDIT customer-liability  1,000,000 centésimos
+-- Transferencia:
+--   DEBIT  customer-liability origen  importe
+--   CREDIT customer-liability destino importe
+-- Aportación:
+--   DEBIT  customer-liability origen  importe
+--   CREDIT suspense-demo-MWD importe
+--
+-- IMPORTANTE: suspense no representa efectivo, ingreso ni una reserva real.
+-- Una referencia estable debe ser 'MWD-OPEN-' || user_id
+-- o 'MWD-OP-' || operation.id, según el tipo.
+--
+-- Pseudosecuencia transaccional:
+-- 1. BEGIN; bloquear un candado transaccional de importación.
+-- 2. Tomar instantánea consistente de wallets y operaciones.
+-- 3. Validar tipos, importes, relaciones y saldo reconstruido.
+-- 4. Crear cuentas privadas MWD con códigos únicos.
+-- 5. Para cada referencia, INSERT ... ON CONFLICT DO NOTHING;
+--    si ya existe, comprobar contenido, moneda, estado y asientos.
+-- 6. Crear exactamente dos asientos de igual importe.
+-- 7. Cambiar de draft a posted (triggers comprueban equilibrio).
+-- 8. Conciliar el saldo de cada cuenta de cliente con wallet.
+-- 9. COMMIT; cualquier excepción debe causar ROLLBACK completo.
+--
+-- Riesgo pendiente: las operaciones podrían entrar durante el backfill.
+-- No activar sin definir un punto de corte, bloqueos y una integración
+-- transaccional con mwd_transfer_demo / mwd_contribute_demo.
+-- No otorgar permisos directos de escritura a anon/authenticated.
+SELECT 'BORRADOR: NO IMPORTA NI MODIFICA DATOS' AS estado;
