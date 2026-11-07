@@ -97,6 +97,9 @@ export default function App() {
   const [swapAmount, setSwapAmount] = useState('');
   const [swapQuote, setSwapQuote] = useState(null);
   const [swapBusy, setSwapBusy] = useState(false);
+  const [pickupAmount, setPickupAmount] = useState('');
+  const [pickupBusy, setPickupBusy] = useState(false);
+  const [pickupResult, setPickupResult] = useState(null);
   const [recipientCode, setRecipientCode] = useState('');
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
@@ -330,6 +333,30 @@ export default function App() {
     }
   }
 
+  async function createDemoPickup() {
+    if (pickupBusy) return;
+    const cents = amountToCents(pickupAmount);
+    if (cents === null || cents < 100 || cents > 100000) {
+      return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
+    }
+    const requestId = uniqueRequestId();
+    setPickupBusy(true);
+    setPickupResult(null);
+    try {
+      const { data, error } = await supabase.rpc('mwd_pickup_create_demo', {
+        p_destination_country: 'HN', p_amount_cents: cents, p_request_id: requestId,
+      });
+      if (error) throw error;
+      if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
+      setPickupResult(data);
+      setPickupAmount('');
+    } catch (error) {
+      message('Orden ficticia no creada', error.message || 'Error desconocido');
+    } finally {
+      setPickupBusy(false);
+    }
+  }
+
   function navigate(to) {
     setScreen(to);
     if (to === 'Convertir') loadSwapWallet();
@@ -374,6 +401,7 @@ export default function App() {
               <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet} />
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
+              <Btn title="Remesas y retiros ficticios" secondary onPress={() => navigate("Retiros")} />
               <Btn title="Coin / Digital (simulador)" secondary onPress={() => navigate('Convertir')} />
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
               <Btn title={syncing ? "Actualizando..." : "Actualizar saldo e historial"} secondary onPress={() => refreshAccount()} disabled={syncing} />
@@ -381,6 +409,25 @@ export default function App() {
               <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
               <Btn title="Cerrar sesión" secondary onPress={logout} />
             </>}
+
+            {screen === 'Retiros' && <View style={styles.card}>
+              <Text style={styles.heading}>Retiro ficticio a Honduras</Text>
+              <Text style={styles.warning}>Solo simulación. No se entrega dinero real.</Text>
+              <Text style={styles.muted}>Monto de prueba: 1.00 a 1000.00 MWD</Text>
+              <TextInput style={styles.input} placeholder="Ejemplo: 10.00"
+                placeholderTextColor="#9fb1c8" keyboardType="decimal-pad"
+                value={pickupAmount} onChangeText={setPickupAmount} editable={!pickupBusy} />
+              <Text style={styles.muted}>Máximo 5 órdenes nuevas por hora por cuenta. Vigencia: 24 horas.</Text>
+              <Btn title={pickupBusy ? 'Creando...' : 'Crear orden ficticia'}
+                onPress={createDemoPickup} disabled={pickupBusy} />
+              {!!pickupResult && <View>
+                <Text style={styles.heading}>{pickupResult.status === 'created' ? 'Orden creada' : 'Orden existente'}</Text>
+                <Text selectable style={styles.small}>Orden: {pickupResult.orderId}</Text>
+                {!!pickupResult.pickupCode && <Text selectable style={styles.code}>Código de prueba: {pickupResult.pickupCode}</Text>}
+                <Text style={styles.muted}>Vence: {pickupResult.expiresAt || 'No disponible'}</Text>
+                <Text style={styles.warning}>No es válido para retirar dinero real.</Text>
+              </View>}
+            </View>}
 
             {screen === 'Transferir' && <View style={styles.card}>
               <Text style={styles.heading}>Transferencia de prueba</Text>
