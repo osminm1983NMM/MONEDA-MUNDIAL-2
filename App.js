@@ -100,6 +100,9 @@ export default function App() {
   const [pickupAmount, setPickupAmount] = useState('');
   const [pickupBusy, setPickupBusy] = useState(false);
   const [pickupResult, setPickupResult] = useState(null);
+  const [pickupOrders, setPickupOrders] = useState([]);
+  const [pickupOrdersBusy, setPickupOrdersBusy] = useState(false);
+  const [pickupCancelBusy, setPickupCancelBusy] = useState(false);
   const [recipientCode, setRecipientCode] = useState('');
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
@@ -357,9 +360,40 @@ export default function App() {
     }
   }
 
+  async function loadPickupOrders() {
+    setPickupOrdersBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('mwd_pickup_my_orders_demo');
+      if (error) throw error;
+      if (!Array.isArray(data)) throw new Error('Respuesta de órdenes no reconocida.');
+      setPickupOrders(data);
+    } catch (error) {
+      message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
+    } finally {
+      setPickupOrdersBusy(false);
+    }
+  }
+
+  async function cancelDemoPickup(orderId) {
+    if (pickupCancelBusy) return;
+    setPickupCancelBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('mwd_pickup_cancel_demo', { p_order_id: orderId });
+      if (error) throw error;
+      if (!['cancelled', 'already_cancelled'].includes(data?.status)) throw new Error('Respuesta de cancelación no reconocida.');
+      message('Orden ficticia', data.status === 'cancelled' ? 'Orden cancelada correctamente.' : 'La orden ya estaba cancelada.');
+      await loadPickupOrders();
+    } catch (error) {
+      message('No se pudo cancelar', error.message || 'Error desconocido');
+    } finally {
+      setPickupCancelBusy(false);
+    }
+  }
+
   function navigate(to) {
     setScreen(to);
     if (to === 'Convertir') loadSwapWallet();
+    if (to === 'MisRetiros') loadPickupOrders();
     setAmount('');
     setRecipientCode('');
     pendingRef.current = null;
@@ -402,6 +436,7 @@ export default function App() {
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
               <Btn title="Remesas y retiros ficticios" secondary onPress={() => navigate("Retiros")} />
+              <Btn title="Mis retiros ficticios" secondary onPress={() => navigate("MisRetiros")} />
               <Btn title="Coin / Digital (simulador)" secondary onPress={() => navigate('Convertir')} />
               <Btn title="Mi cuenta / recibir" secondary onPress={() => navigate('Cuenta')} />
               <Btn title={syncing ? "Actualizando..." : "Actualizar saldo e historial"} secondary onPress={() => refreshAccount()} disabled={syncing} />
@@ -409,6 +444,29 @@ export default function App() {
               <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
               <Btn title="Cerrar sesión" secondary onPress={logout} />
             </>}
+
+            {screen === 'MisRetiros' && <View style={styles.card}>
+              <Text style={styles.heading}>Mis retiros ficticios</Text>
+              <Text style={styles.muted}>Solo aparecen las órdenes de tu cuenta. No se entrega dinero real.</Text>
+              <Btn title={pickupOrdersBusy ? 'Consultando...' : 'Actualizar mis órdenes'}
+                secondary onPress={loadPickupOrders} disabled={pickupOrdersBusy || pickupCancelBusy} />
+              {!pickupOrdersBusy && pickupOrders.length === 0 && <Text style={styles.muted}>No hay órdenes para mostrar.</Text>}
+              {pickupOrders.map(order => (
+                <View key={order.orderId} style={styles.card}>
+                  <Text style={styles.small}>Destino: {order.destinationCountry === 'HN' ? 'Honduras' : order.destinationCountry}</Text>
+                  <Text style={styles.small}>Monto: {formatMWD(order.amountCents)} MWD ficticios</Text>
+                  <Text style={styles.small}>Estado: {order.status}</Text>
+                  <Text style={styles.muted}>Creada: {new Date(order.createdAt).toLocaleString()}</Text>
+                  <Text style={styles.muted}>Vence: {new Date(order.expiresAt).toLocaleString()}</Text>
+                  <Text selectable style={styles.muted}>Referencia: {order.orderId}</Text>
+                  {order.status === 'pending' && <Btn title={pickupCancelBusy ? 'Procesando...' : 'Cancelar esta orden'}
+                    secondary disabled={pickupCancelBusy || pickupOrdersBusy}
+                    onPress={() => confirmAction('Cancelar orden ficticia',
+                      'Esta acción cancelará la orden seleccionada. No afecta dinero real.',
+                      () => cancelDemoPickup(order.orderId))} />}
+                </View>
+              ))}
+            </View>}
 
             {screen === 'Retiros' && <View style={styles.card}>
               <Text style={styles.heading}>Retiro ficticio a Honduras</Text>
