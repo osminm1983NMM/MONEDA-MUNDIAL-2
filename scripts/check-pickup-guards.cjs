@@ -26,6 +26,21 @@ const checks = [
   ['Cancelación valida la cuenta antes de notificar', () => {
     assert.match(app, /if \(authUserRef\.current !== requestedUserId\) return;\s*message\('Orden ficticia'/);
   }],
+  ['Cuenta activa obligatoria antes de crear, consultar o cancelar', () => {
+    for (const signature of [
+      'async function createDemoPickup()',
+      'async function loadPickupOrders()',
+      'async function cancelDemoPickup(orderId)',
+    ]) {
+      const start = app.indexOf(signature);
+      assert.ok(start !== -1, 'Falta ' + signature);
+      assert.ok(app.slice(start, start + 260).includes('authUserRef.current !== userId'),
+        'Falta validación de sesión en ' + signature);
+    }
+  }],
+  ['Cambio de cuenta reinicia la carga de órdenes', () => {
+    assert.match(app, /pickupOrdersSequenceRef\.current \+= 1;\s*setPickupOrders\(\[\]\);\s*setPickupOrdersBusy\(false\)/);
+  }],
 ];
 let failed = 0;
 for (const [label, check] of checks) {
@@ -33,4 +48,4 @@ for (const [label, check] of checks) {
   catch (error) { failed++; console.error('ERROR:', label, error.message); }
 }
 if (failed) process.exitCode = 1;
-else console.log('5 verificaciones estáticas aprobadas. No sustituyen pruebas funcionales.');
+else console.log(checks.length + ' verificaciones estáticas aprobadas. No sustituyen pruebas funcionales.');
