@@ -619,7 +619,8 @@ export default function App() {
       await loadPickupOrders();
     } catch (error) {
       if (authUserRef.current === requestedUserId) {
-        message('No se pudo cancelar', error.message || 'Error desconocido');
+        message('Cancelación sin verificar', (error.message || 'Error de comunicación') +
+          '\nLa orden pudo haberse cancelado. Consulta Mis retiros antes de intentarlo nuevamente.');
       }
     } finally {
       pickupCancelInFlightRef.current = false;
