@@ -393,7 +393,8 @@ export default function App() {
     try {
       // Guardar la referencia ANTES de enviar la confirmación a Supabase.
       await AsyncStorage.setItem('mwd_swap_pending_' + requestedUserId, quote.quoteId);
-      if (authUserRef.current === requestedUserId) setSwapPendingReview(quote.quoteId);
+      if (authUserRef.current !== requestedUserId) return; // No confirmar tras cambiar de cuenta.
+      setSwapPendingReview(quote.quoteId);
       const { data, error } = await supabase.rpc('mwd_conversion_confirm_demo', {
         p_quote_id: quote.quoteId,
       });
@@ -428,6 +429,7 @@ export default function App() {
         p_quote_id: swapPendingReview,
       });
       if (error) throw error;
+      if (authUserRef.current !== requestedUserId) return; // Mantener referencia hasta volver a la cuenta original.
       if (data?.status === 'executed') {
         if (authUserRef.current === requestedUserId) {
           setSwapQuote(null);
