@@ -17,7 +17,7 @@ const checks = [
   }],
   ['Órdenes antiguas no reemplazan consultas recientes', () => {
     assert.match(app, /const requestSequence = \+\+pickupOrdersSequenceRef\.current/);
-    assert.match(app, /requestSequence === pickupOrdersSequenceRef\.current\) setPickupOrders\(data\)/);
+    assert.match(app, /requestSequence === pickupOrdersSequenceRef\.current\)\s*\{\s*setPickupOrders\(data\)/);
   }],
   ['Cambio de cuenta invalida consultas y limpia órdenes', () => {
     assert.match(app, /pickupOrdersSequenceRef\.current \+= 1;\s*setPickupOrders\(\[\]\)/);
@@ -55,6 +55,12 @@ const checks = [
     assert.match(cancellation, /La orden pudo haberse cancelado/);
     assert.match(cancellation, /Consulta Mis retiros antes de intentarlo nuevamente/);
     assert.doesNotMatch(cancellation, /No se pudo cancelar/);
+  }],
+  ['Fallo de consulta se distingue de lista vacía', () => {
+    assert.match(app, /const \[pickupOrdersError, setPickupOrdersError\] = useState\(false\)/);
+    assert.match(app, /setPickupOrdersError\(true\)/);
+    assert.match(app, /!pickupOrdersBusy && !pickupOrdersError && pickupOrders\.length === 0/);
+    assert.match(app, /Las órdenes mostradas podrían estar desactualizadas/);
   }],
   ['Cambio de cuenta reinicia la carga de órdenes', () => {
     assert.match(app, /pickupOrdersSequenceRef\.current \+= 1;\s*setPickupOrders\(\[\]\);\s*setPickupOrdersBusy\(false\)/);
