@@ -561,11 +561,13 @@ export default function App() {
     if (cents === null || cents < 100 || cents > 100000) {
       return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
     }
-    const requestId = uniqueRequestId();
     pickupCreateInFlightRef.current = true;
     setPickupBusy(true);
     setPickupResult(null);
+    let requestSent = false;
     try {
+      const requestId = uniqueRequestId();
+      requestSent = true;
       const { data, error } = await supabase.rpc('mwd_pickup_create_demo', {
         p_destination_country: 'HN', p_amount_cents: cents, p_request_id: requestId,
       });
@@ -577,8 +579,12 @@ export default function App() {
       }
     } catch (error) {
       if (authUserRef.current === requestedUserId) {
-        message('No se pudo verificar la orden', (error.message || 'Error de comunicación') +
-          '\nLa solicitud pudo haberse registrado. Consulta Mis retiros antes de intentar crear otra orden.');
+        if (requestSent) {
+          message('No se pudo verificar la orden', (error.message || 'Error de comunicación') +
+            '\nLa solicitud pudo haberse registrado. Consulta Mis retiros antes de intentar crear otra orden.');
+        } else {
+          message('No se pudo iniciar la orden', error.message || 'No se pudo generar una referencia segura.');
+        }
       }
     } finally {
       pickupCreateInFlightRef.current = false;
