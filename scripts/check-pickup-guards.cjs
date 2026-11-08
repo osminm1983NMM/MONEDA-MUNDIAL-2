@@ -38,6 +38,15 @@ const checks = [
         'Falta validación de sesión en ' + signature);
     }
   }],
+  ['Error de creación no afirma que la orden haya fallado', () => {
+    const start = app.indexOf('async function createDemoPickup()');
+    const end = app.indexOf('async function loadPickupOrders()', start);
+    assert.ok(start !== -1 && end > start, 'Falta la función de creación');
+    const creation = app.slice(start, end);
+    assert.match(creation, /La solicitud pudo haberse registrado/);
+    assert.match(creation, /Consulta Mis retiros antes de intentar crear otra orden/);
+    assert.doesNotMatch(creation, /Orden ficticia no creada/);
+  }],
   ['Cambio de cuenta reinicia la carga de órdenes', () => {
     assert.match(app, /pickupOrdersSequenceRef\.current \+= 1;\s*setPickupOrders\(\[\]\);\s*setPickupOrdersBusy\(false\)/);
   }],
