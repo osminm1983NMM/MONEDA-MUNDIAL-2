@@ -394,7 +394,11 @@ export default function App() {
       });
       if (error) throw error;
       // Evitar presentar una cotización incompleta o inválida como confirmable.
-      if (!data?.quoteId || !['COIN', 'STABLE'].includes(data?.toAsset) ||
+      if (!data?.quoteId || data?.status !== 'quoted' ||
+          data?.fromAsset !== swapFrom ||
+          data?.toAsset !== (swapFrom === 'COIN' ? 'STABLE' : 'COIN') ||
+          Number(data?.amountInMicro) !== micro ||
+          data?.realPaymentsEnabled !== false ||
           !Number.isFinite(new Date(data?.expiresAt).getTime()) ||
           new Date(data.expiresAt).getTime() <= Date.now() ||
           data?.amountOutMicro == null ||
