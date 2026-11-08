@@ -352,7 +352,7 @@ export default function App() {
       message('Conversión ficticia', 'Operación registrada correctamente.');
     } catch (error) {
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
-        '\\nConsulta los saldos antes de intentar otra conversión.');
+        '\nConsulta los saldos antes de intentar otra conversión.');
     } finally {
       setSwapBusy(false);
     }
