@@ -434,7 +434,9 @@ export default function App() {
   }
 
   async function confirmSwap() {
-    if (!swapQuote?.quoteId || swapBusy || swapActionInFlightRef.current || swapReviewLoading || swapReviewReadError || swapPendingReview) return;
+    if (!userId || authUserRef.current !== userId ||
+        !swapQuote?.quoteId || swapBusy || swapActionInFlightRef.current ||
+        swapReviewLoading || swapReviewReadError || swapPendingReview) return;
     const quote = swapQuote;
     const requestedUserId = userId;
     if (new Date(quote.expiresAt).getTime() <= Date.now()) {
