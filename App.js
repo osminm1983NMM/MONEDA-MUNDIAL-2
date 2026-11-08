@@ -99,6 +99,7 @@ export default function App() {
   const [swapBusy, setSwapBusy] = useState(false);
   const [swapPendingReview, setSwapPendingReview] = useState(null);
   const [swapReviewLoading, setSwapReviewLoading] = useState(true);
+  const [swapReviewReadError, setSwapReviewReadError] = useState(false);
   const [pickupAmount, setPickupAmount] = useState('');
   const [pickupBusy, setPickupBusy] = useState(false);
   const [pickupResult, setPickupResult] = useState(null);
@@ -152,17 +153,22 @@ export default function App() {
       setSwapQuote(null);
       setSwapPendingReview(null);
       setSwapReviewLoading(false);
+      setSwapReviewReadError(false);
       return;
     }
     let active = true;
     setSwapReviewLoading(true);
+    setSwapReviewReadError(false);
     setSwapPendingReview(null);
     AsyncStorage.getItem('mwd_swap_pending_' + userId)
       .then(value => {
         if (active) setSwapPendingReview(value || null);
       })
       .catch(error => {
-        if (active) message('Recuperación de conversión', error.message || 'No se pudo leer la operación pendiente.');
+        if (active) {
+          setSwapReviewReadError(true);
+          message('Recuperación de conversión', error.message || 'No se pudo leer la operación pendiente.');
+        }
       })
       .finally(() => { if (active) setSwapReviewLoading(false); });
     refreshAccount(userId);
@@ -322,7 +328,7 @@ export default function App() {
   }
 
   async function requestSwapQuote() {
-    if (swapReviewLoading || swapPendingReview) return message('Conversión pendiente', 'Consulta primero el estado de la conversión anterior.');
+    if (swapReviewLoading || swapReviewReadError || swapPendingReview) return message('Conversión pendiente', 'Consulta primero el estado de la conversión anterior.');
     const normalized = swapAmount.trim().replace(',', '.');
     if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(normalized)) {
       return message('Cantidad inválida', 'Usa hasta seis decimales.');
@@ -348,7 +354,7 @@ export default function App() {
   }
 
   async function confirmSwap() {
-    if (!swapQuote?.quoteId || swapBusy || swapReviewLoading || swapPendingReview) return;
+    if (!swapQuote?.quoteId || swapBusy || swapReviewLoading || swapReviewReadError || swapPendingReview) return;
     const quote = swapQuote;
     if (new Date(quote.expiresAt).getTime() <= Date.now()) {
       setSwapQuote(null);
@@ -409,7 +415,7 @@ export default function App() {
       setSwapWallet(walletResponse.data);
     } catch (error) {
       message('No se pudo verificar', (error.message || 'Error de conexión') +
-        '\\nConservamos la referencia para volver a consultar sin duplicar la conversión.');
+        '\nConservamos la referencia para volver a consultar sin duplicar la conversión.');
     } finally {
       setSwapBusy(false);
     }
@@ -626,12 +632,12 @@ export default function App() {
                 keyboardType="decimal-pad" placeholderTextColor="#9fb1c8"
                 value={swapAmount} onChangeText={value => { if (!swapPendingReview) { setSwapAmount(value); setSwapQuote(null); } }} />
               <Btn title={swapBusy ? 'Procesando...' : 'Solicitar cotización ficticia'}
-                disabled={swapBusy || swapReviewLoading || !swapWallet || !!swapPendingReview} onPress={requestSwapQuote} />
+                disabled={swapBusy || swapReviewLoading || swapReviewReadError || !swapWallet || !!swapPendingReview} onPress={requestSwapQuote} />
               {swapQuote && <View>
                 <Text style={styles.muted}>Recibirías: {microDisplay(swapQuote.amountOutMicro)} {swapQuote.toAsset === 'STABLE' ? 'DIGITAL' : 'COIN'}</Text>
                 <Text style={styles.muted}>Comisión: {microDisplay(swapQuote.feeOutMicro)} {swapQuote.toAsset === 'STABLE' ? 'DIGITAL' : 'COIN'}</Text>
                 <Text style={styles.muted}>Cotización válida hasta: {new Date(swapQuote.expiresAt).toLocaleTimeString()}</Text>
-                <Btn title="Confirmar conversión ficticia" disabled={swapBusy || swapReviewLoading || !!swapPendingReview}
+                <Btn title="Confirmar conversión ficticia" disabled={swapBusy || swapReviewLoading || swapReviewReadError || !!swapPendingReview}
                   onPress={() => confirmAction('Confirmar conversión ficticia',
                     'Esta operación modificará únicamente los saldos de prueba.', confirmSwap)} />
               </View>}
