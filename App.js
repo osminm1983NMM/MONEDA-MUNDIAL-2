@@ -97,6 +97,7 @@ export default function App() {
   const [swapAmount, setSwapAmount] = useState('');
   const [swapQuote, setSwapQuote] = useState(null);
   const [swapBusy, setSwapBusy] = useState(false);
+  const [swapPendingReview, setSwapPendingReview] = useState(null);
   const [pickupAmount, setPickupAmount] = useState('');
   const [pickupBusy, setPickupBusy] = useState(false);
   const [pickupResult, setPickupResult] = useState(null);
@@ -148,6 +149,7 @@ export default function App() {
       setAdminRole(null);
       setSwapWallet(null);
       setSwapQuote(null);
+      setSwapPendingReview(null);
       return;
     }
     refreshAccount(userId);
@@ -306,6 +308,7 @@ export default function App() {
   }
 
   async function requestSwapQuote() {
+    if (swapPendingReview) return message('Conversión pendiente', 'Consulta primero el estado de la conversión anterior.');
     const normalized = swapAmount.trim().replace(',', '.');
     if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(normalized)) {
       return message('Cantidad inválida', 'Usa hasta seis decimales.');
@@ -338,6 +341,7 @@ export default function App() {
       return message('Cotización vencida', 'Solicita una cotización nueva.');
     }
     setSwapBusy(true);
+    setSwapPendingReview(quote.quoteId);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_confirm_demo', {
         p_quote_id: quote.quoteId,
@@ -346,6 +350,7 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
       setSwapQuote(null);
       setSwapAmount('');
+      setSwapPendingReview(null);
       const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
       if (walletResponse.error) throw walletResponse.error;
       setSwapWallet(walletResponse.data);
@@ -353,6 +358,39 @@ export default function App() {
     } catch (error) {
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
         '\nConsulta los saldos antes de intentar otra conversión.');
+    } finally {
+      setSwapBusy(false);
+    }
+  }
+
+  async function reconcileSwap() {
+    if (!swapPendingReview || swapBusy) return;
+    setSwapBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('mwd_conversion_reconcile_demo', {
+        p_quote_id: swapPendingReview,
+      });
+      if (error) throw error;
+      if (data?.status === 'executed') {
+        setSwapPendingReview(null);
+        setSwapQuote(null);
+        setSwapAmount('');
+        message('Conversión verificada', 'La conversión ficticia sí fue ejecutada. No la repitas.');
+      } else if (data?.status === 'expired') {
+        setSwapPendingReview(null);
+        setSwapQuote(null);
+        message('Cotización vencida', 'No se ejecutó. Puedes solicitar una nueva.');
+      } else if (data?.status === 'quoted') {
+        message('Conversión sin ejecutar', 'La cotización sigue pendiente. Consulta nuevamente antes de iniciar otra.');
+      } else {
+        throw new Error('Estado de conciliación no reconocido.');
+      }
+      const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
+      if (walletResponse.error) throw walletResponse.error;
+      setSwapWallet(walletResponse.data);
+    } catch (error) {
+      message('No se pudo verificar', (error.message || 'Error de conexión') +
+        '\\nConservamos la referencia para volver a consultar sin duplicar la conversión.');
     } finally {
       setSwapBusy(false);
     }
@@ -567,16 +605,21 @@ export default function App() {
                 }} />
               <TextInput style={styles.input} placeholder="Cantidad (mínimo 1)"
                 keyboardType="decimal-pad" placeholderTextColor="#9fb1c8"
-                value={swapAmount} onChangeText={value => { setSwapAmount(value); setSwapQuote(null); }} />
+                value={swapAmount} onChangeText={value => { if (!swapPendingReview) { setSwapAmount(value); setSwapQuote(null); } }} />
               <Btn title={swapBusy ? 'Procesando...' : 'Solicitar cotización ficticia'}
-                disabled={swapBusy || !swapWallet} onPress={requestSwapQuote} />
+                disabled={swapBusy || !swapWallet || !!swapPendingReview} onPress={requestSwapQuote} />
               {swapQuote && <View>
                 <Text style={styles.muted}>Recibirías: {microDisplay(swapQuote.amountOutMicro)} {swapQuote.toAsset === 'STABLE' ? 'DIGITAL' : 'COIN'}</Text>
                 <Text style={styles.muted}>Comisión: {microDisplay(swapQuote.feeOutMicro)} {swapQuote.toAsset === 'STABLE' ? 'DIGITAL' : 'COIN'}</Text>
                 <Text style={styles.muted}>Cotización válida hasta: {new Date(swapQuote.expiresAt).toLocaleTimeString()}</Text>
-                <Btn title="Confirmar conversión ficticia" disabled={swapBusy}
+                <Btn title="Confirmar conversión ficticia" disabled={swapBusy || !!swapPendingReview}
                   onPress={() => confirmAction('Confirmar conversión ficticia',
                     'Esta operación modificará únicamente los saldos de prueba.', confirmSwap)} />
+              </View>}
+              {!!swapPendingReview && <View>
+                <Text style={styles.warning}>Resultado pendiente de verificar. No repitas la conversión.</Text>
+                <Btn title={swapBusy ? 'Consultando...' : 'Consultar estado de conversión'}
+                  disabled={swapBusy} onPress={reconcileSwap} />
               </View>}
             </View>}
 
