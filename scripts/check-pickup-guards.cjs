@@ -62,6 +62,15 @@ const checks = [
     assert.match(app, /!pickupOrdersBusy && !pickupOrdersError && pickupOrders\.length === 0/);
     assert.match(app, /Las órdenes mostradas podrían estar desactualizadas/);
   }],
+  ['Fallo al generar UUID no se confunde con solicitud enviada', () => {
+    const start = app.indexOf('async function createDemoPickup()');
+    const end = app.indexOf('async function loadPickupOrders()', start);
+    assert.ok(start !== -1 && end > start, 'Falta función de creación');
+    const creation = app.slice(start, end);
+    assert.match(creation, /let requestSent = false;\s*try \{\s*const requestId = uniqueRequestId\(\);\s*requestSent = true;/);
+    assert.match(creation, /if \(requestSent\)/);
+    assert.match(creation, /No se pudo iniciar la orden/);
+  }],
   ['Cambio de cuenta reinicia la carga de órdenes', () => {
     assert.match(app, /pickupOrdersSequenceRef\.current \+= 1;\s*setPickupOrders\(\[\]\);\s*setPickupOrdersBusy\(false\)/);
   }],
