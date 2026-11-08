@@ -119,10 +119,13 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
+    let authEventReceived = false;
     supabase.auth.getSession()
       .then(({ data, error }) => {
         if (error) throw error;
-        if (active) {
+        // El evento de autenticación tiene prioridad sobre una lectura
+        // anterior de getSession que haya terminado más tarde.
+        if (active && !authEventReceived) {
           // Sincronizar la referencia incluso si el evento inicial de auth
           // todavía no llegó. Evita descartar respuestas de la cuenta activa.
           const initialUserId = data.session?.user?.id || null;
@@ -139,6 +142,7 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return;
+      authEventReceived = true;
       // Renovar el token no debe interrumpir una actualización en curso.
       const nextUserId = nextSession?.user?.id || null;
       const accountChanged = authUserRef.current !== nextUserId;
