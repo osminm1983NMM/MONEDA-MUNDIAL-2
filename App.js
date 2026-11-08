@@ -404,12 +404,19 @@ export default function App() {
         setSwapQuote(null);
         setSwapAmount('');
       }
-      const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
-      if (walletResponse.error) throw walletResponse.error;
-      if (authUserRef.current === requestedUserId) setSwapWallet(walletResponse.data);
+      // La confirmación ya fue aceptada. Un fallo al consultar saldos no
+      // debe anunciar falsamente que la conversión quedó sin confirmar.
       await AsyncStorage.removeItem('mwd_swap_pending_' + requestedUserId);
       if (authUserRef.current === requestedUserId) setSwapPendingReview(null);
       message('Conversión ficticia', 'Operación registrada correctamente.');
+      const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
+      if (walletResponse.error) {
+        if (authUserRef.current === requestedUserId) {
+          message('Actualizar saldos', 'La conversión se registró, pero no se pudieron actualizar los saldos. Usa Consultar saldos.');
+        }
+      } else if (authUserRef.current === requestedUserId) {
+        setSwapWallet(walletResponse.data);
+      }
     } catch (error) {
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
         '\nConsulta los saldos antes de intentar otra conversión.');
