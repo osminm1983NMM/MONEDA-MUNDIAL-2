@@ -110,6 +110,7 @@ export default function App() {
   const pendingRef = useRef(null);
   const refreshInFlightRef = useRef(null);
   const refreshSequenceRef = useRef(0);
+  const authUserRef = useRef(null);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -124,9 +125,15 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return;
-      // Invalidar respuestas de una cuenta anterior al cambiar de sesión.
-      refreshSequenceRef.current += 1;
-      refreshInFlightRef.current = null;
+      // Renovar el token no debe interrumpir una actualización en curso.
+      const nextUserId = nextSession?.user?.id || null;
+      if (authUserRef.current !== nextUserId) {
+        authUserRef.current = nextUserId;
+        refreshSequenceRef.current += 1;
+        refreshInFlightRef.current = null;
+        setSyncing(false);
+        setSyncNotice('');
+      }
       setSession(nextSession);
       setAuthLoading(false);
       setScreen('Inicio');
