@@ -586,16 +586,20 @@ export default function App() {
   }
 
   async function cancelDemoPickup(orderId) {
-    if (pickupCancelBusy) return;
+    if (!userId || !orderId || pickupCancelBusy) return;
+    const requestedUserId = userId;
     setPickupCancelBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_cancel_demo', { p_order_id: orderId });
       if (error) throw error;
       if (!['cancelled', 'already_cancelled'].includes(data?.status)) throw new Error('Respuesta de cancelación no reconocida.');
+      if (authUserRef.current !== requestedUserId) return;
       message('Orden ficticia', data.status === 'cancelled' ? 'Orden cancelada correctamente.' : 'La orden ya estaba cancelada.');
       await loadPickupOrders();
     } catch (error) {
-      message('No se pudo cancelar', error.message || 'Error desconocido');
+      if (authUserRef.current === requestedUserId) {
+        message('No se pudo cancelar', error.message || 'Error desconocido');
+      }
     } finally {
       setPickupCancelBusy(false);
     }
