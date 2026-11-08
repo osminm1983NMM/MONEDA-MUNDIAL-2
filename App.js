@@ -307,7 +307,7 @@ export default function App() {
 
   async function requestSwapQuote() {
     const normalized = swapAmount.trim().replace(',', '.');
-    if (!/^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$/.test(normalized)) {
+    if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(normalized)) {
       return message('Cantidad inválida', 'Usa hasta seis decimales.');
     }
     const [whole, fraction = ''] = normalized.split('.');
