@@ -380,6 +380,7 @@ export default function App() {
   async function confirmSwap() {
     if (!swapQuote?.quoteId || swapBusy || swapActionInFlightRef.current || swapReviewLoading || swapReviewReadError || swapPendingReview) return;
     const quote = swapQuote;
+    const requestedUserId = userId;
     if (new Date(quote.expiresAt).getTime() <= Date.now()) {
       setSwapQuote(null);
       return message('Cotización vencida', 'Solicita una cotización nueva.');
@@ -388,20 +389,22 @@ export default function App() {
     setSwapBusy(true);
     try {
       // Guardar la referencia ANTES de enviar la confirmación a Supabase.
-      await AsyncStorage.setItem('mwd_swap_pending_' + userId, quote.quoteId);
-      setSwapPendingReview(quote.quoteId);
+      await AsyncStorage.setItem('mwd_swap_pending_' + requestedUserId, quote.quoteId);
+      if (authUserRef.current === requestedUserId) setSwapPendingReview(quote.quoteId);
       const { data, error } = await supabase.rpc('mwd_conversion_confirm_demo', {
         p_quote_id: quote.quoteId,
       });
       if (error) throw error;
       if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
-      setSwapQuote(null);
-      setSwapAmount('');
+      if (authUserRef.current === requestedUserId) {
+        setSwapQuote(null);
+        setSwapAmount('');
+      }
       const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
       if (walletResponse.error) throw walletResponse.error;
-      setSwapWallet(walletResponse.data);
-      await AsyncStorage.removeItem('mwd_swap_pending_' + userId);
-      setSwapPendingReview(null);
+      if (authUserRef.current === requestedUserId) setSwapWallet(walletResponse.data);
+      await AsyncStorage.removeItem('mwd_swap_pending_' + requestedUserId);
+      if (authUserRef.current === requestedUserId) setSwapPendingReview(null);
       message('Conversión ficticia', 'Operación registrada correctamente.');
     } catch (error) {
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
@@ -414,6 +417,7 @@ export default function App() {
 
   async function reconcileSwap() {
     if (!swapPendingReview || swapBusy || swapActionInFlightRef.current) return;
+    const requestedUserId = userId;
     swapActionInFlightRef.current = true;
     setSwapBusy(true);
     try {
@@ -424,13 +428,13 @@ export default function App() {
       if (data?.status === 'executed') {
         setSwapQuote(null);
         setSwapAmount('');
-        await AsyncStorage.removeItem('mwd_swap_pending_' + userId);
-        setSwapPendingReview(null);
+        await AsyncStorage.removeItem('mwd_swap_pending_' + requestedUserId);
+        if (authUserRef.current === requestedUserId) setSwapPendingReview(null);
         message('Conversión verificada', 'La conversión ficticia sí fue ejecutada. No la repitas.');
       } else if (data?.status === 'expired') {
         setSwapQuote(null);
-        await AsyncStorage.removeItem('mwd_swap_pending_' + userId);
-        setSwapPendingReview(null);
+        await AsyncStorage.removeItem('mwd_swap_pending_' + requestedUserId);
+        if (authUserRef.current === requestedUserId) setSwapPendingReview(null);
         message('Cotización vencida', 'No se ejecutó. Puedes solicitar una nueva.');
       } else if (data?.status === 'quoted') {
         message('Conversión sin ejecutar', 'La cotización sigue pendiente. Consulta nuevamente antes de iniciar otra.');
@@ -439,7 +443,7 @@ export default function App() {
       }
       const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
       if (walletResponse.error) throw walletResponse.error;
-      setSwapWallet(walletResponse.data);
+      if (authUserRef.current === requestedUserId) setSwapWallet(walletResponse.data);
     } catch (error) {
       message('No se pudo verificar', (error.message || 'Error de conexión') +
         '\nConservamos la referencia para volver a consultar sin duplicar la conversión.');
