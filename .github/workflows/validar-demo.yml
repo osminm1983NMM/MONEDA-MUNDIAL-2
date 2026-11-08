@@ -21,6 +21,9 @@ jobs:
           node-version: '22'
       - name: Instalar dependencias
         run: npm install --no-audit --no-fund
-            - name: Verificar sintaxis de package.json
-        run: node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8')); console.log('package.json válido')"
+            
+      - name: Verificar sintaxis de package.json
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))"
+  
   
