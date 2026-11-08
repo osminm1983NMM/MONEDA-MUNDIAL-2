@@ -354,6 +354,7 @@ export default function App() {
   }
 
   async function requestSwapQuote() {
+    if (!userId || swapBusy || swapActionInFlightRef.current) return;
     if (swapReviewLoading || swapReviewReadError || swapPendingReview) return message('Conversión pendiente', 'Consulta primero el estado de la conversión anterior.');
     const normalized = swapAmount.trim().replace(',', '.');
     if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(normalized)) {
@@ -365,6 +366,7 @@ export default function App() {
       return message('Cantidad inválida', 'Introduce entre 1 y 10,000 unidades de prueba.');
     }
     const requestedUserId = userId;
+    swapActionInFlightRef.current = true;
     setSwapBusy(true);
     setSwapQuote(null);
     try {
@@ -374,8 +376,9 @@ export default function App() {
       if (error) throw error;
       if (authUserRef.current === requestedUserId) setSwapQuote(data);
     } catch (error) {
-      message('Cotización', error.message || 'No se pudo cotizar.');
+      if (authUserRef.current === requestedUserId) message('Cotización', error.message || 'No se pudo cotizar.');
     } finally {
+      swapActionInFlightRef.current = false;
       setSwapBusy(false);
     }
   }
