@@ -552,7 +552,7 @@ export default function App() {
   }
 
   async function createDemoPickup() {
-    if (!userId || pickupBusy || pickupCreateInFlightRef.current) return;
+    if (!userId || authUserRef.current !== userId || pickupBusy || pickupCreateInFlightRef.current) return;
     const requestedUserId = userId;
     const cents = amountToCents(pickupAmount);
     if (cents === null || cents < 100 || cents > 100000) {
@@ -583,7 +583,7 @@ export default function App() {
   }
 
   async function loadPickupOrders() {
-    if (!userId) return;
+    if (!userId || authUserRef.current !== userId) return;
     const requestedUserId = userId;
     const requestSequence = ++pickupOrdersSequenceRef.current;
     setPickupOrdersBusy(true);
@@ -604,7 +604,7 @@ export default function App() {
   }
 
   async function cancelDemoPickup(orderId) {
-    if (!userId || !orderId || pickupCancelBusy || pickupCancelInFlightRef.current) return;
+    if (!userId || authUserRef.current !== userId || !orderId || pickupCancelBusy || pickupCancelInFlightRef.current) return;
     const requestedUserId = userId;
     pickupCancelInFlightRef.current = true;
     setPickupCancelBusy(true);
