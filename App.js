@@ -403,7 +403,9 @@ export default function App() {
       });
       if (error) throw error;
       // Evitar presentar una cotización incompleta o inválida como confirmable.
-      if (!data?.quoteId || data?.status !== 'quoted' ||
+      if (typeof data?.quoteId !== 'string' ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.quoteId) ||
+          data?.status !== 'quoted' ||
           data?.fromAsset !== swapFrom ||
           data?.toAsset !== (swapFrom === 'COIN' ? 'STABLE' : 'COIN') ||
           data?.amountInMicro == null ||
