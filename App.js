@@ -108,6 +108,8 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
+  const refreshInFlightRef = useRef(null);
+  const refreshSequenceRef = useRef(0);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -122,6 +124,9 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return;
+      // Invalidar respuestas de una cuenta anterior al cambiar de sesión.
+      refreshSequenceRef.current += 1;
+      refreshInFlightRef.current = null;
       setSession(nextSession);
       setAuthLoading(false);
       setScreen('Inicio');
@@ -142,7 +147,9 @@ export default function App() {
   }, [userId]);
 
   async function refreshAccount(id = userId) {
-    if (!id) return;
+    if (!id || refreshInFlightRef.current === id) return;
+    const sequence = ++refreshSequenceRef.current;
+    refreshInFlightRef.current = id;
     setSyncing(true);
     setSyncNotice('Actualizando...');
     try {
@@ -155,19 +162,27 @@ export default function App() {
           .order('created_at', { ascending: false }).limit(50),
         supabase.from('mwd_admin_roles').select('role').eq('user_id', id).maybeSingle(),
       ]);
+      if (sequence !== refreshSequenceRef.current) return;
       if (w.error) throw w.error;
       if (h.error) throw h.error;
       if (a.error) throw a.error;
-      if (supabase.auth.getUser && supabase.auth && id !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sequence !== refreshSequenceRef.current) return;
+      if (sessionError) throw sessionError;
+      if (sessionData.session?.user?.id !== id) return;
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
       setSyncNotice('Saldo e historial actualizados correctamente.');
     } catch (error) {
-      setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
+      if (sequence !== refreshSequenceRef.current) return;
+      setSyncNotice('No se pudo actualizar. Inténtalo de nuevo.');
       message('Sincronización', error.message || 'No se pudo consultar Supabase.');
     } finally {
-      setSyncing(false);
+      if (sequence === refreshSequenceRef.current) {
+        refreshInFlightRef.current = null;
+        setSyncing(false);
+      }
     }
   }
 
