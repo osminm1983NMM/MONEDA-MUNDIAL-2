@@ -122,9 +122,19 @@ export default function App() {
     supabase.auth.getSession()
       .then(({ data, error }) => {
         if (error) throw error;
-        if (active) setSession(data.session);
+        if (active) {
+          // Sincronizar la referencia incluso si el evento inicial de auth
+          // todavía no llegó. Evita descartar respuestas de la cuenta activa.
+          const initialUserId = data.session?.user?.id || null;
+          if (authUserRef.current !== initialUserId) {
+            authUserRef.current = initialUserId;
+            refreshSequenceRef.current += 1;
+            refreshInFlightRef.current = null;
+          }
+          setSession(data.session);
+        }
       })
-      .catch(error => message('Sesión', error.message))
+      .catch(error => { if (active) message('Sesión', error.message); })
       .finally(() => { if (active) setAuthLoading(false); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
