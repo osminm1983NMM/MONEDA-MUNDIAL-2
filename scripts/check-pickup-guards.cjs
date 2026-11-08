@@ -47,6 +47,15 @@ const checks = [
     assert.match(creation, /Consulta Mis retiros antes de intentar crear otra orden/);
     assert.doesNotMatch(creation, /Orden ficticia no creada/);
   }],
+  ['Error de cancelación no asegura falsamente que falló', () => {
+    const start = app.indexOf('async function cancelDemoPickup(orderId)');
+    const end = app.indexOf('function navigate(to)', start);
+    assert.ok(start !== -1 && end > start, 'Falta la función de cancelación');
+    const cancellation = app.slice(start, end);
+    assert.match(cancellation, /La orden pudo haberse cancelado/);
+    assert.match(cancellation, /Consulta Mis retiros antes de intentarlo nuevamente/);
+    assert.doesNotMatch(cancellation, /No se pudo cancelar/);
+  }],
   ['Cambio de cuenta reinicia la carga de órdenes', () => {
     assert.match(app, /pickupOrdersSequenceRef\.current \+= 1;\s*setPickupOrders\(\[\]\);\s*setPickupOrdersBusy\(false\)/);
   }],
