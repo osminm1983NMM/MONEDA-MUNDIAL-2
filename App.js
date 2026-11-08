@@ -378,8 +378,12 @@ export default function App() {
       if (!data?.quoteId || !['COIN', 'STABLE'].includes(data?.toAsset) ||
           !Number.isFinite(new Date(data?.expiresAt).getTime()) ||
           new Date(data.expiresAt).getTime() <= Date.now() ||
-          !Number.isSafeInteger(Number(data?.amountOutMicro)) ||
-          !Number.isSafeInteger(Number(data?.feeOutMicro))) {
+          data?.amountOutMicro == null ||
+          data?.feeOutMicro == null ||
+          !Number.isSafeInteger(Number(data.amountOutMicro)) ||
+          Number(data.amountOutMicro) <= 0 ||
+          !Number.isSafeInteger(Number(data.feeOutMicro)) ||
+          Number(data.feeOutMicro) < 0) {
         throw new Error('Respuesta de cotización inválida o vencida. Solicita otra.');
       }
       if (authUserRef.current === requestedUserId) setSwapQuote(data);
