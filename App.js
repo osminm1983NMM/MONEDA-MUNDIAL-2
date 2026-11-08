@@ -498,12 +498,16 @@ export default function App() {
         }
         await AsyncStorage.removeItem('mwd_swap_pending_' + requestedUserId);
         if (authUserRef.current === requestedUserId) setSwapPendingReview(null);
-        message('Conversión verificada', 'La conversión ficticia sí fue ejecutada. No la repitas.');
+        if (authUserRef.current === requestedUserId) {
+          message('Conversión verificada', 'La conversión ficticia sí fue ejecutada. No la repitas.');
+        }
       } else if (data?.status === 'expired') {
         if (authUserRef.current === requestedUserId) setSwapQuote(null);
         await AsyncStorage.removeItem('mwd_swap_pending_' + requestedUserId);
         if (authUserRef.current === requestedUserId) setSwapPendingReview(null);
-        message('Cotización vencida', 'No se ejecutó. Puedes solicitar una nueva.');
+        if (authUserRef.current === requestedUserId) {
+          message('Cotización vencida', 'No se ejecutó. Puedes solicitar una nueva.');
+        }
       } else if (data?.status === 'quoted') {
         message('Conversión sin ejecutar', 'La cotización sigue pendiente. Consulta nuevamente antes de iniciar otra.');
       } else {
