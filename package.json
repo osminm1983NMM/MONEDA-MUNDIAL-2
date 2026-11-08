@@ -7,7 +7,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "check:android-bundle": "expo export --platform android --output-dir dist-validation",
-    "check:dependencies": "expo install --check"
+    "check:dependencies": "expo install --check",
+    "check:demo-config": "node scripts/check-demo-config.cjs"
   },
   "dependencies": {
     "expo": "~54.0.0",
