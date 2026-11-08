@@ -9,6 +9,15 @@ const config = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'));
 const eas = JSON.parse(fs.readFileSync(path.join(root, 'eas.json'), 'utf8'));
 const checks = [
   ['Expo 54', () => assert.match(pkg.dependencies.expo, /^~54\./)],
+  ['No hay claves privilegiadas incrustadas en la aplicación', () => {
+    assert.doesNotMatch(app, /sb_secret_[A-Za-z0-9_-]+/);
+    assert.doesNotMatch(app, /(?:SUPABASE_SERVICE_ROLE_KEY|service_role\s*[:=]\s*['"`])/);
+    assert.match(app, /const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_/);
+  }],
+  ['Aplicación identificada como demostración sin dinero real', () => {
+    assert.ok(app.includes('Esta aplicación NO mueve dinero real.'));
+    assert.ok(app.includes("data?.realPaymentsEnabled !== false"));
+  }],
   ['Identidad Android configurada', () => assert.equal(config.expo.android.package, 'com.monedamundial.app')],
   ['APK de distribución interna', () => {
     assert.equal(eas.build.preview.android.buildType, 'apk');
