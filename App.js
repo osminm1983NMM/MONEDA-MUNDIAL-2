@@ -513,10 +513,13 @@ export default function App() {
           message('Cotización vencida', 'No se ejecutó. Puedes solicitar una nueva.');
         }
       } else if (data?.status === 'quoted') {
-        message('Conversión sin ejecutar', 'La cotización sigue pendiente. Consulta nuevamente antes de iniciar otra.');
+        if (authUserRef.current === requestedUserId) {
+          message('Conversión sin ejecutar', 'La cotización sigue pendiente. Consulta nuevamente antes de iniciar otra.');
+        }
       } else {
         throw new Error('Estado de conciliación no reconocido.');
       }
+      if (authUserRef.current !== requestedUserId) return;
       // El estado de la conversión ya se verificó. Si falla la consulta
       // posterior de saldos, mostrar un aviso distinto sin confundir el resultado.
       const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
