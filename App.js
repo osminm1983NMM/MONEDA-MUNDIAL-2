@@ -105,6 +105,7 @@ export default function App() {
   const [pickupResult, setPickupResult] = useState(null);
   const [pickupOrders, setPickupOrders] = useState([]);
   const [pickupOrdersBusy, setPickupOrdersBusy] = useState(false);
+  const [pickupOrdersError, setPickupOrdersError] = useState(false);
   const [pickupCancelBusy, setPickupCancelBusy] = useState(false);
   const [recipientCode, setRecipientCode] = useState('');
   const [amount, setAmount] = useState('');
@@ -168,6 +169,7 @@ export default function App() {
     pickupOrdersSequenceRef.current += 1;
     setPickupOrders([]);
     setPickupOrdersBusy(false);
+    setPickupOrdersError(false);
     setPickupResult(null);
     setPickupAmount('');
     if (!userId) {
@@ -589,15 +591,20 @@ export default function App() {
     const requestedUserId = userId;
     const requestSequence = ++pickupOrdersSequenceRef.current;
     setPickupOrdersBusy(true);
+    setPickupOrdersError(false);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_my_orders_demo');
       if (error) throw error;
       if (!Array.isArray(data)) throw new Error('Respuesta de órdenes no reconocida.');
       if (authUserRef.current === requestedUserId &&
-          requestSequence === pickupOrdersSequenceRef.current) setPickupOrders(data);
+          requestSequence === pickupOrdersSequenceRef.current) {
+        setPickupOrders(data);
+        setPickupOrdersError(false);
+      }
     } catch (error) {
       if (authUserRef.current === requestedUserId &&
           requestSequence === pickupOrdersSequenceRef.current) {
+        setPickupOrdersError(true);
         message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
       }
     } finally {
@@ -688,7 +695,8 @@ export default function App() {
               <Text style={styles.muted}>Solo aparecen las órdenes de tu cuenta. No se entrega dinero real.</Text>
               <Btn title={pickupOrdersBusy ? 'Consultando...' : 'Actualizar mis órdenes'}
                 secondary onPress={loadPickupOrders} disabled={pickupOrdersBusy || pickupCancelBusy} />
-              {!pickupOrdersBusy && pickupOrders.length === 0 && <Text style={styles.muted}>No hay órdenes para mostrar.</Text>}
+              {pickupOrdersError && <Text style={styles.warning}>No se pudo actualizar la lista. Las órdenes mostradas podrían estar desactualizadas. Pulsa Actualizar mis órdenes para reintentar.</Text>}
+              {!pickupOrdersBusy && !pickupOrdersError && pickupOrders.length === 0 && <Text style={styles.muted}>No hay órdenes para mostrar.</Text>}
               {pickupOrders.map(order => (
                 <View key={order.orderId} style={styles.card}>
                   <Text style={styles.small}>Destino: {order.destinationCountry === 'HN' ? 'Honduras' : order.destinationCountry}</Text>
