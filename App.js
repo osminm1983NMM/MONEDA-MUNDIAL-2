@@ -130,7 +130,8 @@ export default function App() {
       if (!active) return;
       // Renovar el token no debe interrumpir una actualización en curso.
       const nextUserId = nextSession?.user?.id || null;
-      if (authUserRef.current !== nextUserId) {
+      const accountChanged = authUserRef.current !== nextUserId;
+      if (accountChanged) {
         authUserRef.current = nextUserId;
         refreshSequenceRef.current += 1;
         refreshInFlightRef.current = null;
@@ -139,7 +140,7 @@ export default function App() {
       }
       setSession(nextSession);
       setAuthLoading(false);
-      setScreen('Inicio');
+      if (accountChanged) setScreen('Inicio');
     });
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
@@ -174,6 +175,22 @@ export default function App() {
     refreshAccount(userId);
     return () => { active = false; };
   }, [userId]);
+
+  async function retrySwapRecovery() {
+    if (!userId || swapReviewLoading || swapBusy) return;
+    setSwapReviewLoading(true);
+    try {
+      const value = await AsyncStorage.getItem('mwd_swap_pending_' + userId);
+      setSwapPendingReview(value || null);
+      setSwapReviewReadError(false);
+      message('Recuperación', value ? 'Referencia pendiente recuperada. Consulta su estado.' : 'No hay conversiones pendientes guardadas.');
+    } catch (error) {
+      setSwapReviewReadError(true);
+      message('Recuperación fallida', error.message || 'Inténtalo nuevamente.');
+    } finally {
+      setSwapReviewLoading(false);
+    }
+  }
 
   async function refreshAccount(id = userId) {
     if (!id || refreshInFlightRef.current === id) return;
@@ -623,8 +640,13 @@ export default function App() {
               <Text style={styles.muted}>Coin: {swapWallet ? microDisplay(swapWallet.coinMicro) : '...'} COIN</Text>
               <Text style={styles.muted}>Digital: {swapWallet ? microDisplay(swapWallet.stableMicro) : '...'} DIGITAL</Text>
               <Btn title="Consultar saldos" secondary onPress={loadSwapWallet} disabled={swapBusy} />
+              {swapReviewReadError && <View>
+                <Text style={styles.warning}>No se pudo recuperar una operación pendiente. Las conversiones permanecen bloqueadas.</Text>
+                <Btn title={swapReviewLoading ? 'Recuperando...' : 'Reintentar recuperación'}
+                  disabled={swapReviewLoading || swapBusy} onPress={retrySwapRecovery} />
+              </View>}
               <Btn title={swapFrom === 'COIN' ? 'Origen: COIN (cambiar)' : 'Origen: DIGITAL (cambiar)'}
-                secondary disabled={swapBusy} onPress={() => {
+                secondary disabled={swapBusy || !!swapPendingReview || swapReviewReadError} onPress={() => {
                   setSwapFrom(swapFrom === 'COIN' ? 'STABLE' : 'COIN');
                   setSwapQuote(null);
                 }} />
