@@ -354,15 +354,20 @@ export default function App() {
   const microDisplay = value => (Number(value || 0) / 1000000).toFixed(6);
 
   async function loadSwapWallet() {
+    if (!userId || swapBusy || swapActionInFlightRef.current) return;
     const requestedUserId = userId;
+    swapActionInFlightRef.current = true;
     setSwapBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_wallet_demo');
       if (error) throw error;
       if (authUserRef.current === requestedUserId) setSwapWallet(data);
     } catch (error) {
-      message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
+      if (authUserRef.current === requestedUserId) {
+        message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
+      }
     } finally {
+      swapActionInFlightRef.current = false;
       setSwapBusy(false);
     }
   }
