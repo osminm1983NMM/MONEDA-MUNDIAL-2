@@ -374,6 +374,14 @@ export default function App() {
         p_from_asset: swapFrom, p_amount_micro: micro, p_client_request_id: uniqueRequestId(),
       });
       if (error) throw error;
+      // Evitar presentar una cotización incompleta o inválida como confirmable.
+      if (!data?.quoteId || !['COIN', 'STABLE'].includes(data?.toAsset) ||
+          !Number.isFinite(new Date(data?.expiresAt).getTime()) ||
+          new Date(data.expiresAt).getTime() <= Date.now() ||
+          !Number.isSafeInteger(Number(data?.amountOutMicro)) ||
+          !Number.isSafeInteger(Number(data?.feeOutMicro))) {
+        throw new Error('Respuesta de cotización inválida o vencida. Solicita otra.');
+      }
       if (authUserRef.current === requestedUserId) setSwapQuote(data);
     } catch (error) {
       if (authUserRef.current === requestedUserId) message('Cotización', error.message || 'No se pudo cotizar.');
