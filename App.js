@@ -117,6 +117,7 @@ export default function App() {
   const swapActionInFlightRef = useRef(false);
   const pickupCancelInFlightRef = useRef(false);
   const pickupCreateInFlightRef = useRef(false);
+  const pickupOrdersSequenceRef = useRef(0);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -163,7 +164,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Evitar mostrar órdenes de retiro de otra cuenta al cambiar de sesión.
+    // Invalidar consultas anteriores antes de mostrar datos de otra cuenta.
+    pickupOrdersSequenceRef.current += 1;
     setPickupOrders([]);
     setPickupResult(null);
     setPickupAmount('');
@@ -577,18 +579,21 @@ export default function App() {
   async function loadPickupOrders() {
     if (!userId) return;
     const requestedUserId = userId;
+    const requestSequence = ++pickupOrdersSequenceRef.current;
     setPickupOrdersBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_my_orders_demo');
       if (error) throw error;
       if (!Array.isArray(data)) throw new Error('Respuesta de órdenes no reconocida.');
-      if (authUserRef.current === requestedUserId) setPickupOrders(data);
+      if (authUserRef.current === requestedUserId &&
+          requestSequence === pickupOrdersSequenceRef.current) setPickupOrders(data);
     } catch (error) {
-      if (authUserRef.current === requestedUserId) {
+      if (authUserRef.current === requestedUserId &&
+          requestSequence === pickupOrdersSequenceRef.current) {
         message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
       }
     } finally {
-      setPickupOrdersBusy(false);
+      if (requestSequence === pickupOrdersSequenceRef.current) setPickupOrdersBusy(false);
     }
   }
 
