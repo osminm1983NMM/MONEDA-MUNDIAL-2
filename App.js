@@ -400,10 +400,11 @@ export default function App() {
       });
       if (error) throw error;
       if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
-      if (authUserRef.current === requestedUserId) {
-        setSwapQuote(null);
-        setSwapAmount('');
-      }
+      // Si cambió la sesión durante la petición, conservar la referencia
+      // local para verificarla al volver a la cuenta que inició la operación.
+      if (authUserRef.current !== requestedUserId) return;
+      setSwapQuote(null);
+      setSwapAmount('');
       // La confirmación ya fue aceptada. Un fallo al consultar saldos no
       // debe anunciar falsamente que la conversión quedó sin confirmar.
       await AsyncStorage.removeItem('mwd_swap_pending_' + requestedUserId);
@@ -418,8 +419,10 @@ export default function App() {
         setSwapWallet(walletResponse.data);
       }
     } catch (error) {
-      message('Conversión no confirmada', (error.message || 'Error desconocido') +
-        '\nConsulta los saldos antes de intentar otra conversión.');
+      if (authUserRef.current === requestedUserId) {
+        message('Conversión no confirmada', (error.message || 'Error desconocido') +
+          '\nConsulta los saldos antes de intentar otra conversión.');
+      }
     } finally {
       swapActionInFlightRef.current = false;
       setSwapBusy(false);
