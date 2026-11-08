@@ -98,6 +98,7 @@ export default function App() {
   const [swapQuote, setSwapQuote] = useState(null);
   const [swapBusy, setSwapBusy] = useState(false);
   const [swapPendingReview, setSwapPendingReview] = useState(null);
+  const [swapReviewLoading, setSwapReviewLoading] = useState(true);
   const [pickupAmount, setPickupAmount] = useState('');
   const [pickupBusy, setPickupBusy] = useState(false);
   const [pickupResult, setPickupResult] = useState(null);
@@ -150,9 +151,22 @@ export default function App() {
       setSwapWallet(null);
       setSwapQuote(null);
       setSwapPendingReview(null);
+      setSwapReviewLoading(false);
       return;
     }
+    let active = true;
+    setSwapReviewLoading(true);
+    setSwapPendingReview(null);
+    AsyncStorage.getItem('mwd_swap_pending_' + userId)
+      .then(value => {
+        if (active) setSwapPendingReview(value || null);
+      })
+      .catch(error => {
+        if (active) message('Recuperación de conversión', error.message || 'No se pudo leer la operación pendiente.');
+      })
+      .finally(() => { if (active) setSwapReviewLoading(false); });
     refreshAccount(userId);
+    return () => { active = false; };
   }, [userId]);
 
   async function refreshAccount(id = userId) {
@@ -308,7 +322,7 @@ export default function App() {
   }
 
   async function requestSwapQuote() {
-    if (swapPendingReview) return message('Conversión pendiente', 'Consulta primero el estado de la conversión anterior.');
+    if (swapReviewLoading || swapPendingReview) return message('Conversión pendiente', 'Consulta primero el estado de la conversión anterior.');
     const normalized = swapAmount.trim().replace(',', '.');
     if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(normalized)) {
       return message('Cantidad inválida', 'Usa hasta seis decimales.');
@@ -334,15 +348,17 @@ export default function App() {
   }
 
   async function confirmSwap() {
-    if (!swapQuote?.quoteId || swapBusy) return;
+    if (!swapQuote?.quoteId || swapBusy || swapReviewLoading || swapPendingReview) return;
     const quote = swapQuote;
     if (new Date(quote.expiresAt).getTime() <= Date.now()) {
       setSwapQuote(null);
       return message('Cotización vencida', 'Solicita una cotización nueva.');
     }
     setSwapBusy(true);
-    setSwapPendingReview(quote.quoteId);
     try {
+      // Guardar la referencia ANTES de enviar la confirmación a Supabase.
+      await AsyncStorage.setItem('mwd_swap_pending_' + userId, quote.quoteId);
+      setSwapPendingReview(quote.quoteId);
       const { data, error } = await supabase.rpc('mwd_conversion_confirm_demo', {
         p_quote_id: quote.quoteId,
       });
@@ -350,10 +366,11 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
       setSwapQuote(null);
       setSwapAmount('');
-      setSwapPendingReview(null);
       const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
       if (walletResponse.error) throw walletResponse.error;
       setSwapWallet(walletResponse.data);
+      await AsyncStorage.removeItem('mwd_swap_pending_' + userId);
+      setSwapPendingReview(null);
       message('Conversión ficticia', 'Operación registrada correctamente.');
     } catch (error) {
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
@@ -372,13 +389,15 @@ export default function App() {
       });
       if (error) throw error;
       if (data?.status === 'executed') {
-        setSwapPendingReview(null);
         setSwapQuote(null);
         setSwapAmount('');
+        await AsyncStorage.removeItem('mwd_swap_pending_' + userId);
+        setSwapPendingReview(null);
         message('Conversión verificada', 'La conversión ficticia sí fue ejecutada. No la repitas.');
       } else if (data?.status === 'expired') {
-        setSwapPendingReview(null);
         setSwapQuote(null);
+        await AsyncStorage.removeItem('mwd_swap_pending_' + userId);
+        setSwapPendingReview(null);
         message('Cotización vencida', 'No se ejecutó. Puedes solicitar una nueva.');
       } else if (data?.status === 'quoted') {
         message('Conversión sin ejecutar', 'La cotización sigue pendiente. Consulta nuevamente antes de iniciar otra.');
@@ -607,12 +626,12 @@ export default function App() {
                 keyboardType="decimal-pad" placeholderTextColor="#9fb1c8"
                 value={swapAmount} onChangeText={value => { if (!swapPendingReview) { setSwapAmount(value); setSwapQuote(null); } }} />
               <Btn title={swapBusy ? 'Procesando...' : 'Solicitar cotización ficticia'}
-                disabled={swapBusy || !swapWallet || !!swapPendingReview} onPress={requestSwapQuote} />
+                disabled={swapBusy || swapReviewLoading || !swapWallet || !!swapPendingReview} onPress={requestSwapQuote} />
               {swapQuote && <View>
                 <Text style={styles.muted}>Recibirías: {microDisplay(swapQuote.amountOutMicro)} {swapQuote.toAsset === 'STABLE' ? 'DIGITAL' : 'COIN'}</Text>
                 <Text style={styles.muted}>Comisión: {microDisplay(swapQuote.feeOutMicro)} {swapQuote.toAsset === 'STABLE' ? 'DIGITAL' : 'COIN'}</Text>
                 <Text style={styles.muted}>Cotización válida hasta: {new Date(swapQuote.expiresAt).toLocaleTimeString()}</Text>
-                <Btn title="Confirmar conversión ficticia" disabled={swapBusy || !!swapPendingReview}
+                <Btn title="Confirmar conversión ficticia" disabled={swapBusy || swapReviewLoading || !!swapPendingReview}
                   onPress={() => confirmAction('Confirmar conversión ficticia',
                     'Esta operación modificará únicamente los saldos de prueba.', confirmSwap)} />
               </View>}
