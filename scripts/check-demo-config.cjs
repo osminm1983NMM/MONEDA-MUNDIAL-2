@@ -33,6 +33,16 @@ const checks = [
     assert.ok(app.includes("typeof data?.quoteId !== 'string'"));
     assert.match(app, /test\(data\.quoteId\)/);
   }],
+  ['Cotización usa moneda capturada al iniciar la solicitud', () => {
+    const start = app.indexOf('async function requestSwapQuote()');
+    const end = app.indexOf('async function confirmSwap()', start);
+    assert.ok(start !== -1 && end > start, 'Falta función de cotización');
+    const quoteFunction = app.slice(start, end);
+    assert.match(quoteFunction, /const requestedFromAsset = swapFrom;/);
+    assert.match(quoteFunction, /p_from_asset: requestedFromAsset/);
+    assert.match(quoteFunction, /data\?\.fromAsset !== requestedFromAsset/);
+    assert.match(quoteFunction, /data\?\.toAsset !== \(requestedFromAsset === 'COIN' \? 'STABLE' : 'COIN'\)/);
+  }],
   ['Cuenta activa obligatoria en operaciones de conversión', () => {
     for (const name of ['loadSwapWallet', 'requestSwapQuote', 'confirmSwap', 'reconcileSwap']) {
       const start = app.indexOf('async function ' + name + '()');
