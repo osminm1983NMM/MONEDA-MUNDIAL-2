@@ -575,7 +575,8 @@ export default function App() {
       }
     } catch (error) {
       if (authUserRef.current === requestedUserId) {
-        message('Orden ficticia no creada', error.message || 'Error desconocido');
+        message('No se pudo verificar la orden', (error.message || 'Error de comunicación') +
+          '\nLa solicitud pudo haberse registrado. Consulta Mis retiros antes de intentar crear otra orden.');
       }
     } finally {
       pickupCreateInFlightRef.current = false;
