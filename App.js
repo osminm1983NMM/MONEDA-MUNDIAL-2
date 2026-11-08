@@ -711,13 +711,14 @@ export default function App() {
                   disabled={swapReviewLoading || swapBusy} onPress={retrySwapRecovery} />
               </View>}
               <Btn title={swapFrom === 'COIN' ? 'Origen: COIN (cambiar)' : 'Origen: DIGITAL (cambiar)'}
-                secondary disabled={swapBusy || !!swapPendingReview || swapReviewReadError} onPress={() => {
+                secondary disabled={swapBusy || swapReviewLoading || !!swapPendingReview || swapReviewReadError} onPress={() => {
                   setSwapFrom(swapFrom === 'COIN' ? 'STABLE' : 'COIN');
                   setSwapQuote(null);
                 }} />
               <TextInput style={styles.input} placeholder="Cantidad (mínimo 1)"
                 keyboardType="decimal-pad" placeholderTextColor="#9fb1c8"
-                value={swapAmount} onChangeText={value => { if (!swapPendingReview) { setSwapAmount(value); setSwapQuote(null); } }} />
+                editable={!swapBusy && !swapReviewLoading && !swapReviewReadError && !swapPendingReview}
+                value={swapAmount} onChangeText={value => { if (!swapPendingReview && !swapBusy) { setSwapAmount(value); setSwapQuote(null); } }} />
               <Btn title={swapBusy ? 'Procesando...' : 'Solicitar cotización ficticia'}
                 disabled={swapBusy || swapReviewLoading || swapReviewReadError || !swapWallet || !!swapPendingReview} onPress={requestSwapQuote} />
               {swapQuote && <View>
