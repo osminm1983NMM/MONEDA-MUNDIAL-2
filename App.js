@@ -153,6 +153,7 @@ export default function App() {
       setAdminRole(null);
       setSwapWallet(null);
       setSwapQuote(null);
+      setSwapAmount('');
       setSwapPendingReview(null);
       setSwapReviewLoading(false);
       setSwapReviewReadError(false);
@@ -162,6 +163,9 @@ export default function App() {
     setSwapReviewLoading(true);
     setSwapReviewReadError(false);
     setSwapPendingReview(null);
+    setSwapWallet(null);
+    setSwapQuote(null);
+    setSwapAmount('');
     AsyncStorage.getItem('mwd_swap_pending_' + userId)
       .then(value => {
         if (active) setSwapPendingReview(value || null);
@@ -333,11 +337,12 @@ export default function App() {
   const microDisplay = value => (Number(value || 0) / 1000000).toFixed(6);
 
   async function loadSwapWallet() {
+    const requestedUserId = userId;
     setSwapBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_wallet_demo');
       if (error) throw error;
-      setSwapWallet(data);
+      if (authUserRef.current === requestedUserId) setSwapWallet(data);
     } catch (error) {
       message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
     } finally {
@@ -356,6 +361,7 @@ export default function App() {
     if (!Number.isSafeInteger(micro) || micro < 1000000 || micro > 10000000000) {
       return message('Cantidad inválida', 'Introduce entre 1 y 10,000 unidades de prueba.');
     }
+    const requestedUserId = userId;
     setSwapBusy(true);
     setSwapQuote(null);
     try {
@@ -363,7 +369,7 @@ export default function App() {
         p_from_asset: swapFrom, p_amount_micro: micro, p_client_request_id: uniqueRequestId(),
       });
       if (error) throw error;
-      setSwapQuote(data);
+      if (authUserRef.current === requestedUserId) setSwapQuote(data);
     } catch (error) {
       message('Cotización', error.message || 'No se pudo cotizar.');
     } finally {
