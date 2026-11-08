@@ -116,6 +116,7 @@ export default function App() {
   const authUserRef = useRef(null);
   const swapActionInFlightRef = useRef(false);
   const pickupCancelInFlightRef = useRef(false);
+  const pickupCreateInFlightRef = useRef(false);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -543,13 +544,14 @@ export default function App() {
   }
 
   async function createDemoPickup() {
-    if (!userId || pickupBusy) return;
+    if (!userId || pickupBusy || pickupCreateInFlightRef.current) return;
     const requestedUserId = userId;
     const cents = amountToCents(pickupAmount);
     if (cents === null || cents < 100 || cents > 100000) {
       return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
     }
     const requestId = uniqueRequestId();
+    pickupCreateInFlightRef.current = true;
     setPickupBusy(true);
     setPickupResult(null);
     try {
@@ -567,6 +569,7 @@ export default function App() {
         message('Orden ficticia no creada', error.message || 'Error desconocido');
       }
     } finally {
+      pickupCreateInFlightRef.current = false;
       setPickupBusy(false);
     }
   }
