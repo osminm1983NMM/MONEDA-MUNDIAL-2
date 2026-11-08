@@ -407,9 +407,18 @@ export default function App() {
       setSwapAmount('');
       // La confirmación ya fue aceptada. Un fallo al consultar saldos no
       // debe anunciar falsamente que la conversión quedó sin confirmar.
-      await AsyncStorage.removeItem('mwd_swap_pending_' + requestedUserId);
-      if (authUserRef.current === requestedUserId) setSwapPendingReview(null);
-      message('Conversión ficticia', 'Operación registrada correctamente.');
+      try {
+        await AsyncStorage.removeItem('mwd_swap_pending_' + requestedUserId);
+        if (authUserRef.current === requestedUserId) setSwapPendingReview(null);
+      } catch (storageError) {
+        // La conversión se ejecutó: conservar la referencia y no permitir
+        // otra operación hasta reconciliarla, aunque falle el almacenamiento.
+        if (authUserRef.current === requestedUserId) {
+          message('Conversión registrada', 'La operación se confirmó, pero no se pudo limpiar la referencia local. Consulta su estado antes de convertir nuevamente.');
+        }
+        return;
+      }
+      if (authUserRef.current === requestedUserId) message('Conversión ficticia', 'Operación registrada correctamente.');
       const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
       if (walletResponse.error) {
         if (authUserRef.current === requestedUserId) {
