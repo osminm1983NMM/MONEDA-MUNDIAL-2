@@ -115,6 +115,7 @@ export default function App() {
   const refreshSequenceRef = useRef(0);
   const authUserRef = useRef(null);
   const swapActionInFlightRef = useRef(false);
+  const pickupCancelInFlightRef = useRef(false);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -589,8 +590,9 @@ export default function App() {
   }
 
   async function cancelDemoPickup(orderId) {
-    if (!userId || !orderId || pickupCancelBusy) return;
+    if (!userId || !orderId || pickupCancelBusy || pickupCancelInFlightRef.current) return;
     const requestedUserId = userId;
+    pickupCancelInFlightRef.current = true;
     setPickupCancelBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_cancel_demo', { p_order_id: orderId });
@@ -604,6 +606,7 @@ export default function App() {
         message('No se pudo cancelar', error.message || 'Error desconocido');
       }
     } finally {
+      pickupCancelInFlightRef.current = false;
       setPickupCancelBusy(false);
     }
   }
