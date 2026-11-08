@@ -9,7 +9,8 @@
     "check:android-bundle": "expo export --platform android --output-dir dist-validation",
     "check:dependencies": "expo install --check",
     "check:demo-config": "node scripts/check-demo-config.cjs",
-    "check:syntax": "node scripts/check-jsx-syntax.cjs"
+    "check:syntax": "node scripts/check-jsx-syntax.cjs",
+    "check:pickup-guards": "node scripts/check-pickup-guards.cjs"
   },
   "dependencies": {
     "expo": "~54.0.0",
