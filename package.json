@@ -10,7 +10,8 @@
     "check:dependencies": "expo install --check",
     "check:demo-config": "node scripts/check-demo-config.cjs",
     "check:syntax": "node scripts/check-jsx-syntax.cjs",
-    "check:pickup-guards": "node scripts/check-pickup-guards.cjs"
+    "check:pickup-guards": "node scripts/check-pickup-guards.cjs",
+    "check:all": "npm run check:demo-config && npm run check:pickup-guards && npm run check:syntax"
   },
   "dependencies": {
     "expo": "~54.0.0",
