@@ -114,6 +114,7 @@ export default function App() {
   const refreshInFlightRef = useRef(null);
   const refreshSequenceRef = useRef(0);
   const authUserRef = useRef(null);
+  const swapActionInFlightRef = useRef(false);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -371,12 +372,13 @@ export default function App() {
   }
 
   async function confirmSwap() {
-    if (!swapQuote?.quoteId || swapBusy || swapReviewLoading || swapReviewReadError || swapPendingReview) return;
+    if (!swapQuote?.quoteId || swapBusy || swapActionInFlightRef.current || swapReviewLoading || swapReviewReadError || swapPendingReview) return;
     const quote = swapQuote;
     if (new Date(quote.expiresAt).getTime() <= Date.now()) {
       setSwapQuote(null);
       return message('Cotización vencida', 'Solicita una cotización nueva.');
     }
+    swapActionInFlightRef.current = true;
     setSwapBusy(true);
     try {
       // Guardar la referencia ANTES de enviar la confirmación a Supabase.
@@ -399,12 +401,14 @@ export default function App() {
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
         '\nConsulta los saldos antes de intentar otra conversión.');
     } finally {
+      swapActionInFlightRef.current = false;
       setSwapBusy(false);
     }
   }
 
   async function reconcileSwap() {
-    if (!swapPendingReview || swapBusy) return;
+    if (!swapPendingReview || swapBusy || swapActionInFlightRef.current) return;
+    swapActionInFlightRef.current = true;
     setSwapBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_reconcile_demo', {
@@ -434,6 +438,7 @@ export default function App() {
       message('No se pudo verificar', (error.message || 'Error de conexión') +
         '\nConservamos la referencia para volver a consultar sin duplicar la conversión.');
     } finally {
+      swapActionInFlightRef.current = false;
       setSwapBusy(false);
     }
   }
