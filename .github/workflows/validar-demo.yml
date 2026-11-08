@@ -1,0 +1,29 @@
+name: Validar Moneda Mundial DEMO
+
+# Ejecución manual únicamente. No se activa con cada commit.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validacion:
+    name: Sintaxis y controles DEMO
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Obtener rama
+        uses: actions/checkout@v4
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+      - name: Ejecutar verificaciones
+        run: npm run check:all
+      - name: Comprobar dependencias Expo
+        run: npm run check:dependencies
+      - name: Verificar paquete Android sin generar APK
+        run: npm run check:android-bundle
