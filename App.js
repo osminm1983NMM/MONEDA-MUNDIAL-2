@@ -183,17 +183,20 @@ export default function App() {
 
   async function retrySwapRecovery() {
     if (!userId || swapReviewLoading || swapBusy) return;
+    const requestedUserId = userId;
     setSwapReviewLoading(true);
     try {
-      const value = await AsyncStorage.getItem('mwd_swap_pending_' + userId);
+      const value = await AsyncStorage.getItem('mwd_swap_pending_' + requestedUserId);
+      if (authUserRef.current !== requestedUserId) return;
       setSwapPendingReview(value || null);
       setSwapReviewReadError(false);
       message('Recuperación', value ? 'Referencia pendiente recuperada. Consulta su estado.' : 'No hay conversiones pendientes guardadas.');
     } catch (error) {
+      if (authUserRef.current !== requestedUserId) return;
       setSwapReviewReadError(true);
       message('Recuperación fallida', error.message || 'Inténtalo nuevamente.');
     } finally {
-      setSwapReviewLoading(false);
+      if (authUserRef.current === requestedUserId) setSwapReviewLoading(false);
     }
   }
 
@@ -426,13 +429,15 @@ export default function App() {
       });
       if (error) throw error;
       if (data?.status === 'executed') {
-        setSwapQuote(null);
-        setSwapAmount('');
+        if (authUserRef.current === requestedUserId) {
+          setSwapQuote(null);
+          setSwapAmount('');
+        }
         await AsyncStorage.removeItem('mwd_swap_pending_' + requestedUserId);
         if (authUserRef.current === requestedUserId) setSwapPendingReview(null);
         message('Conversión verificada', 'La conversión ficticia sí fue ejecutada. No la repitas.');
       } else if (data?.status === 'expired') {
-        setSwapQuote(null);
+        if (authUserRef.current === requestedUserId) setSwapQuote(null);
         await AsyncStorage.removeItem('mwd_swap_pending_' + requestedUserId);
         if (authUserRef.current === requestedUserId) setSwapPendingReview(null);
         message('Cotización vencida', 'No se ejecutó. Puedes solicitar una nueva.');
