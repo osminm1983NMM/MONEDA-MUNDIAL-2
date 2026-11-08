@@ -1,0 +1,29 @@
+name: Demo recovery source checks
+on:
+  pull_request:
+    paths:
+      - 'App.js'
+      - 'app.json'
+      - 'eas.json'
+      - 'tests/recovery-source-check.cjs'
+      - '.github/workflows/recovery-checks.yml'
+  push:
+    branches:
+      - 'fix/swap-confirmation-recovery'
+    paths:
+      - 'App.js'
+      - 'app.json'
+      - 'eas.json'
+      - 'tests/recovery-source-check.cjs'
+      - '.github/workflows/recovery-checks.yml'
+jobs:
+  recovery-source:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/recovery-source-check.cjs
