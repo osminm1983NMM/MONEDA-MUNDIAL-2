@@ -394,20 +394,21 @@ export default function App() {
       return message('Cantidad inválida', 'Introduce entre 1 y 10,000 unidades de prueba.');
     }
     const requestedUserId = userId;
+    const requestedFromAsset = swapFrom;
     swapActionInFlightRef.current = true;
     setSwapBusy(true);
     setSwapQuote(null);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_quote_demo', {
-        p_from_asset: swapFrom, p_amount_micro: micro, p_client_request_id: uniqueRequestId(),
+        p_from_asset: requestedFromAsset, p_amount_micro: micro, p_client_request_id: uniqueRequestId(),
       });
       if (error) throw error;
       // Evitar presentar una cotización incompleta o inválida como confirmable.
       if (typeof data?.quoteId !== 'string' ||
           !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.quoteId) ||
           data?.status !== 'quoted' ||
-          data?.fromAsset !== swapFrom ||
-          data?.toAsset !== (swapFrom === 'COIN' ? 'STABLE' : 'COIN') ||
+          data?.fromAsset !== requestedFromAsset ||
+          data?.toAsset !== (requestedFromAsset === 'COIN' ? 'STABLE' : 'COIN') ||
           data?.amountInMicro == null ||
           !Number.isSafeInteger(Number(data.amountInMicro)) ||
           Number(data.amountInMicro) !== micro ||
