@@ -161,6 +161,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // Evitar mostrar órdenes de retiro de otra cuenta al cambiar de sesión.
+    setPickupOrders([]);
+    setPickupResult(null);
+    setPickupAmount('');
     if (!userId) {
       setWallet(null);
       setOperations([]);
@@ -535,7 +539,8 @@ export default function App() {
   }
 
   async function createDemoPickup() {
-    if (pickupBusy) return;
+    if (!userId || pickupBusy) return;
+    const requestedUserId = userId;
     const cents = amountToCents(pickupAmount);
     if (cents === null || cents < 100 || cents > 100000) {
       return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
@@ -549,24 +554,32 @@ export default function App() {
       });
       if (error) throw error;
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
-      setPickupResult(data);
-      setPickupAmount('');
+      if (authUserRef.current === requestedUserId) {
+        setPickupResult(data);
+        setPickupAmount('');
+      }
     } catch (error) {
-      message('Orden ficticia no creada', error.message || 'Error desconocido');
+      if (authUserRef.current === requestedUserId) {
+        message('Orden ficticia no creada', error.message || 'Error desconocido');
+      }
     } finally {
       setPickupBusy(false);
     }
   }
 
   async function loadPickupOrders() {
+    if (!userId) return;
+    const requestedUserId = userId;
     setPickupOrdersBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_my_orders_demo');
       if (error) throw error;
       if (!Array.isArray(data)) throw new Error('Respuesta de órdenes no reconocida.');
-      setPickupOrders(data);
+      if (authUserRef.current === requestedUserId) setPickupOrders(data);
     } catch (error) {
-      message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
+      if (authUserRef.current === requestedUserId) {
+        message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
+      }
     } finally {
       setPickupOrdersBusy(false);
     }
