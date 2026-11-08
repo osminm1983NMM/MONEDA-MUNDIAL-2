@@ -29,6 +29,19 @@ const checks = [
     const confirm = app.indexOf("supabase.rpc('mwd_conversion_confirm_demo'");
     assert.ok(save !== -1 && confirm > save);
   }],
+  ['Identificador de cotización UUID validado', () => {
+    assert.ok(app.includes("typeof data?.quoteId !== 'string'"));
+    assert.match(app, /test\(data\.quoteId\)/);
+  }],
+  ['Cuenta activa obligatoria en operaciones de conversión', () => {
+    for (const name of ['loadSwapWallet', 'requestSwapQuote', 'confirmSwap', 'reconcileSwap']) {
+      const start = app.indexOf('async function ' + name + '()');
+      assert.ok(start !== -1, 'Falta ' + name);
+      const bodyStart = app.indexOf('{', start);
+      const guard = app.slice(bodyStart, bodyStart + 350);
+      assert.ok(guard.includes('authUserRef.current !== userId'), 'Falta verificar cuenta en ' + name);
+    }
+  }],
 ];
 let failed = 0;
 for (const [label, check] of checks) {
@@ -36,4 +49,4 @@ for (const [label, check] of checks) {
   catch (error) { failed++; console.error('ERROR:', label, error.message); }
 }
 if (failed) process.exitCode = 1;
-else console.log('6 verificaciones estáticas aprobadas. No sustituye compilación ni pruebas Android.');
+else console.log(checks.length + ' verificaciones estáticas aprobadas. No sustituye compilación ni pruebas Android.');
