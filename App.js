@@ -363,7 +363,7 @@ export default function App() {
   const microDisplay = value => (Number(value || 0) / 1000000).toFixed(6);
 
   async function loadSwapWallet() {
-    if (!userId || swapBusy || swapActionInFlightRef.current) return;
+    if (!userId || authUserRef.current !== userId || swapBusy || swapActionInFlightRef.current) return;
     const requestedUserId = userId;
     swapActionInFlightRef.current = true;
     setSwapBusy(true);
@@ -382,7 +382,7 @@ export default function App() {
   }
 
   async function requestSwapQuote() {
-    if (!userId || swapBusy || swapActionInFlightRef.current) return;
+    if (!userId || authUserRef.current !== userId || swapBusy || swapActionInFlightRef.current) return;
     if (swapReviewLoading || swapReviewReadError || swapPendingReview) return message('Conversión pendiente', 'Consulta primero el estado de la conversión anterior.');
     const normalized = swapAmount.trim().replace(',', '.');
     if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(normalized)) {
@@ -494,7 +494,8 @@ export default function App() {
   }
 
   async function reconcileSwap() {
-    if (!swapPendingReview || swapBusy || swapActionInFlightRef.current) return;
+    if (!userId || authUserRef.current !== userId ||
+        !swapPendingReview || swapBusy || swapActionInFlightRef.current) return;
     const requestedUserId = userId;
     swapActionInFlightRef.current = true;
     setSwapBusy(true);
