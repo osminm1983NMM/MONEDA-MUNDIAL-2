@@ -167,6 +167,7 @@ export default function App() {
     // Invalidar consultas anteriores antes de mostrar datos de otra cuenta.
     pickupOrdersSequenceRef.current += 1;
     setPickupOrders([]);
+    setPickupOrdersBusy(false);
     setPickupResult(null);
     setPickupAmount('');
     if (!userId) {
