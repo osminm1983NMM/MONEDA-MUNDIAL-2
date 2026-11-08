@@ -455,12 +455,21 @@ export default function App() {
       } else {
         throw new Error('Estado de conciliación no reconocido.');
       }
+      // El estado de la conversión ya se verificó. Si falla la consulta
+      // posterior de saldos, mostrar un aviso distinto sin confundir el resultado.
       const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
-      if (walletResponse.error) throw walletResponse.error;
-      if (authUserRef.current === requestedUserId) setSwapWallet(walletResponse.data);
+      if (walletResponse.error) {
+        if (authUserRef.current === requestedUserId) {
+          message('Actualizar saldos', 'El estado de la conversión fue verificado, pero no se pudieron actualizar los saldos. Usa Consultar saldos.');
+        }
+      } else if (authUserRef.current === requestedUserId) {
+        setSwapWallet(walletResponse.data);
+      }
     } catch (error) {
-      message('No se pudo verificar', (error.message || 'Error de conexión') +
-        '\nConservamos la referencia para volver a consultar sin duplicar la conversión.');
+      if (authUserRef.current === requestedUserId) {
+        message('No se pudo verificar', (error.message || 'Error de conexión') +
+          '\nConservamos la referencia para volver a consultar sin duplicar la conversión.');
+      }
     } finally {
       swapActionInFlightRef.current = false;
       setSwapBusy(false);
