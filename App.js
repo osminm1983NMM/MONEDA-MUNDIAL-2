@@ -293,8 +293,8 @@ export default function App() {
     if (!Number.isSafeInteger(micro) || micro < 1000000 || micro > 10000000000) {
       return message('Cantidad inválida', 'Introduce entre 1 y 10,000 unidades de prueba.');
     }
+    // No descartar una cotización previa mientras la nueva respuesta sea incierta.
     setSwapBusy(true);
-    setSwapQuote(null);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_quote_demo', {
         p_from_asset: swapFrom, p_amount_micro: micro, p_client_request_id: uniqueRequestId(),
