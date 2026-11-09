@@ -323,13 +323,30 @@ export default function App() {
     return data;
   }
 
+  // La ejecución y la actualización visual del saldo son resultados distintos.
+  // Si falla la consulta del saldo, nunca informar que la conversión no se ejecutó.
+  async function showExecutedSwap(recovered) {
+    setSwapQuote(null);
+    setSwapAmount('');
+    try {
+      const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
+      if (walletResponse.error) throw walletResponse.error;
+      setSwapWallet(walletResponse.data);
+      message(recovered ? 'Conversión recuperada' : 'Conversión ficticia',
+        'Operación registrada y saldo actualizado.');
+    } catch (walletError) {
+      setSwapWallet(null);
+      message('Conversión confirmada',
+        'La operación ficticia ya está registrada, pero no se pudo actualizar el saldo. Vuelve a consultar tu billetera.');
+    }
+  }
+
   async function confirmSwap() {
     if (!swapQuote?.quoteId || swapBusy) return;
     const quote = swapQuote;
     setSwapBusy(true);
     try {
-      // Consultar el servidor incluso si el reloj del teléfono marca vencimiento.
-      // Puede haberse ejecutado antes de perder la conexión.
+      // El reloj del teléfono no decide si una operación ya fue ejecutada.
       if (new Date(quote.expiresAt).getTime() <= Date.now()) {
         const state = await reconcileSwap(quote.quoteId);
         if (state.status === 'expired') {
@@ -338,12 +355,7 @@ export default function App() {
           return;
         }
         if (state.status === 'executed') {
-          const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
-          if (walletResponse.error) throw walletResponse.error;
-          setSwapWallet(walletResponse.data);
-          setSwapQuote(null);
-          setSwapAmount('');
-          message('Conversión recuperada', 'La conversión ya estaba registrada.');
+          await showExecutedSwap(true);
           return;
         }
       }
@@ -354,31 +366,23 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(data?.status)) {
         throw new Error('Confirmación no reconocida.');
       }
-      const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
-      if (walletResponse.error) throw walletResponse.error;
-      setSwapWallet(walletResponse.data);
-      setSwapQuote(null);
-      setSwapAmount('');
-      message('Conversión ficticia', 'Operación registrada correctamente.');
+      await showExecutedSwap(data.status === 'already_processed');
     } catch (error) {
-      // Si el servidor confirmó pero la respuesta se perdió, no repetir a ciegas.
+      // Una respuesta perdida no autoriza a crear otra operación.
       try {
         const state = await reconcileSwap(quote.quoteId);
         if (state.status === 'executed') {
-          const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
-          if (walletResponse.error) throw walletResponse.error;
-          setSwapWallet(walletResponse.data);
-          setSwapQuote(null);
-          setSwapAmount('');
-          message('Conversión recuperada', 'La operación estaba ejecutada y el saldo se actualizó.');
+          await showExecutedSwap(true);
         } else if (state.status === 'expired') {
           setSwapQuote(null);
           message('Cotización vencida', 'No se ejecutó. Solicita una cotización nueva.');
         } else {
-          message('Conversión pendiente', 'No hay ejecución registrada. Puedes reintentar con la misma cotización.');
+          message('Conversión pendiente',
+            'No hay ejecución registrada. Puedes reintentar con la misma cotización.');
         }
       } catch (reconcileError) {
-        message('Estado sin confirmar', 'No se pudo consultar el servidor. Conserva esta cotización y verifica su estado antes de crear otra. ' +
+        message('Estado sin confirmar',
+          'No se pudo consultar el servidor. Conserva esta cotización y verifica su estado antes de crear otra. ' +
           (reconcileError.message || 'Revisa tu conexión.'));
       }
     } finally {
