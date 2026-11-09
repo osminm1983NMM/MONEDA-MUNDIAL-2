@@ -71,3 +71,10 @@ test('limpia cotización y saldos de conversión al cambiar usuario', () => {
   assert.match(effect, /setAdminRole\(null\)/);
   assert.match(effect, /\}, \[userId\]\)/);
 });
+
+test('APK de desarrollo usa identificador separado del de producción', async () => {
+  const config = JSON.parse(await readFile(new URL('../app.json', import.meta.url), 'utf8'));
+  assert.equal(config.expo.name, 'Moneda Mundial DEV');
+  assert.equal(config.expo.android.package, 'com.monedamundial.app.dev');
+  assert.notEqual(config.expo.android.package, 'com.monedamundial.app');
+});
