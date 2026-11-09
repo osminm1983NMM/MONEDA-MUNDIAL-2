@@ -23,15 +23,20 @@ jobs:
       - uses: android-actions/setup-android@v3
       - name: Generate native Android project
         run: npx expo prebuild --platform android --non-interactive --clean
-      - name: Build unsigned release APK for isolated testing
+      - name: Build debug APK signed with Android debug key
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
-      - name: Upload build output (signature must be checked before installation)
+          ./gradlew assembleDebug --no-daemon
+      - name: Verify debug APK signature
+        run: |
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          apksigner verify --verbose "$APK"
+      - name: Upload signed DEV test APK
         uses: actions/upload-artifact@v4
         with:
           name: moneda-mundial-dev-apk
-          path: android/app/build/outputs/apk/release/*.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
