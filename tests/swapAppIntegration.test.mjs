@@ -32,7 +32,11 @@ test('conversión confirmada se distingue de error de actualización de saldo', 
 });
 
 test('acepta montos decimales correctos para cotización', () => {
-  const match = app.match(/if \(!\/(\^\(\?:0\|\[1-9\].*?)\/\.test\(normalized\)\)/);
+  const start = app.indexOf('  async function requestSwapQuote()');
+  const end = app.indexOf('  async function reconcileSwap(', start);
+  assert.ok(start >= 0 && end > start);
+  const request = app.slice(start, end);
+  const match = request.match(/if \(!\/(.+)\/\.test\(normalized\)\)/);
   assert.ok(match, 'Debe existir validación de monto');
   const pattern = new RegExp(match[1]);
   for (const amount of ['1', '2.75', '10.50', '10000.000001']) {
