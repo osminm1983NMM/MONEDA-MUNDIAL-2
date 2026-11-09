@@ -57,7 +57,7 @@ test('no descarta la cotización anterior antes de recibir otra', () => {
 });
 
 test('limpia cotización y saldos de conversión al cambiar usuario', () => {
-  const start = app.indexOf('  useEffect(() => {\n    // Nunca reutilizar una cotización');
+  const start = app.indexOf('    // Nunca reutilizar una cotización');
   const end = app.indexOf('  async function refreshAccount(', start);
   assert.ok(start >= 0 && end > start);
   const effect = app.slice(start, end);
