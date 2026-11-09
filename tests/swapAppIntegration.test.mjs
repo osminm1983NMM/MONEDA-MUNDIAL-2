@@ -16,7 +16,7 @@ test('el reintento usa el identificador original', () => {
 
 test('los saldos se consultan antes de anunciar recuperación', () => {
   assert.match(app, /walletResponse\.error\) throw walletResponse\.error/);
-  assert.match(app, /message\('Conversión recuperada'/);
+  assert.match(app, /recovered \\? 'Conversión recuperada' : 'Conversión ficticia'/);
 });
 
 test('la aplicación continúa en modo de demostración', () => {
