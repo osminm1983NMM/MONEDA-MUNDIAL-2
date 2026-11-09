@@ -32,7 +32,7 @@ jobs:
         run: |
           APK=android/app/build/outputs/apk/debug/app-debug.apk
           test -f "$APK"
-          apksigner verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --verbose "$APK"
       - name: Upload signed DEV test APK
         uses: actions/upload-artifact@v4
         with:
