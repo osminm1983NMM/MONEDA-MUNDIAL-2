@@ -30,7 +30,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      - name: Use Android SDK preinstalled on GitHub runner
+        run: |
+          test -d "$ANDROID_HOME"
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" || test -x "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager"
       - name: Generate native Android project
         run: npx expo prebuild --platform android --non-interactive --clean
       - name: Build debug APK signed with Android debug key
