@@ -42,3 +42,12 @@ test('acepta montos decimales correctos para cotización', () => {
     assert.equal(pattern.test(amount), false, amount);
   }
 });
+
+test('no descarta la cotización anterior antes de recibir otra', () => {
+  const start = app.indexOf('  async function requestSwapQuote()');
+  const end = app.indexOf('  async function reconcileSwap(', start);
+  assert.ok(start >= 0 && end > start);
+  const request = app.slice(start, end);
+  assert.doesNotMatch(request, /setSwapBusy\(true\);\s*setSwapQuote\(null\)/);
+  assert.match(request, /if \(error\) throw error;\s*setSwapQuote\(data\)/);
+});
