@@ -30,3 +30,15 @@ test('conversión confirmada se distingue de error de actualización de saldo', 
   assert.match(app, /message\('Conversión confirmada'/);
   assert.match(app, /setSwapWallet\(null\)/);
 });
+
+test('acepta montos decimales correctos para cotización', () => {
+  const match = app.match(/if \(!\/(\^\(\?:0\|\[1-9\].*?)\/\.test\(normalized\)\)/);
+  assert.ok(match, 'Debe existir validación de monto');
+  const pattern = new RegExp(match[1]);
+  for (const amount of ['1', '2.75', '10.50', '10000.000001']) {
+    assert.equal(pattern.test(amount), true, amount);
+  }
+  for (const amount of ['-1', '1.1234567', 'abc', '1,2', '']) {
+    assert.equal(pattern.test(amount), false, amount);
+  }
+});
