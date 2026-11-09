@@ -308,29 +308,79 @@ export default function App() {
     }
   }
 
+  async function reconcileSwap(quoteId) {
+    const { data, error } = await supabase.rpc('mwd_conversion_reconcile_demo', {
+      p_quote_id: quoteId,
+    });
+    if (error) throw error;
+    if (data?.quoteId !== quoteId || data?.realPaymentsEnabled !== false ||
+        !['executed', 'quoted', 'expired'].includes(data?.status)) {
+      throw new Error('Respuesta de conciliación no reconocida.');
+    }
+    if (data.status === 'executed' && !data.conversionId) {
+      throw new Error('Conversión sin comprobante.');
+    }
+    return data;
+  }
+
   async function confirmSwap() {
     if (!swapQuote?.quoteId || swapBusy) return;
     const quote = swapQuote;
-    if (new Date(quote.expiresAt).getTime() <= Date.now()) {
-      setSwapQuote(null);
-      return message('Cotización vencida', 'Solicita una cotización nueva.');
-    }
     setSwapBusy(true);
     try {
+      // Consultar el servidor incluso si el reloj del teléfono marca vencimiento.
+      // Puede haberse ejecutado antes de perder la conexión.
+      if (new Date(quote.expiresAt).getTime() <= Date.now()) {
+        const state = await reconcileSwap(quote.quoteId);
+        if (state.status === 'expired') {
+          setSwapQuote(null);
+          message('Cotización vencida', 'Solicita una cotización nueva.');
+          return;
+        }
+        if (state.status === 'executed') {
+          const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
+          if (walletResponse.error) throw walletResponse.error;
+          setSwapWallet(walletResponse.data);
+          setSwapQuote(null);
+          setSwapAmount('');
+          message('Conversión recuperada', 'La conversión ya estaba registrada.');
+          return;
+        }
+      }
       const { data, error } = await supabase.rpc('mwd_conversion_confirm_demo', {
         p_quote_id: quote.quoteId,
       });
       if (error) throw error;
-      if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
-      setSwapQuote(null);
-      setSwapAmount('');
+      if (!['ok', 'already_processed'].includes(data?.status)) {
+        throw new Error('Confirmación no reconocida.');
+      }
       const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
       if (walletResponse.error) throw walletResponse.error;
       setSwapWallet(walletResponse.data);
+      setSwapQuote(null);
+      setSwapAmount('');
       message('Conversión ficticia', 'Operación registrada correctamente.');
     } catch (error) {
-      message('Conversión no confirmada', (error.message || 'Error desconocido') +
-        '\\nConsulta los saldos antes de intentar otra conversión.');
+      // Si el servidor confirmó pero la respuesta se perdió, no repetir a ciegas.
+      try {
+        const state = await reconcileSwap(quote.quoteId);
+        if (state.status === 'executed') {
+          const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
+          if (walletResponse.error) throw walletResponse.error;
+          setSwapWallet(walletResponse.data);
+          setSwapQuote(null);
+          setSwapAmount('');
+          message('Conversión recuperada', 'La operación estaba ejecutada y el saldo se actualizó.');
+        } else if (state.status === 'expired') {
+          setSwapQuote(null);
+          message('Cotización vencida', 'No se ejecutó. Solicita una cotización nueva.');
+        } else {
+          message('Conversión pendiente', 'No hay ejecución registrada. Puedes reintentar con la misma cotización.');
+        }
+      } catch (reconcileError) {
+        message('Estado sin confirmar', 'No se pudo consultar el servidor. Conserva esta cotización y verifica su estado antes de crear otra. ' +
+          (reconcileError.message || 'Revisa tu conexión.'));
+      }
     } finally {
       setSwapBusy(false);
     }
