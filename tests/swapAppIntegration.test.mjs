@@ -63,5 +63,8 @@ test('limpia cotización y saldos de conversión al cambiar usuario', () => {
   const effect = app.slice(start, end);
   assert.match(effect, /setSwapWallet\(null\)/);
   assert.match(effect, /setSwapQuote\(null\)/);
+  assert.match(effect, /setWallet\(null\)/);
+  assert.match(effect, /setOperations\(\[\]\)/);
+  assert.match(effect, /setAdminRole\(null\)/);
   assert.match(effect, /\}, \[userId\]\)/);
 });
