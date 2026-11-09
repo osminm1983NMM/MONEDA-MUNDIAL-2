@@ -23,3 +23,10 @@ test('la aplicación continúa en modo de demostración', () => {
   assert.match(app, /SOLO DEMOSTRACIÓN/);
   assert.match(app, /realPaymentsEnabled !== false/);
 });
+
+test('conversión confirmada se distingue de error de actualización de saldo', () => {
+  assert.match(app, /async function showExecutedSwap\(recovered\)/);
+  assert.match(app, /await showExecutedSwap\(data\.status === 'already_processed'\)/);
+  assert.match(app, /message\('Conversión confirmada'/);
+  assert.match(app, /setSwapWallet\(null\)/);
+});
