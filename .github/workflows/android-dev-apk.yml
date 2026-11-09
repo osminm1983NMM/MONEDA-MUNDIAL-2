@@ -1,5 +1,10 @@
 name: Android DEV APK (manual)
 on:
+  push:
+    branches:
+      - fix/swap-reconcile-offline
+    paths:
+      - .github/workflows/android-dev-apk.yml
   workflow_dispatch:
 jobs:
   android-dev:
