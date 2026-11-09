@@ -55,3 +55,13 @@ test('no descarta la cotización anterior antes de recibir otra', () => {
   assert.doesNotMatch(request, /setSwapBusy\(true\);\s*setSwapQuote\(null\)/);
   assert.match(request, /if \(error\) throw error;\s*setSwapQuote\(data\)/);
 });
+
+test('limpia cotización y saldos de conversión al cambiar usuario', () => {
+  const start = app.indexOf('  useEffect(() => {\n    // Nunca reutilizar una cotización');
+  const end = app.indexOf('  async function refreshAccount(', start);
+  assert.ok(start >= 0 && end > start);
+  const effect = app.slice(start, end);
+  assert.match(effect, /setSwapWallet\(null\)/);
+  assert.match(effect, /setSwapQuote\(null\)/);
+  assert.match(effect, /\}, \[userId\]\)/);
+});
