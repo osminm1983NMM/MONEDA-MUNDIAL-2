@@ -5,6 +5,11 @@ on:
       - fix/swap-reconcile-offline
     paths:
       - .github/workflows/android-dev-apk.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/android-dev-apk.yml
   workflow_dispatch:
 jobs:
   android-dev:
