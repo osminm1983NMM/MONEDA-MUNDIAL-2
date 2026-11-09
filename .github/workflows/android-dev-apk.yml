@@ -1,0 +1,38 @@
+name: Android DEV APK (manual)
+on:
+  workflow_dispatch:
+jobs:
+  android-dev:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify demo safeguards
+        run: |
+          npm ci
+          node --test tests/*.test.mjs
+          node -e "const c=require('./app.json').expo; if(c.android.package!=='com.monedamundial.app.dev'||c.name!=='Moneda Mundial DEV') process.exit(1)"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --non-interactive --clean
+      - name: Build installable APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+      - name: Upload DEV APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: moneda-mundial-dev-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 7
