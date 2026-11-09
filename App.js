@@ -130,12 +130,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // Nunca reutilizar una cotización ni saldos de otro usuario al cambiar de sesión.
+    setSwapWallet(null);
+    setSwapQuote(null);
     if (!userId) {
       setWallet(null);
       setOperations([]);
       setAdminRole(null);
-      setSwapWallet(null);
-      setSwapQuote(null);
       return;
     }
     refreshAccount(userId);
