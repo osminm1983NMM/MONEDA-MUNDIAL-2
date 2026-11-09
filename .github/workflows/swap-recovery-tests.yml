@@ -13,4 +13,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run recovery unit tests
-        run: node --test tests/swapRecovery.test.mjs
+        run: node --test tests/*.test.mjs
