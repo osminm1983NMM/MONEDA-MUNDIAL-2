@@ -23,12 +23,12 @@ jobs:
       - uses: android-actions/setup-android@v3
       - name: Generate native Android project
         run: npx expo prebuild --platform android --non-interactive --clean
-      - name: Build installable APK
+      - name: Build unsigned release APK for isolated testing
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
-      - name: Upload DEV APK
+      - name: Upload build output (signature must be checked before installation)
         uses: actions/upload-artifact@v4
         with:
           name: moneda-mundial-dev-apk
