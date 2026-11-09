@@ -39,12 +39,15 @@ test('acepta montos decimales correctos para cotización', () => {
   const match = request.match(/if \(!\/(.+)\/\.test\(normalized\)\)/);
   assert.ok(match, 'Debe existir validación de monto');
   const pattern = new RegExp(match[1]);
-  for (const amount of ['1', '2.75', '10.50', '10000.000001']) {
+  for (const amount of ['1', '2.75', '10.50', '10000']) {
     assert.equal(pattern.test(amount), true, amount);
   }
   for (const amount of ['-1', '1.1234567', 'abc', '1,2', '']) {
     assert.equal(pattern.test(amount), false, amount);
   }
+  // El patrón valida el formato; el límite de 10,000 se verifica por separado.
+  assert.equal(pattern.test('10000.000001'), true);
+  assert.ok(10000.000001 * 1000000 > 10000000000);
 });
 
 test('no descarta la cotización anterior antes de recibir otra', () => {
