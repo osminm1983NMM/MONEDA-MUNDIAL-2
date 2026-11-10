@@ -562,8 +562,10 @@ export default function App() {
             {screen === 'Admin' && <View style={styles.card}>
               <Text style={styles.heading}>Administración MWD</Text>
               {adminRole === 'owner' ? (
-                <PartnerRegistryScreen supabase={supabase} />
-                <OwnerAccountingAlerts supabase={supabase} isOwner={adminRole === 'owner'} />
+                <>
+                  <PartnerRegistryScreen supabase={supabase} />
+                  <OwnerAccountingAlerts supabase={supabase} isOwner={true} />
+                </>
               ) : adminRole ? (
                 <Text style={styles.muted}>Tu rol es: {adminRole}. El registro de socios requiere permisos de propietario.</Text>
               ) : (
