@@ -25,5 +25,9 @@ jobs:
       - name: Verificar sintaxis de package.json
         run: |
           node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))"
+      - name: Verificar sintaxis JavaScript y JSX
+        run: |
+          npm install --no-save --no-audit --no-fund @babel/parser
+          node -e "const fs=require('fs');const parser=require('@babel/parser');for(const f of ['App.js','PartnerRegistryScreen.js','OwnerAccountingAlerts.js']){parser.parse(fs.readFileSync(f,'utf8'),{sourceType:'module',plugins:['jsx']});console.log('Sintaxis correcta:',f)}"
   
   
