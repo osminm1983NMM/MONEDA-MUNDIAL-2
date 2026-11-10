@@ -27,6 +27,15 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   },
 });
 
+const DEMO_DESTINATIONS = [
+  { code: 'HN', name: 'Honduras', enabled: true },
+  { code: 'NI', name: 'Nicaragua', enabled: false },
+  { code: 'SV', name: 'El Salvador', enabled: false },
+  { code: 'EC', name: 'Ecuador', enabled: false },
+  { code: 'ES', name: 'España', enabled: false },
+  { code: 'TR', name: 'Turquía', enabled: false },
+];
+
 const LIMIT_CENTS = 100000000; // 1 millón de MWD por operación ficticia
 const formatMWD = cents => (Number(cents || 0) / 100).toFixed(2);
 
@@ -485,6 +494,10 @@ export default function App() {
                 <Text style={styles.muted}>Saldo ficticio en Supabase</Text>
                 <Text selectable style={styles.code}>{wallet?.account_code || 'Cargando identificador...'}</Text>
               </View>
+              <Text style={styles.heading}>Mi billetera</Text>
+              <Btn title="Enviar" onPress={() => navigate('Transferir')} disabled={!wallet} />
+              <Btn title="Recibir" secondary onPress={() => navigate('Cuenta')} />
+              <Btn title="Actividad" secondary onPress={() => navigate('Historial')} />
               <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet} />
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet} />
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
@@ -522,6 +535,13 @@ export default function App() {
             </View>}
 
             {screen === 'Retiros' && <View style={styles.card}>
+              <Text style={styles.heading}>Destinos internacionales (demostración)</Text>
+              <Text style={styles.muted}>Solo Honduras permite crear órdenes ficticias en esta versión. Los demás destinos están pendientes; no hay transferencias reales.</Text>
+              {DEMO_DESTINATIONS.map(destination => (
+                <Text key={destination.code} style={styles.small}>
+                  {destination.name}: {destination.enabled ? 'Prueba habilitada' : 'Próximamente (no disponible)'}
+                </Text>
+              ))}
               <Text style={styles.heading}>Retiro ficticio a Honduras</Text>
               <Text style={styles.warning}>Solo simulación. No se entrega dinero real.</Text>
               <Text style={styles.muted}>Monto de prueba: 1.00 a 1000.00 MWD</Text>
