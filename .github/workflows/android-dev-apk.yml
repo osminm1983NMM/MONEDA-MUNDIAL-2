@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - fix/swap-reconcile-offline
+            - feature/demo-country-selector-wallet-nav
     paths:
       - .github/workflows/android-dev-apk.yml
   pull_request:
