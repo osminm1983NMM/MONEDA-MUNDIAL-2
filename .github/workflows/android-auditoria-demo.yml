@@ -1,0 +1,43 @@
+name: Android Auditoria DEMO APK (manual)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Validate source and isolated Android identity
+        run: |
+          node -e "const fs=require('fs');const p=require('@babel/parser');for(const f of ['App.js','PartnerRegistryScreen.js','OwnerAccountingAlerts.js'])p.parse(fs.readFileSync(f,'utf8'),{sourceType:'module',plugins:['jsx']})"
+          node -e "const c=require('./app.json').expo;if(c.android.package!=='com.monedamundial.app.auditdemo')process.exit(1)"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --non-interactive --clean
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+      - name: Verify bundled JavaScript and APK signature
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          test -f "$APK"
+          unzip -l "$APK" | grep -E 'assets/index.android.bundle|assets/index.android.bundle.hbc'
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --verbose "$APK"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: moneda-mundial-auditoria-demo-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
