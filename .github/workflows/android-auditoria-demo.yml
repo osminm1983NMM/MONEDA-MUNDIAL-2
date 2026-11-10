@@ -1,5 +1,10 @@
 name: Android Auditoria DEMO APK (manual)
 on:
+  push:
+    branches:
+      - feature/owner-accounting-alerts
+    paths:
+      - .github/workflows/android-auditoria-demo.yml
   workflow_dispatch:
 permissions:
   contents: read
