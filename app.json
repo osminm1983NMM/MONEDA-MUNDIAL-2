@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "Moneda Mundial 2.0",
+    "name": "Moneda Mundial Auditoria DEMO",
     "slug": "moneda-mundial-20",
     "version": "2.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "android": {
-      "package": "com.monedamundial.app"
+      "package": "com.monedamundial.app.auditdemo"
     },
     "owner": "12051983",
     "extra": {
