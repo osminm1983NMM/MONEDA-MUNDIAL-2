@@ -1,6 +1,7 @@
 // Registro permanente de candidatos a socios financieros (solo modo demostración).
 // Las llamadas RPC comprueban el rol propietario en Supabase; ocultar esta pantalla no es una barrera de seguridad.
 import React, { useEffect, useState } from 'react';
+import PartnerAuditFeedScreen from './PartnerAuditFeedScreen';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 
 const KIND = [
@@ -205,5 +206,6 @@ export default function PartnerRegistryScreen({ supabase }) {
         {a.entity_type} · {a.action} · {new Date(a.changed_at).toLocaleString()}
       </Text>)}
     </View>}
+    <PartnerAuditFeedScreen supabase={supabase} partners={partners} />
   </View>;
 }
