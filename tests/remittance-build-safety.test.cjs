@@ -125,3 +125,11 @@ test('all recovered demo remittances are restricted to US to Honduras', () => {
   const checks = screen.match(/current\.source_country !== 'US' \|\| current\.destination_country !== 'HN'/g) || [];
   assert.equal(checks.length, 2, 'Both refresh and selection must check the full corridor');
 });
+
+test('ambiguous demo creation exposes retry using original amount and request', () => {
+  const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
+  assert.match(screen, /pendingCreate\.current && \(/);
+  assert.match(screen, /Reintentar solicitud pendiente/);
+  assert.match(screen, /create\(pendingCreate\.current\.cents\)/);
+  assert.match(screen, /!pendingCreate\.current && button\('Crear borrador/);
+});
