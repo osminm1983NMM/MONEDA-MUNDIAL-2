@@ -138,3 +138,10 @@ test('create button remains syntactically complete after pending retry UI', () =
   const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
   assert.ok(screen.includes("!pendingCreate.current && button('Crear borrador de ' + amount + ' USD ficticios', () => {"));
 });
+
+test('remittance screen contains no duplicated JSX after stylesheet', () => {
+  const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
+  assert.equal(screen.split('const styles = StyleSheet.create({').length, 2);
+  assert.match(screen.trimEnd(), /\}\);$/);
+  assert.equal((screen.match(/<Text style=\{styles\.title\}>Remesa internacional/g) || []).length, 1);
+});
