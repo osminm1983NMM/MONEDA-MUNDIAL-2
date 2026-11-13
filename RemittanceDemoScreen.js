@@ -30,7 +30,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   const [notice, setNotice] = useState('');
 
   async function create(cents) {
-    if (!Number.isSafeInteger(cents) || cents < 100 || cents > 10000000 || busyRef.current) return;
+    if (order || !Number.isSafeInteger(cents) || cents < 100 || cents > 10000000 || busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
     try {
@@ -57,7 +57,10 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   }
 
   async function transition(next) {
-    if (!order || busyRef.current) return;
+    if (!order || busyRef.current || !(
+      (order.status === 'draft' && ['review', 'cancelled'].includes(next)) ||
+      (order.status === 'review' && ['simulated', 'cancelled'].includes(next))
+    )) return;
     busyRef.current = true;
     setBusy(true);
     try {
