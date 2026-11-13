@@ -39,3 +39,9 @@ test('unconfirmed creation cannot silently change amount and request ID', () => 
   assert.match(screen, /pendingCreate\.current && pendingCreate\.current\.cents !== cents/);
   assert.match(screen, /if \(!pendingCreate\.current\)\s*pendingCreate\.current = \{ cents, requestId: uuid\(\) \}/);
 });
+
+test('unconfirmed transition cannot switch to a conflicting action', () => {
+  const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
+  assert.match(screen, /pendingTransition\.current\.id !== order\.id \|\| pendingTransition\.current\.next !== next/);
+  assert.match(screen, /if \(!pendingTransition\.current\)\s*pendingTransition\.current = \{ id: order\.id, next, requestId: uuid\(\) \}/);
+});
