@@ -133,7 +133,8 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
       if (error) throw error;
       if (!Array.isArray(data)) throw new Error('Respuesta de consulta no reconocida.');
       const current = data.find(item => item?.id === order.id);
-      if (!current || !['draft', 'review', 'simulated', 'cancelled'].includes(current.status)) {
+      if (!current || current.destination_country !== 'HN' ||
+          !['draft', 'review', 'simulated', 'cancelled'].includes(current.status)) {
         throw new Error('No se encontró esta orden entre las órdenes recientes. No se modificó.');
       }
       setOrder({ id: current.id, status: current.status });
