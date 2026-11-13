@@ -1,12 +1,13 @@
 // Remesas internacionales de demostración: SOLO propietario, SIN dinero real.
-// Componente independiente; integrar en App.js después de revisión.
+// Integrado en Administración solo en la rama de desarrollo.
 import React, { useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 
 const parseCents = raw => {
   const value = raw.trim().replace(',', '.');
   if (!/^\d+(\.\d{1,2})?$/.test(value)) return null;
-  const cents = Math.round(Number(value) * 100);
+  const [dollars, fraction = ''] = value.split('.');
+  const cents = Number(dollars) * 100 + Number(fraction.padEnd(2, '0'));
   return Number.isSafeInteger(cents) && cents >= 100 && cents <= 10000000 ? cents : null;
 };
 const uuid = () => {
@@ -29,7 +30,8 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   if (adminRole !== 'owner') return <Text style={styles.text}>Acceso reservado al propietario.</Text>;
   async function create(confirmedCents) {
     const cents = confirmedCents;
-    if (cents === null) return Alert.alert('Monto inválido', 'Entre $1 y $100,000 ficticios.');
+    if (!Number.isSafeInteger(cents) || cents < 100 || cents > 10000000)
+      return Alert.alert('Monto inválido', 'Entre $1 y $100,000 ficticios.');
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
