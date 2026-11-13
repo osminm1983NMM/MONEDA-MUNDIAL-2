@@ -107,7 +107,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
       if (error) throw error;
       if (!Array.isArray(data)) throw new Error('Respuesta de consulta no reconocida.');
       const valid = data.filter(item => item && typeof item.id === 'string' &&
-        item.destination_country === 'HN' &&
+        item.source_country === 'US' && item.destination_country === 'HN' &&
         ['draft', 'review', 'simulated', 'cancelled'].includes(item.status) &&
         Number.isSafeInteger(Number(item.amount_cents)) &&
         Number(item.amount_cents) >= 100 && Number(item.amount_cents) <= 10000000);
@@ -133,7 +133,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
       if (error) throw error;
       if (!Array.isArray(data)) throw new Error('Respuesta de consulta no reconocida.');
       const current = data.find(item => item?.id === order.id);
-      if (!current || current.destination_country !== 'HN' ||
+      if (!current || current.source_country !== 'US' || current.destination_country !== 'HN' ||
           !['draft', 'review', 'simulated', 'cancelled'].includes(current.status)) {
         throw new Error('No se encontró esta orden entre las órdenes recientes. No se modificó.');
       }
@@ -159,7 +159,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
       if (error) throw error;
       if (!Array.isArray(data)) throw new Error('Respuesta de consulta no reconocida.');
       const current = data.find(record => record?.id === item.id);
-      if (!current || current.destination_country !== 'HN' ||
+      if (!current || current.source_country !== 'US' || current.destination_country !== 'HN' ||
           !['draft', 'review', 'simulated', 'cancelled'].includes(current.status)) {
         throw new Error('La orden ya no aparece entre las remesas ficticias recientes.');
       }
