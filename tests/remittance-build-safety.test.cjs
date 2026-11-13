@@ -45,3 +45,12 @@ test('unconfirmed transition cannot switch to a conflicting action', () => {
   assert.match(screen, /pendingTransition\.current\.id !== order\.id \|\| pendingTransition\.current\.next !== next/);
   assert.match(screen, /if \(!pendingTransition\.current\)\s*pendingTransition\.current = \{ id: order\.id, next, requestId: uuid\(\) \}/);
 });
+
+test('cloud APK build is manual-only and checks Expo token', () => {
+  const workflow = fs.readFileSync('.github/workflows/build-remesas-demo-apk-manual.yml', 'utf8');
+  assert.match(workflow, /^on:\s*\n\s*workflow_dispatch:/m);
+  assert.doesNotMatch(workflow, /^\s*(push|pull_request|schedule):/m);
+  assert.match(workflow, /secrets\.EXPO_TOKEN/);
+  assert.match(workflow, /eas build --platform android --profile preview --non-interactive --wait/);
+  assert.match(workflow, /ref: feature\/remesas-demo-ui/);
+});
