@@ -133,3 +133,8 @@ test('ambiguous demo creation exposes retry using original amount and request', 
   assert.match(screen, /create\(pendingCreate\.current\.cents\)/);
   assert.match(screen, /!pendingCreate\.current && button\('Crear borrador/);
 });
+
+test('create button remains syntactically complete after pending retry UI', () => {
+  const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
+  assert.match(screen, /!pendingCreate\.current && button\('Crear borrador de \$' \+ amount \+ ' ficticios', \(\) => \{/);
+});
