@@ -147,14 +147,31 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
     }
   }
 
-  function selectRecent(item) {
+  async function selectRecent(item) {
     if (adminRole !== 'owner' || busyRef.current || pendingCreate.current || pendingTransition.current) {
       Alert.alert('Solicitud sin confirmar', 'Resuelve primero la operación pendiente en esta pantalla.');
       return;
     }
-    setOrder({ id: item.id, status: item.status });
-    setRecentOrders([]);
-    setNotice('Orden recuperada desde el servidor.');
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('mwd_owner_remittances_demo');
+      if (error) throw error;
+      if (!Array.isArray(data)) throw new Error('Respuesta de consulta no reconocida.');
+      const current = data.find(record => record?.id === item.id);
+      if (!current || current.destination_country !== 'HN' ||
+          !['draft', 'review', 'simulated', 'cancelled'].includes(current.status)) {
+        throw new Error('La orden ya no aparece entre las remesas ficticias recientes.');
+      }
+      setOrder({ id: current.id, status: current.status });
+      setRecentOrders([]);
+      setNotice('Orden verificada y recuperada desde el servidor.');
+    } catch (e) {
+      Alert.alert('No se pudo recuperar', e.message || 'Comprueba tu conexión.');
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
   }
 
   const ask = (next, label) => {
