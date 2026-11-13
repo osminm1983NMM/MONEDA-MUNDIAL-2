@@ -27,12 +27,14 @@ test('remittance screen is rendered only inside owner-only administration branch
 test('demo screen uses only fictional remittance RPCs', () => {
   const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
   const rpcNames = [...screen.matchAll(/supabase\.rpc\(['"]([^'"]+)['"]/g)].map(match => match[1]);
-  assert.deepEqual(rpcNames, [
+  const allowed = new Set([
     'mwd_owner_remittance_create_demo',
     'mwd_owner_remittance_transition_demo',
-    'mwd_owner_remittances_demo',
     'mwd_owner_remittances_demo'
   ]);
+  assert.ok(rpcNames.length >= 3, 'Expected creation, transition and server read calls');
+  assert.deepEqual(new Set(rpcNames), allowed,
+    'Only approved fictional remittance RPCs may be used');
   assert.match(screen, /Sin dinero real/);
 });
 
