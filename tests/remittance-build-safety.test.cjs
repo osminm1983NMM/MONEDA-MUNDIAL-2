@@ -83,3 +83,9 @@ test('confirmation checks latest selected order before applying a transition', (
   assert.match(screen, /orderRef\.current\?\.status !== confirmedStatus/);
   assert.match(screen, /Confirmación vencida/);
 });
+
+test('recent recovery list stays in Honduras demo corridor', () => {
+  const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
+  assert.match(screen, /item\.destination_country === 'HN'/);
+  assert.match(screen, /setRecentOrders\(valid\.slice\(0, 10\)\)/);
+});
