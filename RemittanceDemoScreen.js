@@ -107,6 +107,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
       if (error) throw error;
       if (!Array.isArray(data)) throw new Error('Respuesta de consulta no reconocida.');
       const valid = data.filter(item => item && typeof item.id === 'string' &&
+        item.destination_country === 'HN' &&
         ['draft', 'review', 'simulated', 'cancelled'].includes(item.status) &&
         Number.isSafeInteger(Number(item.amount_cents)) &&
         Number(item.amount_cents) >= 100 && Number(item.amount_cents) <= 10000000);
