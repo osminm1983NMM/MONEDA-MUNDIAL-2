@@ -33,7 +33,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   const [recentOrders, setRecentOrders] = useState([]);
 
   async function create(cents) {
-    if (order || !Number.isSafeInteger(cents) || cents < 100 || cents > 10000000 || busyRef.current) return;
+    if (adminRole !== 'owner' || order || !Number.isSafeInteger(cents) || cents < 100 || cents > 10000000 || busyRef.current) return;
     if (pendingCreate.current && pendingCreate.current.cents !== cents) {
       Alert.alert('Solicitud pendiente', 'Hay una creación sin confirmar. Reintenta con el mismo monto para evitar duplicados.');
       return;
@@ -65,7 +65,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   }
 
   async function transition(next) {
-    if (!order || busyRef.current || !(
+    if (adminRole !== 'owner' || !order || busyRef.current || !(
       (order.status === 'draft' && ['review', 'cancelled'].includes(next)) ||
       (order.status === 'review' && ['simulated', 'cancelled'].includes(next))
     )) return;
@@ -122,7 +122,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   }
 
   async function refreshSelected() {
-    if (!order || busyRef.current || pendingTransition.current || pendingCreate.current) {
+    if (adminRole !== 'owner' || !order || busyRef.current || pendingTransition.current || pendingCreate.current) {
       Alert.alert('Operación pendiente', 'Resuelve primero cualquier solicitud sin confirmar.');
       return;
     }
@@ -148,7 +148,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   }
 
   function selectRecent(item) {
-    if (busyRef.current || pendingCreate.current || pendingTransition.current) {
+    if (adminRole !== 'owner' || busyRef.current || pendingCreate.current || pendingTransition.current) {
       Alert.alert('Solicitud sin confirmar', 'Resuelve primero la operación pendiente en esta pantalla.');
       return;
     }
