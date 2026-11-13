@@ -28,3 +28,11 @@
 - Navegación y botones probados en dispositivo real.
 - Ningún movimiento de dinero real; ningún cambio inesperado en saldos.
 - Revisión de recuperación e idempotencia antes de considerar operaciones reales.
+
+## Bloqueo confirmado de lanzamiento manual (13 de noviembre de 2026)
+- El archivo `.github/workflows/build-remesas-demo-apk-manual.yml` existe en `feature/remesas-demo-ui`, pero la consulta del mismo archivo en `main` devuelve 404.
+- GitHub Actions normalmente exige que un flujo `workflow_dispatch` exista en la rama predeterminada para aparecer y poder iniciarse desde la interfaz. Por tanto, no asumir que el botón «Run workflow» está disponible.
+- No fusionar PR #120 ni copiar el flujo a `main` sin autorización expresa del propietario.
+- Si se autoriza más adelante, una alternativa controlada es incorporar **solo** el archivo de flujo manual a `main`, manteniendo el `checkout` apuntando a `feature/remesas-demo-ui`; revisar y aprobar el cambio específico antes de aplicarlo.
+- Antes de pulsar «Run workflow», confirmar que `EXPO_TOKEN` existe como secreto del repositorio, que Expo/EAS tiene acceso al proyecto y que el usuario aprueba el costo/cuota del build. La existencia del secreto no puede deducirse del YAML.
+- Nunca enviar el valor de `EXPO_TOKEN` al chat. El APK anterior debe conservarse hasta verificar la nueva instalación.
