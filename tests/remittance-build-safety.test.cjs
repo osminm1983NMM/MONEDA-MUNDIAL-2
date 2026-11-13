@@ -30,6 +30,7 @@ test('demo screen uses only fictional remittance RPCs', () => {
   assert.deepEqual(rpcNames, [
     'mwd_owner_remittance_create_demo',
     'mwd_owner_remittance_transition_demo',
+    'mwd_owner_remittances_demo',
     'mwd_owner_remittances_demo'
   ]);
   assert.match(screen, /Sin dinero real/);
