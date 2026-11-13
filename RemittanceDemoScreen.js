@@ -1,7 +1,6 @@
-// Remesas internacionales de demostración: SOLO propietario, SIN dinero real.
-// Integrado en Administración solo en la rama de desarrollo.
+// Remesas ficticias US -> HN. Solo propietario; nunca mueve dinero real.
 import React, { useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const parseCents = raw => {
   const value = raw.trim().replace(',', '.');
@@ -10,15 +9,17 @@ const parseCents = raw => {
   const cents = Number(dollars) * 100 + Number(fraction.padEnd(2, '0'));
   return Number.isSafeInteger(cents) && cents >= 100 && cents <= 10000000 ? cents : null;
 };
+
 const uuid = () => {
-  const bytes = new Uint8Array(16);
   if (!globalThis.crypto?.getRandomValues) throw new Error('Generador seguro no disponible');
+  const bytes = new Uint8Array(16);
   globalThis.crypto.getRandomValues(bytes);
   bytes[6] = (bytes[6] & 15) | 64;
   bytes[8] = (bytes[8] & 63) | 128;
   const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
-  return [hex.slice(0,8),hex.slice(8,12),hex.slice(12,16),hex.slice(16,20),hex.slice(20)].join('-');
+  return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join('-');
 };
+
 export default function RemittanceDemoScreen({ supabase, adminRole }) {
   const [amount, setAmount] = useState('100.00');
   const [busy, setBusy] = useState(false);
@@ -27,273 +28,118 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   const pendingCreate = useRef(null);
   const pendingTransition = useRef(null);
   const [notice, setNotice] = useState('');
-  if (adminRole !== 'owner') return <Text style={styles.text}>Acceso reservado al propietario.</Text>;
-  async function create(confirmedCents) {
-    const cents = confirmedCents;
-    if (!Number.isSafeInteger(cents) || cents < 100 || cents > 10000000)
-      return Alert.alert('Monto inválido', 'Entre $1 y $100,000 ficticios.');
-    if (busyRef.current) return;
+
+  async function create(cents) {
+    if (!Number.isSafeInteger(cents) || cents < 100 || cents > 10000000 || busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
     try {
       if (!pendingCreate.current || pendingCreate.current.cents !== cents)
         pendingCreate.current = { cents, requestId: uuid() };
       const { data, error } = await supabase.rpc('mwd_owner_remittance_create_demo', {
-        p_destination_country: 'HN', p_amount_cents: cents,
+        p_destination_country: 'HN',
+        p_amount_cents: cents,
         p_request_id: pendingCreate.current.requestId
       });
       if (error) throw error;
-      if (!data?.id || data.status !== 'draft' && data.status !== 'review' && data.status !== 'simulated' && data.status !== 'cancelled')
+      if (!data?.id || !['draft', 'review', 'simulated', 'cancelled'].includes(data.status))
         throw new Error('Respuesta de creación no reconocida.');
       setOrder({ id: data.id, status: data.status });
       pendingCreate.current = null;
       pendingTransition.current = null;
-      setNotice(data.already_processed ? 'Solicitud ya registrada.' : 'Borrador de remesa creado.');
-    } catch (e) { Alert.alert('Creación no confirmada', e.message || 'Reintenta sin cambiar el monto.'); }
-    finally { busyRef.current = false; setBusy(false); }
+      setNotice(data.already_processed ? 'Solicitud ya registrada.' : 'Borrador ficticio creado.');
+    } catch (e) {
+      Alert.alert('Creación no confirmada', e.message || 'Reintenta sin cambiar el monto.');
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
   }
+
   async function transition(next) {
     if (!order || busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
     try {
-      if (!pendingTransition.current || pendingTransition.current.id !== order.id ||
-          pendingTransition.current.next !== next)
+      if (!pendingTransition.current || pendingTransition.current.id !== order.id || pendingTransition.current.next !== next)
         pendingTransition.current = { id: order.id, next, requestId: uuid() };
       const { data, error } = await supabase.rpc('mwd_owner_remittance_transition_demo', {
-        p_order_id: order.id, p_new_status: next,
+        p_order_id: order.id,
+        p_new_status: next,
         p_request_id: pendingTransition.current.requestId
       });
       if (error) throw error;
-      if (!data || data.id !== order.id || !['draft','review','simulated','cancelled'].includes(data.status))
-        throw new Error('Respuesta del servidor no reconocida.');
-      setOrder(prev => ({ ...prev, status: data.status }));
+      if (!data || data.id !== order.id || !['draft', 'review', 'simulated', 'cancelled'].includes(data.status))
+        throw new Error('Respuesta de transición no reconocida.');
+      setOrder({ id: data.id, status: data.status });
       pendingTransition.current = null;
       setNotice(data.already_processed ? 'Reintento reconocido.' : 'Estado actualizado.');
-    } catch (e) { Alert.alert('Cambio no confirmado', e.message || 'Revisa el estado antes de continuar.'); }
-    finally { busyRef.current = false; setBusy(false); }
+    } catch (e) {
+      Alert.alert('Cambio no confirmado', e.message || 'Revisa el estado antes de continuar.');
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
   }
+
   const ask = (next, label) => Alert.alert('Remesa ficticia', label + '. No se mueve dinero real.', [
-    { text: 'Volver', style: 'cancel' }, { text: 'Confirmar', onPress: () => transition(next) }
+    { text: 'Volver', style: 'cancel' },
+    { text: 'Confirmar', onPress: () => transition(next) }
   ]);
-  const btn = (label, action) => <TouchableOpacity disabled={busy} onPress={action} style={[styles.button,busy && styles.disabled]}>
-    <Text style={styles.buttonText}>{label}</Text></TouchableOpacity>;
-  return <View style={styles.card}>
-    <Text style={styles.title}>Remesa internacional · DEMO</Text>
-    <Text style={styles.warn}>Sin dinero real, sin entrega y sin débito MWD</Text>
-    <Text style={styles.text}>Origen: Estados Unidos (US)</Text>
-    <Text style={styles.text}>Destino: Honduras (HN)</Text>
-    {!order ? <>
-      <TextInput style={styles.input} keyboardType="decimal-pad" value={amount}
-        onChangeText={setAmount} editable={!busy} placeholder="Monto ficticio USD" placeholderTextColor="#a6b7ce" />
-      {btn('Crear borrador de 
-      <Text style={styles.text}>Estado: {order.status}</Text>
-      <Text selectable style={styles.text}>Referencia: {order.id}</Text>
-      {order.status === 'draft' && btn('Enviar a revisión', () => ask('review','Pasar a revisión'))}
-      {order.status === 'review' && btn('Completar simulación', () => ask('simulated','Completar simulación'))}
-      {['draft','review'].includes(order.status) && btn('Cancelar simulación', () => ask('cancelled','Cancelar orden'))}
-      {['simulated','cancelled'].includes(order.status) && btn('Preparar otra prueba', () => { setOrder(null); setNotice(''); })}
-    </>}
-    {!!notice && <Text style={styles.text}>{notice}</Text>}
-  </View>;
+  const button = (label, onPress) => (
+    <TouchableOpacity disabled={busy} onPress={onPress} style={[styles.button, busy && styles.disabled]}>
+      <Text style={styles.buttonText}>{label}</Text>
+    </TouchableOpacity>
+  );
+  if (adminRole !== 'owner') return <Text style={styles.text}>Acceso reservado al propietario.</Text>;
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.title}>Remesa internacional · DEMO</Text>
+      <Text style={styles.warn}>Sin dinero real, sin entrega y sin débito MWD</Text>
+      <Text style={styles.text}>Origen: Estados Unidos (US)</Text>
+      <Text style={styles.text}>Destino: Honduras (HN)</Text>
+      {!order ? (
+        <>
+          <TextInput style={styles.input} keyboardType="decimal-pad" value={amount}
+            onChangeText={setAmount} editable={!busy} placeholder="Monto ficticio USD" placeholderTextColor="#a6b7ce" />
+          {button('Crear borrador de $' + amount + ' ficticios', () => {
+            const cents = parseCents(amount);
+            if (cents === null) {
+              Alert.alert('Monto inválido', 'Entre $1 y $100,000 ficticios.');
+              return;
+            }
+            Alert.alert('Crear borrador', 'Registrar remesa ficticia de $' + (cents / 100).toFixed(2) + ' hacia Honduras?', [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Crear', onPress: () => create(cents) }
+            ]);
+          })}
+        </>
+      ) : (
+        <>
+          <Text style={styles.text}>Estado: {order.status}</Text>
+          <Text selectable style={styles.text}>Referencia: {order.id}</Text>
+          {order.status === 'draft' && button('Enviar a revisión', () => ask('review', 'Pasar a revisión'))}
+          {order.status === 'review' && button('Completar simulación', () => ask('simulated', 'Completar simulación'))}
+          {['draft', 'review'].includes(order.status) && button('Cancelar simulación', () => ask('cancelled', 'Cancelar orden'))}
+          {['simulated', 'cancelled'].includes(order.status) && button('Preparar otra prueba', () => {
+            setOrder(null);
+            setNotice('');
+          })}
+        </>
+      )}
+      {!!notice && <Text style={styles.text}>{notice}</Text>}
+    </View>
+  );
 }
+
 const styles = StyleSheet.create({
-  card:{backgroundColor:'#13253e',padding:20,borderRadius:16,marginVertical:12},
-  title:{color:'#fff',fontWeight:'700',fontSize:20,marginBottom:12},
-  warn:{color:'#f4cc81',marginBottom:12},
-  text:{color:'#d4e0f1',marginVertical:6},
-  input:{backgroundColor:'#233a58',color:'#fff',padding:14,borderRadius:10,marginVertical:12},
-  button:{backgroundColor:'#276af1',padding:15,borderRadius:10,marginVertical:7},
-  disabled:{opacity:0.5},buttonText:{color:'#fff',textAlign:'center',fontWeight:'700'}
-});
- + amount + ' ficticios', () => {
-        const confirmedCents = parseCents(amount);
-        if (confirmedCents === null) return Alert.alert('Monto inválido', 'Entre $1 y $100,000 ficticios.');
-        Alert.alert('Crear borrador', 'Registrar remesa ficticia de 
-    </> : <>
-      <Text style={styles.text}>Estado: {order.status}</Text>
-      <Text selectable style={styles.text}>Referencia: {order.id}</Text>
-      {order.status === 'draft' && btn('Enviar a revisión', () => ask('review','Pasar a revisión'))}
-      {order.status === 'review' && btn('Completar simulación', () => ask('simulated','Completar simulación'))}
-      {['draft','review'].includes(order.status) && btn('Cancelar simulación', () => ask('cancelled','Cancelar orden'))}
-      {['simulated','cancelled'].includes(order.status) && btn('Preparar otra prueba', () => { setOrder(null); setNotice(''); })}
-    </>}
-    {!!notice && <Text style={styles.text}>{notice}</Text>}
-  </View>;
-}
-const styles = StyleSheet.create({
-  card:{backgroundColor:'#13253e',padding:20,borderRadius:16,marginVertical:12},
-  title:{color:'#fff',fontWeight:'700',fontSize:20,marginBottom:12},
-  warn:{color:'#f4cc81',marginBottom:12},
-  text:{color:'#d4e0f1',marginVertical:6},
-  input:{backgroundColor:'#233a58',color:'#fff',padding:14,borderRadius:10,marginVertical:12},
-  button:{backgroundColor:'#276af1',padding:15,borderRadius:10,marginVertical:7},
-  disabled:{opacity:0.5},buttonText:{color:'#fff',textAlign:'center',fontWeight:'700'}
-});
- + (confirmedCents / 100).toFixed(2) + ' hacia Honduras?', [
-          { text: 'Cancelar', style: 'cancel' }, { text: 'Crear', onPress: () => create(confirmedCents) }
-        ]);
-      })}
-    </> : <>
-      <Text style={styles.text}>Estado: {order.status}</Text>
-      <Text selectable style={styles.text}>Referencia: {order.id}</Text>
-      {order.status === 'draft' && btn('Enviar a revisión', () => ask('review','Pasar a revisión'))}
-      {order.status === 'review' && btn('Completar simulación', () => ask('simulated','Completar simulación'))}
-      {['draft','review'].includes(order.status) && btn('Cancelar simulación', () => ask('cancelled','Cancelar orden'))}
-      {['simulated','cancelled'].includes(order.status) && btn('Preparar otra prueba', () => { setOrder(null); setNotice(''); })}
-    </>}
-    {!!notice && <Text style={styles.text}>{notice}</Text>}
-  </View>;
-}
-const styles = StyleSheet.create({
-  card:{backgroundColor:'#13253e',padding:20,borderRadius:16,marginVertical:12},
-  title:{color:'#fff',fontWeight:'700',fontSize:20,marginBottom:12},
-  warn:{color:'#f4cc81',marginBottom:12},
-  text:{color:'#d4e0f1',marginVertical:6},
-  input:{backgroundColor:'#233a58',color:'#fff',padding:14,borderRadius:10,marginVertical:12},
-  button:{backgroundColor:'#276af1',padding:15,borderRadius:10,marginVertical:7},
-  disabled:{opacity:0.5},buttonText:{color:'#fff',textAlign:'center',fontWeight:'700'}
-});
- + amount + ' ficticios', () => {
-        const confirmedCents = parseCents(amount);
-        if (confirmedCents === null) return Alert.alert('Monto inválido', 'Entre $1 y $100,000 ficticios.');
-        Alert.alert('Crear borrador', 'Registrar remesa ficticia de 
-      <Text style={styles.text}>Estado: {order.status}</Text>
-      <Text selectable style={styles.text}>Referencia: {order.id}</Text>
-      {order.status === 'draft' && btn('Enviar a revisión', () => ask('review','Pasar a revisión'))}
-      {order.status === 'review' && btn('Completar simulación', () => ask('simulated','Completar simulación'))}
-      {['draft','review'].includes(order.status) && btn('Cancelar simulación', () => ask('cancelled','Cancelar orden'))}
-      {['simulated','cancelled'].includes(order.status) && btn('Preparar otra prueba', () => { setOrder(null); setNotice(''); })}
-    </>}
-    {!!notice && <Text style={styles.text}>{notice}</Text>}
-  </View>;
-}
-const styles = StyleSheet.create({
-  card:{backgroundColor:'#13253e',padding:20,borderRadius:16,marginVertical:12},
-  title:{color:'#fff',fontWeight:'700',fontSize:20,marginBottom:12},
-  warn:{color:'#f4cc81',marginBottom:12},
-  text:{color:'#d4e0f1',marginVertical:6},
-  input:{backgroundColor:'#233a58',color:'#fff',padding:14,borderRadius:10,marginVertical:12},
-  button:{backgroundColor:'#276af1',padding:15,borderRadius:10,marginVertical:7},
-  disabled:{opacity:0.5},buttonText:{color:'#fff',textAlign:'center',fontWeight:'700'}
-});
- + amount + ' ficticios', () => {
-        const confirmedCents = parseCents(amount);
-        if (confirmedCents === null) return Alert.alert('Monto inválido', 'Entre $1 y $100,000 ficticios.');
-        Alert.alert('Crear borrador', 'Registrar remesa ficticia de 
-    </> : <>
-      <Text style={styles.text}>Estado: {order.status}</Text>
-      <Text selectable style={styles.text}>Referencia: {order.id}</Text>
-      {order.status === 'draft' && btn('Enviar a revisión', () => ask('review','Pasar a revisión'))}
-      {order.status === 'review' && btn('Completar simulación', () => ask('simulated','Completar simulación'))}
-      {['draft','review'].includes(order.status) && btn('Cancelar simulación', () => ask('cancelled','Cancelar orden'))}
-      {['simulated','cancelled'].includes(order.status) && btn('Preparar otra prueba', () => { setOrder(null); setNotice(''); })}
-    </>}
-    {!!notice && <Text style={styles.text}>{notice}</Text>}
-  </View>;
-}
-const styles = StyleSheet.create({
-  card:{backgroundColor:'#13253e',padding:20,borderRadius:16,marginVertical:12},
-  title:{color:'#fff',fontWeight:'700',fontSize:20,marginBottom:12},
-  warn:{color:'#f4cc81',marginBottom:12},
-  text:{color:'#d4e0f1',marginVertical:6},
-  input:{backgroundColor:'#233a58',color:'#fff',padding:14,borderRadius:10,marginVertical:12},
-  button:{backgroundColor:'#276af1',padding:15,borderRadius:10,marginVertical:7},
-  disabled:{opacity:0.5},buttonText:{color:'#fff',textAlign:'center',fontWeight:'700'}
-});
- + (confirmedCents / 100).toFixed(2) + ' hacia Honduras?', [
-          { text: 'Cancelar', style: 'cancel' }, { text: 'Crear', onPress: () => create(confirmedCents) }
-        ]);
-      })}
-    </> : <>
-      <Text style={styles.text}>Estado: {order.status}</Text>
-      <Text selectable style={styles.text}>Referencia: {order.id}</Text>
-      {order.status === 'draft' && btn('Enviar a revisión', () => ask('review','Pasar a revisión'))}
-      {order.status === 'review' && btn('Completar simulación', () => ask('simulated','Completar simulación'))}
-      {['draft','review'].includes(order.status) && btn('Cancelar simulación', () => ask('cancelled','Cancelar orden'))}
-      {['simulated','cancelled'].includes(order.status) && btn('Preparar otra prueba', () => { setOrder(null); setNotice(''); })}
-    </>}
-    {!!notice && <Text style={styles.text}>{notice}</Text>}
-  </View>;
-}
-const styles = StyleSheet.create({
-  card:{backgroundColor:'#13253e',padding:20,borderRadius:16,marginVertical:12},
-  title:{color:'#fff',fontWeight:'700',fontSize:20,marginBottom:12},
-  warn:{color:'#f4cc81',marginBottom:12},
-  text:{color:'#d4e0f1',marginVertical:6},
-  input:{backgroundColor:'#233a58',color:'#fff',padding:14,borderRadius:10,marginVertical:12},
-  button:{backgroundColor:'#276af1',padding:15,borderRadius:10,marginVertical:7},
-  disabled:{opacity:0.5},buttonText:{color:'#fff',textAlign:'center',fontWeight:'700'}
-});
- + (confirmedCents / 100).toFixed(2) + ' hacia Honduras?', [
-          { text: 'Cancelar', style: 'cancel' }, { text: 'Crear', onPress: () => create(confirmedCents) }
-        ]);
-      })}
-    </> : <>
-      <Text style={styles.text}>Estado: {order.status}</Text>
-      <Text selectable style={styles.text}>Referencia: {order.id}</Text>
-      {order.status === 'draft' && btn('Enviar a revisión', () => ask('review','Pasar a revisión'))}
-      {order.status === 'review' && btn('Completar simulación', () => ask('simulated','Completar simulación'))}
-      {['draft','review'].includes(order.status) && btn('Cancelar simulación', () => ask('cancelled','Cancelar orden'))}
-      {['simulated','cancelled'].includes(order.status) && btn('Preparar otra prueba', () => { setOrder(null); setNotice(''); })}
-    </>}
-    {!!notice && <Text style={styles.text}>{notice}</Text>}
-  </View>;
-}
-const styles = StyleSheet.create({
-  card:{backgroundColor:'#13253e',padding:20,borderRadius:16,marginVertical:12},
-  title:{color:'#fff',fontWeight:'700',fontSize:20,marginBottom:12},
-  warn:{color:'#f4cc81',marginBottom:12},
-  text:{color:'#d4e0f1',marginVertical:6},
-  input:{backgroundColor:'#233a58',color:'#fff',padding:14,borderRadius:10,marginVertical:12},
-  button:{backgroundColor:'#276af1',padding:15,borderRadius:10,marginVertical:7},
-  disabled:{opacity:0.5},buttonText:{color:'#fff',textAlign:'center',fontWeight:'700'}
-});
- + amount + ' ficticios', () => {
-        const confirmedCents = parseCents(amount);
-        if (confirmedCents === null) return Alert.alert('Monto inválido', 'Entre $1 y $100,000 ficticios.');
-        Alert.alert('Crear borrador', 'Registrar remesa ficticia de 
-    </> : <>
-      <Text style={styles.text}>Estado: {order.status}</Text>
-      <Text selectable style={styles.text}>Referencia: {order.id}</Text>
-      {order.status === 'draft' && btn('Enviar a revisión', () => ask('review','Pasar a revisión'))}
-      {order.status === 'review' && btn('Completar simulación', () => ask('simulated','Completar simulación'))}
-      {['draft','review'].includes(order.status) && btn('Cancelar simulación', () => ask('cancelled','Cancelar orden'))}
-      {['simulated','cancelled'].includes(order.status) && btn('Preparar otra prueba', () => { setOrder(null); setNotice(''); })}
-    </>}
-    {!!notice && <Text style={styles.text}>{notice}</Text>}
-  </View>;
-}
-const styles = StyleSheet.create({
-  card:{backgroundColor:'#13253e',padding:20,borderRadius:16,marginVertical:12},
-  title:{color:'#fff',fontWeight:'700',fontSize:20,marginBottom:12},
-  warn:{color:'#f4cc81',marginBottom:12},
-  text:{color:'#d4e0f1',marginVertical:6},
-  input:{backgroundColor:'#233a58',color:'#fff',padding:14,borderRadius:10,marginVertical:12},
-  button:{backgroundColor:'#276af1',padding:15,borderRadius:10,marginVertical:7},
-  disabled:{opacity:0.5},buttonText:{color:'#fff',textAlign:'center',fontWeight:'700'}
-});
- + (confirmedCents / 100).toFixed(2) + ' hacia Honduras?', [
-          { text: 'Cancelar', style: 'cancel' }, { text: 'Crear', onPress: () => create(confirmedCents) }
-        ]);
-      })}
-    </> : <>
-      <Text style={styles.text}>Estado: {order.status}</Text>
-      <Text selectable style={styles.text}>Referencia: {order.id}</Text>
-      {order.status === 'draft' && btn('Enviar a revisión', () => ask('review','Pasar a revisión'))}
-      {order.status === 'review' && btn('Completar simulación', () => ask('simulated','Completar simulación'))}
-      {['draft','review'].includes(order.status) && btn('Cancelar simulación', () => ask('cancelled','Cancelar orden'))}
-      {['simulated','cancelled'].includes(order.status) && btn('Preparar otra prueba', () => { setOrder(null); setNotice(''); })}
-    </>}
-    {!!notice && <Text style={styles.text}>{notice}</Text>}
-  </View>;
-}
-const styles = StyleSheet.create({
-  card:{backgroundColor:'#13253e',padding:20,borderRadius:16,marginVertical:12},
-  title:{color:'#fff',fontWeight:'700',fontSize:20,marginBottom:12},
-  warn:{color:'#f4cc81',marginBottom:12},
-  text:{color:'#d4e0f1',marginVertical:6},
-  input:{backgroundColor:'#233a58',color:'#fff',padding:14,borderRadius:10,marginVertical:12},
-  button:{backgroundColor:'#276af1',padding:15,borderRadius:10,marginVertical:7},
-  disabled:{opacity:0.5},buttonText:{color:'#fff',textAlign:'center',fontWeight:'700'}
+  card: { backgroundColor: '#13253e', padding: 20, borderRadius: 16, marginVertical: 12 },
+  title: { color: '#fff', fontWeight: '700', fontSize: 20, marginBottom: 12 },
+  warn: { color: '#f4cc81', marginBottom: 12 },
+  text: { color: '#d4e0f1', marginVertical: 6 },
+  input: { backgroundColor: '#233a58', color: '#fff', padding: 14, borderRadius: 10, marginVertical: 12 },
+  button: { backgroundColor: '#276af1', padding: 15, borderRadius: 10, marginVertical: 7 },
+  disabled: { opacity: 0.5 },
+  buttonText: { color: '#fff', textAlign: 'center', fontWeight: '700' }
 });
