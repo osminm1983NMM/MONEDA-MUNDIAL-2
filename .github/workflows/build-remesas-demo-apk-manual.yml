@@ -1,0 +1,42 @@
+name: Prepare Android demo APK (manual EAS)
+
+# This workflow intentionally never starts on push or PR.
+# An EAS cloud build may consume build quota or incur charges.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-demo-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/remesas-demo-ui
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run demo safety tests
+        run: node --test tests/remittance-amounts.test.cjs tests/remittance-build-safety.test.cjs
+      - name: Validate Expo config
+        run: npx expo config --type public
+      - name: Confirm EAS token is configured
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::EXPO_TOKEN must be configured as a repository secret before starting a cloud build."
+            exit 1
+          fi
+      - name: Set up EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Build internal Android APK
+        run: eas build --platform android --profile preview --non-interactive --wait
