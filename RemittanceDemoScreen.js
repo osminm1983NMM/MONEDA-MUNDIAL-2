@@ -28,6 +28,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   const pendingCreate = useRef(null);
   const pendingTransition = useRef(null);
   const [notice, setNotice] = useState('');
+  const [recentOrders, setRecentOrders] = useState([]);
 
   async function create(cents) {
     if (order || !Number.isSafeInteger(cents) || cents < 100 || cents > 10000000 || busyRef.current) return;
@@ -94,6 +95,38 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
     }
   }
 
+  async function loadRecent() {
+    if (busyRef.current || adminRole !== 'owner') return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('mwd_owner_remittances_demo');
+      if (error) throw error;
+      if (!Array.isArray(data)) throw new Error('Respuesta de consulta no reconocida.');
+      const valid = data.filter(item => item && typeof item.id === 'string' &&
+        ['draft', 'review', 'simulated', 'cancelled'].includes(item.status) &&
+        Number.isSafeInteger(Number(item.amount_cents)) &&
+        Number(item.amount_cents) >= 100 && Number(item.amount_cents) <= 10000000);
+      setRecentOrders(valid.slice(0, 10));
+      setNotice('Consulta ficticia actualizada desde el servidor.');
+    } catch (e) {
+      Alert.alert('No se pudo consultar', e.message || 'Comprueba tu conexión.');
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }
+
+  function selectRecent(item) {
+    if (busyRef.current || pendingCreate.current || pendingTransition.current) {
+      Alert.alert('Solicitud sin confirmar', 'Resuelve primero la operación pendiente en esta pantalla.');
+      return;
+    }
+    setOrder({ id: item.id, status: item.status });
+    setRecentOrders([]);
+    setNotice('Orden recuperada desde el servidor.');
+  }
+
   const ask = (next, label) => Alert.alert('Remesa ficticia', label + '. No se mueve dinero real.', [
     { text: 'Volver', style: 'cancel' },
     { text: 'Confirmar', onPress: () => transition(next) }
@@ -140,6 +173,16 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
           })}
         </>
       )}
+      {!order && button('Consultar remesas ficticias recientes', loadRecent)}
+      {!order && recentOrders.map(item => (
+        <TouchableOpacity key={item.id} disabled={busy} onPress={() => selectRecent(item)}
+          style={[styles.button, busy && styles.disabled]}>
+          <Text style={styles.buttonText}>
+            {item.destination_country} · ${(Number(item.amount_cents) / 100).toFixed(2)} · {item.status}
+          </Text>
+          <Text style={styles.buttonText}>{item.id.slice(0, 8)}</Text>
+        </TouchableOpacity>
+      ))}
       {!!notice && <Text style={styles.text}>{notice}</Text>}
     </View>
   );
