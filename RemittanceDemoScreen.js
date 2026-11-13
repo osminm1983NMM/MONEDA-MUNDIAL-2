@@ -41,7 +41,8 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
         p_request_id: pendingCreate.current.requestId
       });
       if (error) throw error;
-      if (!data?.id) throw new Error('No se recibió identificador de orden.');
+      if (!data?.id || data.status !== 'draft' && data.status !== 'review' && data.status !== 'simulated' && data.status !== 'cancelled')
+        throw new Error('Respuesta de creación no reconocida.');
       setOrder({ id: data.id, status: data.status });
       pendingCreate.current = null;
       pendingTransition.current = null;
@@ -68,7 +69,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
       pendingTransition.current = null;
       setNotice(data.already_processed ? 'Reintento reconocido.' : 'Estado actualizado.');
     } catch (e) { Alert.alert('Cambio no confirmado', e.message || 'Revisa el estado antes de continuar.'); }
-    finally { setBusy(false); }
+    finally { busyRef.current = false; setBusy(false); }
   }
   const ask = (next, label) => Alert.alert('Remesa ficticia', label + '. No se mueve dinero real.', [
     { text: 'Volver', style: 'cancel' }, { text: 'Confirmar', onPress: () => transition(next) }
