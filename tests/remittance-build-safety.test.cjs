@@ -106,3 +106,15 @@ test('owner permission is checked inside demo operations, not only during render
       name + ' must reject non-owner actions');
   }
 });
+
+test('recent order selection verifies latest server state before opening', () => {
+  const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
+  const start = screen.indexOf('async function selectRecent(item)');
+  const end = screen.indexOf('\n  const ask =', start);
+  assert.ok(start >= 0 && end > start);
+  const selection = screen.slice(start, end);
+  assert.match(selection, /supabase\.rpc\('mwd_owner_remittances_demo'\)/);
+  assert.match(selection, /data\.find\(record => record\?\.id === item\.id\)/);
+  assert.match(selection, /current\.destination_country !== 'HN'/);
+  assert.match(selection, /setOrder\(\{ id: current\.id, status: current\.status \}\)/);
+});
