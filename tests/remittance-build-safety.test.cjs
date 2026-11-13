@@ -33,3 +33,9 @@ test('demo screen uses only fictional remittance RPCs', () => {
   ]);
   assert.match(screen, /Sin dinero real/);
 });
+
+test('unconfirmed creation cannot silently change amount and request ID', () => {
+  const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
+  assert.match(screen, /pendingCreate\.current && pendingCreate\.current\.cents !== cents/);
+  assert.match(screen, /if \(!pendingCreate\.current\)\s*pendingCreate\.current = \{ cents, requestId: uuid\(\) \}/);
+});
