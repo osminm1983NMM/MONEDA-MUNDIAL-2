@@ -94,3 +94,15 @@ test('selected order refresh verifies Honduras corridor', () => {
   const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
   assert.match(screen, /current\.destination_country !== 'HN'/);
 });
+
+test('owner permission is checked inside demo operations, not only during rendering', () => {
+  const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
+  for (const name of ['create', 'transition', 'loadRecent', 'refreshSelected', 'selectRecent']) {
+    const start = screen.indexOf('function ' + name + '(');
+    assert.ok(start >= 0, name + ' function missing');
+    const next = screen.indexOf('\n  }', start);
+    assert.ok(next > start, name + ' function body missing');
+    assert.match(screen.slice(start, next), /adminRole !== 'owner'/,
+      name + ' must reject non-owner actions');
+  }
+});
