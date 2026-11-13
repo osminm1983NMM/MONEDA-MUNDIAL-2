@@ -29,7 +29,8 @@ test('demo screen uses only fictional remittance RPCs', () => {
   const rpcNames = [...screen.matchAll(/supabase\.rpc\(['"]([^'"]+)['"]/g)].map(match => match[1]);
   assert.deepEqual(rpcNames, [
     'mwd_owner_remittance_create_demo',
-    'mwd_owner_remittance_transition_demo'
+    'mwd_owner_remittance_transition_demo',
+    'mwd_owner_remittances_demo'
   ]);
   assert.match(screen, /Sin dinero real/);
 });
@@ -53,4 +54,12 @@ test('cloud APK build is manual-only and checks Expo token', () => {
   assert.match(workflow, /secrets\.EXPO_TOKEN/);
   assert.match(workflow, /eas build --platform android --profile preview --non-interactive --wait/);
   assert.match(workflow, /ref: feature\/remesas-demo-ui/);
+});
+
+test('recent demo orders are retrieved from protected server RPC', () => {
+  const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
+  assert.match(screen, /async function loadRecent\(\)/);
+  assert.match(screen, /adminRole !== 'owner'/);
+  assert.match(screen, /supabase\.rpc\('mwd_owner_remittances_demo'\)/);
+  assert.match(screen, /pendingCreate\.current \|\| pendingTransition\.current/);
 });
