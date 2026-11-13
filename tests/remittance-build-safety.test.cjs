@@ -118,3 +118,10 @@ test('recent order selection verifies latest server state before opening', () =>
   assert.match(selection, /current\.destination_country !== 'HN'/);
   assert.match(selection, /setOrder\(\{ id: current\.id, status: current\.status \}\)/);
 });
+
+test('all recovered demo remittances are restricted to US to Honduras', () => {
+  const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
+  assert.match(screen, /item\.source_country === 'US' && item\.destination_country === 'HN'/);
+  const checks = screen.match(/current\.source_country !== 'US' \|\| current\.destination_country !== 'HN'/g) || [];
+  assert.equal(checks.length, 2, 'Both refresh and selection must check the full corridor');
+});
