@@ -65,10 +65,15 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
       (order.status === 'draft' && ['review', 'cancelled'].includes(next)) ||
       (order.status === 'review' && ['simulated', 'cancelled'].includes(next))
     )) return;
+    if (pendingTransition.current &&
+        (pendingTransition.current.id !== order.id || pendingTransition.current.next !== next)) {
+      Alert.alert('Cambio pendiente', 'Existe un cambio de estado sin confirmar. Reintenta primero la misma acción para evitar resultados contradictorios.');
+      return;
+    }
     busyRef.current = true;
     setBusy(true);
     try {
-      if (!pendingTransition.current || pendingTransition.current.id !== order.id || pendingTransition.current.next !== next)
+      if (!pendingTransition.current)
         pendingTransition.current = { id: order.id, next, requestId: uuid() };
       const { data, error } = await supabase.rpc('mwd_owner_remittance_transition_demo', {
         p_order_id: order.id,
