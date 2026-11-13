@@ -25,6 +25,8 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [order, setOrder] = useState(null);
+  const orderRef = useRef(null);
+  orderRef.current = order;
   const pendingCreate = useRef(null);
   const pendingTransition = useRef(null);
   const [notice, setNotice] = useState('');
@@ -159,7 +161,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
     Alert.alert('Remesa ficticia', label + '. No se mueve dinero real.', [
       { text: 'Volver', style: 'cancel' },
       { text: 'Confirmar', onPress: () => {
-        if (!confirmedOrderId || order?.id !== confirmedOrderId || order?.status !== confirmedStatus) {
+        if (!confirmedOrderId || orderRef.current?.id !== confirmedOrderId || orderRef.current?.status !== confirmedStatus) {
           Alert.alert('Confirmación vencida', 'El estado de la orden cambió. Revisa antes de confirmar.');
           return;
         }
