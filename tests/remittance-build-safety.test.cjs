@@ -71,3 +71,12 @@ test('selected demo order status can be refreshed from server', () => {
   assert.match(screen, /data\.find\(item => item\?\.id === order\.id\)/);
   assert.match(screen, /Actualizar estado desde el servidor/);
 });
+
+test('confirmation checks latest selected order before applying a transition', () => {
+  const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
+  assert.match(screen, /const orderRef = useRef\(null\)/);
+  assert.match(screen, /orderRef\.current = order/);
+  assert.match(screen, /orderRef\.current\?\.id !== confirmedOrderId/);
+  assert.match(screen, /orderRef\.current\?\.status !== confirmedStatus/);
+  assert.match(screen, /Confirmación vencida/);
+});
