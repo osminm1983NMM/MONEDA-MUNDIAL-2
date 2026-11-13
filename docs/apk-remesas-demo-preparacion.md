@@ -2,16 +2,16 @@
 
 ## Estado comprobado
 - Rama: `feature/remesas-demo-ui`; PR #120 en borrador; no fusionar a `main`.
-- GitHub Actions #18: dependencias, pruebas de montos, configuración Expo y exportación JS Android aprobadas.
+- GitHub Actions #94 (13 de noviembre de 2026): instalación de dependencias, pruebas automáticas, configuración Expo y exportación JS Android aprobadas en la rama de desarrollo.
 - Exportación JS **no** es APK instalable. No se ha instalado ni probado esta rama en el teléfono.
 - El componente de remesas se muestra únicamente en Administración para `adminRole === 'owner'`.
 - Operaciones US→HN **ficticias**, sin débito, entrega, transferencia ni pago real.
 
 ## Antes de solicitar una APK
 1. Revisar que el perfil `preview` de `eas.json` genere APK Android y que el proyecto Expo coincida con el proyecto esperado.
-2. Confirmar acceso y credenciales de firma de Expo/EAS, sin compartir secretos en GitHub ni en el chat.
-3. Confirmar explícitamente posibles costos antes de iniciar una compilación remota.
-4. Compilar exclusivamente la rama de pruebas, sin publicar en tiendas ni cambiar `main`.
+2. Confirmar acceso y credenciales de firma de Expo/EAS; el flujo manual requiere el secreto `EXPO_TOKEN` configurado de forma segura en GitHub Actions. Nunca pegar el token en el chat ni en archivos del repositorio.
+3. Revisar cuota, plan y posibles costos de Expo/EAS; obtener autorización explícita antes de iniciar una compilación remota. La validación JS #94 no verifica credenciales EAS ni produce una APK.
+4. Confirmar que el flujo manual sea accesible en GitHub Actions (los flujos nuevos pueden requerir estar en la rama predeterminada para poder ejecutarse manualmente). No modificar `main` ni iniciar compilaciones sin aprobación. Compilar exclusivamente la rama de pruebas.
 5. Conservar la APK actualmente instalada hasta verificar que la nueva se descargue y abra.
 
 ## Pruebas en Samsung después de instalar
