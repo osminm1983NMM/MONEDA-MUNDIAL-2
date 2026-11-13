@@ -205,7 +205,64 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
         <>
           <TextInput style={styles.input} keyboardType="decimal-pad" value={amount}
             onChangeText={setAmount} editable={!busy} placeholder="Monto ficticio USD" placeholderTextColor="#a6b7ce" />
-          {button('Crear borrador de $' + amount + ' ficticios', () => {
+          {pendingCreate.current && (
+            <>
+              <Text style={styles.warn}>Creación pendiente de confirmar: ${(pendingCreate.current.cents / 100).toFixed(2)} ficticios. Reintenta con la misma referencia.</Text>
+              {button('Reintentar solicitud pendiente', () => create(pendingCreate.current.cents))}
+            </>
+          )}
+          {!pendingCreate.current && button('Crear borrador de 
+            const cents = parseCents(amount);
+            if (cents === null) {
+              Alert.alert('Monto inválido', 'Entre $1 y $100,000 ficticios.');
+              return;
+            }
+            Alert.alert('Crear borrador', 'Registrar remesa ficticia de $' + (cents / 100).toFixed(2) + ' hacia Honduras?', [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Crear', onPress: () => create(cents) }
+            ]);
+          })}
+        </>
+      ) : (
+        <>
+          <Text style={styles.text}>Estado: {order.status}</Text>
+          <Text selectable style={styles.text}>Referencia: {order.id}</Text>
+          {button('Actualizar estado desde el servidor', refreshSelected)}
+          {order.status === 'draft' && button('Enviar a revisión', () => ask('review', 'Pasar a revisión'))}
+          {order.status === 'review' && button('Completar simulación', () => ask('simulated', 'Completar simulación'))}
+          {['draft', 'review'].includes(order.status) && button('Cancelar simulación', () => ask('cancelled', 'Cancelar orden'))}
+          {['simulated', 'cancelled'].includes(order.status) && button('Preparar otra prueba', () => {
+            setOrder(null);
+            setNotice('');
+          })}
+        </>
+      )}
+      {!order && button('Consultar remesas ficticias recientes', loadRecent)}
+      {!order && recentOrders.map(item => (
+        <TouchableOpacity key={item.id} disabled={busy} onPress={() => selectRecent(item)}
+          style={[styles.button, busy && styles.disabled]}>
+          <Text style={styles.buttonText}>
+            {item.destination_country} · ${(Number(item.amount_cents) / 100).toFixed(2)} · {item.status}
+          </Text>
+          <Text style={styles.buttonText}>{item.id.slice(0, 8)}</Text>
+        </TouchableOpacity>
+      ))}
+      {!!notice && <Text style={styles.text}>{notice}</Text>}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: { backgroundColor: '#13253e', padding: 20, borderRadius: 16, marginVertical: 12 },
+  title: { color: '#fff', fontWeight: '700', fontSize: 20, marginBottom: 12 },
+  warn: { color: '#f4cc81', marginBottom: 12 },
+  text: { color: '#d4e0f1', marginVertical: 6 },
+  input: { backgroundColor: '#233a58', color: '#fff', padding: 14, borderRadius: 10, marginVertical: 12 },
+  button: { backgroundColor: '#276af1', padding: 15, borderRadius: 10, marginVertical: 7 },
+  disabled: { opacity: 0.5 },
+  buttonText: { color: '#fff', textAlign: 'center', fontWeight: '700' }
+});
+ + amount + ' ficticios', () => {
             const cents = parseCents(amount);
             if (cents === null) {
               Alert.alert('Monto inválido', 'Entre $1 y $100,000 ficticios.');
