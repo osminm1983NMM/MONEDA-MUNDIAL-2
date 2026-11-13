@@ -153,10 +153,20 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
     setNotice('Orden recuperada desde el servidor.');
   }
 
-  const ask = (next, label) => Alert.alert('Remesa ficticia', label + '. No se mueve dinero real.', [
-    { text: 'Volver', style: 'cancel' },
-    { text: 'Confirmar', onPress: () => transition(next) }
-  ]);
+  const ask = (next, label) => {
+    const confirmedOrderId = order?.id;
+    const confirmedStatus = order?.status;
+    Alert.alert('Remesa ficticia', label + '. No se mueve dinero real.', [
+      { text: 'Volver', style: 'cancel' },
+      { text: 'Confirmar', onPress: () => {
+        if (!confirmedOrderId || order?.id !== confirmedOrderId || order?.status !== confirmedStatus) {
+          Alert.alert('Confirmación vencida', 'El estado de la orden cambió. Revisa antes de confirmar.');
+          return;
+        }
+        transition(next);
+      } }
+    ]);
+  };
   const button = (label, onPress) => (
     <TouchableOpacity disabled={busy} onPress={onPress} style={[styles.button, busy && styles.disabled]}>
       <Text style={styles.buttonText}>{label}</Text>
