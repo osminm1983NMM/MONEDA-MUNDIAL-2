@@ -211,7 +211,8 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
               {button('Reintentar solicitud pendiente', () => create(pendingCreate.current.cents))}
             </>
           )}
-          {!pendingCreate.current && button('Crear borrador de             const cents = parseCents(amount);
+          {!pendingCreate.current && button('Crear borrador de ' + amount + ' USD ficticios', () => {
+            const cents = parseCents(amount);
             if (cents === null) {
               Alert.alert('Monto inválido', 'Entre $1 y $100,000 ficticios.');
               return;
