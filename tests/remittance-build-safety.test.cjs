@@ -89,3 +89,8 @@ test('recent recovery list stays in Honduras demo corridor', () => {
   assert.match(screen, /item\.destination_country === 'HN'/);
   assert.match(screen, /setRecentOrders\(valid\.slice\(0, 10\)\)/);
 });
+
+test('selected order refresh verifies Honduras corridor', () => {
+  const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
+  assert.match(screen, /current\.destination_country !== 'HN'/);
+});
