@@ -21,6 +21,7 @@ const uuid = () => {
 export default function RemittanceDemoScreen({ supabase, adminRole }) {
   const [amount, setAmount] = useState('100.00');
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
   const [order, setOrder] = useState(null);
   const pendingCreate = useRef(null);
   const pendingTransition = useRef(null);
@@ -29,7 +30,8 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   async function create() {
     const cents = parseCents(amount);
     if (cents === null) return Alert.alert('Monto inválido', 'Entre $1 y $100,000 ficticios.');
-    if (busy) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       if (!pendingCreate.current || pendingCreate.current.cents !== cents)
@@ -45,10 +47,11 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
       pendingTransition.current = null;
       setNotice(data.already_processed ? 'Solicitud ya registrada.' : 'Borrador de remesa creado.');
     } catch (e) { Alert.alert('Creación no confirmada', e.message || 'Reintenta sin cambiar el monto.'); }
-    finally { setBusy(false); }
+    finally { busyRef.current = false; setBusy(false); }
   }
   async function transition(next) {
-    if (!order || busy) return;
+    if (!order || busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       if (!pendingTransition.current || pendingTransition.current.id !== order.id ||
@@ -59,6 +62,8 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
         p_request_id: pendingTransition.current.requestId
       });
       if (error) throw error;
+      if (!data || data.id !== order.id || !['draft','review','simulated','cancelled'].includes(data.status))
+        throw new Error('Respuesta del servidor no reconocida.');
       setOrder(prev => ({ ...prev, status: data.status }));
       pendingTransition.current = null;
       setNotice(data.already_processed ? 'Reintento reconocido.' : 'Estado actualizado.');
