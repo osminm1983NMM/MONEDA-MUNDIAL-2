@@ -31,10 +31,14 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
 
   async function create(cents) {
     if (order || !Number.isSafeInteger(cents) || cents < 100 || cents > 10000000 || busyRef.current) return;
+    if (pendingCreate.current && pendingCreate.current.cents !== cents) {
+      Alert.alert('Solicitud pendiente', 'Hay una creación sin confirmar. Reintenta con el mismo monto para evitar duplicados.');
+      return;
+    }
     busyRef.current = true;
     setBusy(true);
     try {
-      if (!pendingCreate.current || pendingCreate.current.cents !== cents)
+      if (!pendingCreate.current)
         pendingCreate.current = { cents, requestId: uuid() };
       const { data, error } = await supabase.rpc('mwd_owner_remittance_create_demo', {
         p_destination_country: 'HN',
