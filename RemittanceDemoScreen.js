@@ -50,6 +50,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
       if (!data?.id || !['draft', 'review', 'simulated', 'cancelled'].includes(data.status))
         throw new Error('Respuesta de creación no reconocida.');
       setOrder({ id: data.id, status: data.status });
+      setRecentOrders([]);
       pendingCreate.current = null;
       pendingTransition.current = null;
       setNotice(data.already_processed ? 'Solicitud ya registrada.' : 'Borrador ficticio creado.');
@@ -117,6 +118,31 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
     }
   }
 
+  async function refreshSelected() {
+    if (!order || busyRef.current || pendingTransition.current || pendingCreate.current) {
+      Alert.alert('Operación pendiente', 'Resuelve primero cualquier solicitud sin confirmar.');
+      return;
+    }
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('mwd_owner_remittances_demo');
+      if (error) throw error;
+      if (!Array.isArray(data)) throw new Error('Respuesta de consulta no reconocida.');
+      const current = data.find(item => item?.id === order.id);
+      if (!current || !['draft', 'review', 'simulated', 'cancelled'].includes(current.status)) {
+        throw new Error('No se encontró esta orden entre las órdenes recientes. No se modificó.');
+      }
+      setOrder({ id: current.id, status: current.status });
+      setNotice('Estado verificado con el servidor.');
+    } catch (e) {
+      Alert.alert('No se pudo actualizar', e.message || 'Comprueba tu conexión.');
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }
+
   function selectRecent(item) {
     if (busyRef.current || pendingCreate.current || pendingTransition.current) {
       Alert.alert('Solicitud sin confirmar', 'Resuelve primero la operación pendiente en esta pantalla.');
@@ -164,6 +190,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
         <>
           <Text style={styles.text}>Estado: {order.status}</Text>
           <Text selectable style={styles.text}>Referencia: {order.id}</Text>
+          {button('Actualizar estado desde el servidor', refreshSelected)}
           {order.status === 'draft' && button('Enviar a revisión', () => ask('review', 'Pasar a revisión'))}
           {order.status === 'review' && button('Completar simulación', () => ask('simulated', 'Completar simulación'))}
           {['draft', 'review'].includes(order.status) && button('Cancelar simulación', () => ask('cancelled', 'Cancelar orden'))}
