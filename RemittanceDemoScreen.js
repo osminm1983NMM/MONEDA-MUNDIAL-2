@@ -27,8 +27,8 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   const pendingTransition = useRef(null);
   const [notice, setNotice] = useState('');
   if (adminRole !== 'owner') return <Text style={styles.text}>Acceso reservado al propietario.</Text>;
-  async function create() {
-    const cents = parseCents(amount);
+  async function create(confirmedCents) {
+    const cents = confirmedCents;
     if (cents === null) return Alert.alert('Monto inválido', 'Entre $1 y $100,000 ficticios.');
     if (busyRef.current) return;
     busyRef.current = true;
@@ -84,10 +84,55 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
     {!order ? <>
       <TextInput style={styles.input} keyboardType="decimal-pad" value={amount}
         onChangeText={setAmount} editable={!busy} placeholder="Monto ficticio USD" placeholderTextColor="#a6b7ce" />
-      {btn('Crear borrador de $' + amount + ' ficticios', () =>
-        Alert.alert('Crear borrador', 'Registrar remesa ficticia hacia Honduras?', [
-          { text: 'Cancelar', style: 'cancel' }, { text: 'Crear', onPress: create }
-        ]))}
+      {btn('Crear borrador de 
+    </> : <>
+      <Text style={styles.text}>Estado: {order.status}</Text>
+      <Text selectable style={styles.text}>Referencia: {order.id}</Text>
+      {order.status === 'draft' && btn('Enviar a revisión', () => ask('review','Pasar a revisión'))}
+      {order.status === 'review' && btn('Completar simulación', () => ask('simulated','Completar simulación'))}
+      {['draft','review'].includes(order.status) && btn('Cancelar simulación', () => ask('cancelled','Cancelar orden'))}
+      {['simulated','cancelled'].includes(order.status) && btn('Preparar otra prueba', () => { setOrder(null); setNotice(''); })}
+    </>}
+    {!!notice && <Text style={styles.text}>{notice}</Text>}
+  </View>;
+}
+const styles = StyleSheet.create({
+  card:{backgroundColor:'#13253e',padding:20,borderRadius:16,marginVertical:12},
+  title:{color:'#fff',fontWeight:'700',fontSize:20,marginBottom:12},
+  warn:{color:'#f4cc81',marginBottom:12},
+  text:{color:'#d4e0f1',marginVertical:6},
+  input:{backgroundColor:'#233a58',color:'#fff',padding:14,borderRadius:10,marginVertical:12},
+  button:{backgroundColor:'#276af1',padding:15,borderRadius:10,marginVertical:7},
+  disabled:{opacity:0.5},buttonText:{color:'#fff',textAlign:'center',fontWeight:'700'}
+});
+ + amount + ' ficticios', () => {
+        const confirmedCents = parseCents(amount);
+        if (confirmedCents === null) return Alert.alert('Monto inválido', 'Entre $1 y $100,000 ficticios.');
+        Alert.alert('Crear borrador', 'Registrar remesa ficticia de 
+    </> : <>
+      <Text style={styles.text}>Estado: {order.status}</Text>
+      <Text selectable style={styles.text}>Referencia: {order.id}</Text>
+      {order.status === 'draft' && btn('Enviar a revisión', () => ask('review','Pasar a revisión'))}
+      {order.status === 'review' && btn('Completar simulación', () => ask('simulated','Completar simulación'))}
+      {['draft','review'].includes(order.status) && btn('Cancelar simulación', () => ask('cancelled','Cancelar orden'))}
+      {['simulated','cancelled'].includes(order.status) && btn('Preparar otra prueba', () => { setOrder(null); setNotice(''); })}
+    </>}
+    {!!notice && <Text style={styles.text}>{notice}</Text>}
+  </View>;
+}
+const styles = StyleSheet.create({
+  card:{backgroundColor:'#13253e',padding:20,borderRadius:16,marginVertical:12},
+  title:{color:'#fff',fontWeight:'700',fontSize:20,marginBottom:12},
+  warn:{color:'#f4cc81',marginBottom:12},
+  text:{color:'#d4e0f1',marginVertical:6},
+  input:{backgroundColor:'#233a58',color:'#fff',padding:14,borderRadius:10,marginVertical:12},
+  button:{backgroundColor:'#276af1',padding:15,borderRadius:10,marginVertical:7},
+  disabled:{opacity:0.5},buttonText:{color:'#fff',textAlign:'center',fontWeight:'700'}
+});
+ + (confirmedCents / 100).toFixed(2) + ' hacia Honduras?', [
+          { text: 'Cancelar', style: 'cancel' }, { text: 'Crear', onPress: () => create(confirmedCents) }
+        ]);
+      })}
     </> : <>
       <Text style={styles.text}>Estado: {order.status}</Text>
       <Text selectable style={styles.text}>Referencia: {order.id}</Text>
