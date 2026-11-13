@@ -63,3 +63,11 @@ test('recent demo orders are retrieved from protected server RPC', () => {
   assert.match(screen, /supabase\.rpc\('mwd_owner_remittances_demo'\)/);
   assert.match(screen, /pendingCreate\.current \|\| pendingTransition\.current/);
 });
+
+test('selected demo order status can be refreshed from server', () => {
+  const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
+  assert.match(screen, /async function refreshSelected\(\)/);
+  assert.match(screen, /pendingTransition\.current \|\| pendingCreate\.current/);
+  assert.match(screen, /data\.find\(item => item\?\.id === order\.id\)/);
+  assert.match(screen, /Actualizar estado desde el servidor/);
+});
