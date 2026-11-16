@@ -76,7 +76,6 @@ export default function RemittanceDemoScreen({ supabase, adminRole, userId }) {
       setRecentOrders([]);
       await clearPending(AsyncStorage, userId, pendingCreate.current.requestId);
       pendingCreate.current = null;
-      await clearPending(AsyncStorage, userId, pendingTransition.current.requestId);
       pendingTransition.current = null;
       setNotice(data.already_processed ? 'Solicitud ya registrada.' : 'Borrador ficticio creado.');
     } catch (e) {
@@ -115,6 +114,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole, userId }) {
       if (data.real_payments_enabled !== false || data.redeemable !== false)
         throw new Error('Respuesta insegura: esta pantalla solo admite operaciones ficticias.');
       setOrder({ id: data.id, status: data.status });
+      await clearPending(AsyncStorage, userId, pendingTransition.current.requestId);
       pendingTransition.current = null;
       setNotice(data.already_processed ? 'Reintento reconocido.' : 'Estado actualizado.');
     } catch (e) {
