@@ -53,3 +53,12 @@ Se verificaron en `mwd_remittance_demo_private` las siguientes garantías físic
 - `pickup_code_samples(assignment_id)` UNIQUE, `consume_request_id` UNIQUE, `issue_request_id` UNIQUE, `identity_check_request_id` UNIQUE, `token_sha256` UNIQUE: unicidad de muestra, solicitudes y token.
 
 Estos índices son barreras de integridad, no pruebas suficientes de autorización ni de concurrencia completa. La prueba de modelo de retiro en GitHub Actions run 43890357551 terminó `success`. No se modificaron índices de Supabase.
+
+## Restricciones CHECK del retiro (verificación en catálogo real, solo lectura)
+
+- `orders`: monto de demostración de 100 a 10 000 000 centavos, origen `US`, estados permitidos `draft/review/simulated/cancelled`.
+- `payout_assignments`: `planned` exige `simulated_at` y `sample_request_id` nulos; `sample_completed` exige ambos no nulos.
+- `pickup_code_samples`: vencimiento posterior a creación, estado activo sin cierre, estados cerrados con `closed_at`, estado `consumed` requiere `consume_request_id`, máximo cinco intentos fallidos, estados restringidos, token SHA-256 hexadecimal de 64 caracteres.
+- `pickup_code_attempts`: huella hexadecimal de 64 caracteres cuando existe.
+
+**Limitación:** restricciones CHECK e índices protegen la consistencia de datos, pero no sustituyen revisión de permisos, flujos de error, ni pruebas sobre funciones reales. Consulta sin cambios en Supabase.
