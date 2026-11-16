@@ -14,8 +14,8 @@ p1=$!
 p2=$!
 wait "$p1"
 wait "$p2"
-successes="$(grep -hxc 'simulated_collected' "$dir/a" "$dir/b" | awk '{s+=$1} END {print s+0}')"
-unavailable="$(grep -hxc 'not_available' "$dir/a" "$dir/b" | awk '{s+=$1} END {print s+0}')"
+successes="$(awk '$0=="simulated_collected" {n++} END {print n+0}' "$dir/a" "$dir/b")"
+unavailable="$(awk '$0=="not_available" {n++} END {print n+0}' "$dir/a" "$dir/b")"
 [[ "$successes" == 1 && "$unavailable" == 1 ]] || {
   echo "Expected one simulated_collected and one not_available; got $successes / $unavailable"
   cat "$dir/a" "$dir/b"
