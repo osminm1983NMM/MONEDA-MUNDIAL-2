@@ -48,3 +48,17 @@ No declarar Android terminado sin: pruebas automatizadas ejecutadas, APK constru
 - Se restauró `workflow_dispatch` exclusivamente, commit `43be5bed16f27261389ce51d8191253c4655a74f`.
 - Revalidación: https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/43910310504
 - Próxima compilación requiere lanzamiento manual desde GitHub Actions y credencial EXPO_TOKEN; no insertar tokens en código, commits ni mensajes.
+
+## Estado comprobado después de la primera instalación (2026-11-16)
+- La ejecución de APK `43916794737` aprobó las pruebas, la configuración Expo y la autenticación del usuario robot con `EXPO_TOKEN`; GitHub canceló la espera tras aproximadamente 44 minutos, pero Expo recibió la compilación `6f7368c0-bcbf-4e5f-b497-851955c10676`.
+- El usuario mostró el estado `Succeeded` de esa compilación en Expo y capturas de la aplicación ejecutándose en Samsung.
+- En el dispositivo se observaron inicio de sesión, saldo ficticio, historial, creación de retiro ficticio por 1.00 MWD hacia Honduras y posterior consulta de la orden `pending`. No equivalen a una auditoría de contabilidad ni a pruebas de concurrencia reales.
+- En la rama de desarrollo se adelantó el botón de cancelación de órdenes `pending` para mostrarlo antes de fechas y referencia. Este cambio NO está en el APK instalado.
+- Se añadió un reintento visible de transición incierta para remesas administrativas de demostración, conservando el identificador de solicitud original. Tampoco está en el APK instalado.
+- La ejecución CI `43931650319` terminó `success`: 32 pruebas aprobadas, 0 fallidas, y validación pública Expo satisfactoria. Evidencia: https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/43931650319
+- Próxima puerta: autorizar una única nueva compilación EAS, instalarla y comprobar manualmente ambas mejoras. Mantener `main` y la base de datos sin cambios hasta nueva autorización.
+
+## Precaución sobre la espera del APK
+- El workflow actual ejecuta `eas build --wait` y tiene `timeout-minutes: 45`. Una compilación EAS en cola puede seguir ejecutándose aunque GitHub cancele la espera.
+- Antes de reintentar una compilación, comprobar su estado en Expo para evitar consumos duplicados.
+- No considerar `cancelled` en GitHub como prueba de que EAS canceló la compilación ni `Succeeded` en EAS como prueba de que todas las funciones de la aplicación están validadas.
