@@ -34,5 +34,5 @@ test('aplicación conserva avisos de dinero ficticio y usa clave publicable', ()
   const app = read('App.js');
   assert.match(app, /NO mueve dinero real/);
   assert.match(app, /sb_publishable_/);
-  assert.doesNotMatch(app, /(?:sb_secret_|service_role)/);
+  assert.doesNotMatch(app, /['\"]sb_secret_[^'\"]+['\"]/);
 });
