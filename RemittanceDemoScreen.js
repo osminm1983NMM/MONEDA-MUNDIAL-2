@@ -43,7 +43,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole, userId }) {
       if (pending?.kind === 'create') pendingCreate.current = { cents: pending.cents, requestId: pending.requestId, createdAt: pending.createdAt };
       if (pending?.kind === 'transition') {
         pendingTransition.current = { id: pending.orderId, next: pending.next, requestId: pending.requestId, createdAt: pending.createdAt };
-        setOrder({ id: pending.orderId, status: pending.next === 'review' ? 'draft' : 'review' });
+        setOrder({ id: pending.orderId, status: 'recovering' });
       }
     }).catch(e => { if (active) setStorageError(e.message || 'No se pudo recuperar la referencia local.'); })
       .finally(() => { if (active) setRestoring(false); });
@@ -89,6 +89,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole, userId }) {
 
   async function transition(next) {
     if (adminRole !== 'owner' || !order || busyRef.current || restoring || storageError || !(
+      (pendingTransition.current && pendingTransition.current.id === order.id && pendingTransition.current.next === next) ||
       (order.status === 'draft' && ['review', 'cancelled'].includes(next)) ||
       (order.status === 'review' && ['simulated', 'cancelled'].includes(next))
     )) return;
@@ -166,6 +167,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole, userId }) {
       setOrder({ id: current.id, status: current.status });
       if (pendingTransition.current && pendingTransition.current.id === current.id) {
         if (current.status === pendingTransition.current.next) {
+          await clearPending(AsyncStorage, userId, pendingTransition.current.requestId);
           pendingTransition.current = null;
           setNotice('El servidor confirmó el estado solicitado; cambio pendiente conciliado.');
         } else {
