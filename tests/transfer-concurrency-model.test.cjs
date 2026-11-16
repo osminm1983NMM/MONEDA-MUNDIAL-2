@@ -65,3 +65,27 @@ test('solicitudes concurrentes con misma clave y datos distintos producen confli
   assert.match(results[1].reason.message, /conflict/);
   assert.equal(ledger.balances.get('A'), 9900);
 });
+
+test('reintento despues de fallo por fondos insuficientes puede completarse al recargar', async () => {
+  const ledger = createLedger();
+  const request = { id: 'retry-later', from: 'C', to: 'B', amount: 100 };
+  await assert.rejects(ledger.submit(request), /insufficient/);
+  assert.equal(ledger.requests.size, 0);
+  await ledger.submit({ id: 'fund-c', from: 'A', to: 'C', amount: 100 });
+  const result = await ledger.submit(request);
+  assert.equal(result.status, 'ok');
+  assert.equal(ledger.balances.get('C'), 0);
+  assert.equal(ledger.balances.get('B'), 2600);
+});
+
+test('cadena concurrente de transferencias conserva el total global', async () => {
+  const ledger = createLedger();
+  const results = await Promise.all([
+    ledger.submit({ id: 'chain1', from: 'A', to: 'B', amount: 200 }),
+    ledger.submit({ id: 'chain2', from: 'B', to: 'C', amount: 100 }),
+    ledger.submit({ id: 'chain3', from: 'C', to: 'A', amount: 50 })
+  ]);
+  assert.equal(results.filter(r => r.status === 'ok').length, 3);
+  assert.equal([...ledger.balances.values()].reduce((a,b) => a+b,0), 12500);
+  assert.equal(ledger.requests.size, 3);
+});
