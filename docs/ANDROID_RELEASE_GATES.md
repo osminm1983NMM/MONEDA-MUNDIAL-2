@@ -34,3 +34,10 @@ No declarar Android terminado sin: pruebas automatizadas ejecutadas, APK constru
 - GitHub reportó `mergeable=true`, `mergeable_state=clean` al consultar la API. Eso solo confirma ausencia de conflictos de fusión; **no aprueba pruebas ni seguridad**.
 - Consulta de ejecuciones de Actions para `pruebas-concurrencia-remesas`: `total_count=0` en el momento de la consulta.
 - Mantener PR como borrador hasta tener evidencias de pruebas y build. No fusionar solo por estar libre de conflictos.
+
+## Evidencia CI aprobada (2026-11-16)
+- GitHub Actions run: https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/43909734612
+- Job `Configuracion y controles de demostracion`: `completed / success`.
+- Pasaron JSON, suite `npm run test:demo`, instalación npm y `npx expo config --type public`.
+- Esta validación NO es una compilación APK ni una prueba en dispositivo; no habilita dinero real.
+- Siguiente puerta: evaluar credenciales EAS, cuota y costos antes de autorizar una compilación Android; después instalar y probar en Samsung.
