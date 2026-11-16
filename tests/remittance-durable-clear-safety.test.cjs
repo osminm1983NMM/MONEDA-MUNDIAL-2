@@ -22,3 +22,9 @@ test('creation and transition update visible state only after durable cleanup',(
   assert.ok(section.indexOf('await clearPending(AsyncStorage') < section.indexOf('setOrder({ id: data.id, status: data.status })'));
  }
 });
+
+test('transition requires exact target status before durable cleanup',()=>{
+ const section=body('async function transition(next)','async function loadRecent()');
+ assert.match(section,/data\.id !== order\.id \|\| data\.status !== next/);
+ assert.ok(section.indexOf('data.status !== next') < section.indexOf('await clearPending(AsyncStorage'));
+});
