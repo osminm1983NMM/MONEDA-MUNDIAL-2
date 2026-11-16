@@ -23,9 +23,7 @@ jobs:
         run: |
           node -e "for (const f of ['package.json','app.json','eas.json']) JSON.parse(require('fs').readFileSync(f, 'utf8'))"
       - name: Ejecutar pruebas estaticas Android y APK
-        run: node --test tests/android-config-safety.test.cjs
-      - name: Ejecutar pruebas de concurrencia simulada
-        run: node --test tests/remesas-concurrencia.test.js
+        run: npm run test:demo
       - name: Instalar dependencias para validar Expo
         run: npm install --no-audit --no-fund
       - name: Validar configuracion publica de Expo
