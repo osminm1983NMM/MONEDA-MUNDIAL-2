@@ -99,3 +99,7 @@ GitHub Actions ejecución **43892953343** (commit `b6140f80d2a9970590289f03ec1aa
 ## Bloqueo temporal SIM-: límites verificados
 
 Ejecución GitHub Actions `43893373211` (PostgreSQL aislado) completó `success` y sus logs incluyen `SIM_PICKUP_LOCKOUT_WINDOW_PASS`: tras cinco intentos inválidos, al simular que transcurrieron 16 minutos, un código correcto se acepta con un único evento. Ejecución `43893390180` completó `success`, logs incluyen `SIM_PICKUP_FOUR_FAILURE_BOUNDARY_PASS`, `SIM_PICKUP_LOCKOUT_WINDOW_PASS` y `SIM_PICKUP_OWNER_NEGATIVE_PASS`: cuatro intentos erróneos no bloquean anticipadamente el código válido. Ambas pruebas usan snapshot de la función real en una base efímera; no son pruebas en producción. https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/43893390180
+
+## Remesas DEMO: snapshot real verificado en PostgreSQL aislado
+
+GitHub Actions PostgreSQL `43894370070`, SHA `f8cc0a2299a222722e870d4be5ef4418bd9b62ee`, finalizó `success`. Logs confirman `REAL_REMITTANCE_TRANSITION_SNAPSHOT_PASS`, `REAL_REMITTANCE_CANCELLATION_PASS`, `REAL_REMITTANCE_REVIEW_CANCEL_PASS`, `REAL_REMITTANCE_INVALID_INPUT_PASS` y `REAL_REMITTANCE_NO_IDENTITY_PASS`. Prueba copia de `public.mwd_owner_remittance_transition_demo` con tablas y `assert_owner` sintéticos en PostgreSQL efímero; NO es ejecución contra Supabase producción ni validación de pagos reales. https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/43894370070
