@@ -16,7 +16,7 @@ test('owner restriction protects actions and screen rendering', () => {
 
 test('unresolved transition prevents conflicting changes while allowing read-only reconciliation', () => {
   assert.match(source, /pendingTransition\.current\.id !== order\.id \|\| pendingTransition\.current\.next !== next/);
-  assert.match(source, /pendingTransition\.current \|\| pendingCreate\.current/);
+  assert.match(source, /current\.status === pendingTransition\.current\.next/);
   assert.match(source, /pendingTransition\.current\) \{/);
 });
 
