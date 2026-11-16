@@ -109,8 +109,8 @@ export default function RemittanceDemoScreen({ supabase, adminRole, userId }) {
         p_request_id: pendingTransition.current.requestId
       });
       if (error) throw error;
-      if (!data || data.id !== order.id || !['draft', 'review', 'simulated', 'cancelled'].includes(data.status))
-        throw new Error('Respuesta de transición no reconocida.');
+      if (!data || data.id !== order.id || data.status !== next)
+        throw new Error('La respuesta no confirma el estado solicitado. Conserva la referencia para conciliación.');
       if (data.real_payments_enabled !== false || data.redeemable !== false)
         throw new Error('Respuesta insegura: esta pantalla solo admite operaciones ficticias.');
       await clearPending(AsyncStorage, userId, pendingTransition.current.requestId);
