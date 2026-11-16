@@ -173,3 +173,20 @@ BEGIN
  THEN RAISE EXCEPTION 'invalid request mutated state'; END IF;
 END $$;
 SELECT 'REAL_REMITTANCE_INVALID_INPUT_PASS' AS result;
+
+-- Missing identity must be denied even when the order exists.
+DO $$
+DECLARE oid uuid:='00000000-0000-0000-0000-000000000814'; before_events bigint;
+BEGIN
+ before_events:=(SELECT count(*) FROM mwd_remittance_demo_private.events WHERE order_id=oid);
+ PERFORM set_config('request.jwt.claim.sub','',true);
+ BEGIN
+  PERFORM public.mwd_owner_remittance_transition_demo(oid,'review','00000000-0000-0000-0000-000000000843');
+  RAISE EXCEPTION 'anonymous identity accepted';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+ IF (SELECT status FROM mwd_remittance_demo_private.orders WHERE id=oid)<>'draft' OR
+ (SELECT count(*) FROM mwd_remittance_demo_private.events WHERE order_id=oid)<>before_events
+ THEN RAISE EXCEPTION 'anonymous call mutated order'; END IF;
+END $$;
+SELECT 'REAL_REMITTANCE_NO_IDENTITY_PASS' AS result;
