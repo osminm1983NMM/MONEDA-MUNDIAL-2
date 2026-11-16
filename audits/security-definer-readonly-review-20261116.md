@@ -87,3 +87,7 @@ Se verificaron las tres tablas `demo_orders`, `demo_claim_attempts` y `demo_orde
 ## Lectura completa de `mwd_owner_pickup_simulate_demo`
 
 Se revisó el cuerpo completo mediante `pg_get_functiondef` (sin ejecutarlo). Llama a `mwd_partners_private.assert_owner()` antes de procesar; bloquea `mwd_pickup_private.demo_orders` con `FOR UPDATE`; exige `status='pending'` y `expires_at>clock_timestamp()`; cuenta cinco intentos `invalid` dentro de quince minutos para bloquear temporalmente; normaliza y valida códigos `^SIM-[A-F0-9]{32}$`, compara SHA-256 con `extensions.digest`; registra solo outcome, sin código en la tabla de intentos; cambia a `simulated_collected` e inserta evento de auditoría. Devuelve `cashDisbursed=false` y `realPaymentsEnabled=false`. La lectura del código no sustituye una prueba dinámica del flujo real en entorno aislado.
+
+## Prueba dinámica de copia de función `SIM-` en PostgreSQL 16 aislado
+
+La prueba `tests/postgres-sim-pickup-real-function.sql` contiene una copia del cuerpo de `public.mwd_owner_pickup_simulate_demo` con dependencias sintéticas y ejecuta casos de código incorrecto, cinco fallos y bloqueo, vencimiento, retiro válido y rechazo de duplicación secuencial. GitHub Actions PostgreSQL run **43892047269** terminó `success` y su log confirmó `SIM_REAL_FUNCTION_SNAPSHOT_PASS`. Las pruebas contables run **43892047264** también terminaron `success`. No es aún una prueba de concurrencia de esta función específica ni una ejecución en producción. Enlace: https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/43892047269
