@@ -66,3 +66,14 @@ Estos índices son barreras de integridad, no pruebas suficientes de autorizaci�
 ## Auditoría de permisos de tablas privadas de remesas
 
 Consulta directa a `pg_class` y `has_table_privilege` en Supabase principal, solo lectura: las siete tablas `mwd_remittance_demo_private.events`, `orders`, `payout_assignments`, `payout_events`, `pickup_code_attempts`, `pickup_code_events`, `pickup_code_samples` tienen RLS habilitada (`relrowsecurity=true`). El rol `anon` no tiene SELECT y el rol `authenticated` no tiene SELECT, INSERT, UPDATE ni DELETE sobre ninguna de ellas. Estas restricciones protegen acceso directo; las funciones `SECURITY DEFINER` deben seguir auditándose porque pueden operar con privilegios elevados.
+
+## Auditoría de superficie de funciones de retiro
+
+Consulta a `pg_proc`/`has_function_privilege`: 15 funciones `public.mwd_owner_*` con nombres relacionados con remesas, payout y pickup: todas `anon_exec=false`, `authenticated_exec=true`, y todas contienen la llamada o texto `assert_owner` en su definición. Es una revisión de superficie, no una prueba dinámica de autorización.
+
+Revisión directa de cuerpos:
+- `mwd_owner_cancel_pickup_code_demo` llama a `mwd_remittance_demo_private.assert_owner()` al comenzar, bloquea fila con `FOR UPDATE`, solo cancela códigos activos y registra evento; no permite cancelar códigos cerrados.
+- `mwd_owner_issue_pickup_code_demo` llama a `assert_owner()`, bloquea orden/asignación/código; exige orden `simulated` y asignación `planned`; el reintento con el mismo UUID devuelve `code=NOT_REISSUED` y no vuelve a exponer el secreto.
+- `mwd_owner_pickup_simulate_demo` usa **otro subsistema** `mwd_pickup_private` y `mwd_partners_private.assert_owner()`; limita intentos incorrectos recientes a cinco en quince minutos. No debe confundirse con el flujo `mwd_remittance_demo_private` de códigos `DEMO-`.
+
+**Próximo trabajo:** inventariar diferencias de los dos subsistemas de retiro y evitar que la interfaz los trate como un mismo flujo; verificar íntegramente los cuerpos y los permisos de funciones dependientes. No se modificó Supabase.
