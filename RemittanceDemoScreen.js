@@ -40,9 +40,9 @@ export default function RemittanceDemoScreen({ supabase, adminRole, userId }) {
     setRestoring(true);
     readPending(AsyncStorage, userId).then(pending => {
       if (!active) return;
-      if (pending?.kind === 'create') pendingCreate.current = { cents: pending.cents, requestId: pending.requestId };
+      if (pending?.kind === 'create') pendingCreate.current = { cents: pending.cents, requestId: pending.requestId, createdAt: pending.createdAt };
       if (pending?.kind === 'transition') {
-        pendingTransition.current = { id: pending.orderId, next: pending.next, requestId: pending.requestId };
+        pendingTransition.current = { id: pending.orderId, next: pending.next, requestId: pending.requestId, createdAt: pending.createdAt };
         setOrder({ id: pending.orderId, status: pending.next === 'review' ? 'draft' : 'review' });
       }
     }).catch(e => { if (active) setStorageError(e.message || 'No se pudo recuperar la referencia local.'); })
@@ -60,8 +60,8 @@ export default function RemittanceDemoScreen({ supabase, adminRole, userId }) {
     setBusy(true);
     try {
       if (!pendingCreate.current)
-        pendingCreate.current = { cents, requestId: uuid() };
-      await savePending(AsyncStorage, userId, { version: 1, userId, kind: 'create', destination: 'HN', cents, requestId: pendingCreate.current.requestId, createdAt: new Date().toISOString() });
+        pendingCreate.current = { cents, requestId: uuid(), createdAt: new Date().toISOString() };
+      await savePending(AsyncStorage, userId, { version: 1, userId, kind: 'create', destination: 'HN', cents, requestId: pendingCreate.current.requestId, createdAt: pendingCreate.current.createdAt });
       const { data, error } = await supabase.rpc('mwd_owner_remittance_create_demo', {
         p_destination_country: 'HN',
         p_amount_cents: cents,
@@ -101,8 +101,8 @@ export default function RemittanceDemoScreen({ supabase, adminRole, userId }) {
     setBusy(true);
     try {
       if (!pendingTransition.current)
-        pendingTransition.current = { id: order.id, next, requestId: uuid() };
-      await savePending(AsyncStorage, userId, { version: 1, userId, kind: 'transition', orderId: order.id, next, requestId: pendingTransition.current.requestId, createdAt: new Date().toISOString() });
+        pendingTransition.current = { id: order.id, next, requestId: uuid(), createdAt: new Date().toISOString() };
+      await savePending(AsyncStorage, userId, { version: 1, userId, kind: 'transition', orderId: order.id, next, requestId: pendingTransition.current.requestId, createdAt: pendingTransition.current.createdAt });
       const { data, error } = await supabase.rpc('mwd_owner_remittance_transition_demo', {
         p_order_id: order.id,
         p_new_status: next,
