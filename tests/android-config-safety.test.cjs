@@ -42,7 +42,7 @@ test('pantalla de remesas existe y está conectada a App.js', () => {
   const app = read('App.js');
   const screen = read('RemittanceDemoScreen.js');
   assert.ok(app.includes("import RemittanceDemoScreen from './RemittanceDemoScreen';"));
-  assert.ok(app.includes('<RemittanceDemoScreen supabase={supabase} adminRole={adminRole} />'));
+  assert.ok(app.includes('<RemittanceDemoScreen key={userId} userId={userId} supabase={supabase} adminRole={adminRole} />'));
   assert.match(screen, /Sin dinero real/);
 });
 
