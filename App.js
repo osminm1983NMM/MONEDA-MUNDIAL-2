@@ -457,14 +457,14 @@ export default function App() {
                   <Text style={styles.small}>Destino: {order.destinationCountry === 'HN' ? 'Honduras' : order.destinationCountry}</Text>
                   <Text style={styles.small}>Monto: {formatMWD(order.amountCents)} MWD ficticios</Text>
                   <Text style={styles.small}>Estado: {order.status}</Text>
-                  <Text style={styles.muted}>Creada: {new Date(order.createdAt).toLocaleString()}</Text>
-                  <Text style={styles.muted}>Vence: {new Date(order.expiresAt).toLocaleString()}</Text>
-                  <Text selectable style={styles.muted}>Referencia: {order.orderId}</Text>
                   {order.status === 'pending' && <Btn title={pickupCancelBusy ? 'Procesando...' : 'Cancelar esta orden'}
                     secondary disabled={pickupCancelBusy || pickupOrdersBusy}
                     onPress={() => confirmAction('Cancelar orden ficticia',
                       'Esta acción cancelará la orden seleccionada. No afecta dinero real.',
                       () => cancelDemoPickup(order.orderId))} />}
+                  <Text style={styles.muted}>Creada: {new Date(order.createdAt).toLocaleString()}</Text>
+                  <Text style={styles.muted}>Vence: {new Date(order.expiresAt).toLocaleString()}</Text>
+                  <Text selectable style={styles.muted}>Referencia: {order.orderId}</Text>
                 </View>
               ))}
             </View>}
