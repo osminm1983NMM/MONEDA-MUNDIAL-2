@@ -77,3 +77,9 @@ Revisión directa de cuerpos:
 - `mwd_owner_pickup_simulate_demo` usa **otro subsistema** `mwd_pickup_private` y `mwd_partners_private.assert_owner()`; limita intentos incorrectos recientes a cinco en quince minutos. No debe confundirse con el flujo `mwd_remittance_demo_private` de códigos `DEMO-`.
 
 **Próximo trabajo:** inventariar diferencias de los dos subsistemas de retiro y evitar que la interfaz los trate como un mismo flujo; verificar íntegramente los cuerpos y los permisos de funciones dependientes. No se modificó Supabase.
+
+## Segundo módulo `mwd_pickup_private`: comprobación directa
+
+Se verificaron las tres tablas `demo_orders`, `demo_claim_attempts` y `demo_order_events`: RLS activada en todas; `anon` sin SELECT; `authenticated` sin SELECT, INSERT ni UPDATE directos. Índices: `demo_orders(sender_user_id,client_request_id)` UNIQUE (idempotencia por remitente), `demo_orders(pickup_code_sha256)` UNIQUE (huella de código única), y un índice parcial de intentos incorrectos recientes `demo_claim_attempts(order_id,created_at DESC) WHERE outcome='invalid'` para apoyar el bloqueo temporal. Los eventos se indexan por orden y fecha.
+
+**Distinción técnica:** `mwd_pickup_private` usa códigos `SIM-` y ventana temporal de intentos; `mwd_remittance_demo_private` usa códigos `DEMO-`, estados de consumo y finalización de muestra. No mezclar APIs, datos ni garantías de ambos sistemas. Esta comprobación fue de solo lectura.
