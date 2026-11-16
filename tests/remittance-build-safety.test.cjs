@@ -18,7 +18,7 @@ test('remittance screen is rendered only inside owner-only administration branch
   const app = fs.readFileSync('App.js', 'utf8');
   assert.match(app, /import RemittanceDemoScreen from ['"]\.\/RemittanceDemoScreen['"]/);
   const ownerGate = app.indexOf("adminRole === 'owner' ? (");
-  const remittance = app.indexOf('<RemittanceDemoScreen supabase={supabase} adminRole={adminRole} />');
+  const remittance = app.indexOf('<RemittanceDemoScreen key={userId} userId={userId} supabase={supabase} adminRole={adminRole} />');
   const nextBranch = app.indexOf(') : adminRole ? (', ownerGate);
   assert.ok(ownerGate !== -1 && remittance > ownerGate && nextBranch > remittance,
     'Remittance UI must remain inside owner-only administration branch');
