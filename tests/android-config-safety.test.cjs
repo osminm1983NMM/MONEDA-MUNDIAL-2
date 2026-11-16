@@ -57,3 +57,19 @@ test('workflow del APK usa rama integrada y conjunto completo de pruebas', () =>
     assert.ok(read('tests/' + file).length > 0, file + ' vacío');
   }
 });
+
+test('cancelación de retiro pendiente visible antes de fechas y referencia', () => {
+  const app = read('App.js');
+  const start = app.indexOf("{screen === 'MisRetiros'");
+  const end = app.indexOf("{screen === 'Retiros'", start);
+  assert.ok(start >= 0 && end > start, 'pantalla de retiros disponible');
+  const section = app.slice(start, end);
+  const button = section.indexOf("title={pickupCancelBusy ? 'Procesando...' : 'Cancelar esta orden'}");
+  const created = section.indexOf('Creada: {new Date(order.createdAt)');
+  const reference = section.indexOf('Referencia: {order.orderId}');
+  assert.ok(button >= 0 && button < created && created < reference,
+    'cancelar debe aparecer antes de fechas y referencia');
+  assert.match(section, /order.status === 'pending'/);
+  assert.match(section, /confirmAction\('Cancelar orden ficticia'/);
+  assert.match(section, /pickupCancelBusy \|\| pickupOrdersBusy/);
+});
