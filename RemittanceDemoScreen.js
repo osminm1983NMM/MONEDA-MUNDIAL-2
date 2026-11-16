@@ -126,7 +126,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   }
 
   async function refreshSelected() {
-    if (adminRole !== 'owner' || !order || busyRef.current || pendingTransition.current || pendingCreate.current) {
+    if (adminRole !== 'owner' || !order || busyRef.current || pendingCreate.current) {
       Alert.alert('Operación pendiente', 'Resuelve primero cualquier solicitud sin confirmar.');
       return;
     }
@@ -142,7 +142,16 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
         throw new Error('No se encontró esta orden entre las órdenes recientes. No se modificó.');
       }
       setOrder({ id: current.id, status: current.status });
-      setNotice('Estado verificado con el servidor.');
+      if (pendingTransition.current && pendingTransition.current.id === current.id) {
+        if (current.status === pendingTransition.current.next) {
+          pendingTransition.current = null;
+          setNotice('El servidor confirmó el estado solicitado; cambio pendiente conciliado.');
+        } else {
+          setNotice('El estado consultado no confirma el cambio pendiente. Conserva la referencia original y reintenta la misma acción.');
+        }
+      } else {
+        setNotice('Estado verificado con el servidor.');
+      }
     } catch (e) {
       Alert.alert('No se pudo actualizar', e.message || 'Comprueba tu conexión.');
     } finally {
