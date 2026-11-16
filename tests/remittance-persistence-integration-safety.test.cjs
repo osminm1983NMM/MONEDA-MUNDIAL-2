@@ -39,3 +39,7 @@ test('pending transition hides all competing state change buttons',()=>{
  assert.match(screen,/!pendingTransition\.current && \['draft', 'review'\]\.includes\(order\.status\) && button\('Cancelar simulación'/);
  assert.match(screen,/button\('Reintentar cambio pendiente'/);
 });
+
+test('terminal status cannot abandon an unresolved transition intent',()=>{
+ assert.match(screen,/!pendingTransition\.current && \['simulated', 'cancelled'\]\.includes\(order\.status\) && button\('Preparar otra prueba'/);
+});
