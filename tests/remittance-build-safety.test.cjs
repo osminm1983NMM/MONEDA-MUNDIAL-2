@@ -41,7 +41,7 @@ test('demo screen uses only fictional remittance RPCs', () => {
 test('unconfirmed creation cannot silently change amount and request ID', () => {
   const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
   assert.match(screen, /pendingCreate\.current && pendingCreate\.current\.cents !== cents/);
-  assert.match(screen, /if \(!pendingCreate\.current\)\s*pendingCreate\.current = \{ cents, requestId: uuid\(\) \}/);
+  assert.match(screen, /if \(!pendingCreate\.current\)\s*pendingCreate\.current = \{ cents, requestId: uuid\(\), createdAt: new Date\(\)\.toISOString\(\) \}/);
 });
 
 test('unconfirmed transition cannot switch to a conflicting action', () => {
@@ -70,7 +70,7 @@ test('recent demo orders are retrieved from protected server RPC', () => {
 test('selected demo order status can be refreshed from server', () => {
   const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
   assert.match(screen, /async function refreshSelected\(\)/);
-  assert.match(screen, /busyRef\.current \|\| pendingCreate\.current/);
+  assert.match(screen, /busyRef\.current \|\| restoring \|\| storageError \|\| pendingCreate\.current/);
   assert.match(screen, /current\.status === pendingTransition\.current\.next/);
   assert.match(screen, /data\.find\(item => item\?\.id === order\.id\)/);
   assert.match(screen, /Actualizar estado desde el servidor/);
