@@ -58,3 +58,4 @@ jobs:
           psql -h localhost -U postgres -d mwd_integration_test -v ON_ERROR_STOP=1 -f tests/postgres-owner-access-negative.sql
           psql -h localhost -U postgres -d mwd_integration_test -v ON_ERROR_STOP=1 -f tests/postgres-pickup-negative-model.sql
           bash tests/postgres-pickup-concurrency-model.sh
+          psql -h localhost -U postgres -d mwd_integration_test -v ON_ERROR_STOP=1 -f tests/postgres-sim-pickup-real-function.sql
