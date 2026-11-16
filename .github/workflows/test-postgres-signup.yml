@@ -6,6 +6,7 @@ on:
       - 'tests/postgres-signup-integration.sql'
       - 'tests/postgres-signup-concurrency.sh'
       - 'tests/postgres-signup-failure-matrix.sql'
+      - 'tests/postgres-transfer-concurrency.sh'
       - 'audits/wallet-opening-schema-proposal.sql'
       - 'audits/wallet-opening-trigger-integration-proposal.sql'
       - '.github/workflows/test-postgres-signup.yml'
@@ -42,3 +43,7 @@ jobs:
         env:
           PGPASSWORD: test-only-password
         run: psql -h localhost -U postgres -d mwd_integration_test -v ON_ERROR_STOP=1 -f tests/postgres-signup-failure-matrix.sql
+      - name: Comprobar transferencias concurrentes y reintentos
+        env:
+          PGPASSWORD: test-only-password
+        run: bash tests/postgres-transfer-concurrency.sh
