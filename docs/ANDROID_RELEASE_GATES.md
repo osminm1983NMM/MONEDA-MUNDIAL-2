@@ -20,3 +20,11 @@ Estado: **NO APROBADO PARA LANZAMIENTO**. El proyecto solo usa créditos fictici
 
 ## Criterio de cierre
 No declarar Android terminado sin: pruebas automatizadas ejecutadas, APK construido e instalado, recorrido funcional documentado y ausencia de fallos críticos. No modificar saldos ni operaciones existentes para cumplir estos pasos.
+
+## Comprobación de integración (2026-11-16)
+- Comparación GitHub `main...pruebas-concurrencia-remesas`: `ahead_by=16`, `behind_by=0`; 12 archivos afectados.
+- `App.js` y `RemittanceDemoScreen.js` de la rama de remesas fueron incorporados a la rama de validación; también sus pruebas originales.
+- El workflow APK de la rama de validación ya apunta a `pruebas-concurrencia-remesas` y llama a `npm run test:demo`.
+- **Limitación operativa:** los workflows `workflow_dispatch` normalmente deben estar presentes en la rama predeterminada para iniciarse desde la interfaz/API de GitHub Actions. No asumir que modificar solo la rama de desarrollo habilita el botón de ejecución; antes de intentar una ejecución manual, verificar su disponibilidad o preparar una integración revisada en `main`.
+- No se pudo ejecutar `npm run test:demo` localmente en esta sesión: el entorno de ejecución no pudo resolver `github.com` para clonar el repositorio. Por tanto, no hay resultado de pruebas que reportar.
+- No ejecutar EAS ni cambiar `main` hasta completar la revisión y los controles correspondientes.
