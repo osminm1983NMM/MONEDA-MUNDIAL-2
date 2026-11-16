@@ -8,7 +8,7 @@ const isPlainObject = value => value !== null && typeof value === 'object' &&
 function validatePendingRemittance(value, currentUserId) {
   if (!isPlainObject(value) || typeof currentUserId !== 'string' || !UUID_V4.test(currentUserId)) return null;
   if (value.version !== 1 || value.userId !== currentUserId || !UUID_V4.test(value.requestId || '')) return null;
-  if (typeof value.createdAt !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}T/.test(value.createdAt) ||
+  if (typeof value.createdAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(value.createdAt) ||
       !Number.isFinite(Date.parse(value.createdAt))) return null;
   if (value.kind === 'create') {
     if (value.destination !== 'HN' || !Number.isSafeInteger(value.cents) || value.cents < 100 || value.cents > 10000000 ||
