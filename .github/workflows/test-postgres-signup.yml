@@ -62,3 +62,4 @@ jobs:
           bash tests/postgres-sim-pickup-real-concurrency.sh
           psql -h localhost -U postgres -d mwd_integration_test -v ON_ERROR_STOP=1 -f tests/postgres-sim-pickup-owner-negative.sql
           psql -h localhost -U postgres -d mwd_integration_test -v ON_ERROR_STOP=1 -f tests/postgres-sim-pickup-lockout-window.sql
+          psql -h localhost -U postgres -d mwd_integration_test -v ON_ERROR_STOP=1 -f tests/postgres-sim-pickup-four-failure-boundary.sql
