@@ -41,8 +41,8 @@ test('aplicación conserva avisos de dinero ficticio y usa clave publicable', ()
 test('pantalla de remesas existe y está conectada a App.js', () => {
   const app = read('App.js');
   const screen = read('RemittanceDemoScreen.js');
-  assert.match(app, /import RemittanceDemoScreen from ['"]\\.\\/RemittanceDemoScreen['"]/);
-  assert.match(app, /<RemittanceDemoScreen supabase=\\{supabase\\} adminRole=\\{adminRole\\} \\/>/);
+  assert.ok(app.includes("import RemittanceDemoScreen from './RemittanceDemoScreen';"));
+  assert.ok(app.includes('<RemittanceDemoScreen supabase={supabase} adminRole={adminRole} />'));
   assert.match(screen, /Sin dinero real/);
 });
 
