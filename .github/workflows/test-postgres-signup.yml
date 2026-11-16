@@ -51,4 +51,6 @@ jobs:
         run: |
           psql -h localhost -U postgres -d mwd_integration_test -v ON_ERROR_STOP=1 -f tests/postgres-transfer-real-setup.sql
           psql -h localhost -U postgres -d mwd_integration_test -v ON_ERROR_STOP=1 -f tests/postgres-transfer-real-function.sql
+          bash tests/postgres-real-transfer-concurrency.sh
+          psql -h localhost -U postgres -d mwd_integration_test -v ON_ERROR_STOP=1 -c "DELETE FROM public.mwd_operations WHERE actor_id='00000000-0000-0000-0000-000000000040'; UPDATE public.mwd_wallets SET balance_cents=1000000 WHERE user_id IN ('00000000-0000-0000-0000-000000000040','00000000-0000-0000-0000-000000000041','00000000-0000-0000-0000-000000000042');"
           psql -h localhost -U postgres -d mwd_integration_test -v ON_ERROR_STOP=1 -f tests/postgres-transfer-real-check.sql
