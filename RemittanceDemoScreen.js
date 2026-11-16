@@ -167,9 +167,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole, userId }) {
       setOrder({ id: current.id, status: current.status });
       if (pendingTransition.current && pendingTransition.current.id === current.id) {
         if (current.status === pendingTransition.current.next) {
-          await clearPending(AsyncStorage, userId, pendingTransition.current.requestId);
-          pendingTransition.current = null;
-          setNotice('El servidor confirmó el estado solicitado; cambio pendiente conciliado.');
+          setNotice('El estado del servidor coincide, pero esto no confirma qué solicitud lo produjo. Reintenta la referencia original para conciliarla.');
         } else {
           setNotice('El estado consultado no confirma el cambio pendiente. Conserva la referencia original y reintenta la misma acción.');
         }
