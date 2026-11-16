@@ -68,8 +68,8 @@ export default function RemittanceDemoScreen({ supabase, adminRole, userId }) {
         p_request_id: pendingCreate.current.requestId
       });
       if (error) throw error;
-      if (!data?.id || !['draft', 'review', 'simulated', 'cancelled'].includes(data.status))
-        throw new Error('Respuesta de creación no reconocida.');
+      if (!data?.id || data.status !== 'draft')
+        throw new Error('La creación no confirmó un borrador ficticio. Conserva la referencia para conciliación.');
       if (data.real_payments_enabled !== false || data.redeemable !== false)
         throw new Error('Respuesta insegura: esta pantalla solo admite operaciones ficticias.');
       await clearPending(AsyncStorage, userId, pendingCreate.current.requestId);
