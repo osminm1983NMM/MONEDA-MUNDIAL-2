@@ -99,3 +99,29 @@ BEGIN
  IF (SELECT status FROM mwd_remittance_demo_private.orders WHERE id=oid)<>'simulated' THEN RAISE EXCEPTION 'unexpected mutation'; END IF;
 END $$;
 SELECT 'REAL_REMITTANCE_TRANSITION_SNAPSHOT_PASS' AS result;
+
+-- Additional branch: draft cancellation is terminal and creates one event.
+INSERT INTO mwd_remittance_demo_private.orders(id,created_by,request_id,destination_country,amount_cents)
+VALUES ('00000000-0000-0000-0000-000000000812','00000000-0000-0000-0000-000000000901','00000000-0000-0000-0000-000000000822','HN',2500);
+SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000901',false);
+DO $$
+DECLARE r jsonb; oid uuid:='00000000-0000-0000-0000-000000000812';
+BEGIN
+ r:=public.mwd_owner_remittance_transition_demo(oid,'cancelled','00000000-0000-0000-0000-000000000835');
+ IF r->>'status'<>'cancelled' OR r->>'real_payments_enabled'<>'false' THEN RAISE EXCEPTION 'draft cancellation failed'; END IF;
+ r:=public.mwd_owner_remittance_transition_demo(oid,'cancelled','00000000-0000-0000-0000-000000000835');
+ IF r->>'already_processed'<>'true' THEN RAISE EXCEPTION 'cancel replay failed'; END IF;
+ BEGIN
+  PERFORM public.mwd_owner_remittance_transition_demo(oid,'review','00000000-0000-0000-0000-000000000836');
+  RAISE EXCEPTION 'cancelled order reopened';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL;
+ END;
+ IF (SELECT count(*) FROM mwd_remittance_demo_private.events WHERE order_id=oid)<>1
+ THEN RAISE EXCEPTION 'cancellation duplicated event'; END IF;
+ BEGIN
+  PERFORM public.mwd_owner_remittance_transition_demo(oid,'unrecognized','00000000-0000-0000-0000-000000000837');
+  RAISE EXCEPTION 'invalid status accepted';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL;
+ END;
+END $$;
+SELECT 'REAL_REMITTANCE_CANCELLATION_PASS' AS result;
