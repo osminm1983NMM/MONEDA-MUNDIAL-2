@@ -14,3 +14,11 @@ test('successful transition clears its own saved request before dropping in-memo
  assert.match(s,/await clearPending\(AsyncStorage, userId, pendingTransition\.current\.requestId\);\s*pendingTransition\.current = null/);
  assert.ok(s.indexOf('data.redeemable !== false')<s.indexOf('await clearPending'));
 });
+
+test('creation and transition update visible state only after durable cleanup',()=>{
+ const create=body('async function create(cents)','async function transition(next)');
+ const transition=body('async function transition(next)','async function loadRecent()');
+ for(const section of [create,transition]) {
+  assert.ok(section.indexOf('await clearPending(AsyncStorage') < section.indexOf('setOrder({ id: data.id, status: data.status })'));
+ }
+});
