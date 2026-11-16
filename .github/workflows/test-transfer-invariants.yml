@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'tests/transfer-invariants.test.cjs'
+      - 'tests/transfer-concurrency-model.test.cjs'
       - '.github/workflows/test-transfer-invariants.yml'
 permissions:
   contents: read
@@ -17,4 +18,4 @@ jobs:
         with:
           node-version: '22'
       - name: Ejecutar pruebas aisladas sin servicios externos
-        run: node --test tests/transfer-invariants.test.cjs
+        run: node --test tests/transfer-invariants.test.cjs tests/transfer-concurrency-model.test.cjs
