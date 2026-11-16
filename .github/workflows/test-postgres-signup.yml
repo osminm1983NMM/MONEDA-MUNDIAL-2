@@ -3,10 +3,8 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - 'tests/postgres-signup-integration.sql'
-      - 'tests/postgres-signup-concurrency.sh'
-      - 'tests/postgres-signup-failure-matrix.sql'
-      - 'tests/postgres-transfer-concurrency.sh'
+      - 'tests/postgres-*.sql'
+      - 'tests/postgres-*.sh'
       - 'audits/wallet-opening-schema-proposal.sql'
       - 'audits/wallet-opening-trigger-integration-proposal.sql'
       - '.github/workflows/test-postgres-signup.yml'
@@ -47,3 +45,10 @@ jobs:
         env:
           PGPASSWORD: test-only-password
         run: bash tests/postgres-transfer-concurrency.sh
+      - name: Probar funcion de transferencia real en entorno sintetico
+        env:
+          PGPASSWORD: test-only-password
+        run: |
+          psql -h localhost -U postgres -d mwd_integration_test -v ON_ERROR_STOP=1 -f tests/postgres-transfer-real-setup.sql
+          psql -h localhost -U postgres -d mwd_integration_test -v ON_ERROR_STOP=1 -f tests/postgres-transfer-real-function.sql
+          psql -h localhost -U postgres -d mwd_integration_test -v ON_ERROR_STOP=1 -f tests/postgres-transfer-real-check.sql
