@@ -12,8 +12,9 @@ test('permits read-only refresh while transition remains uncertain',()=>{
  assert.match(refresh,/supabase\.rpc\('mwd_owner_remittances_demo'\)/);
  assert.doesNotMatch(refresh,/mwd_owner_remittance_transition_demo/);
 });
-test('clears pending transition only when server reports the requested status',()=>{
+test('retains original request ID even if server status matches',()=>{
  assert.match(refresh,/current\.status === pendingTransition\.current\.next/);
- assert.match(refresh,/pendingTransition\.current = null/);
+ assert.doesNotMatch(refresh,/pendingTransition\.current = null/);
+ assert.match(refresh,/Reintenta la referencia original/);
  assert.match(refresh,/Conserva la referencia original/);
 });
