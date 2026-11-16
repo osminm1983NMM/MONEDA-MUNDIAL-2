@@ -1,5 +1,7 @@
 // Remesas ficticias US -> HN. Solo propietario; nunca mueve dinero real.
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { readPending, savePending, clearPending } from './remittancePendingStorage';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const parseCents = raw => {
@@ -20,7 +22,7 @@ const uuid = () => {
   return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join('-');
 };
 
-export default function RemittanceDemoScreen({ supabase, adminRole }) {
+export default function RemittanceDemoScreen({ supabase, adminRole, userId }) {
   const [amount, setAmount] = useState('100.00');
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -31,9 +33,25 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   const pendingTransition = useRef(null);
   const [notice, setNotice] = useState('');
   const [recentOrders, setRecentOrders] = useState([]);
+  const [restoring, setRestoring] = useState(true);
+  const [storageError, setStorageError] = useState('');
+  useEffect(() => {
+    let active = true;
+    setRestoring(true);
+    readPending(AsyncStorage, userId).then(pending => {
+      if (!active) return;
+      if (pending?.kind === 'create') pendingCreate.current = { cents: pending.cents, requestId: pending.requestId };
+      if (pending?.kind === 'transition') {
+        pendingTransition.current = { id: pending.orderId, next: pending.next, requestId: pending.requestId };
+        setOrder({ id: pending.orderId, status: pending.next === 'review' ? 'draft' : 'review' });
+      }
+    }).catch(e => { if (active) setStorageError(e.message || 'No se pudo recuperar la referencia local.'); })
+      .finally(() => { if (active) setRestoring(false); });
+    return () => { active = false; };
+  }, [userId]);
 
   async function create(cents) {
-    if (adminRole !== 'owner' || order || !Number.isSafeInteger(cents) || cents < 100 || cents > 10000000 || busyRef.current) return;
+    if (adminRole !== 'owner' || order || !Number.isSafeInteger(cents) || cents < 100 || cents > 10000000 || busyRef.current || restoring || storageError) return;
     if (pendingCreate.current && pendingCreate.current.cents !== cents) {
       Alert.alert('Solicitud pendiente', 'Hay una creación sin confirmar. Reintenta con el mismo monto para evitar duplicados.');
       return;
@@ -43,6 +61,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
     try {
       if (!pendingCreate.current)
         pendingCreate.current = { cents, requestId: uuid() };
+      await savePending(AsyncStorage, userId, { version: 1, userId, kind: 'create', destination: 'HN', cents, requestId: pendingCreate.current.requestId, createdAt: new Date().toISOString() });
       const { data, error } = await supabase.rpc('mwd_owner_remittance_create_demo', {
         p_destination_country: 'HN',
         p_amount_cents: cents,
@@ -55,7 +74,9 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
         throw new Error('Respuesta insegura: esta pantalla solo admite operaciones ficticias.');
       setOrder({ id: data.id, status: data.status });
       setRecentOrders([]);
+      await clearPending(AsyncStorage, userId, pendingCreate.current.requestId);
       pendingCreate.current = null;
+      await clearPending(AsyncStorage, userId, pendingTransition.current.requestId);
       pendingTransition.current = null;
       setNotice(data.already_processed ? 'Solicitud ya registrada.' : 'Borrador ficticio creado.');
     } catch (e) {
@@ -67,7 +88,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   }
 
   async function transition(next) {
-    if (adminRole !== 'owner' || !order || busyRef.current || !(
+    if (adminRole !== 'owner' || !order || busyRef.current || restoring || storageError || !(
       (order.status === 'draft' && ['review', 'cancelled'].includes(next)) ||
       (order.status === 'review' && ['simulated', 'cancelled'].includes(next))
     )) return;
@@ -81,6 +102,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
     try {
       if (!pendingTransition.current)
         pendingTransition.current = { id: order.id, next, requestId: uuid() };
+      await savePending(AsyncStorage, userId, { version: 1, userId, kind: 'transition', orderId: order.id, next, requestId: pendingTransition.current.requestId, createdAt: new Date().toISOString() });
       const { data, error } = await supabase.rpc('mwd_owner_remittance_transition_demo', {
         p_order_id: order.id,
         p_new_status: next,
@@ -103,7 +125,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   }
 
   async function loadRecent() {
-    if (busyRef.current || adminRole !== 'owner') return;
+    if (busyRef.current || adminRole !== 'owner' || restoring || storageError) return;
     busyRef.current = true;
     setBusy(true);
     try {
@@ -126,7 +148,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   }
 
   async function refreshSelected() {
-    if (adminRole !== 'owner' || !order || busyRef.current || pendingCreate.current) {
+    if (adminRole !== 'owner' || !order || busyRef.current || restoring || storageError || pendingCreate.current) {
       Alert.alert('Operación pendiente', 'Resuelve primero cualquier solicitud sin confirmar.');
       return;
     }
@@ -161,7 +183,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   }
 
   async function selectRecent(item) {
-    if (adminRole !== 'owner' || busyRef.current || pendingCreate.current || pendingTransition.current) {
+    if (adminRole !== 'owner' || busyRef.current || restoring || storageError || pendingCreate.current || pendingTransition.current) {
       Alert.alert('Solicitud sin confirmar', 'Resuelve primero la operación pendiente en esta pantalla.');
       return;
     }
@@ -202,7 +224,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
     ]);
   };
   const button = (label, onPress) => (
-    <TouchableOpacity disabled={busy} onPress={onPress} style={[styles.button, busy && styles.disabled]}>
+    <TouchableOpacity disabled={busy || restoring || !!storageError} onPress={onPress} style={[styles.button, busy && styles.disabled]}>
       <Text style={styles.buttonText}>{label}</Text>
     </TouchableOpacity>
   );
@@ -211,6 +233,8 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
   return (
     <View style={styles.card}>
       <Text style={styles.title}>Remesa internacional · DEMO</Text>
+      {restoring && <Text style={styles.warn}>Recuperando referencias locales...</Text>}
+      {!!storageError && <Text style={styles.warn}>Almacenamiento bloqueado: {storageError}. No se enviarán operaciones.</Text>}
       <Text style={styles.warn}>Sin dinero real, sin entrega y sin débito MWD</Text>
       <Text style={styles.text}>Origen: Estados Unidos (US)</Text>
       <Text style={styles.text}>Destino: Honduras (HN)</Text>
@@ -257,7 +281,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
         </>
       )}
       {!order && (
-        <Text style={styles.warn}>Si la aplicación se cerró durante una creación, consulta primero las remesas recientes antes de crear otra. La referencia de reintento no se conserva después de reiniciar.</Text>
+        <Text style={styles.warn}>Si la aplicación se cerró durante una creación, consulta primero las remesas recientes antes de crear otra. Si existe una referencia local válida, se recuperará al reiniciar.</Text>
       )}
       {!order && button('Consultar remesas ficticias recientes', loadRecent)}
       {!order && recentOrders.map(item => (
