@@ -563,7 +563,7 @@ export default function App() {
               <Text style={styles.heading}>Administración MWD</Text>
               {adminRole === 'owner' ? (
                 <>
-                  <RemittanceDemoScreen supabase={supabase} adminRole={adminRole} />
+                  <RemittanceDemoScreen key={userId} userId={userId} supabase={supabase} adminRole={adminRole} />
                   <PartnerRegistryScreen supabase={supabase} />
                 </>
               ) : adminRole ? (
