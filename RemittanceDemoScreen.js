@@ -271,9 +271,9 @@ export default function RemittanceDemoScreen({ supabase, adminRole, userId }) {
             </>
           )}
           {button('Actualizar estado desde el servidor', refreshSelected)}
-          {order.status === 'draft' && button('Enviar a revisión', () => ask('review', 'Pasar a revisión'))}
-          {order.status === 'review' && button('Completar simulación', () => ask('simulated', 'Completar simulación'))}
-          {['draft', 'review'].includes(order.status) && button('Cancelar simulación', () => ask('cancelled', 'Cancelar orden'))}
+          {!pendingTransition.current && order.status === 'draft' && button('Enviar a revisión', () => ask('review', 'Pasar a revisión'))}
+          {!pendingTransition.current && order.status === 'review' && button('Completar simulación', () => ask('simulated', 'Completar simulación'))}
+          {!pendingTransition.current && ['draft', 'review'].includes(order.status) && button('Cancelar simulación', () => ask('cancelled', 'Cancelar orden'))}
           {['simulated', 'cancelled'].includes(order.status) && button('Preparar otra prueba', () => {
             setOrder(null);
             setNotice('');
