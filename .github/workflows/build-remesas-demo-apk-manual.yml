@@ -15,14 +15,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: feature/remesas-demo-ui
+          ref: pruebas-concurrencia-remesas
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Run demo safety tests
-        run: node --test tests/remittance-amounts.test.cjs tests/remittance-build-safety.test.cjs
+        run: npm run test:demo
       - name: Validate Expo config
         run: npx expo config --type public
       - name: Confirm EAS token is configured
