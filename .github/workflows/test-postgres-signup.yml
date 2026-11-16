@@ -5,6 +5,7 @@ on:
     paths:
       - 'tests/postgres-signup-integration.sql'
       - 'tests/postgres-signup-concurrency.sh'
+      - 'tests/postgres-signup-failure-matrix.sql'
       - 'audits/wallet-opening-schema-proposal.sql'
       - 'audits/wallet-opening-trigger-integration-proposal.sql'
       - '.github/workflows/test-postgres-signup.yml'
@@ -37,3 +38,7 @@ jobs:
         env:
           PGPASSWORD: test-only-password
         run: bash tests/postgres-signup-concurrency.sh
+      - name: Comprobar reversion de fallos y bloqueo de borrados
+        env:
+          PGPASSWORD: test-only-password
+        run: psql -h localhost -U postgres -d mwd_integration_test -v ON_ERROR_STOP=1 -f tests/postgres-signup-failure-matrix.sql
