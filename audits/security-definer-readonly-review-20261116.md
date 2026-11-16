@@ -20,3 +20,10 @@ Fecha: 2026-11-16. Proyecto Supabase: Moneda Mundial DEMO. Ningún SQL de escrit
 4. No habilitar dinero real sin revisión independiente de seguridad, licencias, KYC/AML y proveedores regulados.
 
 No se modificaron políticas, roles, funciones ni saldos del proyecto Supabase.
+
+## Revisión adicional de funciones sensibles
+
+- `mwd_owner_agent_access_demo`: exige `mwd_partners_private.assert_owner()` antes de validar asignaciones, exige motivo de 10–200 caracteres y registra auditoría; resultado indica `readOnly=true`, `canViewOrders=false`, `canSimulatePickup=false`.
+- `mwd_owner_conversion_policy_demo`: exige `assert_owner()`, limita tasa y comisión, exige motivo y marca temporal esperada para evitar sobrescritura concurrente; registra cambios en auditoría y devuelve `realPaymentsEnabled=false`.
+- Ambas son `SECURITY DEFINER`: deben mantenerse bajo revisión semántica y pruebas negativas específicas, sin invocarlas sobre datos principales.
+- La prueba `tests/postgres-owner-access-negative.sql` se ejecutó correctamente en GitHub Actions `43889803029`, junto con la integración PostgreSQL aislada.
