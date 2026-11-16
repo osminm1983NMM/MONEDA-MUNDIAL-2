@@ -28,3 +28,9 @@ test('transition requires exact target status before durable cleanup',()=>{
  assert.match(section,/data\.id !== order\.id \|\| data\.status !== next/);
  assert.ok(section.indexOf('data.status !== next') < section.indexOf('await clearPending(AsyncStorage'));
 });
+
+test('creation requires server draft status before durable cleanup',()=>{
+ const section=body('async function create(cents)','async function transition(next)');
+ assert.match(section,/data\.status !== 'draft'/);
+ assert.ok(section.indexOf("data.status !== 'draft'") < section.indexOf('await clearPending(AsyncStorage'));
+});
