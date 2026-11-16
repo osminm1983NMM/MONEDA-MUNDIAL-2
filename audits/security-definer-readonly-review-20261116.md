@@ -27,3 +27,16 @@ No se modificaron políticas, roles, funciones ni saldos del proyecto Supabase.
 - `mwd_owner_conversion_policy_demo`: exige `assert_owner()`, limita tasa y comisión, exige motivo y marca temporal esperada para evitar sobrescritura concurrente; registra cambios en auditoría y devuelve `realPaymentsEnabled=false`.
 - Ambas son `SECURITY DEFINER`: deben mantenerse bajo revisión semántica y pruebas negativas específicas, sin invocarlas sobre datos principales.
 - La prueba `tests/postgres-owner-access-negative.sql` se ejecutó correctamente en GitHub Actions `43889803029`, junto con la integración PostgreSQL aislada.
+
+## Remesas y entrega ficticia: revisión de código (solo lectura)
+
+- `mwd_owner_remittance_transition_demo`: exige `mwd_remittance_demo_private.assert_owner()`, acepta únicamente `review`, `simulated`, `cancelled`; transiciones desde `draft` a `review/cancelled` y desde `review` a `simulated/cancelled`; controla reintentos por `request_id` y marca `real_payments_enabled=false`.
+- `mwd_owner_try_pickup_code_demo`: exige propietario; usa `FOR UPDATE` sobre muestra para serializar intentos; compara huellas de solicitudes repetidas; expira el código; bloquea tras cinco errores; exige revisión de identidad simulada antes de consumir; no registra pago real ni cambia libro contable.
+- `mwd_owner_complete_payout_sample_demo`: exige propietario; bloquea orden y asignación; requiere orden `simulated`, asignación `planned`, código `consumed`, `identity_check_simulated_at` y evento `consumed`; respuesta indica `money_paid=false`, `real_payments_enabled=false`.
+
+### Pruebas aún pendientes
+
+- Reproducir definiciones y dependencias exactas en PostgreSQL efímero y ejecutar casos negativos, reintentos y concurrencia.
+- Verificar constraints e índices únicos sobre `request_id`, transiciones y eventos.
+- Probar de forma aislada que un usuario no propietario no puede consultar datos sensibles ni finalizar entregas.
+- No inferir preparación para pagos reales a partir de estas funciones DEMO.
