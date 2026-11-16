@@ -20,7 +20,7 @@ BEGIN
  EXCEPTION WHEN insufficient_privilege THEN NULL;
  END;
  SELECT count(*) INTO n FROM mwd_pickup_private.demo_order_events WHERE order_id='00000000-0000-0000-0000-000000000805';
- IF n<>0 OR (SELECT status FROM mwd_pickup_private.demo_orders WHERE id='00000000-0000-0000-0000-000000000805')<>'pending'
+ IF n<>0 OR (SELECT count(*) FROM mwd_pickup_private.demo_claim_attempts WHERE order_id='00000000-0000-0000-0000-000000000805')<>0 OR (SELECT status FROM mwd_pickup_private.demo_orders WHERE id='00000000-0000-0000-0000-000000000805')<>'pending'
  THEN RAISE EXCEPTION 'unauthorized request mutated order'; END IF;
 END $$;
 SELECT 'SIM_PICKUP_OWNER_NEGATIVE_PASS' AS result;
