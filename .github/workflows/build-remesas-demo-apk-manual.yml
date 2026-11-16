@@ -1,9 +1,15 @@
 name: Prepare Android demo APK (manual EAS)
 
-# This workflow intentionally never starts on push or PR.
-# An EAS cloud build may consume build quota or incur charges.
+# Single authorized attempt on workflow configuration update (2026-11-16).
+# Subsequent code pushes will NOT trigger another EAS build.
+# EAS cloud build may consume quota or incur charges; user authorized.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - pruebas-concurrencia-remesas
+    paths:
+      - .github/workflows/build-remesas-demo-apk-manual.yml
 
 permissions:
   contents: read
