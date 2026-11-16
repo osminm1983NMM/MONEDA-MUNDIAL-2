@@ -6,7 +6,7 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "test:demo": "node --test tests/android-config-safety.test.cjs tests/remesas-concurrencia.test.js tests/remittance-amounts.test.cjs tests/remittance-build-safety.test.cjs tests/wallet-amounts.test.cjs tests/pickup-audit-safety.test.cjs tests/pickup-index-audit-safety.test.cjs tests/remittance-idempotency-audit-safety.test.cjs tests/remittance-retry-contract.test.cjs tests/remittance-owner-guard-safety.test.cjs tests/remittance-demo-flags-safety.test.cjs tests/remittance-restart-recovery-warning.test.cjs tests/remittance-pending-validation.test.cjs"
+    "test:demo": "node --test tests/android-config-safety.test.cjs tests/remesas-concurrencia.test.js tests/remittance-amounts.test.cjs tests/remittance-build-safety.test.cjs tests/wallet-amounts.test.cjs tests/pickup-audit-safety.test.cjs tests/pickup-index-audit-safety.test.cjs tests/remittance-idempotency-audit-safety.test.cjs tests/remittance-retry-contract.test.cjs tests/remittance-owner-guard-safety.test.cjs tests/remittance-demo-flags-safety.test.cjs tests/remittance-restart-recovery-warning.test.cjs tests/remittance-pending-validation.test.cjs tests/remittance-pending-storage.test.cjs"
   },
   "dependencies": {
     "expo": "~54.0.0",
