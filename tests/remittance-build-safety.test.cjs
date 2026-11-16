@@ -56,7 +56,7 @@ test('cloud APK build is manual-only and checks Expo token', () => {
   assert.doesNotMatch(workflow, /^\s*(push|pull_request|schedule):/m);
   assert.match(workflow, /secrets\.EXPO_TOKEN/);
   assert.match(workflow, /eas build --platform android --profile preview --non-interactive --wait/);
-  assert.match(workflow, /ref: feature\/remesas-demo-ui/);
+  assert.match(workflow, /ref: pruebas-concurrencia-remesas/);
 });
 
 test('recent demo orders are retrieved from protected server RPC', () => {
