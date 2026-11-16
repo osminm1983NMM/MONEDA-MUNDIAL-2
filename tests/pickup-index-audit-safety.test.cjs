@@ -6,7 +6,7 @@ const sql = fs.readFileSync('database/auditoria_indices_retiros_demo_solo_lectur
 const executable = sql.replace(/--[^\n]*/g, '');
 
 test('index audit remains read-only', () => {
-  assert.match(executable, /FROM pg_catalog\.pg_indexes/);
+  assert.match(executable, /JOIN pg_catalog\.pg_indexes/);
   const withoutStrings = executable.replace(/'(?:''|[^'])*'/g, "''");
   assert.doesNotMatch(withoutStrings, /\b(insert|update|delete|truncate|alter|drop|create|grant|revoke|call|do)\b/i);
 });
