@@ -14,7 +14,7 @@ test('owner restriction protects actions and screen rendering', () => {
   assert.match(source, /if \(adminRole !== 'owner'\) return <Text/);
 });
 
-test('unresolved transition prevents a different transition and server refresh', () => {
+test('unresolved transition prevents conflicting changes while allowing read-only reconciliation', () => {
   assert.match(source, /pendingTransition\.current\.id !== order\.id \|\| pendingTransition\.current\.next !== next/);
   assert.match(source, /pendingTransition\.current \|\| pendingCreate\.current/);
   assert.match(source, /pendingTransition\.current\) \{/);
