@@ -36,3 +36,24 @@ test('aplicación conserva avisos de dinero ficticio y usa clave publicable', ()
   assert.match(app, /sb_publishable_/);
   assert.doesNotMatch(app, /['\"]sb_secret_[^'\"]+['\"]/);
 });
+
+
+test('pantalla de remesas existe y está conectada a App.js', () => {
+  const app = read('App.js');
+  const screen = read('RemittanceDemoScreen.js');
+  assert.match(app, /import RemittanceDemoScreen from ['"]\\.\\/RemittanceDemoScreen['"]/);
+  assert.match(app, /<RemittanceDemoScreen supabase=\\{supabase\\} adminRole=\\{adminRole\\} \\/>/);
+  assert.match(screen, /Sin dinero real/);
+});
+
+test('workflow del APK usa rama integrada y conjunto completo de pruebas', () => {
+  const workflow = read('.github/workflows/build-remesas-demo-apk-manual.yml');
+  const pkg = JSON.parse(read('package.json'));
+  assert.match(workflow, /ref: pruebas-concurrencia-remesas/);
+  assert.match(workflow, /npm run test:demo/);
+  for (const file of ['android-config-safety.test.cjs', 'remesas-concurrencia.test.js',
+    'remittance-amounts.test.cjs', 'remittance-build-safety.test.cjs']) {
+    assert.ok(pkg.scripts['test:demo'].includes(file), file + ' no incluido en test:demo');
+    assert.ok(read('tests/' + file).length > 0, file + ' vacío');
+  }
+});
