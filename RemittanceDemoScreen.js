@@ -51,6 +51,8 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
       if (error) throw error;
       if (!data?.id || !['draft', 'review', 'simulated', 'cancelled'].includes(data.status))
         throw new Error('Respuesta de creación no reconocida.');
+      if (data.real_payments_enabled !== false || data.redeemable !== false)
+        throw new Error('Respuesta insegura: esta pantalla solo admite operaciones ficticias.');
       setOrder({ id: data.id, status: data.status });
       setRecentOrders([]);
       pendingCreate.current = null;
@@ -87,6 +89,8 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
       if (error) throw error;
       if (!data || data.id !== order.id || !['draft', 'review', 'simulated', 'cancelled'].includes(data.status))
         throw new Error('Respuesta de transición no reconocida.');
+      if (data.real_payments_enabled !== false || data.redeemable !== false)
+        throw new Error('Respuesta insegura: esta pantalla solo admite operaciones ficticias.');
       setOrder({ id: data.id, status: data.status });
       pendingTransition.current = null;
       setNotice(data.already_processed ? 'Reintento reconocido.' : 'Estado actualizado.');
