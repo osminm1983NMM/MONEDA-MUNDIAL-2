@@ -145,3 +145,12 @@ test('remittance screen contains no duplicated JSX after stylesheet', () => {
   assert.match(screen.trimEnd(), /\}\);$/);
   assert.equal((screen.match(/<Text style=\{styles\.title\}>Remesa internacional/g) || []).length, 1);
 });
+
+
+test('ambiguous demo transition provides a same-request retry button', () => {
+  const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
+  assert.match(screen, /pendingTransition\.current\.id === order\.id/);
+  assert.match(screen, /Reintentar cambio pendiente/);
+  assert.match(screen, /transition\(pendingTransition\.current\.next\)/);
+  assert.match(screen, /pendingTransition\.current\.requestId/);
+});
