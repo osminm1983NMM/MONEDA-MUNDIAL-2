@@ -7,7 +7,11 @@ function transfer(state, { id, from, to, amount }) {
   if (!id || !from || !to || from === to || !Number.isSafeInteger(amount) || amount <= 0) {
     throw new Error('invalid transfer');
   }
-  if (state.processed.has(id)) return state;
+  if (state.processed.has(id)) {
+    const previous = state.journal.find(entry => entry.id === id);
+    if (!previous || previous.from !== from || previous.to !== to || previous.amount !== amount) throw new Error('idempotency conflict');
+    return state;
+  }
   if (!(from in state.balances) || !(to in state.balances)) throw new Error('unknown account');
   if (state.balances[from] < amount) throw new Error('insufficient funds');
   const balances = { ...state.balances, [from]: state.balances[from] - amount, [to]: state.balances[to] + amount };
@@ -49,4 +53,10 @@ test('IDs diferentes se procesan por separado', () => {
   const two = transfer(one, { id: 'b', from: 'B', to: 'A', amount: 50 });
   assert.equal(two.journal.length, 2);
   assert.equal(total(two), 12500);
+});
+
+test('mismo ID con datos distintos se rechaza', () => {
+  const once = transfer(initial(), { id: 'same', from: 'A', to: 'B', amount: 100 });
+  assert.throws(() => transfer(once, { id: 'same', from: 'A', to: 'B', amount: 200 }), /idempotency conflict/);
+  assert.equal(once.journal.length, 1);
 });
