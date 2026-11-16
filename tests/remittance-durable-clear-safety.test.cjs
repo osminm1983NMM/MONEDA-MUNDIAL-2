@@ -11,7 +11,7 @@ test('successful create clears only the saved creation request',()=>{
 });
 test('successful transition clears its own saved request before dropping in-memory ref',()=>{
  const s=body('async function transition(next)', 'async function loadRecent()');
- assert.match(s,/await clearPending\(AsyncStorage, userId, pendingTransition\.current\.requestId\);\s*pendingTransition\.current = null/);
+ assert.match(s,/await clearPending\(AsyncStorage, userId, pendingTransition\.current\.requestId\);\s*setOrder\(\{ id: data\.id, status: data\.status \}\);\s*pendingTransition\.current = null/);
  assert.ok(s.indexOf('data.redeemable !== false')<s.indexOf('await clearPending'));
 });
 
