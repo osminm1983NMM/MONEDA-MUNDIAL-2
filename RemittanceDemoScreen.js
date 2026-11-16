@@ -227,6 +227,12 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
         <>
           <Text style={styles.text}>Estado: {order.status}</Text>
           <Text selectable style={styles.text}>Referencia: {order.id}</Text>
+          {pendingTransition.current && pendingTransition.current.id === order.id && (
+            <>
+              <Text style={styles.warn}>Cambio de estado sin confirmar. Reintenta la misma acción con la referencia original; no generes otra operación.</Text>
+              {button('Reintentar cambio pendiente', () => transition(pendingTransition.current.next))}
+            </>
+          )}
           {button('Actualizar estado desde el servidor', refreshSelected)}
           {order.status === 'draft' && button('Enviar a revisión', () => ask('review', 'Pasar a revisión'))}
           {order.status === 'review' && button('Completar simulación', () => ask('simulated', 'Completar simulación'))}
