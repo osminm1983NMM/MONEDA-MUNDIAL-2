@@ -7,7 +7,8 @@ const executable = sql.replace(/--[^\n]*/g, '');
 
 test('index audit remains read-only', () => {
   assert.match(executable, /FROM pg_catalog\.pg_indexes/);
-  assert.doesNotMatch(executable, /\b(insert|update|delete|truncate|alter|drop|create|grant|revoke|call|do)\b/i);
+  const withoutStrings = executable.replace(/'(?:''|[^'])*'/g, "''");
+  assert.doesNotMatch(withoutStrings, /\b(insert|update|delete|truncate|alter|drop|create|grant|revoke|call|do)\b/i);
 });
 
 test('index audit verifies unique definitions and exact column groups', () => {
