@@ -32,3 +32,10 @@ test('read-only refresh cannot erase original idempotency key', () => {
  assert.doesNotMatch(s,/clearPending\(/);
  assert.doesNotMatch(s,/pendingTransition\.current = null/);
 });
+
+test('pending transition hides all competing state change buttons',()=>{
+ assert.match(screen,/!pendingTransition\.current && order\.status === 'draft' && button\('Enviar a revisión'/);
+ assert.match(screen,/!pendingTransition\.current && order\.status === 'review' && button\('Completar simulación'/);
+ assert.match(screen,/!pendingTransition\.current && \['draft', 'review'\]\.includes\(order\.status\) && button\('Cancelar simulación'/);
+ assert.match(screen,/button\('Reintentar cambio pendiente'/);
+});
