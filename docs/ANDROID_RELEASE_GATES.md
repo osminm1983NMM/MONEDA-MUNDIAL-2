@@ -41,3 +41,10 @@ No declarar Android terminado sin: pruebas automatizadas ejecutadas, APK constru
 - Pasaron JSON, suite `npm run test:demo`, instalación npm y `npx expo config --type public`.
 - Esta validación NO es una compilación APK ni una prueba en dispositivo; no habilita dinero real.
 - Siguiente puerta: evaluar credenciales EAS, cuota y costos antes de autorizar una compilación Android; después instalar y probar en Samsung.
+
+## Intento APK y recuperación (2026-11-16)
+- Ejecución APK https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/43910152291 falló en test estático (29/30): el workflow incluía `push` y violaba la regla de compilación manual.
+- No se llegó a validar EXPO_TOKEN ni a ejecutar EAS; no se generó APK.
+- Se restauró `workflow_dispatch` exclusivamente, commit `43be5bed16f27261389ce51d8191253c4655a74f`.
+- Revalidación: https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/43910310504
+- Próxima compilación requiere lanzamiento manual desde GitHub Actions y credencial EXPO_TOKEN; no insertar tokens en código, commits ni mensajes.
