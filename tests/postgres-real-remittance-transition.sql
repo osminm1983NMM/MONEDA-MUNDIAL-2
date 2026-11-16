@@ -146,3 +146,30 @@ BEGIN
  THEN RAISE EXCEPTION 'review cancellation audit mismatch'; END IF;
 END $$;
 SELECT 'REAL_REMITTANCE_REVIEW_CANCEL_PASS' AS result;
+
+-- Validate invalid inputs never create events or change order state.
+INSERT INTO mwd_remittance_demo_private.orders(id,created_by,request_id,destination_country,amount_cents)
+VALUES ('00000000-0000-0000-0000-000000000814','00000000-0000-0000-0000-000000000901','00000000-0000-0000-0000-000000000824','HN',3200);
+DO $$
+DECLARE oid uuid:='00000000-0000-0000-0000-000000000814';
+BEGIN
+ BEGIN
+  PERFORM public.mwd_owner_remittance_transition_demo(oid,'review',NULL);
+  RAISE EXCEPTION 'null request accepted';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL;
+ END;
+ BEGIN
+  PERFORM public.mwd_owner_remittance_transition_demo(oid,NULL,'00000000-0000-0000-0000-000000000841');
+  RAISE EXCEPTION 'null state accepted';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL;
+ END;
+ BEGIN
+  PERFORM public.mwd_owner_remittance_transition_demo('00000000-0000-0000-0000-000000000899','review','00000000-0000-0000-0000-000000000842');
+  RAISE EXCEPTION 'missing order accepted';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL;
+ END;
+ IF (SELECT status FROM mwd_remittance_demo_private.orders WHERE id=oid)<>'draft' OR
+ (SELECT count(*) FROM mwd_remittance_demo_private.events WHERE order_id=oid)<>0
+ THEN RAISE EXCEPTION 'invalid request mutated state'; END IF;
+END $$;
+SELECT 'REAL_REMITTANCE_INVALID_INPUT_PASS' AS result;
