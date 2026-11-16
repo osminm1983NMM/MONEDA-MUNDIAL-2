@@ -26,7 +26,7 @@ test('APK manual exige token y pruebas antes de compilar', () => {
   const workflow = read('.github/workflows/build-remesas-demo-apk-manual.yml');
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /EXPO_TOKEN/);
-  assert.match(workflow, /node --test/);
+  assert.match(workflow, /npm run test:demo/);
   assert.match(workflow, /eas build --platform android --profile preview/);
 });
 
