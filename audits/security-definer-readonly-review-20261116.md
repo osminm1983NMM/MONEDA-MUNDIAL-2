@@ -62,3 +62,7 @@ Estos índices son barreras de integridad, no pruebas suficientes de autorizaci�
 - `pickup_code_attempts`: huella hexadecimal de 64 caracteres cuando existe.
 
 **Limitación:** restricciones CHECK e índices protegen la consistencia de datos, pero no sustituyen revisión de permisos, flujos de error, ni pruebas sobre funciones reales. Consulta sin cambios en Supabase.
+
+## Auditoría de permisos de tablas privadas de remesas
+
+Consulta directa a `pg_class` y `has_table_privilege` en Supabase principal, solo lectura: las siete tablas `mwd_remittance_demo_private.events`, `orders`, `payout_assignments`, `payout_events`, `pickup_code_attempts`, `pickup_code_events`, `pickup_code_samples` tienen RLS habilitada (`relrowsecurity=true`). El rol `anon` no tiene SELECT y el rol `authenticated` no tiene SELECT, INSERT, UPDATE ni DELETE sobre ninguna de ellas. Estas restricciones protegen acceso directo; las funciones `SECURITY DEFINER` deben seguir auditándose porque pueden operar con privilegios elevados.
