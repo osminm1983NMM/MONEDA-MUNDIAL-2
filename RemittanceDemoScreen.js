@@ -274,7 +274,7 @@ export default function RemittanceDemoScreen({ supabase, adminRole, userId }) {
           {!pendingTransition.current && order.status === 'draft' && button('Enviar a revisión', () => ask('review', 'Pasar a revisión'))}
           {!pendingTransition.current && order.status === 'review' && button('Completar simulación', () => ask('simulated', 'Completar simulación'))}
           {!pendingTransition.current && ['draft', 'review'].includes(order.status) && button('Cancelar simulación', () => ask('cancelled', 'Cancelar orden'))}
-          {['simulated', 'cancelled'].includes(order.status) && button('Preparar otra prueba', () => {
+          {!pendingTransition.current && ['simulated', 'cancelled'].includes(order.status) && button('Preparar otra prueba', () => {
             setOrder(null);
             setNotice('');
           })}
