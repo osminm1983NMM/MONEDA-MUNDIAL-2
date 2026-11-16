@@ -1,8 +1,12 @@
 name: Validar Moneda Mundial DEMO
 
-# Manual: evita ejecuciones y consumo de minutos no solicitados.
+# Validacion de PR autorizada por el propietario el 2026-11-16.
+# Sin build EAS ni despliegue. Solo validacion automatica.
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
