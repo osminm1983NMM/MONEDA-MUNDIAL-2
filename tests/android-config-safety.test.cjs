@@ -52,7 +52,7 @@ test('workflow del APK usa rama integrada y conjunto completo de pruebas', () =>
   assert.match(workflow, /ref: pruebas-concurrencia-remesas/);
   assert.match(workflow, /npm run test:demo/);
   for (const file of ['android-config-safety.test.cjs', 'remesas-concurrencia.test.js',
-    'remittance-amounts.test.cjs', 'remittance-build-safety.test.cjs']) {
+    'remittance-amounts.test.cjs', 'remittance-build-safety.test.cjs', 'wallet-amounts.test.cjs']) {
     assert.ok(pkg.scripts['test:demo'].includes(file), file + ' no incluido en test:demo');
     assert.ok(read('tests/' + file).length > 0, file + ' vacío');
   }
