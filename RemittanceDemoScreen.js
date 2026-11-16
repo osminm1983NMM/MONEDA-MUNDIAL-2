@@ -247,6 +247,9 @@ export default function RemittanceDemoScreen({ supabase, adminRole }) {
           })}
         </>
       )}
+      {!order && (
+        <Text style={styles.warn}>Si la aplicación se cerró durante una creación, consulta primero las remesas recientes antes de crear otra. La referencia de reintento no se conserva después de reiniciar.</Text>
+      )}
       {!order && button('Consultar remesas ficticias recientes', loadRecent)}
       {!order && recentOrders.map(item => (
         <TouchableOpacity key={item.id} disabled={busy} onPress={() => selectRecent(item)}
