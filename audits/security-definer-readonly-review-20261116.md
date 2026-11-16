@@ -40,3 +40,16 @@ No se modificaron políticas, roles, funciones ni saldos del proyecto Supabase.
 - Verificar constraints e índices únicos sobre `request_id`, transiciones y eventos.
 - Probar de forma aislada que un usuario no propietario no puede consultar datos sensibles ni finalizar entregas.
 - No inferir preparación para pagos reales a partir de estas funciones DEMO.
+
+## Índices de unicidad del flujo de retiro (consulta directa de catálogos)
+
+Se verificaron en `mwd_remittance_demo_private` las siguientes garantías físicas:
+
+- `orders(created_by,request_id)` UNIQUE: alta idempotente por creador.
+- `events(order_id,request_id)` UNIQUE y `events(order_id)` UNIQUE parcial `to_status='simulated'`: evita eventos repetidos y más de una finalización simulada por orden.
+- `payout_assignments(order_id)` UNIQUE, `assignment_request_id` UNIQUE y `sample_request_id` UNIQUE: asignación única por orden y claves de reintento.
+- `payout_events(assignment_id,event_type)` UNIQUE y `payout_events(request_id)` UNIQUE: evita duplicar eventos de entrega.
+- `pickup_code_attempts(sample_id,request_id)` UNIQUE: evita repetir un intento con la misma clave.
+- `pickup_code_samples(assignment_id)` UNIQUE, `consume_request_id` UNIQUE, `issue_request_id` UNIQUE, `identity_check_request_id` UNIQUE, `token_sha256` UNIQUE: unicidad de muestra, solicitudes y token.
+
+Estos índices son barreras de integridad, no pruebas suficientes de autorización ni de concurrencia completa. La prueba de modelo de retiro en GitHub Actions run 43890357551 terminó `success`. No se modificaron índices de Supabase.
