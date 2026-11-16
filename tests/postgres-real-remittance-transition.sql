@@ -125,3 +125,24 @@ BEGIN
  END;
 END $$;
 SELECT 'REAL_REMITTANCE_CANCELLATION_PASS' AS result;
+
+-- Independent review -> cancelled path, followed by a prohibited simulation.
+INSERT INTO mwd_remittance_demo_private.orders(id,created_by,request_id,destination_country,amount_cents)
+VALUES ('00000000-0000-0000-0000-000000000813','00000000-0000-0000-0000-000000000901','00000000-0000-0000-0000-000000000823','HN',7500);
+DO $$
+DECLARE r jsonb; oid uuid:='00000000-0000-0000-0000-000000000813';
+BEGIN
+ r:=public.mwd_owner_remittance_transition_demo(oid,'review','00000000-0000-0000-0000-000000000838');
+ r:=public.mwd_owner_remittance_transition_demo(oid,'cancelled','00000000-0000-0000-0000-000000000839');
+ IF r->>'status'<>'cancelled' THEN RAISE EXCEPTION 'review cancellation failed'; END IF;
+ BEGIN
+  PERFORM public.mwd_owner_remittance_transition_demo(oid,'simulated','00000000-0000-0000-0000-000000000840');
+  RAISE EXCEPTION 'cancelled order simulated';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL;
+ END;
+ IF (SELECT count(*) FROM mwd_remittance_demo_private.events WHERE order_id=oid)<>2
+ THEN RAISE EXCEPTION 'review cancellation event count mismatch'; END IF;
+ IF (SELECT count(*) FROM mwd_remittance_demo_private.events WHERE order_id=oid AND event_type='cancelled' AND from_status='review' AND to_status='cancelled')<>1
+ THEN RAISE EXCEPTION 'review cancellation audit mismatch'; END IF;
+END $$;
+SELECT 'REAL_REMITTANCE_REVIEW_CANCEL_PASS' AS result;
