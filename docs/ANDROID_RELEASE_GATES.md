@@ -28,3 +28,9 @@ No declarar Android terminado sin: pruebas automatizadas ejecutadas, APK constru
 - **Limitación operativa:** los workflows `workflow_dispatch` normalmente deben estar presentes en la rama predeterminada para iniciarse desde la interfaz/API de GitHub Actions. No asumir que modificar solo la rama de desarrollo habilita el botón de ejecución; antes de intentar una ejecución manual, verificar su disponibilidad o preparar una integración revisada en `main`.
 - No se pudo ejecutar `npm run test:demo` localmente en esta sesión: el entorno de ejecución no pudo resolver `github.com` para clonar el repositorio. Por tanto, no hay resultado de pruebas que reportar.
 - No ejecutar EAS ni cambiar `main` hasta completar la revisión y los controles correspondientes.
+
+## Revisión de solicitud de integración #122
+- PR borrador: https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/pull/122
+- GitHub reportó `mergeable=true`, `mergeable_state=clean` al consultar la API. Eso solo confirma ausencia de conflictos de fusión; **no aprueba pruebas ni seguridad**.
+- Consulta de ejecuciones de Actions para `pruebas-concurrencia-remesas`: `total_count=0` en el momento de la consulta.
+- Mantener PR como borrador hasta tener evidencias de pruebas y build. No fusionar solo por estar libre de conflictos.
