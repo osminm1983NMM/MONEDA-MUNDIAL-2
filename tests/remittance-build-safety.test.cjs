@@ -47,7 +47,7 @@ test('unconfirmed creation cannot silently change amount and request ID', () => 
 test('unconfirmed transition cannot switch to a conflicting action', () => {
   const screen = fs.readFileSync('RemittanceDemoScreen.js', 'utf8');
   assert.match(screen, /pendingTransition\.current\.id !== order\.id \|\| pendingTransition\.current\.next !== next/);
-  assert.match(screen, /if \(!pendingTransition\.current\)\s*pendingTransition\.current = \{ id: order\.id, next, requestId: uuid\(\) \}/);
+  assert.match(screen, /if \(!pendingTransition\.current\)\s*pendingTransition\.current = \{ id: order\.id, next, requestId: uuid\(\), createdAt: new Date\(\)\.toISOString\(\) \}/);
 });
 
 test('cloud APK build is manual-only and checks Expo token', () => {
