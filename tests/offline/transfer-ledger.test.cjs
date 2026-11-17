@@ -68,3 +68,29 @@ test('rechaza autoenvíos y montos inválidos', () => {
   assert.throws(() => l.transfer({ actor: 'A', to: 'B', cents: 0, requestId: 'r2' }), /invalid_amount/);
   assert.equal(l.operations.length, 0);
 });
+
+test('no permite exceder el límite seguro del saldo receptor', () => {
+  const l = createLedger({ A: 100, B: Number.MAX_SAFE_INTEGER - 50 });
+  const before = total(l);
+  assert.throws(() => l.transfer({ actor: 'A', to: 'B', cents: 100, requestId: 'overflow' }), /overflow/);
+  assert.equal(l.operations.length, 0);
+  assert.equal(l.balances.get('A'), 100);
+  assert.equal(l.balances.get('B'), Number.MAX_SAFE_INTEGER - 50);
+});
+
+test('identificador de solicitud se separa por actor', () => {
+  const l = createLedger({ A: 1000, B: 1000, C: 0 });
+  l.transfer({ actor: 'A', to: 'C', cents: 100, requestId: 'same' });
+  l.transfer({ actor: 'B', to: 'C', cents: 200, requestId: 'same' });
+  assert.equal(l.operations.length, 2);
+  assert.equal(l.balances.get('C'), 300);
+  assert.equal(total(l), 2000);
+});
+
+test('fallos no crean movimientos ni consumen identificadores', () => {
+  const l = createLedger({ A: 100, B: 0 });
+  assert.throws(() => l.transfer({ actor: 'A', to: 'B', cents: 200, requestId: 'retry' }), /insufficient_funds/);
+  assert.equal(l.operations.length, 0);
+  assert.equal(l.transfer({ actor: 'A', to: 'B', cents: 50, requestId: 'retry' }).status, 'transferred');
+  assert.equal(l.operations.length, 1);
+});
