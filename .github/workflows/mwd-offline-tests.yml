@@ -1,0 +1,26 @@
+name: MWD demo offline invariants
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - test/transfer-invariants-20261116
+    paths:
+      - 'tests/offline/**'
+      - '.github/workflows/mwd-offline-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run isolated ledger tests
+        run: node --test tests/offline/transfer-ledger.test.cjs
