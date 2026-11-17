@@ -94,3 +94,19 @@ test('fallos no crean movimientos ni consumen identificadores', () => {
   assert.equal(l.transfer({ actor: 'A', to: 'B', cents: 50, requestId: 'retry' }).status, 'transferred');
   assert.equal(l.operations.length, 1);
 });
+
+test('mismo requestId con otro destinatario se rechaza sin segundo débito', () => {
+  const l = createLedger({ A: 1000, B: 0, C: 0 });
+  l.transfer({ actor: 'A', to: 'B', cents: 100, requestId: 'dest' });
+  assert.throws(() => l.transfer({ actor: 'A', to: 'C', cents: 100, requestId: 'dest' }), /request_conflict/);
+  assert.equal(l.operations.length, 1);
+  assert.equal(l.balances.get('C'), 0);
+});
+
+test('rechaza montos decimales y valores no seguros', () => {
+  const l = createLedger({ A: 1000, B: 0 });
+  for (const cents of [1.5, -1, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(() => l.transfer({ actor: 'A', to: 'B', cents, requestId: String(cents) }), /invalid_amount/);
+  }
+  assert.equal(l.operations.length, 0);
+});
