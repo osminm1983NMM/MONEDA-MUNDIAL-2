@@ -110,3 +110,26 @@ test('rechaza montos decimales y valores no seguros', () => {
   }
   assert.equal(l.operations.length, 0);
 });
+
+test('la suma permanece constante tras una secuencia de operaciones válidas', () => {
+  const l = createLedger({ A: 2000, B: 1500, C: 500 });
+  const starting = total(l);
+  const actions = [
+    ['A','B',100], ['B','C',150], ['C','A',200],
+    ['A','C',300], ['B','A',250], ['C','B',100]
+  ];
+  actions.forEach(([actor,to,cents],i) => {
+    assert.equal(l.transfer({ actor,to,cents,requestId: 'seq-'+i }).status,'transferred');
+    assert.equal(total(l),starting);
+    for (const value of l.balances.values()) assert.ok(value >= 0);
+  });
+  assert.equal(l.operations.length,actions.length);
+});
+
+test('una solicitud rechazada no altera saldos ni historial', () => {
+  const l = createLedger({ A: 100, B: 20 });
+  const snapshot = [...l.balances.entries()];
+  assert.throws(() => l.transfer({ actor:'A',to:'B',cents:101,requestId:'fail' }),/insufficient_funds/);
+  assert.deepEqual([...l.balances.entries()],snapshot);
+  assert.equal(l.operations.length,0);
+});
