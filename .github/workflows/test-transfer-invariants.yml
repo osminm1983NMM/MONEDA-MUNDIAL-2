@@ -1,0 +1,25 @@
+name: Pruebas contables DEMO
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'tests/transfer-invariants.test.cjs'
+      - 'tests/transfer-concurrency-model.test.cjs'
+      - 'tests/merchant-payment-model.test.cjs'
+      - 'tests/payment-cancellation-race-model.test.cjs'
+      - 'tests/wallet-opening-model.test.cjs'
+      - 'tests/signup-atomicity-model.test.cjs'
+      - '.github/workflows/test-transfer-invariants.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Ejecutar pruebas aisladas sin servicios externos
+        run: node --test tests/transfer-invariants.test.cjs tests/transfer-concurrency-model.test.cjs tests/merchant-payment-model.test.cjs tests/payment-cancellation-race-model.test.cjs tests/wallet-opening-model.test.cjs tests/signup-atomicity-model.test.cjs
