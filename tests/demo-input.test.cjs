@@ -181,3 +181,11 @@ test('no muestra retiros creados para otra sesión', () => {
   assert.ok(block.includes('authData.session?.user?.id !== accountId'));
   assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf('setPickupResult(data);'));
 });
+
+test('aportación usa código vacío para reintento idempotente', () => {
+  const start = app.indexOf('function prepareOperation(type)');
+  const end = app.indexOf('async function executeOperation(', start);
+  const block = app.slice(start, end > start ? end : undefined);
+  assert.ok(block.includes("const code = type === 'transfer' ? recipientCode.trim().toUpperCase() : '';"));
+  assert.ok(block.includes("pending.code === (type === 'transfer' ? code : '')"));
+});
