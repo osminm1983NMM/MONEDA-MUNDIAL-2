@@ -310,15 +310,23 @@ export default function App() {
   const microDisplay = value => (Number(value || 0) / 1000000).toFixed(6);
 
   async function loadSwapWallet() {
+    const accountId = userId;
+    const accountSequence = refreshSequenceRef.current;
+    if (!accountId) return;
     setSwapBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_wallet_demo');
       if (error) throw error;
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      if (authError) throw authError;
+      if (accountSequence !== refreshSequenceRef.current || authData.session?.user?.id !== accountId) return;
       setSwapWallet(data);
     } catch (error) {
-      message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
+      if (accountSequence === refreshSequenceRef.current) {
+        message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
+      }
     } finally {
-      setSwapBusy(false);
+      if (accountSequence === refreshSequenceRef.current) setSwapBusy(false);
     }
   }
 
