@@ -78,3 +78,9 @@ test('descarta cotizaciones anteriores al cambio de moneda o cantidad', () => {
   assert.ok(app.includes('if (inputVersion !== swapInputVersionRef.current) return;'));
   assert.ok(app.includes('swapInputVersionRef.current += 1;'));
 });
+
+test('no muestra errores de cotizaciones anteriores y aclara reintentos de retiros', () => {
+  assert.ok(app.includes('if (inputVersion === swapInputVersionRef.current) {'));
+  assert.ok(app.includes("data.status === 'already_created' && !data.pickupCode"));
+  assert.ok(app.includes('El código de prueba no se vuelve a mostrar.'));
+});
