@@ -283,3 +283,13 @@ test('confirmar una cotización anterior conserva cambios nuevos del formulario'
   assert.ok(guarded.indexOf('setSwapQuote(null);') < guarded.indexOf('setSwapAmount(\'\');'));
   assert.ok(guarded.indexOf('setSwapAmount(\'\');') < guarded.indexOf("message('Conversión ficticia confirmada'"));
 });
+
+test('ejecuta parser de conversión de seis decimales con límites exactos', () => {
+  const start = app.indexOf('function swapAmountToMicro(');
+  const end = app.indexOf('function uniqueRequestId(', start);
+  assert.ok(start >= 0 && end > start);
+  const parse = vm.runInNewContext(app.slice(start, end) + '; swapAmountToMicro');
+  for (const [input, expected] of [['1', 1000000], ['1.000001', 1000001], ['2,5', 2500000], ['10000', 10000000000], ['0', null], ['0.999999', null], ['10000.000001', null], ['1.0000001', null], ['1e3', null], ['MWD-78FC9E21E886422B', null], ['', null]]) {
+    assert.equal(parse(input), expected, input);
+  }
+});
