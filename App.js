@@ -38,6 +38,15 @@ function amountToCents(value) {
   return cents;
 }
 
+function swapAmountToMicro(value) {
+  const normalized = value.trim().replace(',', '.');
+  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(normalized)) return null;
+  const [whole, fraction = ''] = normalized.split('.');
+  const micro = Number(whole) * 1000000 + Number(fraction.padEnd(6, '0'));
+  if (!Number.isSafeInteger(micro) || micro < 1000000 || micro > 10000000000) return null;
+  return micro;
+}
+
 function uniqueRequestId() {
   if (!globalThis.crypto || !globalThis.crypto.getRandomValues) {
     throw new Error('No hay generador de identificadores seguros disponible.');
@@ -356,14 +365,9 @@ export default function App() {
   }
 
   async function requestSwapQuote() {
-    const normalized = swapAmount.trim().replace(',', '.');
-    if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(normalized)) {
-      return message('Cantidad inválida', 'Usa hasta seis decimales.');
-    }
-    const [whole, fraction = ''] = normalized.split('.');
-    const micro = Number(whole) * 1000000 + Number(fraction.padEnd(6, '0'));
-    if (!Number.isSafeInteger(micro) || micro < 1000000 || micro > 10000000000) {
-      return message('Cantidad inválida', 'Introduce entre 1 y 10,000 unidades de prueba.');
+    const micro = swapAmountToMicro(swapAmount);
+    if (micro === null) {
+      return message('Cantidad inválida', 'Introduce entre 1 y 10,000 unidades de prueba, con hasta seis decimales.');
     }
     if (!swapQuoteRequestRef.current || swapQuoteRequestRef.current.micro !== micro || swapQuoteRequestRef.current.asset !== swapFrom) {
       swapQuoteRequestRef.current = { micro, asset: swapFrom, requestId: uniqueRequestId() };
