@@ -271,6 +271,13 @@ export default function App() {
     if (error) message('Salida', error.message);
   }
 
+  const pickupStatusLabel = status => ({
+    pending: 'Pendiente',
+    expired: 'Vencida',
+    cancelled: 'Cancelada',
+    simulated_collected: 'Retiro simulado',
+  }[status] || 'Estado no reconocido');
+
   const microDisplay = value => (Number(value || 0) / 1000000).toFixed(6);
 
   async function loadSwapWallet() {
@@ -462,7 +469,7 @@ export default function App() {
                 <View key={order.orderId} style={styles.card}>
                   <Text style={styles.small}>Destino: {order.destinationCountry === 'HN' ? 'Honduras' : order.destinationCountry}</Text>
                   <Text style={styles.small}>Monto: {formatMWD(order.amountCents)} MWD ficticios</Text>
-                  <Text style={styles.small}>Estado: {order.status}</Text>
+                  <Text style={styles.small}>Estado: {pickupStatusLabel(order.status)}</Text>
                   <Text style={styles.muted}>Creada: {new Date(order.createdAt).toLocaleString()}</Text>
                   <Text style={styles.muted}>Vence: {new Date(order.expiresAt).toLocaleString()}</Text>
                   <Text selectable style={styles.muted}>Referencia: {order.orderId}</Text>
