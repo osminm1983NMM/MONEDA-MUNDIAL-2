@@ -75,7 +75,7 @@ test('reutiliza el identificador de cotización al reintentar y lo reinicia cuan
 test('descarta cotizaciones anteriores al cambio de moneda o cantidad', () => {
   assert.ok(app.includes('const swapInputVersionRef = useRef(0);'));
   assert.ok(app.includes('const inputVersion = swapInputVersionRef.current;'));
-  assert.ok(app.includes('if (inputVersion !== swapInputVersionRef.current || accountSequence !== refreshSequenceRef.current) return;'));
+  assert.ok(app.includes('if (inputVersion !== swapInputVersionRef.current || accountSequence !== accountVersionRef.current) return;'));
   assert.ok(app.includes('swapInputVersionRef.current += 1;'));
 });
 
@@ -136,7 +136,7 @@ test('no muestra órdenes de retiro cargadas para otra sesión', () => {
   const end = app.indexOf('async function cancelDemoPickup(', start);
   const block = app.slice(start, end);
   assert.ok(block.includes('const accountId = userId;'));
-  assert.ok(block.includes('const accountSequence = refreshSequenceRef.current;'));
+  assert.ok(block.includes('const accountSequence = accountVersionRef.current;'));
   assert.ok(block.includes('authData.session?.user?.id !== accountId'));
   assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf('setPickupOrders(data);'));
 });
@@ -146,7 +146,7 @@ test('no muestra saldos COIN/DIGITAL cargados para otra sesión', () => {
   const end = app.indexOf('async function requestSwapQuote()', start);
   const block = app.slice(start, end);
   assert.ok(block.includes('const accountId = userId;'));
-  assert.ok(block.includes('const accountSequence = refreshSequenceRef.current;'));
+  assert.ok(block.includes('const accountSequence = accountVersionRef.current;'));
   assert.ok(block.includes('authData.session?.user?.id !== accountId'));
   assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf('setSwapWallet(data);'));
 });
@@ -156,7 +156,7 @@ test('descarta cotizaciones recibidas después de cambiar de cuenta', () => {
   const end = app.indexOf('async function confirmSwap()', start);
   const block = app.slice(start, end);
   assert.ok(block.includes('const accountId = userId;'));
-  assert.ok(block.includes('const accountSequence = refreshSequenceRef.current;'));
+  assert.ok(block.includes('const accountSequence = accountVersionRef.current;'));
   assert.ok(block.includes('authData.session?.user?.id !== accountId'));
   assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf('setSwapQuote(data);'));
 });
@@ -166,7 +166,7 @@ test('protege confirmación y actualización de saldos al cambiar de sesión', (
   const end = app.indexOf('async function createDemoPickup()', start);
   const block = app.slice(start, end);
   assert.ok(block.includes('const accountId = userId;'));
-  assert.ok(block.includes('const accountSequence = refreshSequenceRef.current;'));
+  assert.ok(block.includes('const accountSequence = accountVersionRef.current;'));
   assert.ok(block.includes('authData.session?.user?.id !== accountId'));
   assert.ok(block.includes('refreshedAuth.session?.user?.id !== accountId'));
   assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf('setSwapQuote(null);', block.indexOf("['ok', 'already_processed']")));
@@ -177,7 +177,7 @@ test('no muestra retiros creados para otra sesión', () => {
   const end = app.indexOf('async function loadPickupOrders()', start);
   const block = app.slice(start, end);
   assert.ok(block.includes('const accountId = userId;'));
-  assert.ok(block.includes('const accountSequence = refreshSequenceRef.current;'));
+  assert.ok(block.includes('const accountSequence = accountVersionRef.current;'));
   assert.ok(block.includes('authData.session?.user?.id !== accountId'));
   assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf('setPickupResult(data);'));
 });
@@ -188,4 +188,11 @@ test('aportación usa código vacío para reintento idempotente', () => {
   const block = app.slice(start, end > start ? end : undefined);
   assert.ok(block.includes("const code = type === 'transfer' ? recipientCode.trim().toUpperCase() : '';"));
   assert.ok(block.includes("pending.code === (type === 'transfer' ? code : '')"));
+});
+
+test('separa cambios de cuenta de actualizaciones ordinarias de saldos', () => {
+  assert.ok(app.includes('const accountVersionRef = useRef(0);'));
+  assert.ok(app.includes('accountVersionRef.current += 1;'));
+  assert.ok(app.includes('const requestSequence = ++refreshSequenceRef.current;'));
+  assert.ok(!app.includes('accountSequence = refreshSequenceRef.current'));
 });
