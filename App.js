@@ -106,7 +106,7 @@ export default function App() {
   const [recipientCode, setRecipientCode] = useState('');
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
-  const busyRef = useRef(false);
+  const busyRef = useRef(null);
   const pendingRef = useRef(null);
   const pickupRequestRef = useRef(null);
   const swapQuoteRequestRef = useRef(null);
@@ -137,6 +137,7 @@ export default function App() {
   useEffect(() => {
     refreshSequenceRef.current += 1;
     accountVersionRef.current += 1;
+    busyRef.current = null;
     setBusy(false);
     setSwapBusy(false);
     setPickupBusy(false);
@@ -245,7 +246,8 @@ export default function App() {
     const accountId = userId;
     const accountSequence = accountVersionRef.current;
     if (!accountId) return;
-    busyRef.current = true;
+    const operationToken = accountSequence;
+    busyRef.current = operationToken;
     setBusy(true);
     try {
       const pending = pendingRef.current;
@@ -279,8 +281,10 @@ export default function App() {
       if (accountSequence === accountVersionRef.current) message('Operación no confirmada',
         (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
     } finally {
-      busyRef.current = false;
-      if (accountSequence === accountVersionRef.current) setBusy(false);
+      if (busyRef.current === operationToken) {
+        busyRef.current = null;
+        if (accountSequence === accountVersionRef.current) setBusy(false);
+      }
     }
   }
 
