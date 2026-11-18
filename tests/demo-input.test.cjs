@@ -160,3 +160,14 @@ test('descarta cotizaciones recibidas después de cambiar de cuenta', () => {
   assert.ok(block.includes('authData.session?.user?.id !== accountId'));
   assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf('setSwapQuote(data);'));
 });
+
+test('protege confirmación y actualización de saldos al cambiar de sesión', () => {
+  const start = app.indexOf('async function confirmSwap()');
+  const end = app.indexOf('async function createDemoPickup()', start);
+  const block = app.slice(start, end);
+  assert.ok(block.includes('const accountId = userId;'));
+  assert.ok(block.includes('const accountSequence = refreshSequenceRef.current;'));
+  assert.ok(block.includes('authData.session?.user?.id !== accountId'));
+  assert.ok(block.includes('refreshedAuth.session?.user?.id !== accountId'));
+  assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf('setSwapQuote(null);', block.indexOf("['ok', 'already_processed']")));
+});
