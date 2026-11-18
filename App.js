@@ -141,6 +141,14 @@ export default function App() {
       return;
     }
     pickupRequestRef.current = null;
+    pendingRef.current = null;
+    setWallet(null);
+    setOperations([]);
+    setAdminRole(null);
+    setSwapWallet(null);
+    setSwapQuote(null);
+    setPickupOrders([]);
+    setPickupResult(null);
     refreshAccount(userId);
   }, [userId]);
 
