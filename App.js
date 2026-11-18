@@ -419,6 +419,9 @@ export default function App() {
       pickupRequestRef.current = { cents, requestId: uniqueRequestId() };
     }
     const requestId = pickupRequestRef.current.requestId;
+    const accountId = userId;
+    const accountSequence = refreshSequenceRef.current;
+    if (!accountId) return;
     setPickupBusy(true);
     setPickupResult(null);
     try {
@@ -427,6 +430,9 @@ export default function App() {
       });
       if (error) throw error;
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      if (authError) throw authError;
+      if (accountSequence !== refreshSequenceRef.current || authData.session?.user?.id !== accountId) return;
       setPickupResult(data);
       if (data.status === 'already_created' && !data.pickupCode) {
         message('Orden existente', 'La orden ficticia ya estaba registrada. Consulta Mis retiros ficticios para verificarla. El código de prueba no se vuelve a mostrar.');
@@ -434,9 +440,11 @@ export default function App() {
       pickupRequestRef.current = null;
       setPickupAmount('');
     } catch (error) {
-      message('Orden ficticia no creada', error.message || 'Error desconocido');
+      if (accountSequence === refreshSequenceRef.current) {
+        message('Orden ficticia no creada', error.message || 'Error desconocido');
+      }
     } finally {
-      setPickupBusy(false);
+      if (accountSequence === refreshSequenceRef.current) setPickupBusy(false);
     }
   }
 
