@@ -225,3 +225,14 @@ test('reinicia indicadores de carga al cambiar de cuenta', () => {
     assert.ok(block.includes(setter), setter);
   }
 });
+
+test('una transferencia antigua no desbloquea operaciones de la nueva cuenta', () => {
+  const start = app.indexOf('async function executeOperation(');
+  const end = app.indexOf('function prepareOperation(', start);
+  const block = app.slice(start, end);
+  assert.ok(app.includes('busyRef.current = null;'));
+  assert.ok(block.includes('const operationToken = accountSequence;'));
+  assert.ok(block.includes('busyRef.current = operationToken;'));
+  assert.ok(block.includes('if (busyRef.current === operationToken) {'));
+  assert.ok(!block.includes('busyRef.current = false;'));
+});
