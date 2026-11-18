@@ -275,3 +275,11 @@ test('las conversiones no muestran errores ni modifican carga de una sesión ant
   assert.ok(confirm.includes("if (accountSequence === accountVersionRef.current) message('Conversión no confirmada'"));
   assert.ok(confirm.includes("if (accountSequence === accountVersionRef.current) message('Saldo pendiente de actualizar'"));
 });
+
+test('confirmar una cotización anterior conserva cambios nuevos del formulario', () => {
+  const confirm = app.slice(app.indexOf('async function confirmSwap('), app.indexOf('async function createDemoPickup('));
+  assert.ok(confirm.includes('const inputVersion = swapInputVersionRef.current;'));
+  const guarded = confirm.slice(confirm.indexOf('if (inputVersion === swapInputVersionRef.current) {'));
+  assert.ok(guarded.indexOf('setSwapQuote(null);') < guarded.indexOf('setSwapAmount(\'\');'));
+  assert.ok(guarded.indexOf('setSwapAmount(\'\');') < guarded.indexOf("message('Conversión ficticia confirmada'"));
+});
