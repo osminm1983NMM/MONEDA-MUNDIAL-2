@@ -344,7 +344,9 @@ export default function App() {
       swapQuoteRequestRef.current = null;
       setSwapQuote(data);
     } catch (error) {
-      message('Cotización', error.message || 'No se pudo cotizar.');
+      if (inputVersion === swapInputVersionRef.current) {
+        message('Cotización', error.message || 'No se pudo cotizar.');
+      }
     } finally {
       setSwapBusy(false);
     }
@@ -397,6 +399,9 @@ export default function App() {
       if (error) throw error;
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
       setPickupResult(data);
+      if (data.status === 'already_created' && !data.pickupCode) {
+        message('Orden existente', 'La orden ficticia ya estaba registrada. Consulta Mis retiros ficticios para verificarla. El código de prueba no se vuelve a mostrar.');
+      }
       pickupRequestRef.current = null;
       setPickupAmount('');
     } catch (error) {
