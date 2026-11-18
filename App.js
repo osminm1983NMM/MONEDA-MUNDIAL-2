@@ -390,7 +390,7 @@ export default function App() {
         message('Cotización', error.message || 'No se pudo cotizar.');
       }
     } finally {
-      setSwapBusy(false);
+      if (accountSequence === accountVersionRef.current) setSwapBusy(false);
     }
   }
 
@@ -424,13 +424,13 @@ export default function App() {
         if (accountSequence !== accountVersionRef.current || refreshedAuth.session?.user?.id !== accountId) return;
         setSwapWallet(walletResponse.data);
       } catch (refreshError) {
-        message('Saldo pendiente de actualizar', 'La conversión ficticia ya fue confirmada. No la repitas. Pulsa Consultar saldos para actualizar la billetera.');
+        if (accountSequence === accountVersionRef.current) message('Saldo pendiente de actualizar', 'La conversión ficticia ya fue confirmada. No la repitas. Pulsa Consultar saldos para actualizar la billetera.');
       }
     } catch (error) {
-      message('Conversión no confirmada', (error.message || 'Error desconocido') +
+      if (accountSequence === accountVersionRef.current) message('Conversión no confirmada', (error.message || 'Error desconocido') +
         '\nConsulta los saldos antes de intentar otra conversión.');
     } finally {
-      setSwapBusy(false);
+      if (accountSequence === accountVersionRef.current) setSwapBusy(false);
     }
   }
 
