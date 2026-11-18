@@ -196,3 +196,12 @@ test('separa cambios de cuenta de actualizaciones ordinarias de saldos', () => {
   assert.ok(app.includes('const requestSequence = ++refreshSequenceRef.current;'));
   assert.ok(!app.includes('accountSequence = refreshSequenceRef.current'));
 });
+
+test('no muestra cancelación de retiro de una sesión anterior', () => {
+  const start = app.indexOf('async function cancelDemoPickup(');
+  const end = app.indexOf('function navigate(', start);
+  const block = app.slice(start, end);
+  assert.ok(block.includes('const accountSequence = accountVersionRef.current;'));
+  assert.ok(block.includes('authData.session?.user?.id !== accountId'));
+  assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf("message('Orden ficticia'"));
+});
