@@ -241,11 +241,11 @@ export default function App() {
     pendingRef.current = null;
   }
 
-  async function executeOperation(type, cents, code = '') {
+  async function executeOperation(type, cents, code = '', expectedAccountId, expectedAccountVersion) {
     if (busyRef.current) return;
     const accountId = userId;
     const accountSequence = accountVersionRef.current;
-    if (!accountId) return;
+    if (!accountId || accountId !== expectedAccountId || accountSequence !== expectedAccountVersion) return;
     const operationToken = accountSequence;
     busyRef.current = operationToken;
     setBusy(true);
@@ -310,9 +310,14 @@ export default function App() {
       }
       if (code === wallet.account_code) return message('Destinatario', 'No puedes enviarte MWD a tu propia cuenta.');
     }
+    const confirmedAccountId = userId;
+    const confirmedAccountVersion = accountVersionRef.current;
     confirmAction(type === 'transfer' ? 'Transferencia de prueba' : 'Aportación de prueba',
       `${formatMWD(cents)} MWD ficticios${type === 'transfer' ? '\nDestino: ' + code : '\nFondo de demostración'}`,
-      () => executeOperation(type, cents, code));
+      () => {
+        if (!confirmedAccountId || confirmedAccountVersion !== accountVersionRef.current) return;
+        executeOperation(type, cents, code, confirmedAccountId, confirmedAccountVersion);
+      });
   }
 
   async function logout() {
