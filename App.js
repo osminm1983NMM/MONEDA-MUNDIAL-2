@@ -109,6 +109,7 @@ export default function App() {
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
   const pickupRequestRef = useRef(null);
+  const swapQuoteRequestRef = useRef(null);
   const refreshSequenceRef = useRef(0);
   const userId = session?.user?.id;
 
@@ -140,6 +141,7 @@ export default function App() {
       setSwapWallet(null);
       setSwapQuote(null);
       pickupRequestRef.current = null;
+      swapQuoteRequestRef.current = null;
       pendingRef.current = null;
       setPickupOrders([]);
       setPickupResult(null);
@@ -148,6 +150,7 @@ export default function App() {
       return;
     }
     pickupRequestRef.current = null;
+    swapQuoteRequestRef.current = null;
     pendingRef.current = null;
     setWallet(null);
     setOperations([]);
@@ -322,13 +325,18 @@ export default function App() {
     if (!Number.isSafeInteger(micro) || micro < 1000000 || micro > 10000000000) {
       return message('Cantidad inválida', 'Introduce entre 1 y 10,000 unidades de prueba.');
     }
+    if (!swapQuoteRequestRef.current || swapQuoteRequestRef.current.micro !== micro || swapQuoteRequestRef.current.asset !== swapFrom) {
+      swapQuoteRequestRef.current = { micro, asset: swapFrom, requestId: uniqueRequestId() };
+    }
+    const quoteRequestId = swapQuoteRequestRef.current.requestId;
     setSwapBusy(true);
     setSwapQuote(null);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_quote_demo', {
-        p_from_asset: swapFrom, p_amount_micro: micro, p_client_request_id: uniqueRequestId(),
+        p_from_asset: swapFrom, p_amount_micro: micro, p_client_request_id: quoteRequestId,
       });
       if (error) throw error;
+      swapQuoteRequestRef.current = null;
       setSwapQuote(data);
     } catch (error) {
       message('Cotización', error.message || 'No se pudo cotizar.');
@@ -578,10 +586,11 @@ export default function App() {
                 secondary disabled={swapBusy} onPress={() => {
                   setSwapFrom(swapFrom === 'COIN' ? 'STABLE' : 'COIN');
                   setSwapQuote(null);
+                  swapQuoteRequestRef.current = null;
                 }} />
               <TextInput style={styles.input} placeholder="Cantidad (mínimo 1)"
                 keyboardType="decimal-pad" placeholderTextColor="#9fb1c8"
-                value={swapAmount} onChangeText={value => { setSwapAmount(value); setSwapQuote(null); }} />
+                value={swapAmount} onChangeText={value => { setSwapAmount(value); setSwapQuote(null); swapQuoteRequestRef.current = null; }} />
               <Btn title={swapBusy ? 'Procesando...' : 'Solicitar cotización ficticia'}
                 disabled={swapBusy || !swapWallet} onPress={requestSwapQuote} />
               {swapQuote && <View>
