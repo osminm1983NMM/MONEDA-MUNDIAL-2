@@ -121,3 +121,12 @@ test('conserva los campos de una transferencia pendiente al navegar', () => {
   assert.ok(block.includes("setAmount('');"));
   assert.ok(block.includes("setRecipientCode('');"));
 });
+
+test('permite reintentar una operación idéntica aunque haya bajado el saldo', () => {
+  const start = app.indexOf('function prepareOperation(type)');
+  const end = app.indexOf('function navigate(to)', start);
+  const block = app.slice(start, end);
+  assert.ok(block.includes('const pending = pendingRef.current;'));
+  assert.ok(block.includes("pending?.type === type && pending.cents === cents && pending.code === (type === 'transfer' ? code : '')"));
+  assert.ok(block.includes('if (!samePending && cents > wallet.balance_cents)'));
+});
