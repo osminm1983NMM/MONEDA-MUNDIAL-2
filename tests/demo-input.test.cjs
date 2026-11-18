@@ -207,3 +207,13 @@ test('no muestra cancelación de retiro de una sesión anterior', () => {
   assert.ok(block.includes('authData.session?.user?.id !== accountId'));
   assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf("message('Orden ficticia'"));
 });
+
+test('transferencias y aportaciones no confirman en otra sesión', () => {
+  const start = app.indexOf('async function executeOperation(');
+  const end = app.indexOf('function prepareOperation(', start);
+  const block = app.slice(start, end);
+  assert.ok(block.includes('const accountSequence = accountVersionRef.current;'));
+  assert.ok(block.includes('authData.session?.user?.id !== accountId'));
+  assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf('pendingRef.current = null;'));
+  assert.ok(block.includes('if (accountSequence === accountVersionRef.current) setBusy(false);'));
+});
