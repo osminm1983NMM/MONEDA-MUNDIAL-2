@@ -112,6 +112,7 @@ export default function App() {
   const swapQuoteRequestRef = useRef(null);
   const swapInputVersionRef = useRef(0);
   const refreshSequenceRef = useRef(0);
+  const accountVersionRef = useRef(0);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -135,6 +136,7 @@ export default function App() {
 
   useEffect(() => {
     refreshSequenceRef.current += 1;
+    accountVersionRef.current += 1;
     if (!userId) {
       setWallet(null);
       setOperations([]);
@@ -311,7 +313,7 @@ export default function App() {
 
   async function loadSwapWallet() {
     const accountId = userId;
-    const accountSequence = refreshSequenceRef.current;
+    const accountSequence = accountVersionRef.current;
     if (!accountId) return;
     setSwapBusy(true);
     try {
@@ -319,14 +321,14 @@ export default function App() {
       if (error) throw error;
       const { data: authData, error: authError } = await supabase.auth.getSession();
       if (authError) throw authError;
-      if (accountSequence !== refreshSequenceRef.current || authData.session?.user?.id !== accountId) return;
+      if (accountSequence !== accountVersionRef.current || authData.session?.user?.id !== accountId) return;
       setSwapWallet(data);
     } catch (error) {
-      if (accountSequence === refreshSequenceRef.current) {
+      if (accountSequence === accountVersionRef.current) {
         message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
       }
     } finally {
-      if (accountSequence === refreshSequenceRef.current) setSwapBusy(false);
+      if (accountSequence === accountVersionRef.current) setSwapBusy(false);
     }
   }
 
@@ -345,7 +347,7 @@ export default function App() {
     }
     const quoteRequestId = swapQuoteRequestRef.current.requestId;
     const accountId = userId;
-    const accountSequence = refreshSequenceRef.current;
+    const accountSequence = accountVersionRef.current;
     const inputVersion = swapInputVersionRef.current;
     setSwapBusy(true);
     setSwapQuote(null);
@@ -354,14 +356,14 @@ export default function App() {
         p_from_asset: swapFrom, p_amount_micro: micro, p_client_request_id: quoteRequestId,
       });
       if (error) throw error;
-      if (inputVersion !== swapInputVersionRef.current || accountSequence !== refreshSequenceRef.current) return;
+      if (inputVersion !== swapInputVersionRef.current || accountSequence !== accountVersionRef.current) return;
       const { data: authData, error: authError } = await supabase.auth.getSession();
       if (authError) throw authError;
-      if (authData.session?.user?.id !== accountId || accountSequence !== refreshSequenceRef.current) return;
+      if (authData.session?.user?.id !== accountId || accountSequence !== accountVersionRef.current) return;
       swapQuoteRequestRef.current = null;
       setSwapQuote(data);
     } catch (error) {
-      if (inputVersion === swapInputVersionRef.current && accountSequence === refreshSequenceRef.current) {
+      if (inputVersion === swapInputVersionRef.current && accountSequence === accountVersionRef.current) {
         message('Cotización', error.message || 'No se pudo cotizar.');
       }
     } finally {
@@ -373,7 +375,7 @@ export default function App() {
     if (!swapQuote?.quoteId || swapBusy) return;
     const quote = swapQuote;
     const accountId = userId;
-    const accountSequence = refreshSequenceRef.current;
+    const accountSequence = accountVersionRef.current;
     if (!accountId) return;
     if (new Date(quote.expiresAt).getTime() <= Date.now()) {
       setSwapQuote(null);
@@ -388,7 +390,7 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
       const { data: authData, error: authError } = await supabase.auth.getSession();
       if (authError) throw authError;
-      if (accountSequence !== refreshSequenceRef.current || authData.session?.user?.id !== accountId) return;
+      if (accountSequence !== accountVersionRef.current || authData.session?.user?.id !== accountId) return;
       setSwapQuote(null);
       setSwapAmount('');
       message('Conversión ficticia confirmada', 'La conversión de prueba fue registrada.');
@@ -396,7 +398,7 @@ export default function App() {
         const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
         if (walletResponse.error) throw walletResponse.error;
         const { data: refreshedAuth } = await supabase.auth.getSession();
-        if (accountSequence !== refreshSequenceRef.current || refreshedAuth.session?.user?.id !== accountId) return;
+        if (accountSequence !== accountVersionRef.current || refreshedAuth.session?.user?.id !== accountId) return;
         setSwapWallet(walletResponse.data);
       } catch (refreshError) {
         message('Saldo pendiente de actualizar', 'La conversión ficticia ya fue confirmada. No la repitas. Pulsa Consultar saldos para actualizar la billetera.');
@@ -420,7 +422,7 @@ export default function App() {
     }
     const requestId = pickupRequestRef.current.requestId;
     const accountId = userId;
-    const accountSequence = refreshSequenceRef.current;
+    const accountSequence = accountVersionRef.current;
     if (!accountId) return;
     setPickupBusy(true);
     setPickupResult(null);
@@ -432,7 +434,7 @@ export default function App() {
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
       const { data: authData, error: authError } = await supabase.auth.getSession();
       if (authError) throw authError;
-      if (accountSequence !== refreshSequenceRef.current || authData.session?.user?.id !== accountId) return;
+      if (accountSequence !== accountVersionRef.current || authData.session?.user?.id !== accountId) return;
       setPickupResult(data);
       if (data.status === 'already_created' && !data.pickupCode) {
         message('Orden existente', 'La orden ficticia ya estaba registrada. Consulta Mis retiros ficticios para verificarla. El código de prueba no se vuelve a mostrar.');
@@ -440,17 +442,17 @@ export default function App() {
       pickupRequestRef.current = null;
       setPickupAmount('');
     } catch (error) {
-      if (accountSequence === refreshSequenceRef.current) {
+      if (accountSequence === accountVersionRef.current) {
         message('Orden ficticia no creada', error.message || 'Error desconocido');
       }
     } finally {
-      if (accountSequence === refreshSequenceRef.current) setPickupBusy(false);
+      if (accountSequence === accountVersionRef.current) setPickupBusy(false);
     }
   }
 
   async function loadPickupOrders() {
     const accountId = userId;
-    const accountSequence = refreshSequenceRef.current;
+    const accountSequence = accountVersionRef.current;
     if (!accountId) return;
     setPickupOrdersBusy(true);
     try {
@@ -459,14 +461,14 @@ export default function App() {
       if (!Array.isArray(data)) throw new Error('Respuesta de órdenes no reconocida.');
       const { data: authData, error: authError } = await supabase.auth.getSession();
       if (authError) throw authError;
-      if (accountSequence !== refreshSequenceRef.current || authData.session?.user?.id !== accountId) return;
+      if (accountSequence !== accountVersionRef.current || authData.session?.user?.id !== accountId) return;
       setPickupOrders(data);
     } catch (error) {
-      if (accountSequence === refreshSequenceRef.current) {
+      if (accountSequence === accountVersionRef.current) {
         message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
       }
     } finally {
-      if (accountSequence === refreshSequenceRef.current) setPickupOrdersBusy(false);
+      if (accountSequence === accountVersionRef.current) setPickupOrdersBusy(false);
     }
   }
 
