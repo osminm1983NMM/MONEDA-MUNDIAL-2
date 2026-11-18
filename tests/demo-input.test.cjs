@@ -7,7 +7,7 @@ const path = require('node:path');
 const app = fs.readFileSync(path.join(__dirname, '..', 'App.js'), 'utf8');
 
 // Este patrón debe coincidir con el usado en requestSwapQuote de App.js.
-const amountPattern = /^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$/;
+const amountPattern = /^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/;
 
 test('la expresión de conversiones del código coincide con la validada', () => {
   assert.ok(app.includes('if (!' + amountPattern.toString() + '.test(normalized))'));
