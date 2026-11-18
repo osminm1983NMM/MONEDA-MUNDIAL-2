@@ -112,3 +112,12 @@ test('navegar no elimina el identificador de una transferencia pendiente', () =>
   assert.equal(block.includes('pendingRef.current = null;'), false);
   assert.ok(app.includes('pendingRef.current = { type, cents, code, id: uniqueRequestId() };'));
 });
+
+test('conserva los campos de una transferencia pendiente al navegar', () => {
+  const start = app.indexOf('function navigate(to)');
+  const end = app.indexOf('  return (', start);
+  const block = app.slice(start, end);
+  assert.ok(block.includes('if (!pendingRef.current) {'));
+  assert.ok(block.includes("setAmount('');"));
+  assert.ok(block.includes("setRecipientCode('');"));
+});
