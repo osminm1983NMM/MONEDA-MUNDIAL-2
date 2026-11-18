@@ -35,3 +35,11 @@ test('limpia identificador cuando se completa o se edita el importe', () => {
   assert.ok(app.includes('setPickupResult(data);\\n      pickupRequestRef.current = null;'.replace('\\n', '\n')));
   assert.ok(app.includes('setPickupAmount(value);\\n                  pickupRequestRef.current = null;'.replace('\\n', '\n')));
 });
+
+test('muestra los estados de retiro en español sin confundirlos con pagos reales', () => {
+  for (const label of ["pending: 'Pendiente'", "expired: 'Vencida'", "cancelled: 'Cancelada'", "simulated_collected: 'Retiro simulado'"]) {
+    assert.ok(app.includes(label), label);
+  }
+  assert.ok(app.includes('Estado: {pickupStatusLabel(order.status)}'));
+  assert.ok(app.includes("'Estado no reconocido'"));
+});
