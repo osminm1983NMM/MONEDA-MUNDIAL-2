@@ -258,6 +258,7 @@ export default function App() {
     if (busyRef.current) return;
     const accountId = userId;
     const accountSequence = accountVersionRef.current;
+    const inputVersion = operationInputVersionRef.current;
     if (!accountId || accountId !== expectedAccountId || accountSequence !== expectedAccountVersion) return;
     const operationToken = accountSequence;
     busyRef.current = operationToken;
@@ -282,10 +283,12 @@ export default function App() {
       const { data: authData, error: authError } = await supabase.auth.getSession();
       if (authError) throw authError;
       if (accountSequence !== accountVersionRef.current || authData.session?.user?.id !== accountId) return;
-      pendingRef.current = null;
-      setAmount('');
-      setRecipientCode('');
-      setScreen('Inicio');
+      if (inputVersion === operationInputVersionRef.current) {
+        if (pendingRef.current?.id === requestId) pendingRef.current = null;
+        setAmount('');
+        setRecipientCode('');
+        setScreen('Inicio');
+      }
       message('Operación ficticia confirmada', type === 'transfer'
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
