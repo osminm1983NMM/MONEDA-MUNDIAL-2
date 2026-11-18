@@ -171,3 +171,13 @@ test('protege confirmación y actualización de saldos al cambiar de sesión', (
   assert.ok(block.includes('refreshedAuth.session?.user?.id !== accountId'));
   assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf('setSwapQuote(null);', block.indexOf("['ok', 'already_processed']")));
 });
+
+test('no muestra retiros creados para otra sesión', () => {
+  const start = app.indexOf('async function createDemoPickup()');
+  const end = app.indexOf('async function loadPickupOrders()', start);
+  const block = app.slice(start, end);
+  assert.ok(block.includes('const accountId = userId;'));
+  assert.ok(block.includes('const accountSequence = refreshSequenceRef.current;'));
+  assert.ok(block.includes('authData.session?.user?.id !== accountId'));
+  assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf('setPickupResult(data);'));
+});
