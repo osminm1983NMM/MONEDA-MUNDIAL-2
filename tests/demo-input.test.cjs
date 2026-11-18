@@ -84,3 +84,13 @@ test('no muestra errores de cotizaciones anteriores y aclara reintentos de retir
   assert.ok(app.includes("data.status === 'already_created' && !data.pickupCode"));
   assert.ok(app.includes('El código de prueba no se vuelve a mostrar.'));
 });
+
+test('distingue conversión confirmada de un fallo al actualizar saldo', () => {
+  const start = app.indexOf('async function confirmSwap()');
+  const end = app.indexOf('async function createDemoPickup()', start);
+  const block = app.slice(start, end);
+  assert.ok(block.includes("message('Conversión ficticia confirmada'"));
+  assert.ok(block.includes("message('Saldo pendiente de actualizar'"));
+  assert.ok(block.includes('No la repitas.'));
+  assert.ok(block.indexOf("message('Conversión ficticia confirmada'") < block.indexOf("supabase.rpc('mwd_conversion_wallet_demo')"));
+});
