@@ -45,7 +45,7 @@ test('muestra los estados de retiro en español sin confundirlos con pagos reale
 });
 
 test('limpia información de la cuenta anterior al cambiar de usuario', () => {
-  const marker = 'pickupRequestRef.current = null;\\n    swapQuoteRequestRef.current = null;\\n    pendingRef.current = null;'.replaceAll('\\n', '\n');
+  const marker = 'pickupRequestRef.current = null;\\n    swapQuoteRequestRef.current = null;\\n    swapInputVersionRef.current += 1;\\n    pendingRef.current = null;'.replaceAll('\\n', '\n');
   const start = app.indexOf(marker);
   assert.notEqual(start, -1);
   const block = app.slice(start, start + 350);
@@ -70,4 +70,11 @@ test('reutiliza el identificador de cotización al reintentar y lo reinicia cuan
   assert.ok(app.includes('const quoteRequestId = swapQuoteRequestRef.current.requestId;'));
   assert.ok(app.includes('p_client_request_id: quoteRequestId'));
   assert.ok(app.includes('swapQuoteRequestRef.current = null;'));
+});
+
+test('descarta cotizaciones anteriores al cambio de moneda o cantidad', () => {
+  assert.ok(app.includes('const swapInputVersionRef = useRef(0);'));
+  assert.ok(app.includes('const inputVersion = swapInputVersionRef.current;'));
+  assert.ok(app.includes('if (inputVersion !== swapInputVersionRef.current) return;'));
+  assert.ok(app.includes('swapInputVersionRef.current += 1;'));
 });
