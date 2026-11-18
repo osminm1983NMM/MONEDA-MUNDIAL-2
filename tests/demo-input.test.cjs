@@ -140,3 +140,13 @@ test('no muestra órdenes de retiro cargadas para otra sesión', () => {
   assert.ok(block.includes('authData.session?.user?.id !== accountId'));
   assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf('setPickupOrders(data);'));
 });
+
+test('no muestra saldos COIN/DIGITAL cargados para otra sesión', () => {
+  const start = app.indexOf('async function loadSwapWallet()');
+  const end = app.indexOf('async function requestSwapQuote()', start);
+  const block = app.slice(start, end);
+  assert.ok(block.includes('const accountId = userId;'));
+  assert.ok(block.includes('const accountSequence = refreshSequenceRef.current;'));
+  assert.ok(block.includes('authData.session?.user?.id !== accountId'));
+  assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf('setSwapWallet(data);'));
+});
