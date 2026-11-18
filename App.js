@@ -117,6 +117,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(null);
   const pendingRef = useRef(null);
+  const operationInputVersionRef = useRef(0);
   const pickupRequestRef = useRef(null);
   const swapQuoteRequestRef = useRef(null);
   const swapInputVersionRef = useRef(0);
@@ -147,6 +148,7 @@ export default function App() {
     refreshSequenceRef.current += 1;
     accountVersionRef.current += 1;
     busyRef.current = null;
+    operationInputVersionRef.current += 1;
     setBusy(false);
     setSwapBusy(false);
     setPickupBusy(false);
@@ -242,10 +244,12 @@ export default function App() {
   }
 
   function changeAmount(value) {
+    operationInputVersionRef.current += 1;
     setAmount(value);
     pendingRef.current = null;
   }
   function changeRecipient(value) {
+    operationInputVersionRef.current += 1;
     setRecipientCode(value);
     pendingRef.current = null;
   }
@@ -321,10 +325,12 @@ export default function App() {
     }
     const confirmedAccountId = userId;
     const confirmedAccountVersion = accountVersionRef.current;
+    const confirmedInputVersion = operationInputVersionRef.current;
     confirmAction(type === 'transfer' ? 'Transferencia de prueba' : 'Aportación de prueba',
       `${formatMWD(cents)} MWD ficticios${type === 'transfer' ? '\nDestino: ' + code : '\nFondo de demostración'}`,
       () => {
-        if (!confirmedAccountId || confirmedAccountVersion !== accountVersionRef.current) return;
+        if (!confirmedAccountId || confirmedAccountVersion !== accountVersionRef.current ||
+          confirmedInputVersion !== operationInputVersionRef.current) return;
         executeOperation(type, cents, code, confirmedAccountId, confirmedAccountVersion);
       });
   }
