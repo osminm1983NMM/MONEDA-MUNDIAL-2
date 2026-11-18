@@ -63,3 +63,11 @@ test('ignora respuestas de sincronización anteriores a la sesión actual', () =
   assert.ok(app.includes('if (requestSequence !== refreshSequenceRef.current) return;'));
   assert.ok(app.includes('if (requestSequence === refreshSequenceRef.current) setSyncing(false);'));
 });
+
+test('reutiliza el identificador de cotización al reintentar y lo reinicia cuando cambian los datos', () => {
+  assert.ok(app.includes('const swapQuoteRequestRef = useRef(null);'));
+  assert.ok(app.includes('swapQuoteRequestRef.current = { micro, asset: swapFrom, requestId: uniqueRequestId() };'));
+  assert.ok(app.includes('const quoteRequestId = swapQuoteRequestRef.current.requestId;'));
+  assert.ok(app.includes('p_client_request_id: quoteRequestId'));
+  assert.ok(app.includes('swapQuoteRequestRef.current = null;'));
+});
