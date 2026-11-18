@@ -372,6 +372,9 @@ export default function App() {
   async function confirmSwap() {
     if (!swapQuote?.quoteId || swapBusy) return;
     const quote = swapQuote;
+    const accountId = userId;
+    const accountSequence = refreshSequenceRef.current;
+    if (!accountId) return;
     if (new Date(quote.expiresAt).getTime() <= Date.now()) {
       setSwapQuote(null);
       return message('Cotización vencida', 'Solicita una cotización nueva.');
@@ -383,12 +386,17 @@ export default function App() {
       });
       if (error) throw error;
       if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      if (authError) throw authError;
+      if (accountSequence !== refreshSequenceRef.current || authData.session?.user?.id !== accountId) return;
       setSwapQuote(null);
       setSwapAmount('');
       message('Conversión ficticia confirmada', 'La conversión de prueba fue registrada.');
       try {
         const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
         if (walletResponse.error) throw walletResponse.error;
+        const { data: refreshedAuth } = await supabase.auth.getSession();
+        if (accountSequence !== refreshSequenceRef.current || refreshedAuth.session?.user?.id !== accountId) return;
         setSwapWallet(walletResponse.data);
       } catch (refreshError) {
         message('Saldo pendiente de actualizar', 'La conversión ficticia ya fue confirmada. No la repitas. Pulsa Consultar saldos para actualizar la billetera.');
