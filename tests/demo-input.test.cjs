@@ -103,3 +103,12 @@ test('confirma transferencia antes de refrescar saldo e historial', () => {
   const refresh = block.indexOf('await refreshAccount();');
   assert.ok(confirmation >= 0 && refresh > confirmation);
 });
+
+test('navegar no elimina el identificador de una transferencia pendiente', () => {
+  const start = app.indexOf('function navigate(to)');
+  const end = app.indexOf('  return (', start);
+  const block = app.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.equal(block.includes('pendingRef.current = null;'), false);
+  assert.ok(app.includes('pendingRef.current = { type, cents, code, id: uniqueRequestId() };'));
+});
