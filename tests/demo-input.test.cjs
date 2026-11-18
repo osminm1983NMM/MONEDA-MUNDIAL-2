@@ -32,7 +32,9 @@ test('conserva identificador de retiro para reintentos', () => {
 });
 
 test('limpia identificador cuando se completa o se edita el importe', () => {
-  assert.ok(app.includes('setPickupResult(data);\\n      pickupRequestRef.current = null;'.replace('\\n', '\n')));
+  assert.ok(app.includes('setPickupResult(data);'));
+  assert.ok(app.includes('pickupRequestRef.current = null;'));
+  assert.ok(app.includes("if (accountSequence !== accountVersionRef.current || authData.session?.user?.id !== accountId) return;"));
   assert.ok(app.includes('setPickupAmount(value);\\n                  pickupRequestRef.current = null;'.replace('\\n', '\n')));
 });
 
@@ -80,7 +82,7 @@ test('descarta cotizaciones anteriores al cambio de moneda o cantidad', () => {
 });
 
 test('no muestra errores de cotizaciones anteriores y aclara reintentos de retiros', () => {
-  assert.ok(app.includes('if (inputVersion === swapInputVersionRef.current) {'));
+  assert.ok(app.includes('if (inputVersion === swapInputVersionRef.current && accountSequence === accountVersionRef.current) {'));
   assert.ok(app.includes("data.status === 'already_created' && !data.pickupCode"));
   assert.ok(app.includes('El código de prueba no se vuelve a mostrar.'));
 });
