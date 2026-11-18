@@ -266,3 +266,12 @@ test('ejecuta conversión real de importes y rechaza códigos MWD', () => {
     assert.equal(convert(input), expected, input);
   }
 });
+
+test('las conversiones no muestran errores ni modifican carga de una sesión anterior', () => {
+  const quote = app.slice(app.indexOf('async function requestSwapQuote('), app.indexOf('async function confirmSwap('));
+  const confirm = app.slice(app.indexOf('async function confirmSwap('), app.indexOf('async function createDemoPickup('));
+  assert.ok(quote.includes('if (accountSequence === accountVersionRef.current) setSwapBusy(false);'));
+  assert.ok(confirm.includes('if (accountSequence === accountVersionRef.current) setSwapBusy(false);'));
+  assert.ok(confirm.includes("if (accountSequence === accountVersionRef.current) message('Conversión no confirmada'"));
+  assert.ok(confirm.includes("if (accountSequence === accountVersionRef.current) message('Saldo pendiente de actualizar'"));
+});
