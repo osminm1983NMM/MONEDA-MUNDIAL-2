@@ -237,6 +237,9 @@ export default function App() {
 
   async function executeOperation(type, cents, code = '') {
     if (busyRef.current) return;
+    const accountId = userId;
+    const accountSequence = accountVersionRef.current;
+    if (!accountId) return;
     busyRef.current = true;
     setBusy(true);
     try {
@@ -256,6 +259,9 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      if (authError) throw authError;
+      if (accountSequence !== accountVersionRef.current || authData.session?.user?.id !== accountId) return;
       pendingRef.current = null;
       setAmount('');
       setRecipientCode('');
@@ -265,11 +271,11 @@ export default function App() {
         : 'Aportación de demostración registrada en Supabase.');
       await refreshAccount();
     } catch (error) {
-      message('Operación no confirmada',
+      if (accountSequence === accountVersionRef.current) message('Operación no confirmada',
         (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
     } finally {
       busyRef.current = false;
-      setBusy(false);
+      if (accountSequence === accountVersionRef.current) setBusy(false);
     }
   }
 
