@@ -137,6 +137,11 @@ export default function App() {
   useEffect(() => {
     refreshSequenceRef.current += 1;
     accountVersionRef.current += 1;
+    setBusy(false);
+    setSwapBusy(false);
+    setPickupBusy(false);
+    setPickupOrdersBusy(false);
+    setPickupCancelBusy(false);
     if (!userId) {
       setWallet(null);
       setOperations([]);
