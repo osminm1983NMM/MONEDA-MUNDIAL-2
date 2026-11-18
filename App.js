@@ -290,6 +290,9 @@ export default function App() {
 
   function prepareOperation(type) {
     if (busyRef.current) return;
+    if (/^\s*MWD-/i.test(amount)) {
+      return message('Campo equivocado', 'Pegaste un código de cuenta en Cantidad MWD. Para enviar créditos usa Transferir y coloca el código en Destinatario.');
+    }
     const cents = amountToCents(amount);
     if (cents === null) {
       return message('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
@@ -617,10 +620,12 @@ export default function App() {
             {screen === 'Transferir' && <View style={styles.card}>
               <Text style={styles.heading}>Transferencia de prueba</Text>
               <Text style={styles.muted}>Pide a la otra persona su código MWD para enviarle créditos de demostración.</Text>
-              <TextInput style={styles.input} placeholder="Ejemplo: MWD-0123456789ABCDEF"
+              <Text style={styles.muted}>Destinatario: código de la cuenta que recibirá los MWD</Text>
+              <TextInput style={styles.input} accessibilityLabel="Código MWD del destinatario" placeholder="Ejemplo: MWD-0123456789ABCDEF"
                 autoCapitalize="characters" autoCorrect={false} placeholderTextColor="#9fb1c8"
                 value={recipientCode} onChangeText={changeRecipient} />
-              <TextInput style={styles.input} placeholder="Cantidad MWD" keyboardType="decimal-pad"
+              <Text style={styles.muted}>Cantidad a transferir (solo números, por ejemplo 1.00)</Text>
+              <TextInput style={styles.input} accessibilityLabel="Cantidad de MWD para transferir" placeholder="Cantidad MWD" keyboardType="decimal-pad"
                 placeholderTextColor="#9fb1c8" value={amount} onChangeText={changeAmount} />
               <Btn title={busy ? 'Procesando...' : 'Confirmar transferencia ficticia'}
                 onPress={() => prepareOperation('transfer')} disabled={busy} />
@@ -629,7 +634,8 @@ export default function App() {
             {screen === 'Aportar' && <View style={styles.card}>
               <Text style={styles.heading}>Aportación de prueba</Text>
               <Text style={styles.muted}>La cantidad se descontará de tu saldo ficticio y quedará en el historial. No se recibirá dinero real.</Text>
-              <TextInput style={styles.input} placeholder="Cantidad MWD" keyboardType="decimal-pad"
+              <Text style={styles.muted}>Cantidad de aportación (solo números, por ejemplo 1.00). No pegues códigos MWD aquí.</Text>
+              <TextInput style={styles.input} accessibilityLabel="Cantidad de MWD para aportar" placeholder="Cantidad MWD" keyboardType="decimal-pad"
                 placeholderTextColor="#9fb1c8" value={amount} onChangeText={changeAmount} />
               <Btn title={busy ? 'Procesando...' : 'Confirmar aportación ficticia'}
                 onPress={() => prepareOperation('contribution')} disabled={busy} />
