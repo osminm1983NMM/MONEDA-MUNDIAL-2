@@ -94,3 +94,12 @@ test('distingue conversión confirmada de un fallo al actualizar saldo', () => {
   assert.ok(block.includes('No la repitas.'));
   assert.ok(block.indexOf("message('Conversión ficticia confirmada'") < block.indexOf("supabase.rpc('mwd_conversion_wallet_demo')"));
 });
+
+test('confirma transferencia antes de refrescar saldo e historial', () => {
+  const start = app.indexOf('async function executeOperation(');
+  const end = app.indexOf('function prepareOperation(', start);
+  const block = app.slice(start, end);
+  const confirmation = block.indexOf("message('Operación ficticia confirmada'");
+  const refresh = block.indexOf('await refreshAccount();');
+  assert.ok(confirmation >= 0 && refresh > confirmation);
+});
