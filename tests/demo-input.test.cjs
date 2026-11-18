@@ -45,7 +45,7 @@ test('muestra los estados de retiro en español sin confundirlos con pagos reale
 });
 
 test('limpia información de la cuenta anterior al cambiar de usuario', () => {
-  const marker = 'pickupRequestRef.current = null;\\n    pendingRef.current = null;'.replace('\\n', '\n');
+  const marker = 'pickupRequestRef.current = null;\\n    swapQuoteRequestRef.current = null;\\n    pendingRef.current = null;'.replaceAll('\\n', '\n');
   const start = app.indexOf(marker);
   assert.notEqual(start, -1);
   const block = app.slice(start, start + 350);
