@@ -449,9 +449,10 @@ export default function App() {
     setScreen(to);
     if (to === 'Convertir') loadSwapWallet();
     if (to === 'MisRetiros') loadPickupOrders();
+    // Conservar un identificador pendiente si la red falló: navegar no debe
+    // convertir un reintento de la misma operación en una solicitud nueva.
     setAmount('');
     setRecipientCode('');
-    pendingRef.current = null;
   }
 
   return (
