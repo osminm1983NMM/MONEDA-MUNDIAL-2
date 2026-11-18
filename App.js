@@ -278,7 +278,7 @@ export default function App() {
       return message('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
     }
     if (!wallet) return message('Espera', 'Primero carga tu cuenta.');
-    const code = recipientCode.trim().toUpperCase();
+    const code = type === 'transfer' ? recipientCode.trim().toUpperCase() : '';
     // Un reintento incierto conserva su ID incluso si el primer intento
     // ya descontó el saldo ficticio y la respuesta se perdió.
     const pending = pendingRef.current;
