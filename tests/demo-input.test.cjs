@@ -43,3 +43,14 @@ test('muestra los estados de retiro en español sin confundirlos con pagos reale
   assert.ok(app.includes('Estado: {pickupStatusLabel(order.status)}'));
   assert.ok(app.includes("'Estado no reconocido'"));
 });
+
+test('limpia información de la cuenta anterior al cambiar de usuario', () => {
+  const marker = 'pickupRequestRef.current = null;\\n    pendingRef.current = null;'.replace('\\n', '\n');
+  const start = app.indexOf(marker);
+  assert.notEqual(start, -1);
+  const block = app.slice(start, start + 350);
+  for (const clear of ['setWallet(null);', 'setOperations([]);', 'setAdminRole(null);', 'setSwapWallet(null);', 'setSwapQuote(null);', 'setPickupOrders([]);', 'setPickupResult(null);']) {
+    assert.ok(block.includes(clear), clear);
+  }
+  assert.ok(block.includes('refreshAccount(userId);'));
+});
