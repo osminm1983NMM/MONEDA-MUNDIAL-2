@@ -258,10 +258,10 @@ export default function App() {
       setAmount('');
       setRecipientCode('');
       setScreen('Inicio');
-      await refreshAccount();
       message('Operación ficticia confirmada', type === 'transfer'
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
+      await refreshAccount();
     } catch (error) {
       message('Operación no confirmada',
         (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
@@ -378,7 +378,7 @@ export default function App() {
       }
     } catch (error) {
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
-        '\\nConsulta los saldos antes de intentar otra conversión.');
+        '\nConsulta los saldos antes de intentar otra conversión.');
     } finally {
       setSwapBusy(false);
     }
