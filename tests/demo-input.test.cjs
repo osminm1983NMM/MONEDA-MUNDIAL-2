@@ -236,3 +236,11 @@ test('una transferencia antigua no desbloquea operaciones de la nueva cuenta', (
   assert.ok(block.includes('if (busyRef.current === operationToken) {'));
   assert.ok(!block.includes('busyRef.current = false;'));
 });
+
+test('identifica claramente destinatario y cantidad en transferencias y aportaciones', () => {
+  assert.ok(app.includes('accessibilityLabel="Código MWD del destinatario"'));
+  assert.ok(app.includes('accessibilityLabel="Cantidad de MWD para transferir"'));
+  assert.ok(app.includes('accessibilityLabel="Cantidad de MWD para aportar"'));
+  assert.ok(app.includes("message('Campo equivocado'"));
+  assert.ok(app.includes('Para enviar créditos usa Transferir'));
+});
