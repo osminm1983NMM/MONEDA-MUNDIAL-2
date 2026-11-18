@@ -75,7 +75,7 @@ test('reutiliza el identificador de cotización al reintentar y lo reinicia cuan
 test('descarta cotizaciones anteriores al cambio de moneda o cantidad', () => {
   assert.ok(app.includes('const swapInputVersionRef = useRef(0);'));
   assert.ok(app.includes('const inputVersion = swapInputVersionRef.current;'));
-  assert.ok(app.includes('if (inputVersion !== swapInputVersionRef.current) return;'));
+  assert.ok(app.includes('if (inputVersion !== swapInputVersionRef.current || accountSequence !== refreshSequenceRef.current) return;'));
   assert.ok(app.includes('swapInputVersionRef.current += 1;'));
 });
 
@@ -149,4 +149,14 @@ test('no muestra saldos COIN/DIGITAL cargados para otra sesión', () => {
   assert.ok(block.includes('const accountSequence = refreshSequenceRef.current;'));
   assert.ok(block.includes('authData.session?.user?.id !== accountId'));
   assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf('setSwapWallet(data);'));
+});
+
+test('descarta cotizaciones recibidas después de cambiar de cuenta', () => {
+  const start = app.indexOf('async function requestSwapQuote()');
+  const end = app.indexOf('async function confirmSwap()', start);
+  const block = app.slice(start, end);
+  assert.ok(block.includes('const accountId = userId;'));
+  assert.ok(block.includes('const accountSequence = refreshSequenceRef.current;'));
+  assert.ok(block.includes('authData.session?.user?.id !== accountId'));
+  assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf('setSwapQuote(data);'));
 });
