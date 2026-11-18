@@ -344,6 +344,8 @@ export default function App() {
       swapQuoteRequestRef.current = { micro, asset: swapFrom, requestId: uniqueRequestId() };
     }
     const quoteRequestId = swapQuoteRequestRef.current.requestId;
+    const accountId = userId;
+    const accountSequence = refreshSequenceRef.current;
     const inputVersion = swapInputVersionRef.current;
     setSwapBusy(true);
     setSwapQuote(null);
@@ -352,11 +354,14 @@ export default function App() {
         p_from_asset: swapFrom, p_amount_micro: micro, p_client_request_id: quoteRequestId,
       });
       if (error) throw error;
-      if (inputVersion !== swapInputVersionRef.current) return;
+      if (inputVersion !== swapInputVersionRef.current || accountSequence !== refreshSequenceRef.current) return;
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      if (authError) throw authError;
+      if (authData.session?.user?.id !== accountId || accountSequence !== refreshSequenceRef.current) return;
       swapQuoteRequestRef.current = null;
       setSwapQuote(data);
     } catch (error) {
-      if (inputVersion === swapInputVersionRef.current) {
+      if (inputVersion === swapInputVersionRef.current && accountSequence === refreshSequenceRef.current) {
         message('Cotización', error.message || 'No se pudo cotizar.');
       }
     } finally {
