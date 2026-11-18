@@ -254,3 +254,15 @@ test('confirmación pendiente no ejecuta transferencia con una cuenta distinta',
   assert.ok(prepare.includes('executeOperation(type, cents, code, confirmedAccountId, confirmedAccountVersion)'));
   assert.ok(execute.includes('accountId !== expectedAccountId || accountSequence !== expectedAccountVersion'));
 });
+
+const vm = require('node:vm');
+
+test('ejecuta conversión real de importes y rechaza códigos MWD', () => {
+  const start = app.indexOf('function amountToCents(');
+  const end = app.indexOf('function uniqueRequestId(', start);
+  assert.ok(start >= 0 && end > start);
+  const convert = vm.runInNewContext('const LIMIT_CENTS = 100000000; ' + app.slice(start, end) + '; amountToCents');
+  for (const [input, expected] of [['1', 100], ['1.00', 100], ['0.01', 1], ['12,34', 1234], ['1000000', 100000000], ['0', null], ['-1', null], ['1.001', null], ['1000000.01', null], ['MWD-78FC9E21E886422B', null], ['', null]]) {
+    assert.equal(convert(input), expected, input);
+  }
+});
