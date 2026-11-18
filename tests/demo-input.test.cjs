@@ -293,3 +293,13 @@ test('ejecuta parser de conversión de seis decimales con límites exactos', () 
     assert.equal(parse(input), expected, input);
   }
 });
+
+test('confirmación de transferencia caduca al editar monto o destinatario', () => {
+  const prepare = app.slice(app.indexOf('function prepareOperation('), app.indexOf('async function logout('));
+  const edits = app.slice(app.indexOf('function changeAmount('), app.indexOf('async function executeOperation('));
+  assert.ok(app.includes('const operationInputVersionRef = useRef(0);'));
+  assert.ok(edits.includes('function changeAmount(value) {\n    operationInputVersionRef.current += 1;'));
+  assert.ok(edits.includes('function changeRecipient(value) {\n    operationInputVersionRef.current += 1;'));
+  assert.ok(prepare.includes('const confirmedInputVersion = operationInputVersionRef.current;'));
+  assert.ok(prepare.includes('confirmedInputVersion !== operationInputVersionRef.current'));
+});
