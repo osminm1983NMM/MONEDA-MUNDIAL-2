@@ -303,3 +303,12 @@ test('confirmación de transferencia caduca al editar monto o destinatario', () 
   assert.ok(prepare.includes('const confirmedInputVersion = operationInputVersionRef.current;'));
   assert.ok(prepare.includes('confirmedInputVersion !== operationInputVersionRef.current'));
 });
+
+test('respuesta de transferencia anterior no borra cambios nuevos del formulario', () => {
+  const execute = app.slice(app.indexOf('async function executeOperation('), app.indexOf('function prepareOperation('));
+  assert.ok(execute.includes('const inputVersion = operationInputVersionRef.current;'));
+  assert.ok(execute.includes('if (inputVersion === operationInputVersionRef.current) {'));
+  assert.ok(execute.includes('if (pendingRef.current?.id === requestId) pendingRef.current = null;'));
+  const guarded = execute.slice(execute.indexOf('if (inputVersion === operationInputVersionRef.current) {'));
+  assert.ok(guarded.indexOf("setAmount('');") < guarded.indexOf("message('Operación ficticia confirmada'"));
+});
