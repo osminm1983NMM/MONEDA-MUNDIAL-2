@@ -420,16 +420,24 @@ export default function App() {
   }
 
   async function loadPickupOrders() {
+    const accountId = userId;
+    const accountSequence = refreshSequenceRef.current;
+    if (!accountId) return;
     setPickupOrdersBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_my_orders_demo');
       if (error) throw error;
       if (!Array.isArray(data)) throw new Error('Respuesta de órdenes no reconocida.');
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      if (authError) throw authError;
+      if (accountSequence !== refreshSequenceRef.current || authData.session?.user?.id !== accountId) return;
       setPickupOrders(data);
     } catch (error) {
-      message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
+      if (accountSequence === refreshSequenceRef.current) {
+        message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
+      }
     } finally {
-      setPickupOrdersBusy(false);
+      if (accountSequence === refreshSequenceRef.current) setPickupOrdersBusy(false);
     }
   }
 
