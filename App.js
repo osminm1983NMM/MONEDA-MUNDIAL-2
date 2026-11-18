@@ -108,6 +108,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
+  const pickupRequestRef = useRef(null);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -136,8 +137,10 @@ export default function App() {
       setAdminRole(null);
       setSwapWallet(null);
       setSwapQuote(null);
+      pickupRequestRef.current = null;
       return;
     }
+    pickupRequestRef.current = null;
     refreshAccount(userId);
   }, [userId]);
 
@@ -285,7 +288,7 @@ export default function App() {
 
   async function requestSwapQuote() {
     const normalized = swapAmount.trim().replace(',', '.');
-    if (!/^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$/.test(normalized)) {
+    if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(normalized)) {
       return message('Cantidad inválida', 'Usa hasta seis decimales.');
     }
     const [whole, fraction = ''] = normalized.split('.');
@@ -342,7 +345,10 @@ export default function App() {
     if (cents === null || cents < 100 || cents > 100000) {
       return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
     }
-    const requestId = uniqueRequestId();
+    if (!pickupRequestRef.current || pickupRequestRef.current.cents !== cents) {
+      pickupRequestRef.current = { cents, requestId: uniqueRequestId() };
+    }
+    const requestId = pickupRequestRef.current.requestId;
     setPickupBusy(true);
     setPickupResult(null);
     try {
@@ -352,6 +358,7 @@ export default function App() {
       if (error) throw error;
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
       setPickupResult(data);
+      pickupRequestRef.current = null;
       setPickupAmount('');
     } catch (error) {
       message('Orden ficticia no creada', error.message || 'Error desconocido');
@@ -474,7 +481,10 @@ export default function App() {
               <Text style={styles.muted}>Monto de prueba: 1.00 a 1000.00 MWD</Text>
               <TextInput style={styles.input} placeholder="Ejemplo: 10.00"
                 placeholderTextColor="#9fb1c8" keyboardType="decimal-pad"
-                value={pickupAmount} onChangeText={setPickupAmount} editable={!pickupBusy} />
+                value={pickupAmount} onChangeText={value => {
+                  setPickupAmount(value);
+                  pickupRequestRef.current = null;
+                }} editable={!pickupBusy} />
               <Text style={styles.muted}>Máximo 5 órdenes nuevas por hora por cuenta. Vigencia: 24 horas.</Text>
               <Btn title={pickupBusy ? 'Creando...' : 'Crear orden ficticia'}
                 onPress={createDemoPickup} disabled={pickupBusy} />
