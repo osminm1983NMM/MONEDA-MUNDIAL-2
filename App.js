@@ -399,6 +399,7 @@ export default function App() {
     const quote = swapQuote;
     const accountId = userId;
     const accountSequence = accountVersionRef.current;
+    const inputVersion = swapInputVersionRef.current;
     if (!accountId) return;
     if (new Date(quote.expiresAt).getTime() <= Date.now()) {
       setSwapQuote(null);
@@ -414,8 +415,10 @@ export default function App() {
       const { data: authData, error: authError } = await supabase.auth.getSession();
       if (authError) throw authError;
       if (accountSequence !== accountVersionRef.current || authData.session?.user?.id !== accountId) return;
-      setSwapQuote(null);
-      setSwapAmount('');
+      if (inputVersion === swapInputVersionRef.current) {
+        setSwapQuote(null);
+        setSwapAmount('');
+      }
       message('Conversión ficticia confirmada', 'La conversión de prueba fue registrada.');
       try {
         const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
