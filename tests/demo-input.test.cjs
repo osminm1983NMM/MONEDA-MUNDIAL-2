@@ -217,3 +217,11 @@ test('transferencias y aportaciones no confirman en otra sesión', () => {
   assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf('pendingRef.current = null;'));
   assert.ok(block.includes('if (accountSequence === accountVersionRef.current) setBusy(false);'));
 });
+
+test('reinicia indicadores de carga al cambiar de cuenta', () => {
+  const start = app.indexOf('accountVersionRef.current += 1;');
+  const block = app.slice(start, start + 270);
+  for (const setter of ['setBusy(false);', 'setSwapBusy(false);', 'setPickupBusy(false);', 'setPickupOrdersBusy(false);', 'setPickupCancelBusy(false);']) {
+    assert.ok(block.includes(setter), setter);
+  }
+});
