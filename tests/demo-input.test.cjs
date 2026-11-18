@@ -54,3 +54,12 @@ test('limpia información de la cuenta anterior al cambiar de usuario', () => {
   }
   assert.ok(block.includes('refreshAccount(userId);'));
 });
+
+test('ignora respuestas de sincronización anteriores a la sesión actual', () => {
+  assert.ok(app.includes('const refreshSequenceRef = useRef(0);'));
+  assert.ok(app.includes('refreshSequenceRef.current += 1;'));
+  assert.ok(app.includes('const requestSequence = ++refreshSequenceRef.current;'));
+  assert.ok(app.includes('requestSequence !== refreshSequenceRef.current || id !== sessionData.session?.user?.id'));
+  assert.ok(app.includes('if (requestSequence !== refreshSequenceRef.current) return;'));
+  assert.ok(app.includes('if (requestSequence === refreshSequenceRef.current) setSyncing(false);'));
+});
