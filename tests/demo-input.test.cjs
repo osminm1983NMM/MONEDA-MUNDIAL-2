@@ -244,3 +244,13 @@ test('identifica claramente destinatario y cantidad en transferencias y aportaci
   assert.ok(app.includes("message('Campo equivocado'"));
   assert.ok(app.includes('Para enviar créditos usa Transferir'));
 });
+
+test('confirmación pendiente no ejecuta transferencia con una cuenta distinta', () => {
+  const prepare = app.slice(app.indexOf('function prepareOperation('), app.indexOf('async function logout('));
+  const execute = app.slice(app.indexOf('async function executeOperation('), app.indexOf('function prepareOperation('));
+  assert.ok(prepare.includes('const confirmedAccountId = userId;'));
+  assert.ok(prepare.includes('const confirmedAccountVersion = accountVersionRef.current;'));
+  assert.ok(prepare.includes('confirmedAccountVersion !== accountVersionRef.current'));
+  assert.ok(prepare.includes('executeOperation(type, cents, code, confirmedAccountId, confirmedAccountVersion)'));
+  assert.ok(execute.includes('accountId !== expectedAccountId || accountSequence !== expectedAccountVersion'));
+});
