@@ -130,3 +130,13 @@ test('permite reintentar una operación idéntica aunque haya bajado el saldo', 
   assert.ok(block.includes("pending?.type === type && pending.cents === cents && pending.code === (type === 'transfer' ? code : '')"));
   assert.ok(block.includes('if (!samePending && cents > wallet.balance_cents)'));
 });
+
+test('no muestra órdenes de retiro cargadas para otra sesión', () => {
+  const start = app.indexOf('async function loadPickupOrders()');
+  const end = app.indexOf('async function cancelDemoPickup(', start);
+  const block = app.slice(start, end);
+  assert.ok(block.includes('const accountId = userId;'));
+  assert.ok(block.includes('const accountSequence = refreshSequenceRef.current;'));
+  assert.ok(block.includes('authData.session?.user?.id !== accountId'));
+  assert.ok(block.indexOf('authData.session?.user?.id !== accountId') < block.indexOf('setPickupOrders(data);'));
+});
