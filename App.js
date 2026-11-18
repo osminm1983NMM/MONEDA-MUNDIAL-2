@@ -110,6 +110,7 @@ export default function App() {
   const pendingRef = useRef(null);
   const pickupRequestRef = useRef(null);
   const swapQuoteRequestRef = useRef(null);
+  const swapInputVersionRef = useRef(0);
   const refreshSequenceRef = useRef(0);
   const userId = session?.user?.id;
 
@@ -142,6 +143,7 @@ export default function App() {
       setSwapQuote(null);
       pickupRequestRef.current = null;
       swapQuoteRequestRef.current = null;
+      swapInputVersionRef.current += 1;
       pendingRef.current = null;
       setPickupOrders([]);
       setPickupResult(null);
@@ -151,6 +153,7 @@ export default function App() {
     }
     pickupRequestRef.current = null;
     swapQuoteRequestRef.current = null;
+    swapInputVersionRef.current += 1;
     pendingRef.current = null;
     setWallet(null);
     setOperations([]);
@@ -329,6 +332,7 @@ export default function App() {
       swapQuoteRequestRef.current = { micro, asset: swapFrom, requestId: uniqueRequestId() };
     }
     const quoteRequestId = swapQuoteRequestRef.current.requestId;
+    const inputVersion = swapInputVersionRef.current;
     setSwapBusy(true);
     setSwapQuote(null);
     try {
@@ -336,6 +340,7 @@ export default function App() {
         p_from_asset: swapFrom, p_amount_micro: micro, p_client_request_id: quoteRequestId,
       });
       if (error) throw error;
+      if (inputVersion !== swapInputVersionRef.current) return;
       swapQuoteRequestRef.current = null;
       setSwapQuote(data);
     } catch (error) {
@@ -587,10 +592,11 @@ export default function App() {
                   setSwapFrom(swapFrom === 'COIN' ? 'STABLE' : 'COIN');
                   setSwapQuote(null);
                   swapQuoteRequestRef.current = null;
+                  swapInputVersionRef.current += 1;
                 }} />
               <TextInput style={styles.input} placeholder="Cantidad (mínimo 1)"
                 keyboardType="decimal-pad" placeholderTextColor="#9fb1c8"
-                value={swapAmount} onChangeText={value => { setSwapAmount(value); setSwapQuote(null); swapQuoteRequestRef.current = null; }} />
+                value={swapAmount} onChangeText={value => { setSwapAmount(value); setSwapQuote(null); swapQuoteRequestRef.current = null; swapInputVersionRef.current += 1; }} />
               <Btn title={swapBusy ? 'Procesando...' : 'Solicitar cotización ficticia'}
                 disabled={swapBusy || !swapWallet} onPress={requestSwapQuote} />
               {swapQuote && <View>
