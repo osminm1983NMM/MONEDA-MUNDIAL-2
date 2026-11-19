@@ -22,3 +22,11 @@ test('account screen masks password and prevents duplicate submission', () => {
   assert.match(app, /onPress=\{changeSignedInPassword\} disabled=\{passwordChangeBusy\}/);
   assert.match(app, /setNewPassword\(''\);\s*setPasswordChangeBusy\(false\);\s*\}, \[userId\]\)/);
 });
+
+test('password update uses a synchronous guard for rapid taps', () => {
+  const handler = app.slice(app.indexOf('async function changeSignedInPassword()'), app.indexOf('function changeAmount('));
+  assert.match(handler, /if \(!userId \|\| passwordChangeBusyRef\.current\) return/);
+  assert.match(handler, /passwordChangeBusyRef\.current = true/);
+  assert.match(handler, /passwordChangeBusyRef\.current = false/);
+  assert.match(app, /passwordChangeBusyRef\.current = false;\s*\}, \[userId\]\)/);
+});
