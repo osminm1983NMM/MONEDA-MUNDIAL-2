@@ -113,4 +113,10 @@ assert.ok(app.includes('revision === swapWalletRevisionRef.current && requestedU
 assert.ok(app.includes('revision === pickupOrdersRevisionRef.current && requestedUserId === userId') &&
   app.includes('pickupOrdersRevisionRef.current += 1;'),
   'pickup history requests must ignore old-account responses');
-console.log('PASS: 37 static recovery and idempotency safety checks');
+assert.ok(app.includes('if (quoteRevision === swapQuoteRevisionRef.current && quoteUserId === userId) {') &&
+  app.includes("message('Cotización', error.message"),
+  'stale quote errors must not interrupt another account');
+assert.ok(app.includes('if (confirmRevision !== swapQuoteRevisionRef.current || confirmUserId !== userId) return;') &&
+  app.includes('if (confirmRevision === swapQuoteRevisionRef.current && confirmUserId === userId) {'),
+  'late conversion confirmation must not overwrite a newer screen');
+console.log('PASS: 39 static recovery and idempotency safety checks');
