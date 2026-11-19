@@ -283,7 +283,8 @@ export default function PartnerRegistryScreen({ supabase }) {
         onPress={saveLocation} />
 
       <Text style={[s.title, { marginTop: 17 }]}>Historial de modificaciones</Text>
-      {audit.length === 0 && <Text style={s.dim}>No hay modificaciones registradas.</Text>}
+      {detailsReady && audit.length === 0 && <Text style={s.dim}>No hay modificaciones registradas.</Text>}
+      {!detailsReady && <Text style={s.dim}>Historial no verificado: actualiza los detalles antes de sacar conclusiones.</Text>}
       {audit.map((a, i) => <Text key={i} style={s.dim}>
         {a.entity_type} · {a.action} · {new Date(a.changed_at).toLocaleString()}
       </Text>)}
