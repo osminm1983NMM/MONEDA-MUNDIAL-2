@@ -58,4 +58,9 @@ assert.ok(app.includes("pickupPendingRef.current = null;\n    setPickupAmount(''
   'pickup request memory must be cleared on account switch');
 assert.ok(app.includes(String.raw`'\nConsulta los saldos antes de intentar otra conversión.'`),
   'conversion recovery message must use a real newline escape');
-console.log('PASS: 19 static recovery and idempotency safety checks');
+const pickup = app.slice(pickupStart, app.indexOf('async function loadPickupOrders()', pickupStart));
+assert.ok(pickup.includes('try {\n        await AsyncStorage.removeItem(storageKey);\n      } catch (_cleanupError)'),
+  'pickup success must tolerate failure to clear saved request ID');
+assert.ok(operation.includes('pendingRecoveryErrorRef.current = true;'),
+  'confirmed transfer with failed cleanup must block new requests until recovery');
+console.log('PASS: 21 static recovery and idempotency safety checks');
