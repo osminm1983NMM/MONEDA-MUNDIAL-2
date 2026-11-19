@@ -140,7 +140,8 @@ export default function PartnerRegistryScreen({ supabase }) {
   }, [supabase]);
 
   async function savePartner() {
-    if (busy || writingRef.current) return;
+    // Un resultado incierto exige verificar primero el listado remoto.
+    if (busy || writingRef.current || !listReady) return;
     if (!validPartner(name, country)) {
       setError('Escribe un nombre de 2 a 150 caracteres y un código de país de 2 letras.');
       return;
@@ -270,7 +271,7 @@ export default function PartnerRegistryScreen({ supabase }) {
       {KIND.map(([value, label]) => <Btn key={value}
         title={kind === value ? '✓ ' + label : label}
         secondary={kind !== value} disabled={busy} onPress={() => setKind(value)} />)}
-      <Btn title="Guardar borrador permanente" disabled={busy || !validPartner(name, country)} onPress={savePartner} />
+      <Btn title="Guardar borrador permanente" disabled={busy || !listReady || !validPartner(name, country)} onPress={savePartner} />
     </View>
 
     <View style={s.card}>
