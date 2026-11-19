@@ -19,13 +19,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Instalar dependencias
-        run: npm install --no-audit --no-fund
-            
+      # Run dependency-free checks first to fail quickly and avoid unnecessary installs.
       - name: Verificar sintaxis de package.json
-        run: |
-          node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))"
+        run: node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))"
       - name: Comprobar protecciones de recuperación e idempotencia
         run: node --test tests/operation-recovery-static.test.cjs
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
   
   
