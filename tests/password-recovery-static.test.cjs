@@ -52,3 +52,14 @@ test('recovery callback supports PKCE code and rejects error callbacks', () => {
   assert.match(app, /params\.get\('error'\)/);
   assert.match(app, /supabase\.auth\.setSession\(\{/);
 });
+
+test('recovery callback combines query and fragment parameters', () => {
+  assert.match(app, /new URLSearchParams\(query\)/);
+  assert.match(app, /new URLSearchParams\(fragment\)/);
+  assert.match(app, /fragmentParams\.entries\(\)/);
+  assert.match(app, /params\.set\(key, value\)/);
+});
+
+test('sign-in auth events preserve the account password-change screen', () => {
+  assert.match(app, /setScreen\(previous => previous === 'Cuenta' \? previous : 'Inicio'\)/);
+});
