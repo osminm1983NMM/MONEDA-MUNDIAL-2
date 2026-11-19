@@ -86,3 +86,9 @@
 - Cinco pruebas dinámicas: importes válidos, importes inválidos, formato de saldo, 500 UUID v4 sin colisión en la muestra y fallo cerrado sin aleatoriedad criptográfica.
 - Workflow `.github/workflows/validar-demo.yml` actualizado para ejecutar también `node --test tests/pure-helpers.test.cjs` además de las 25 comprobaciones estáticas.
 - **Importante:** se ha configurado la ejecución, pero aún no hay resultado de GitHub Actions verificado. Las pruebas de funciones puras no reemplazan pruebas de Supabase ni Android.
+
+## Ejecución parcial real de funciones puras — 19 noviembre 2026
+- Se recuperó `App.js` de la rama de desarrollo y se ejecutaron sus funciones originales `amountToCents` y `formatMWD` en un entorno JavaScript aislado.
+- **Aprobados:** 7 casos de importes válidos, 12 casos de importes inválidos y 2 aserciones de formato de saldo; **0 discrepancias**.
+- `uniqueRequestId` devolvió error por falta de `crypto.getRandomValues` en el entorno aislado. Esto es comportamiento seguro de fallo cerrado, **no** equivale a la prueba positiva de generación de 500 UUID. Esa prueba sigue pendiente en Node 22/Android.
+- Estas comprobaciones parciales no prueban las 25 aserciones estáticas ni el workflow completo; no declarar CI verde.
