@@ -361,7 +361,7 @@ export default function App() {
       if (activeUserRef.current === item.userId) message('Operación ficticia confirmada', (type === 'transfer'
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.') +
-        (refreshed ? '' : '\\nNo se pudo actualizar el saldo o historial. Vuelve a sincronizar desde Inicio.'));
+        (refreshed ? '' : '\nNo se pudo actualizar el saldo o historial. Vuelve a sincronizar desde Inicio.'));
     } catch (error) {
       // Si el almacenamiento falló antes de crear la referencia, no se envió la RPC.
       // Si falló después, conservar el bloqueo y consultar el estado antes de reintentar.
