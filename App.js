@@ -304,7 +304,7 @@ export default function App() {
 
   async function requestPasswordReset() {
     const cleanEmail = email.trim().toLowerCase();
-    if (!/^\\S+@\\S+\\.\\S+$/.test(cleanEmail)) {
+    if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) {
       return message('Recuperar contraseña', 'Introduce primero el correo de tu cuenta.');
     }
     if (authBusy) return;
