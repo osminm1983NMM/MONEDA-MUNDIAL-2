@@ -119,9 +119,12 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return;
-      setSession(nextSession);
+      setSession(previous => {
+        // Un TOKEN_REFRESHED no debe expulsar al usuario de la pantalla actual.
+        if (previous?.user?.id !== nextSession?.user?.id) setScreen('Inicio');
+        return nextSession;
+      });
       setAuthLoading(false);
-      setScreen('Inicio');
     });
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
