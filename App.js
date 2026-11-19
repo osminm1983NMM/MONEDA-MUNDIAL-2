@@ -379,11 +379,15 @@ export default function App() {
   }
 
   async function loadPickupOrders() {
+    const requestedBy = userId;
+    if (!requestedBy) return;
     setPickupOrdersBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_my_orders_demo');
       if (error) throw error;
       if (!Array.isArray(data)) throw new Error('Respuesta de órdenes no reconocida.');
+      const { data: currentAuth } = await supabase.auth.getSession();
+      if (currentAuth.session?.user?.id !== requestedBy) return;
       setPickupOrders(data);
     } catch (error) {
       message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
