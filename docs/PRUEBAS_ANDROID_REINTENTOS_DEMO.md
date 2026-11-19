@@ -86,3 +86,8 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 52. Cancelar una orden y provocar error únicamente al refrescar la lista: la cancelación debe permanecer confirmada y no mostrar «Resultado de cancelación no confirmado».
 53. Perder la respuesta del RPC de cancelación: mostrar resultado no confirmado y pedir consultar Mis retiros antes de repetir.
 54. Crear o cancelar y cambiar de cuenta durante la actualización secundaria: no mostrar resultados privados de la cuenta anterior.
+
+## Actualización de saldo tras conversión
+55. Confirmar conversión ficticia y lanzar después una consulta manual de saldos: si la consulta manual responde primero, la respuesta tardía de la actualización automática no debe sobrescribirla.
+56. Confirmar conversión ficticia, cambiar de cuenta y recibir tarde la consulta automática: los saldos de la cuenta anterior no deben aparecer en la nueva.
+57. Confirmar conversión ficticia y provocar fallo tardío en la actualización automática mientras una consulta manual más reciente ya terminó: no borrar los saldos nuevos ni mostrar una advertencia obsoleta.
