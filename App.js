@@ -433,7 +433,7 @@ export default function App() {
       }
     } catch (error) {
       message('Orden ficticia no confirmada', (error.message || 'Error desconocido') +
-        '\\nReintenta con el mismo importe para conservar la referencia.');
+        '\nReintenta con el mismo importe para conservar la referencia.');
     } finally {
       setPickupBusy(false);
     }
