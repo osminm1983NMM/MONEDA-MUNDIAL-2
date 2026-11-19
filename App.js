@@ -353,8 +353,19 @@ export default function App() {
       return message('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
     }
     if (!wallet) return message('Espera', 'Primero carga tu cuenta.');
-    if (cents > wallet.balance_cents) return message('Saldo insuficiente', 'No tienes suficientes MWD ficticios.');
-    const code = recipientCode.trim().toUpperCase();
+    if (pendingLoadedUserRef.current !== userId) {
+      return message('Verificando solicitudes', 'Espera a que termine la recuperación de operaciones pendientes.');
+    }
+    const code = type === 'transfer' ? recipientCode.trim().toUpperCase() : '';
+    const pending = pendingRef.current;
+    if (pending && (pending.type !== type || pending.cents !== cents || pending.code !== code)) {
+      return message('Solicitud pendiente', 'Primero resuelve la operación anterior con sus datos originales.');
+    }
+    // A completed but unacknowledged transfer may already have reduced the balance.
+    // Let the server check the original idempotency key before rejecting a retry.
+    if (!pending && cents > wallet.balance_cents) {
+      return message('Saldo insuficiente', 'No tienes suficientes MWD ficticios.');
+    }
     if (type === 'transfer') {
       if (!/^MWD-[A-F0-9]{16}$/.test(code)) {
         return message('Identificador', 'Introduce el código MWD- seguido de 16 caracteres.');
