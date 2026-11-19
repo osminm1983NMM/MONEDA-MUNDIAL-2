@@ -190,3 +190,9 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 120. Conversión de A confirmada, cambiar a B durante lectura posterior de billetera: no sobrescribir saldo Coin/Digital de B.
 121. Fallar getSession durante lectura posterior de billetera de A, tras cambiar a B: no mostrar «Actualización pendiente» de A.
 122. getSession devuelve campo error durante actualización posterior a conversión confirmada: conservar confirmación, advertir actualización pendiente y no mostrar saldo antiguo como actualizado.
+
+## Indicador compartido de conversión
+123. Iniciar consulta de billetera Coin/Digital en A, cambiar a B e iniciar cotización en B: la consulta tardía de A no debe liberar el indicador de B.
+124. Iniciar cotización en A, cambiar a B e iniciar confirmación en B: el finally de la cotización A no debe liberar el indicador de B.
+125. Iniciar confirmación en A, cambiar a B e iniciar consulta de billetera en B: el finally de A no debe liberar el indicador de B.
+126. Con varias respuestas antiguas fuera de orden, solamente la ejecución más reciente de consulta, cotización o confirmación puede liberar swapBusy.
