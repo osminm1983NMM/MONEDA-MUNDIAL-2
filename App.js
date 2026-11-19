@@ -204,8 +204,17 @@ export default function App() {
       setSyncNotice('Saldo e historial actualizados correctamente.');
     } catch (error) {
       if (revision !== accountRefreshRevisionRef.current) return;
-      const { data: currentAuth } = await supabase.auth.getSession();
-      if (currentAuth.session?.user?.id !== id) return;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (authResult.data.session?.user?.id !== id) return;
+      } catch (authError) {
+        if (revision !== accountRefreshRevisionRef.current) return;
+        setSyncNotice('No se pudo verificar la sesión. Vuelve a consultar.');
+        message('Sesión no verificada', 'No se pudo comprobar la cuenta actual. Verifica tu sesión antes de operar.');
+        return;
+      }
+      if (revision !== accountRefreshRevisionRef.current) return;
       setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
       message('Sincronización', error.message || 'No se pudo consultar Supabase.');
     } finally {
