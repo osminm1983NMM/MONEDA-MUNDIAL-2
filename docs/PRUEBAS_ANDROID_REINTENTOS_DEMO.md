@@ -126,3 +126,9 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 80. Verificar tras cada escenario: saldo total, operaciones por request_id, asiento de débito/crédito cuando corresponda, ausencia de saldos negativos y cero operaciones duplicadas.
 
 **Criterio de aprobación:** cada escenario debe tener evidencia de dos solicitudes concurrentes, resultados de ambas, consulta de operaciones y comparación de saldos. Las verificaciones SQL de solo lectura de la base actual no sustituyen estas pruebas.
+
+## Creación de orden y verificación de sesión
+81. Crear orden ficticia en servidor y provocar error posterior de getSession: mostrar «Orden registrada; sesión pendiente», sin decir que la orden falló.
+82. Perder respuesta de creación de orden y fallar getSession al manejar el error: mostrar «Resultado de orden pendiente» y pedir consultar Mis retiros.
+83. Reintentar creación con mismo importe e identificador tras respuesta incierta: esperar already_created sin segunda orden.
+84. Cambiar de usuario mientras se crea una orden: no mostrar el código de retiro ni los datos privados al usuario nuevo.
