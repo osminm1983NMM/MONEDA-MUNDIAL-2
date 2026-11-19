@@ -1,0 +1,23 @@
+name: Swap recovery tests
+on:
+  push:
+    branches:
+      - fix/swap-reconcile-offline
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run recovery unit tests
+        run: node --test tests/*.test.mjs
+      - name: Validate Android development configuration
+        run: |
+          node -e "const c=require('./app.json').expo; if(c.android.package!=='com.monedamundial.app.dev'||c.name!=='Moneda Mundial DEV') process.exit(1)"
+          node -e "const e=require('./eas.json'); if(e.build.preview.android.buildType!=='apk') process.exit(1)"
