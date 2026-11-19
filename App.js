@@ -394,8 +394,9 @@ export default function App() {
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_wallet_demo');
       if (error) throw error;
-      const { data: currentAuth } = await supabase.auth.getSession();
-      if (currentAuth.session?.user?.id !== requestedBy || revision !== swapWalletRevisionRef.current) return;
+      const authResult = await supabase.auth.getSession();
+      if (authResult.error) throw authResult.error;
+      if (authResult.data.session?.user?.id !== requestedBy || revision !== swapWalletRevisionRef.current) return;
       setSwapWallet(data);
     } catch (error) {
       if (revision !== swapWalletRevisionRef.current) return;
@@ -436,8 +437,9 @@ export default function App() {
         p_from_asset: swapFrom, p_amount_micro: micro, p_client_request_id: uniqueRequestId(),
       });
       if (error) throw error;
-      const { data: currentAuth } = await supabase.auth.getSession();
-      if (currentAuth.session?.user?.id !== requestedBy || revision !== swapQuoteRevisionRef.current) return;
+      const authResult = await supabase.auth.getSession();
+      if (authResult.error) throw authResult.error;
+      if (authResult.data.session?.user?.id !== requestedBy || revision !== swapQuoteRevisionRef.current) return;
       setSwapQuote(data);
     } catch (error) {
       if (revision !== swapQuoteRevisionRef.current) return;
