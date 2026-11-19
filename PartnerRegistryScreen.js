@@ -87,6 +87,9 @@ export default function PartnerRegistryScreen({ supabase }) {
     const requestNumber = ++partnersRequestRef.current;
     setListReady(false);
     setDetailsReady(false);
+    // No mostrar sucursales ni auditorías antiguas durante una recarga fallida.
+    setLocations([]);
+    setAudit([]);
     // Descarta también respuestas de detalles iniciadas antes de esta recarga.
     ++detailsRequestRef.current;
     const rows = await request('mwd_owner_partners_demo');
