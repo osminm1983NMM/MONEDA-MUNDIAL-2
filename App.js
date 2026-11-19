@@ -185,7 +185,7 @@ export default function App() {
   }, [userId]);
 
   async function refreshAccount(id = userId) {
-    if (!id) return;
+    if (!id || activeUserRef.current !== id) return false;
     const sequence = ++refreshSequenceRef.current;
     setSyncing(true);
     try {
@@ -203,13 +203,15 @@ export default function App() {
       if (w.error) throw w.error;
       if (h.error) throw h.error;
       if (a.error) throw a.error;
-      if (activeUserRef.current !== id || sequence !== refreshSequenceRef.current) return;
+      if (activeUserRef.current !== id || sequence !== refreshSequenceRef.current) return false;
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
       return true;
     } catch (error) {
       if (activeUserRef.current === id && sequence === refreshSequenceRef.current) {
+        setWallet(null);
+        setOperations([]);
         message('Sincronización', error.message || 'No se pudo consultar Supabase.');
       }
       return false;
@@ -265,8 +267,9 @@ export default function App() {
         pendingRef.current = null;
         setPendingOperation(null);
         setPendingUnconfirmed(false);
-        await refreshAccount(userId);
-        if (activeUserRef.current === item.userId) message('Operación confirmada', 'Supabase confirmó que esta operación ficticia ya fue procesada.');
+        const refreshed = await refreshAccount(item.userId);
+        if (activeUserRef.current === item.userId) message('Operación confirmada', 'Supabase confirmó que esta operación ficticia ya fue procesada.' +
+          (refreshed ? '' : '\nEl saldo y el historial no pudieron sincronizarse. Actualízalos desde Inicio.'));
       } else if (data?.status === 'unconfirmed') {
         setPendingUnconfirmed(true);
         if (activeUserRef.current === item.userId) message('Operación sin confirmar', 'No aparece procesada. Conservamos su referencia. No se ha realizado un segundo envío.');
@@ -309,8 +312,9 @@ export default function App() {
           if (activeUserRef.current !== item.userId) return;
           pendingRef.current = null;
           setPendingOperation(null);
-          await refreshAccount(item.userId);
-          if (activeUserRef.current === item.userId) message('Operación confirmada', 'La solicitud ficticia fue registrada sin generar un identificador nuevo.');
+          const refreshed = await refreshAccount(item.userId);
+          if (activeUserRef.current === item.userId) message('Operación confirmada', 'La solicitud ficticia fue registrada sin generar un identificador nuevo.' +
+            (refreshed ? '' : '\nEl saldo y el historial no pudieron sincronizarse. Actualízalos desde Inicio.'));
         } catch (error) {
           if (activeUserRef.current === item.userId) message('Reintento sin confirmar', (error.message || 'Error desconocido') +
             '\nConservamos la referencia. Consulta nuevamente el estado antes de reintentar.');
@@ -405,7 +409,7 @@ export default function App() {
   async function logout() {
     // Evitar cambios de cuenta mientras una RPC o recuperación sigue activa.
     // Si existe una referencia pendiente, se conserva por usuario para recuperarla.
-    if (busyRef.current || recovering || pendingLoading) {
+    if (busyRef.current || recovering || pendingLoading || pendingStorageError) {
       message('Operación en curso', 'Espera a que termine la verificación antes de cerrar sesión.');
       return;
     }
