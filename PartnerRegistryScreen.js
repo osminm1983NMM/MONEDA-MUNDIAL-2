@@ -166,7 +166,13 @@ export default function PartnerRegistryScreen({ supabase }) {
       } catch (refreshError) {
         setError('El estado se guardó, pero no se pudo actualizar la pantalla. Actualiza el listado antes de intentar otro cambio.');
       }
-    } catch (err) { report(err); }
+    } catch (err) {
+      // La respuesta puede perderse después de que Supabase cambió el estado.
+      // Bloquear nuevas transiciones hasta recuperar los datos del servidor.
+      setDetailsReady(false);
+      setError('No se pudo confirmar el cambio de estado. Actualiza el listado y los detalles antes de realizar otra transición. Detalle: ' + (err?.message || 'Error de conexión.'));
+      setNotice('');
+    }
     finally { setBusy(false); }
   }
   async function saveLocation() {
