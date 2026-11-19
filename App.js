@@ -130,6 +130,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    pendingRef.current = null;
+    setAmount('');
+    setRecipientCode('');
     if (!userId) {
       setWallet(null);
       setOperations([]);
@@ -269,6 +272,11 @@ export default function App() {
         (type !== 'transfer' || already?.recipientCode === code);
       if (already?.status === 'processed' && !matches) {
         throw new Error('El servidor encontró una operación con datos diferentes. Requiere revisión.');
+      }
+      // El borrador pertenece a la cuenta activa, no a una sesión anterior.
+      const activeSession = await supabase.auth.getSession();
+      if (activeSession.error || activeSession.data.session?.user?.id !== userId) {
+        throw new Error('La sesión cambió. No se enviará ninguna operación.');
       }
       const response = matches ? { data: { status: 'already_processed' }, error: null } :
         type === 'transfer'
