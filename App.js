@@ -443,8 +443,10 @@ export default function App() {
       setPickupResult(data);
       pickupPendingRef.current = null;
       setPickupAmount('');
-      // Refrescar la lista después de confirmar la creación en el servidor.
-      await loadPickupOrders();
+      // La actualización secundaria no debe cambiar el resultado confirmado de la creación.
+      loadPickupOrders().catch(() => {
+        message('Actualización pendiente', 'Orden ficticia creada; consulta Mis retiros para actualizar la lista.');
+      });
     } catch (error) {
       const { data: currentAuth } = await supabase.auth.getSession();
       if (currentAuth.session?.user?.id !== requestedBy) return;
@@ -488,7 +490,10 @@ export default function App() {
       const { data: currentAuth } = await supabase.auth.getSession();
       if (currentAuth.session?.user?.id !== requestedBy) return;
       message('Orden ficticia', data.status === 'cancelled' ? 'Orden cancelada correctamente.' : 'La orden ya estaba cancelada.');
-      await loadPickupOrders();
+      // La consulta posterior no debe convertir una cancelación confirmada en un fallo.
+      loadPickupOrders().catch(() => {
+        message('Actualización pendiente', 'Cancelación confirmada; actualiza Mis retiros para consultar la lista.');
+      });
     } catch (error) {
       const { data: currentAuth } = await supabase.auth.getSession();
       if (currentAuth.session?.user?.id !== requestedBy) return;
