@@ -431,8 +431,9 @@ export default function App() {
     if (to === 'MisRetiros') loadPickupOrders();
     setAmount('');
     setRecipientCode('');
-    pendingRef.current = null;
-    pickupPendingRef.current = null;
+    // Mantener IDs de solicitudes inciertas al navegar: al volver a ingresar
+    // los mismos datos, el reintento conserva la clave de idempotencia.
+    // Solo el cambio de usuario o una confirmación RPC limpia esos IDs.
   }
 
   return (
