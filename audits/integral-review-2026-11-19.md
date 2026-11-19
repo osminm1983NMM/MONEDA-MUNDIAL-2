@@ -142,3 +142,9 @@ select (select count(*) from public.mwd_operations where kind='contribution') as
 - Errores tardíos de solicitud de cotización también se descartan si la solicitud dejó de estar vigente.
 - La confirmación en servidor no se revierte: se evita únicamente una actualización visual perteneciente a una cuenta o cotización anterior.
 - Dos comprobaciones estáticas adicionales, **39 declaradas**. Pendiente ejecutar pruebas integrales Android con cambios de cuenta durante RPC.
+
+## CI real — 19 noviembre 2026
+- Se consultó el workflow de GitHub Actions del PR #125, ejecución `44543481994` (commit `c1d83c11`): **failure**.
+- Falló la aserción estática `pickup request memory must be cleared on account switch` en la línea 57, porque esperaba una cadena contigua de líneas que dejó de existir al añadir revisiones de seguridad al mismo efecto. El código de limpieza sí conserva las llamadas requeridas.
+- Se corrigió el test para inspeccionar el efecto de cambio de cuenta y verificar las cuatro operaciones por separado, sin depender de su adyacencia. Commit `ad1c2e3b`.
+- El workflow anterior no ejecutó la suite de funciones puras porque se detuvo en la prueba estática. **No se declara CI verde** hasta obtener una nueva ejecución satisfactoria.
