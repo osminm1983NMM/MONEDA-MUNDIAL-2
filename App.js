@@ -296,7 +296,7 @@ export default function App() {
       if (code === wallet.account_code) return message('Destinatario', 'No puedes enviarte MWD a tu propia cuenta.');
     }
     confirmAction(type === 'transfer' ? 'Transferencia de prueba' : 'Aportación de prueba',
-      `${formatMWD(cents)} MWD ficticios${type === 'transfer' ? '\nDestino: ' + code : '\nFondo de demostración'}`,
+      `${formatMWD(cents)} MWD ficticios${type === 'transfer' ? '\nDestino: ' + code : '\nFondo de demostración'}${retrySameRequest ? '\nReintento de la misma solicitud: no se debe generar un segundo movimiento.' : ''}`,
       () => executeOperation(type, cents, code));
   }
 
