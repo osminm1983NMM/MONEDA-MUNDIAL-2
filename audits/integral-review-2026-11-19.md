@@ -53,3 +53,8 @@
 - Se corrigió el salto de línea mostrado al informar un retiro con respuesta incierta; antes se mostraba literalmente `\\n`.
 - Entorno de ejecución local tiene Node 22, pero no dispone de acceso de red al repositorio privado. Por tanto, no se ha ejecutado aquí la suite completa de GitHub. La comprobación de GitHub Actions continúa pendiente de resultado verificable.
 - Se mantiene prohibido fusionar PR #125 hasta obtener pruebas automatizadas, comprobación de Android y pruebas de autorización.
+
+## Aislamiento entre cuentas y mensajes — revisión adicional
+- **Corregido:** la referencia en memoria `pickupPendingRef` se restablece al cambiar `userId`, junto con monto, resultado y lista de retiros. La persistencia local continúa separada por usuario; no se eliminan solicitudes pendientes guardadas.
+- **Corregido:** aviso de conversión no confirmada muestra salto de línea real en vez de texto `\\n`.
+- Suite estática actualizada a **19 comprobaciones declaradas**. Se inspeccionaron las dos nuevas aserciones contra el código actual y ambas coincidieron; **no hay resultado de ejecución de la suite completa**.
