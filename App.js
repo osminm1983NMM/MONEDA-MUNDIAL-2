@@ -269,7 +269,18 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
-      const { data: currentAuth } = await supabase.auth.getSession();
+      // La RPC ya confirmó el movimiento; un fallo posterior de sesión o lectura
+      // no debe presentarlo como una transferencia/aportación fallida.
+      let currentAuth;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        currentAuth = authResult.data;
+      } catch (authError) {
+        message('Movimiento registrado; sesión pendiente',
+          'Supabase confirmó el movimiento ficticio. Verifica tu sesión y consulta el historial antes de intentar otro envío.');
+        return;
+      }
       if (currentAuth.session?.user?.id !== operationUserId) return;
       pendingRef.current = null;
       setAmount('');
@@ -278,10 +289,21 @@ export default function App() {
       message('Operación ficticia confirmada', type === 'transfer'
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
-      await refreshAccount();
+      try {
+        await refreshAccount();
+      } catch (refreshError) {
+        message('Actualización pendiente',
+          'El movimiento fue confirmado, pero el saldo o historial requiere actualización.');
+      }
     } catch (error) {
-      const { data: currentAuth } = await supabase.auth.getSession();
-      if (currentAuth.session?.user?.id !== operationUserId) return;
+      try {
+        const { data: currentAuth } = await supabase.auth.getSession();
+        if (currentAuth.session?.user?.id !== operationUserId) return;
+      } catch (authError) {
+        message('Resultado pendiente de verificación',
+          'No fue posible consultar la sesión. Comprueba tu cuenta e historial antes de reintentar.');
+        return;
+      }
       message('Operación no confirmada',
         (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
     } finally {
