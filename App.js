@@ -238,7 +238,7 @@ export default function App() {
         already?.requestId === requestId && already?.amountCents === cents &&
         already?.kind === (type === 'transfer' ? 'transfer' : 'contribution') &&
         (type !== 'transfer' || already?.recipientCode === code);
-      if (already?.status === 'processed' && !matches) {
+      if (!previous.error && already?.status === 'processed' && !matches) {
         throw new Error('El servidor encontró una operación con datos diferentes. Requiere revisión.');
       }
       const response = matches ? { data: { status: 'already_processed' }, error: null } :
@@ -397,7 +397,7 @@ export default function App() {
     if (pickupBusy) return;
     const cents = amountToCents(pickupAmount);
     if (cents === null || cents < 100 || cents > 100000) {
-      return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
+      return message('Monto inválido', 'Usa entre 1.00 y 1000.00 USD de referencia (solo simulación).');
     }
     setPickupBusy(true);
     setPickupResult(null);
@@ -550,7 +550,7 @@ export default function App() {
             {screen === 'Retiros' && <View style={styles.card}>
               <Text style={styles.heading}>Retiro ficticio a Honduras</Text>
               <Text style={styles.warning}>Solo simulación. No se entrega dinero real.</Text>
-              <Text style={styles.muted}>Monto de prueba: 1.00 a 1000.00 MWD</Text>
+              <Text style={styles.muted}>Monto de referencia: 1.00 a 1000.00 USD (sin dinero real ni débito MWD)</Text>
               <TextInput style={styles.input} placeholder="Ejemplo: 10.00"
                 placeholderTextColor="#9fb1c8" keyboardType="decimal-pad"
                 value={pickupAmount} onChangeText={setPickupAmount} editable={!pickupBusy} />
