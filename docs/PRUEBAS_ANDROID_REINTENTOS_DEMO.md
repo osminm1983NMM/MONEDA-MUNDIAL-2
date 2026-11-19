@@ -80,3 +80,9 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 48. Tras el caso 47, consultar Mis retiros antes de reintentar; si es necesario repetir con el mismo importe, conservar el identificador original y verificar que no aparezcan dos órdenes.
 49. Crear orden con respuesta exitosa: comprobar que la lista Mis retiros se actualiza automáticamente y contiene la nueva referencia.
 50. Cambiar de cuenta mientras se crea la orden: no mostrar el resultado ni el error de la cuenta anterior en la nueva sesión.
+
+## Resultado confirmado y fallo de actualización de lista
+51. Crear una orden ficticia y provocar error únicamente en la actualización de Mis retiros: la creación debe permanecer confirmada y no mostrar «Resultado de orden no confirmado».
+52. Cancelar una orden y provocar error únicamente al refrescar la lista: la cancelación debe permanecer confirmada y no mostrar «Resultado de cancelación no confirmado».
+53. Perder la respuesta del RPC de cancelación: mostrar resultado no confirmado y pedir consultar Mis retiros antes de repetir.
+54. Crear o cancelar y cambiar de cuenta durante la actualización secundaria: no mostrar resultados privados de la cuenta anterior.
