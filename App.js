@@ -368,6 +368,8 @@ export default function App() {
       });
       if (error) throw error;
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
+      const { data: currentAuth } = await supabase.auth.getSession();
+      if (currentAuth.session?.user?.id !== userId) return;
       setPickupResult(data);
       pickupPendingRef.current = null;
       setPickupAmount('');
