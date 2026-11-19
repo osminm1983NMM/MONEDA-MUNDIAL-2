@@ -1,0 +1,31 @@
+name: Validacion integral offline DEMO
+
+# Manual para evitar consumo recurrente de minutos de CI.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verificar archivos JSON
+        run: |
+          node -e "for (const p of ['package.json','app.json','eas.json']) JSON.parse(require('node:fs').readFileSync(p,'utf8'))"
+      - name: Validar sintaxis de pruebas
+        run: |
+          node --check scripts/check-pure-logic.cjs
+          node --check scripts/check-security-static.cjs
+      - name: Pruebas de importes y UUID
+        run: node scripts/check-pure-logic.cjs
+      - name: Controles estaticos de seguridad
+        run: node scripts/check-security-static.cjs
+      - name: Advertencia de alcance
+        run: echo "CI offline no valida RPC, RLS, Supabase desplegado, ni APK Android."
