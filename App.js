@@ -487,7 +487,7 @@ export default function App() {
       }
     } catch (error) {
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
-        '\\nConsulta los saldos antes de intentar otra conversión.');
+        '\nConsulta los saldos antes de intentar otra conversión.');
     } finally {
       setSwapBusy(false);
     }
