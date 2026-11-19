@@ -140,7 +140,9 @@ export default function App() {
       if (callbackPath !== 'monedamundial://auth/recovery') return;
       const fragment = url.split('#')[1] || '';
       const query = url.split('?')[1]?.split('#')[0] || '';
-      const params = new URLSearchParams(fragment || query);
+      const params = new URLSearchParams(query);
+      const fragmentParams = new URLSearchParams(fragment);
+      for (const [key, value] of fragmentParams.entries()) params.set(key, value);
       const accessToken = params.get('access_token');
       const refreshToken = params.get('refresh_token');
       const authCode = params.get('code');
@@ -196,7 +198,9 @@ export default function App() {
         setRecoveryMode(false);
         setScreen('Inicio');
       } else if (event === 'SIGNED_IN') {
-        setScreen('Inicio');
+        // A recovery link can emit SIGNED_IN before its callback finishes.
+        // Do not override the password-change screen while recovering.
+        setScreen(previous => previous === 'Cuenta' ? previous : 'Inicio');
       }
     });
     return () => { active = false; subscription.unsubscribe(); };
