@@ -80,3 +80,9 @@
 - Consulta SQL de solo lectura: funciones `public.mwd_%` con `SECURITY DEFINER` y permiso `EXECUTE` para `authenticated` cuyo texto no contiene ninguna referencia a `auth.uid`, `assert_owner`, `assert_agent` ni `mwd_admin_roles`: **0 coincidencias**.
 - Este resultado es **cribado textual**, no prueba de autorización por usuario ni garantía de seguridad; aún se requieren pruebas negativas con identidades reales de demostración y análisis de funciones auxiliares.
 - No se modificaron funciones, roles, permisos, tablas ni datos.
+
+## Pruebas ejecutables añadidas — 19 noviembre 2026
+- Archivo nuevo `tests/pure-helpers.test.cjs`: extrae y ejecuta con `node:vm` las funciones reales `amountToCents`, `formatMWD` y `uniqueRequestId` de `App.js`.
+- Cinco pruebas dinámicas: importes válidos, importes inválidos, formato de saldo, 500 UUID v4 sin colisión en la muestra y fallo cerrado sin aleatoriedad criptográfica.
+- Workflow `.github/workflows/validar-demo.yml` actualizado para ejecutar también `node --test tests/pure-helpers.test.cjs` además de las 25 comprobaciones estáticas.
+- **Importante:** se ha configurado la ejecución, pero aún no hay resultado de GitHub Actions verificado. Las pruebas de funciones puras no reemplazan pruebas de Supabase ni Android.
