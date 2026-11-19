@@ -110,6 +110,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
+  const accountRefreshRevisionRef = useRef(0);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -132,6 +133,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    accountRefreshRevisionRef.current += 1;
+    pendingRef.current = null;
+    setAmount('');
+    setRecipientCode('');
     if (!userId) {
       setWallet(null);
       setOperations([]);
@@ -160,6 +165,7 @@ export default function App() {
 
   async function refreshAccount(id = userId) {
     if (!id) return;
+    const revision = ++accountRefreshRevisionRef.current;
     setSyncing(true);
     setSyncNotice('Actualizando...');
     try {
@@ -175,16 +181,18 @@ export default function App() {
       if (w.error) throw w.error;
       if (h.error) throw h.error;
       if (a.error) throw a.error;
-      if (supabase.auth.getUser && supabase.auth && id !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      const { data: currentAuth } = await supabase.auth.getSession();
+      if (revision !== accountRefreshRevisionRef.current || currentAuth.session?.user?.id !== id) return;
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
       setSyncNotice('Saldo e historial actualizados correctamente.');
     } catch (error) {
+      if (revision !== accountRefreshRevisionRef.current) return;
       setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
       message('Sincronización', error.message || 'No se pudo consultar Supabase.');
     } finally {
-      setSyncing(false);
+      if (revision === accountRefreshRevisionRef.current) setSyncing(false);
     }
   }
 
@@ -223,13 +231,14 @@ export default function App() {
   }
 
   async function executeOperation(type, cents, code = '') {
-    if (busyRef.current) return;
+    if (busyRef.current || !userId) return;
+    const operationUserId = userId;
     busyRef.current = true;
     setBusy(true);
     try {
       const pending = pendingRef.current;
-      if (!pending || pending.type !== type || pending.cents !== cents || pending.code !== code) {
-        pendingRef.current = { type, cents, code, id: uniqueRequestId() };
+      if (!pending || pending.userId !== operationUserId || pending.type !== type || pending.cents !== cents || pending.code !== code) {
+        pendingRef.current = { userId: operationUserId, type, cents, code, id: uniqueRequestId() };
       }
       const requestId = pendingRef.current.id;
       const response = type === 'transfer'
@@ -243,6 +252,8 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
+      const { data: currentAuth } = await supabase.auth.getSession();
+      if (currentAuth.session?.user?.id !== operationUserId) return;
       pendingRef.current = null;
       setAmount('');
       setRecipientCode('');
