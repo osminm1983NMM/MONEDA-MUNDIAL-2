@@ -341,6 +341,8 @@ export default function App() {
       if (currentAuth.session?.user?.id !== requestedBy || revision !== swapQuoteRevisionRef.current) return;
       setSwapQuote(data);
     } catch (error) {
+      const { data: currentAuth } = await supabase.auth.getSession();
+      if (currentAuth.session?.user?.id !== requestedBy || revision !== swapQuoteRevisionRef.current) return;
       message('Cotización', error.message || 'No se pudo cotizar.');
     } finally {
       setSwapBusy(false);
@@ -468,9 +470,12 @@ export default function App() {
     setScreen(to);
     if (to === 'Convertir') loadSwapWallet();
     if (to === 'MisRetiros') loadPickupOrders();
-    setAmount('');
-    setRecipientCode('');
-    pendingRef.current = null;
+    // Conservar una solicitud de transferencia incierta al navegar.
+    // Solo se descarta si cambian importe/destinatario, usuario o se confirma.
+    if (!pendingRef.current) {
+      setAmount('');
+      setRecipientCode('');
+    }
   }
 
   return (
