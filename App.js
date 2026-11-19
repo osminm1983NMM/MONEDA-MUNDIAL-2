@@ -158,6 +158,8 @@ export default function App() {
     setSyncing(false);
     setSyncNotice('');
     swapQuoteRevisionRef.current += 1;
+    swapQuoteBusyRef.current = false;
+    swapConfirmBusyRef.current = false;
     setSwapQuote(null);
     setPickupAmount('');
     setPickupResult(null);
@@ -519,8 +521,12 @@ export default function App() {
         message('Cotización', error.message || 'No se pudo cotizar.');
       }
     } finally {
-      swapQuoteBusyRef.current = false;
-      setSwapBusy(false);
+      // An obsolete quote must never clear the busy state of a newer request.
+      if (quoteRevision === swapQuoteRevisionRef.current &&
+          quoteUserId === currentUserIdRef.current) {
+        swapQuoteBusyRef.current = false;
+        setSwapBusy(false);
+      }
     }
   }
 
@@ -562,8 +568,12 @@ export default function App() {
           '\nConsulta los saldos antes de intentar otra conversión.');
       }
     } finally {
-      swapConfirmBusyRef.current = false;
-      setSwapBusy(false);
+      // Keep the newer account's loading state untouched.
+      if (confirmRevision === swapQuoteRevisionRef.current &&
+          confirmUserId === currentUserIdRef.current) {
+        swapConfirmBusyRef.current = false;
+        setSwapBusy(false);
+      }
     }
   }
 
