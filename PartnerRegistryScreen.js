@@ -62,6 +62,7 @@ export default function PartnerRegistryScreen({ supabase }) {
   const [currency, setCurrency] = useState('USD');
   const [hours, setHours] = useState('');
   const [busy, setBusy] = useState(false);
+  const [listReady, setListReady] = useState(false);
   const [detailsReady, setDetailsReady] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -79,6 +80,7 @@ export default function PartnerRegistryScreen({ supabase }) {
   async function reloadPartners() {
     const rows = await request('mwd_owner_partners_demo');
     setPartners(rows || []);
+    setListReady(true);
     if (selectedId && !(rows || []).some(p => p.id === selectedId)) {
       setSelectedId(null);
       setLocations([]);
@@ -102,7 +104,7 @@ export default function PartnerRegistryScreen({ supabase }) {
     supabase.rpc('mwd_owner_partners_demo').then(({ data, error: dbError }) => {
       if (!active) return;
       if (dbError) report(dbError);
-      else setPartners(data || []);
+      else { setPartners(data || []); setListReady(true); }
     }).catch(err => { if (active) report(err); });
     return () => { active = false; };
   }, [supabase]);
@@ -188,7 +190,8 @@ export default function PartnerRegistryScreen({ supabase }) {
 
     <View style={s.card}>
       <Text style={s.title}>Candidatos registrados ({partners.length})</Text>
-      {partners.length === 0 && <Text style={s.dim}>Aún no existen registros permanentes.</Text>}
+      {!listReady && <Text style={s.dim}>Listado no cargado. Presiona Actualizar listado para reintentar.</Text>}
+      {listReady && partners.length === 0 && <Text style={s.dim}>Aún no existen registros permanentes.</Text>}
       {partners.map(p => <Btn key={p.id}
         title={(selectedId === p.id ? '✓ ' : '') + p.legal_name + ' · ' + p.country_code + '\n' + (LABELS[p.review_status] || p.review_status)}
         secondary={selectedId !== p.id} disabled={busy} onPress={() => choosePartner(p.id)} />)}
