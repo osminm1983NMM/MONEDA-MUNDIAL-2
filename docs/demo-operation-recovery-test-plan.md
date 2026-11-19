@@ -20,6 +20,12 @@ Este plan no habilita pagos reales. Ejecutar solo con cuentas y créditos fictic
 9. **Sin conexión al consultar estado**: comprobar que el reintento utiliza el mismo UUID y que el servidor mantiene idempotencia.
 10. **Historial de retiros**: verificar que muestra la moneda recibida de Supabase, sin confundir USD de referencia con MWD ficticios.
 
+
+11. **Fallo de consulta previa**: forzar error en `mwd_operation_status_demo`. Verificar que no se llama a `mwd_transfer_demo` ni `mwd_contribute_demo`, y que el UUID local se conserva.
+12. **Respuesta previa inesperada**: devolver un estado distinto de `processed` o `unconfirmed`. Debe bloquear el envío.
+13. **Operación confirmada con error de almacenamiento local**: simular fallo de `AsyncStorage.removeItem`. Verificar que se informa la confirmación y que un reintento con el mismo UUID no duplica la operación.
+14. **Retiro creado con respuesta perdida**: repetir el importe después de reiniciar Android. Verificar una sola orden y que el código secreto no se expone nuevamente.
+
 ## Criterios de aprobación
 - Ninguna operación duplicada por reintento o reinicio.
 - Ninguna operación nueva con una referencia pendiente de datos distintos.
