@@ -108,6 +108,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
+  const pickupPendingRef = useRef(null);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -342,7 +343,10 @@ export default function App() {
     if (cents === null || cents < 100 || cents > 100000) {
       return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
     }
-    const requestId = uniqueRequestId();
+    if (!pickupPendingRef.current || pickupPendingRef.current.cents !== cents) {
+      pickupPendingRef.current = { cents, id: uniqueRequestId() };
+    }
+    const requestId = pickupPendingRef.current.id;
     setPickupBusy(true);
     setPickupResult(null);
     try {
@@ -352,6 +356,7 @@ export default function App() {
       if (error) throw error;
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
       setPickupResult(data);
+      pickupPendingRef.current = null;
       setPickupAmount('');
     } catch (error) {
       message('Orden ficticia no creada', error.message || 'Error desconocido');
