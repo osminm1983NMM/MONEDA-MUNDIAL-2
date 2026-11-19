@@ -122,11 +122,18 @@ export default function PartnerRegistryScreen({ supabase }) {
         p_partner_kind: kind,
         p_country_code: country.trim().toUpperCase(),
       });
-      await reloadPartners();
-      setSelectedId(result.id);
-      await reloadDetails(result.id);
+      // El guardado ya fue confirmado: no permitir un segundo registro accidental
+      // aunque falle la consulta posterior del listado o del historial.
       setName('');
-      setNotice('Candidato guardado permanentemente como borrador; sin capacidad de pagar remesas.');
+      setSelectedId(result.id);
+      setLocations([]); setAudit([]); setDetailsReady(false);
+      setNotice('Candidato guardado como borrador; sin capacidad de pagar remesas.');
+      try {
+        await reloadPartners();
+        await reloadDetails(result.id);
+      } catch (refreshError) {
+        setError('El candidato se guardó, pero no se pudo actualizar la pantalla. Usa Actualizar listado; no vuelvas a guardarlo.');
+      }
     } catch (err) { report(err); }
     finally { setBusy(false); }
   }
