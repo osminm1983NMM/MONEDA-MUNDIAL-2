@@ -98,6 +98,7 @@ export default function App() {
   const [swapQuote, setSwapQuote] = useState(null);
   const [swapBusy, setSwapBusy] = useState(false);
   const swapQuoteRevisionRef = useRef(0);
+  const swapConfirmRevisionRef = useRef(0);
   const [pickupAmount, setPickupAmount] = useState('');
   const pickupPendingRef = useRef(null);
   const [pickupBusy, setPickupBusy] = useState(false);
@@ -157,6 +158,8 @@ export default function App() {
     pendingRef.current = null;
     // Invalidar operaciones antiguas sin permitir que su finally libere un bloqueo nuevo.
     operationRevisionRef.current += 1;
+    swapConfirmRevisionRef.current += 1;
+    setSwapBusy(false);
     busyRef.current = false;
     setBusy(false);
     setAmount('');
@@ -442,6 +445,7 @@ export default function App() {
   async function confirmSwap() {
     if (!swapQuote?.quoteId || swapBusy || !userId) return;
     const requestedBy = userId;
+    const confirmRevision = ++swapConfirmRevisionRef.current;
     const quote = swapQuote;
     if (new Date(quote.expiresAt).getTime() <= Date.now()) {
       setSwapQuote(null);
@@ -507,7 +511,7 @@ export default function App() {
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
         '\nConsulta los saldos antes de intentar otra conversión.');
     } finally {
-      setSwapBusy(false);
+      if (confirmRevision === swapConfirmRevisionRef.current) setSwapBusy(false);
     }
   }
 
