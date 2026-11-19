@@ -1,13 +1,13 @@
 name: Validar Moneda Mundial DEMO
 
-# Pruebas automáticas ligeras en PR y ejecución manual.
+# Pruebas automáticas ligeras en PR (incluye todas las auditorías) y ejecución manual.
 on:
   pull_request:
     branches: [main]
     paths:
       - 'App.js'
       - 'tests/**'
-      - 'audits/sql-draft-social-fund-contribution-v1.sql'
+      - 'audits/**'
       - '.github/workflows/validar-demo.yml'
   workflow_dispatch:
 
