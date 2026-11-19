@@ -569,7 +569,17 @@ export default function App() {
       const { data, error } = await supabase.rpc('mwd_pickup_cancel_demo', { p_order_id: orderId });
       if (error) throw error;
       if (!['cancelled', 'already_cancelled'].includes(data?.status)) throw new Error('Respuesta de cancelación no reconocida.');
-      const { data: currentAuth } = await supabase.auth.getSession();
+      // Una cancelación confirmada no debe pasar a "no confirmada" por un error de sesión posterior.
+      let currentAuth;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        currentAuth = authResult.data;
+      } catch (authError) {
+        message('Cancelación registrada; sesión pendiente',
+          'Supabase confirmó la cancelación ficticia. Verifica tu sesión y consulta Mis retiros antes de repetirla.');
+        return;
+      }
       if (currentAuth.session?.user?.id !== requestedBy) return;
       message('Orden ficticia', data.status === 'cancelled' ? 'Orden cancelada correctamente.' : 'La orden ya estaba cancelada.');
       // La consulta posterior no debe convertir una cancelación confirmada en un fallo.
@@ -577,8 +587,15 @@ export default function App() {
         message('Actualización pendiente', 'Cancelación confirmada; actualiza Mis retiros para consultar la lista.');
       });
     } catch (error) {
-      const { data: currentAuth } = await supabase.auth.getSession();
-      if (currentAuth.session?.user?.id !== requestedBy) return;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (authResult.data.session?.user?.id !== requestedBy) return;
+      } catch (authError) {
+        message('Resultado de cancelación pendiente',
+          'No fue posible verificar la sesión. Consulta tu cuenta y Mis retiros antes de repetir la cancelación.');
+        return;
+      }
       message('Resultado de cancelación no confirmado',
         (error.message || 'Error de conexión') +
         '\nLa cancelación pudo haberse procesado. Consulta Mis retiros antes de repetirla.');
