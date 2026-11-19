@@ -18,7 +18,7 @@ assert.ok(screen.includes('disabled={busy || !listReady || !detailsReady}'), 'Bo
 assert.ok(screen.includes("detailsReady && audit.length === 0"), 'Historial vacío sólo tras consulta confirmada');
 assert.ok(screen.includes('Historial no verificado:'), 'Advertencia si falta verificación del historial');
 assert.ok(screen.includes('const requestNumber = ++partnersRequestRef.current'), 'Identificador para consultas del listado');
-assert.ok(screen.includes('if (requestNumber !== partnersRequestRef.current) return []'), 'Descarta listados atrasados');
+assert.ok(screen.includes("if (requestNumber !== partnersRequestRef.current) throw Error("), 'Descarta listados atrasados sin presentarlos como vacíos');
 assert.ok(screen.includes('const requestNumber = ++detailsRequestRef.current'), 'Identificador para consultas de detalles');
 assert.ok(screen.includes('if (requestNumber !== detailsRequestRef.current) return;'), 'Descarta detalles atrasados');
 assert.ok(screen.includes('disabled={busy || !listReady || !detailsReady || selected.review_status'), 'Botón de sucursal exige listado y detalles vigentes');
