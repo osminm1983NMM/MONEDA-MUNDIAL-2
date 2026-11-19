@@ -32,6 +32,10 @@ Este plan no habilita pagos reales. Ejecutar solo con cuentas y créditos fictic
 17. **Datos locales dañados**: introducir JSON inválido en almacenamiento de pruebas; comprobar bloqueo y aviso, sin envío.
 18. **Fallo de consulta previa con red caída**: comprobar que el sistema no intenta enviar transferencias/aportaciones si falla la RPC de estado.
 
+19. **Reinicio con retiro pendiente**: guardar una solicitud de retiro, cerrar Android y abrir de nuevo. Debe restaurar el importe y mostrar la pantalla de retiros cuando no hay transferencia pendiente; no debe crear la orden automáticamente.
+20. **Ambos borradores pendientes**: verificar que la recuperación del retiro no sustituye la pantalla de una transferencia pendiente; el usuario debe poder revisar cada solicitud por separado.
+21. **Código secreto de retiro**: tras una respuesta perdida, el servidor devuelve `already_created` y `pickupCode: null`. La app debe explicar que el código no se puede recuperar, sin inventarlo ni crear otra orden.
+
 ## Criterios de aprobación
 - Ninguna operación duplicada por reintento o reinicio.
 - Ninguna operación nueva con una referencia pendiente de datos distintos.
