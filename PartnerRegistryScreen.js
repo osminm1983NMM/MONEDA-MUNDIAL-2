@@ -91,6 +91,7 @@ export default function PartnerRegistryScreen({ supabase }) {
       setAudit([]);
       setDetailsReady(false);
     }
+    return rows || [];
   }
   async function reloadDetails(id) {
     if (!id) { setLocations([]); setAudit([]); setDetailsReady(false); return; }
@@ -244,14 +245,10 @@ export default function PartnerRegistryScreen({ supabase }) {
       <Btn title="Actualizar listado" secondary disabled={busy} onPress={async () => {
         setBusy(true); setError('');
         try {
-          await reloadPartners();
-          // Recuperar también los detalles para desbloquear transiciones
-          // sólo cuando las dos consultas vuelvan a ser consistentes.
-          if (selectedId) {
-            const stillExists = await request('mwd_owner_partners_demo');
-            if ((stillExists || []).some(p => p.id === selectedId)) {
-              await reloadDetails(selectedId);
-            }
+          const rows = await reloadPartners();
+          // Una sola lectura del listado: evita consultas duplicadas.
+          if (selectedId && rows.some(p => p.id === selectedId)) {
+            await reloadDetails(selectedId);
           }
         } catch (err) { report(err); }
         finally { setBusy(false); }
