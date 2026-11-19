@@ -243,7 +243,17 @@ export default function PartnerRegistryScreen({ supabase }) {
         secondary={selectedId !== p.id} disabled={busy} onPress={() => choosePartner(p.id)} />)}
       <Btn title="Actualizar listado" secondary disabled={busy} onPress={async () => {
         setBusy(true); setError('');
-        try { await reloadPartners(); } catch (err) { report(err); }
+        try {
+          await reloadPartners();
+          // Recuperar también los detalles para desbloquear transiciones
+          // sólo cuando las dos consultas vuelvan a ser consistentes.
+          if (selectedId) {
+            const stillExists = await request('mwd_owner_partners_demo');
+            if ((stillExists || []).some(p => p.id === selectedId)) {
+              await reloadDetails(selectedId);
+            }
+          }
+        } catch (err) { report(err); }
         finally { setBusy(false); }
       }} />
     </View>
