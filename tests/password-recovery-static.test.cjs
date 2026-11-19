@@ -63,3 +63,10 @@ test('recovery callback combines query and fragment parameters', () => {
 test('sign-in auth events preserve the account password-change screen', () => {
   assert.match(app, /setScreen\(previous => previous === 'Cuenta' \? previous : 'Inicio'\)/);
 });
+
+test('recovery deep links cannot be exchanged concurrently twice', () => {
+  assert.match(app, /const processingRecoveryUrls = new Set\(\)/);
+  assert.match(app, /processingRecoveryUrls\.has\(url\)/);
+  assert.match(app, /processingRecoveryUrls\.add\(url\)/);
+  assert.match(app, /finally\s*\{\s*processingRecoveryUrls\.delete\(url\)/);
+});
