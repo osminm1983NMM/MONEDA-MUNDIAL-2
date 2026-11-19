@@ -41,3 +41,9 @@
 - Se corrigió el mensaje de error de creación de retiro para no afirmar falsamente que una orden no existe tras un timeout; se conserva la solicitud pendiente para recuperación.
 - `package.json` ahora expone `npm test` para ejecutar la suite estática sin dependencias externas.
 - PR #125 permanece en borrador, sin fusionar. La ejecución del workflow todavía no tiene resultados confirmados.
+
+## Hallazgo crítico adicional — navegación y recuperación
+- **Corregido:** `navigate()` borraba `pendingRef.current` y los campos de transferencia aun cuando existía una operación sin confirmar. Esto podía perder la referencia idempotente en memoria durante la sesión y causar una nueva solicitud al volver a enviar.
+- Ahora la navegación preserva el identificador y los datos originales mientras haya una solicitud pendiente.
+- Se añadieron dos aserciones estáticas de regresión: 17 comprobaciones declaradas en la suite.
+- Verificación directa del texto de código actualizado: 4/4 condiciones comprobadas. **No equivale a ejecutar la suite Node ni a prueba Android.**
