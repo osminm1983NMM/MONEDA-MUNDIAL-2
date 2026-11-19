@@ -297,7 +297,9 @@ export default function App() {
     confirmAction('Reintento protegido',
       'Se enviará la MISMA solicitud ficticia con el MISMO identificador. Supabase debe impedir el doble descuento.',
       async () => {
-        if (busyRef.current || activeUserRef.current !== item.userId ||
+        // La confirmación puede permanecer abierta mientras cambia el estado de recuperación.
+        if (busyRef.current || recoveringRef.current || pendingLoading || pendingStorageError ||
+            !pendingUnconfirmed || activeUserRef.current !== item.userId ||
             !pendingRef.current || pendingRef.current.id !== item.id) return;
         busyRef.current = true;
         setBusy(true);
