@@ -143,6 +143,39 @@ export default function App() {
     refreshAccount(userId);
   }, [userId]);
 
+  useEffect(() => {
+    let active = true;
+    pendingLoadedUserRef.current = null;
+    pendingRef.current = null;
+    setAmount('');
+    setRecipientCode('');
+    if (!userId) return () => { active = false; };
+    const key = 'mwd_demo_operation_pending_' + userId;
+    AsyncStorage.getItem(key).then(saved => {
+      if (!active) return;
+      if (saved) {
+        const p = JSON.parse(saved);
+        if (!p || !['transfer', 'contribution'].includes(p.type) ||
+            !Number.isSafeInteger(p.cents) || p.cents < 1 || p.cents > LIMIT_CENTS ||
+            typeof p.id !== 'string' || typeof p.code !== 'string' ||
+            (p.type === 'transfer' && !/^MWD-[A-F0-9]{16}$/.test(p.code)) ||
+            (p.type === 'contribution' && p.code !== '')) {
+          throw new Error('Solicitud pendiente inválida');
+        }
+        pendingRef.current = p;
+        setAmount(formatMWD(p.cents));
+        setRecipientCode(p.code);
+        message('Operación pendiente',
+          'Se recuperó una solicitud anterior. Confirma su estado antes de enviar otra.');
+      }
+      pendingLoadedUserRef.current = userId;
+    }).catch(() => {
+      if (active) message('Recuperación',
+        'No fue posible leer la solicitud pendiente. No envíes otra hasta revisar la conexión y el almacenamiento.');
+    });
+    return () => { active = false; };
+  }, [userId]);
+
   async function refreshAccount(id = userId) {
     if (!id) return;
     setSyncing(true);
