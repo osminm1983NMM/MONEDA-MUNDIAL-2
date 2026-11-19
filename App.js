@@ -136,6 +136,14 @@ export default function App() {
     refreshSequenceRef.current += 1;
     pendingRef.current = null;
     pickupPendingRef.current = null;
+    // No mostrar saldos, historial ni privilegios de otra sesión mientras carga.
+    setWallet(null);
+    setOperations([]);
+    setAdminRole(null);
+    setSwapWallet(null);
+    setSwapQuote(null);
+    setPickupOrders([]);
+    setPickupResult(null);
     if (!userId) {
       setSyncing(false);
       setSyncNotice('');
