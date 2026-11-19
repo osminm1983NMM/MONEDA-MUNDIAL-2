@@ -288,6 +288,25 @@ export default function App() {
     }
   }
 
+  async function requestPasswordReset() {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!/^\\S+@\\S+\\.\\S+$/.test(cleanEmail)) {
+      return message('Recuperar contraseña', 'Introduce primero el correo de tu cuenta.');
+    }
+    if (authBusy) return;
+    setAuthBusy(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail);
+      if (error) throw error;
+      message('Recuperar contraseña',
+        'Si el correo corresponde a una cuenta, revisa tu bandeja de entrada y sigue las instrucciones. No compartas el enlace.');
+    } catch (error) {
+      message('Recuperar contraseña', error.message || 'No fue posible solicitar la recuperación.');
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
   function changeAmount(value) {
     if (pendingRef.current) {
       return message('Solicitud pendiente',
@@ -735,6 +754,7 @@ export default function App() {
               secureTextEntry value={password} onChangeText={setPassword} />
             <Btn title={authBusy ? 'Espera...' : 'Iniciar sesión'} onPress={() => authenticate('login')} disabled={authBusy} />
             <Btn title="Crear cuenta de prueba" secondary onPress={() => authenticate('register')} disabled={authBusy} />
+            <Btn title="Olvidé mi contraseña" secondary onPress={requestPasswordReset} disabled={authBusy} />
             <Text style={styles.muted}>Cada cuenta nueva recibe 10,000 MWD ficticios. Si Supabase solicita confirmar el correo, revisa tu bandeja de entrada.</Text>
           </View>
         ) : (
