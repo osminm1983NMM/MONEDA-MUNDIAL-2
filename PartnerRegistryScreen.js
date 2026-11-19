@@ -87,6 +87,8 @@ export default function PartnerRegistryScreen({ supabase }) {
     const requestNumber = ++partnersRequestRef.current;
     setListReady(false);
     setDetailsReady(false);
+    // Descarta también respuestas de detalles iniciadas antes de esta recarga.
+    ++detailsRequestRef.current;
     const rows = await request('mwd_owner_partners_demo');
     if (requestNumber !== partnersRequestRef.current) throw Error('Consulta del listado reemplazada por una más reciente.');
     setPartners(rows || []);
@@ -107,7 +109,7 @@ export default function PartnerRegistryScreen({ supabase }) {
       request('mwd_owner_partner_locations_demo', { p_partner_id: id }),
       request('mwd_owner_partner_audit_demo', { p_partner_id: id }),
     ]);
-    if (requestNumber !== detailsRequestRef.current) return;
+    if (requestNumber !== detailsRequestRef.current) throw Error('Consulta de detalles reemplazada por una más reciente.');
     setLocations(loc || []);
     setAudit(hist || []);
     setDetailsReady(true);
