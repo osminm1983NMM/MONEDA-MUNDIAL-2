@@ -430,7 +430,7 @@ export default function App() {
     }
     confirmAction(type === 'transfer' ? 'Transferencia de prueba' : 'Aportación de prueba',
       `${formatMWD(cents)} MWD ficticios${type === 'transfer' ? '\nDestino: ' + code : '\nFondo de demostración'}`,
-      () => executeOperation(type, cents, code));
+      () => executeOperation(type, cents, type === 'transfer' ? code : ''));
   }
 
   async function logout() {
