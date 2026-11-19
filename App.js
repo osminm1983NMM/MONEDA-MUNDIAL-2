@@ -114,6 +114,7 @@ export default function App() {
   const authIdentityRef = useRef(undefined);
   const authEventSeenRef = useRef(false);
   const swapWalletRevisionRef = useRef(0);
+  const pickupOrdersRevisionRef = useRef(0);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -147,6 +148,7 @@ export default function App() {
   useEffect(() => {
     accountRefreshRevisionRef.current += 1;
     swapWalletRevisionRef.current += 1;
+    pickupOrdersRevisionRef.current += 1;
     pendingRef.current = null;
     setAmount('');
     setRecipientCode('');
@@ -370,7 +372,7 @@ export default function App() {
       if (currentAuth.session?.user?.id !== requestedBy || revision !== swapQuoteRevisionRef.current) return;
       message('Cotización', error.message || 'No se pudo cotizar.');
     } finally {
-      setSwapBusy(false);
+      if (revision === swapQuoteRevisionRef.current) setSwapBusy(false);
     }
   }
 
@@ -453,20 +455,21 @@ export default function App() {
   async function loadPickupOrders() {
     const requestedBy = userId;
     if (!requestedBy) return;
+    const revision = ++pickupOrdersRevisionRef.current;
     setPickupOrdersBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_my_orders_demo');
       if (error) throw error;
       if (!Array.isArray(data)) throw new Error('Respuesta de órdenes no reconocida.');
       const { data: currentAuth } = await supabase.auth.getSession();
-      if (currentAuth.session?.user?.id !== requestedBy) return;
+      if (currentAuth.session?.user?.id !== requestedBy || revision !== pickupOrdersRevisionRef.current) return;
       setPickupOrders(data);
     } catch (error) {
       const { data: currentAuth } = await supabase.auth.getSession();
-      if (currentAuth.session?.user?.id !== requestedBy) return;
+      if (currentAuth.session?.user?.id !== requestedBy || revision !== pickupOrdersRevisionRef.current) return;
       message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
     } finally {
-      setPickupOrdersBusy(false);
+      if (revision === pickupOrdersRevisionRef.current) setPickupOrdersBusy(false);
     }
   }
 
