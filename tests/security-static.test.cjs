@@ -103,10 +103,20 @@ test('confirmación y recuperación distinguen RPC confirmada de lectura fallida
   }
 });
 test('error de almacenamiento local impide cerrar sesión sin resolver', () => {
-  assert.match(app, /if \(busyRef\.current \|\| recovering \|\| pendingLoading \|\| pendingStorageError\)/);
+  assert.match(app, /if \(busyRef\.current \|\| recoveringRef\.current \|\| pendingLoading \|\| pendingStorageError\)/);
 });
 
 test('error de sincronización elimina también rol administrativo obsoleto', () => {
   const fn = app.slice(app.indexOf('async function refreshAccount'), app.indexOf('async function authenticate'));
   assert.match(fn, /catch \(error\)[\s\S]*setWallet\(null\);\s*setOperations\(\[\]\);\s*setAdminRole\(null\)/);
+});
+
+test('recuperación bloqueada sincrónicamente contra pulsaciones simultáneas', () => {
+  const fn = app.slice(app.indexOf('async function recoverPending'), app.indexOf('async function retryPending'));
+  assert.match(fn, /recoveringRef\.current = true/);
+  assert.match(fn, /recoveringRef\.current = false/);
+  assert.match(fn, /recoveringRef\.current \|\| busyRef\.current/);
+});
+test('cambio de cuenta restablece bloqueo de recuperación', () => {
+  assert.match(app, /setRecovering\(false\);\s*recoveringRef\.current = false;\s*pendingRef\.current = null/);
 });
