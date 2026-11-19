@@ -148,3 +148,7 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 ## Actualización de cuenta con error explícito de sesión
 93. Completar consultas de saldo e historial pero devolver getSession con campo error (sin lanzar excepción): mostrar «Sesión no verificada» y no declarar actualización exitosa.
 94. Iniciar dos actualizaciones y recibir error de sesión de la primera después de que termina la segunda: descartar el aviso antiguo.
+
+## Operaciones inciertas con error de sesión devuelto por Supabase
+95. Perder respuesta de transferencia y hacer que getSession devuelva {error} sin lanzar excepción: mostrar «Resultado pendiente de verificación», no afirmar que no hubo débito.
+96. Perder respuesta de aportación y devolver error explícito de sesión: conservar el identificador de solicitud y exigir revisión de historial antes de reintentar.
