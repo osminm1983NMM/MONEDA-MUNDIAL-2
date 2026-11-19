@@ -166,7 +166,7 @@ export default function PartnerRegistryScreen({ supabase }) {
     finally { setBusy(false); }
   }
   async function setStatus(status) {
-    if (!selectedId || busy || writingRef.current || !detailsReady) return;
+    if (!selectedId || busy || writingRef.current || !listReady || !detailsReady) return;
     setError(''); setNotice(''); writingRef.current = true; setBusy(true);
     const id = selectedId;
     const outcome = await writeThenRefresh(
@@ -195,7 +195,7 @@ export default function PartnerRegistryScreen({ supabase }) {
     setBusy(false);
   }
   async function saveLocation() {
-    if (!selectedId || busy || writingRef.current || !detailsReady || selected?.review_status === 'archived') return;
+    if (!selectedId || busy || writingRef.current || !listReady || !detailsReady || selected?.review_status === 'archived') return;
     if (!validLocation(branchName, city, currency, hours)) {
       setError('Revisa la sucursal (2-140 caracteres), ciudad (2-100), moneda (3 letras) y horario (máximo 140).');
       return;
@@ -271,10 +271,10 @@ export default function PartnerRegistryScreen({ supabase }) {
       <Text style={s.dim}>Estado: {LABELS[selected.review_status] || selected.review_status}</Text>
       <Text style={s.warn}>“Documentación revisada” no equivale a licencia, contrato ni autorización operativa.</Text>
       {(NEXT[selected.review_status] || []).map(([status, label]) =>
-        <Btn key={status} title={label} secondary disabled={busy || !detailsReady} onPress={() => setStatus(status)} />)}
+        <Btn key={status} title={label} secondary disabled={busy || !listReady || !detailsReady} onPress={() => setStatus(status)} />)}
 
       {!detailsReady && <Text style={s.dim}>Los detalles no están disponibles. Puedes reintentar la consulta.</Text>}
-      {!detailsReady && <Btn title="Reintentar carga de detalles" secondary disabled={busy} onPress={async () => {
+      {!detailsReady && <Btn title="Reintentar carga de detalles" secondary disabled={busy || !listReady} onPress={async () => {
         setBusy(true); setError('');
         try { await reloadDetails(selectedId); } catch (err) { report(err); }
         finally { setBusy(false); }
@@ -288,7 +288,7 @@ export default function PartnerRegistryScreen({ supabase }) {
       <Field label="Ciudad" value={city} onChangeText={setCity} />
       <Field label="Moneda de referencia (3 letras)" value={currency} onChangeText={setCurrency} />
       <Field label="Horario orientativo (opcional)" value={hours} onChangeText={setHours} />
-      <Btn title="Guardar sucursal candidata" disabled={busy || !detailsReady || selected.review_status === 'archived' || !validLocation(branchName, city, currency, hours)}
+      <Btn title="Guardar sucursal candidata" disabled={busy || !listReady || !detailsReady || selected.review_status === 'archived' || !validLocation(branchName, city, currency, hours)}
         onPress={saveLocation} />
 
       <Text style={[s.title, { marginTop: 17 }]}>Historial de modificaciones</Text>
