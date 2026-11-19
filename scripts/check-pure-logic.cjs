@@ -45,6 +45,6 @@ function quoteMicro(value) {
   return Number.isSafeInteger(micro) && micro >= 1000000 && micro <= 10000000000 ? micro : null;
 }
 for (const [input, expected] of swapCases) assert.equal(quoteMicro(input), expected, input);
-assert(app.includes(quoteMicro.toString().match(/\/\^.*?\$\//)?.[0] || 'UNLIKELY'), 'La expresión decimal de App.js debe coincidir con las pruebas');
+assert(app.includes(String.raw`/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/`), 'La expresión decimal de App.js debe coincidir con las pruebas');
 console.log('PASS: 10 casos de cotización decimal de activos ficticios');
 console.log('PASS: 15 casos de cantidades y UUID v4 con formato válido');
