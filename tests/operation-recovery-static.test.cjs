@@ -36,4 +36,6 @@ assert.ok(operation.includes('refreshAccount().catch(() => {})'),
   'UI refresh errors must not turn a confirmed RPC into an unconfirmed operation');
 assert.ok(app.includes("test(p.id)") && app.includes("test(candidate.id)"),
   'both recovery paths must validate the persisted UUID');
-console.log('PASS: 12 static recovery and idempotency safety checks');
+assert.ok(app.includes(String.raw`/^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$/`),
+  'conversion amount regex must match digits and decimal points');
+console.log('PASS: 13 static recovery and idempotency safety checks');
