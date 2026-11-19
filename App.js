@@ -427,6 +427,8 @@ export default function App() {
       if (currentAuth.session?.user?.id !== requestedBy) return;
       setPickupOrders(data);
     } catch (error) {
+      const { data: currentAuth } = await supabase.auth.getSession();
+      if (currentAuth.session?.user?.id !== requestedBy) return;
       message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
     } finally {
       setPickupOrdersBusy(false);
@@ -434,15 +436,20 @@ export default function App() {
   }
 
   async function cancelDemoPickup(orderId) {
-    if (pickupCancelBusy) return;
+    if (pickupCancelBusy || !userId) return;
+    const requestedBy = userId;
     setPickupCancelBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_cancel_demo', { p_order_id: orderId });
       if (error) throw error;
       if (!['cancelled', 'already_cancelled'].includes(data?.status)) throw new Error('Respuesta de cancelación no reconocida.');
+      const { data: currentAuth } = await supabase.auth.getSession();
+      if (currentAuth.session?.user?.id !== requestedBy) return;
       message('Orden ficticia', data.status === 'cancelled' ? 'Orden cancelada correctamente.' : 'La orden ya estaba cancelada.');
       await loadPickupOrders();
     } catch (error) {
+      const { data: currentAuth } = await supabase.auth.getSession();
+      if (currentAuth.session?.user?.id !== requestedBy) return;
       message('No se pudo cancelar', error.message || 'Error desconocido');
     } finally {
       setPickupCancelBusy(false);
