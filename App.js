@@ -135,7 +135,9 @@ export default function App() {
   useEffect(() => {
     let active = true;
     const processRecoveryUrl = async url => {
-      if (!url || !url.startsWith('monedamundial://')) return;
+      if (!url || !url.startsWith('monedamundial://auth/recovery')) return;
+      const callbackPath = url.split(/[?#]/)[0];
+      if (callbackPath !== 'monedamundial://auth/recovery') return;
       const fragment = url.split('#')[1] || '';
       const query = url.split('?')[1]?.split('#')[0] || '';
       const params = new URLSearchParams(fragment || query);
