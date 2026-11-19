@@ -443,6 +443,8 @@ export default function App() {
       setPickupResult(data);
       pickupPendingRef.current = null;
       setPickupAmount('');
+      // Refrescar la lista después de confirmar la creación en el servidor.
+      await loadPickupOrders();
     } catch (error) {
       const { data: currentAuth } = await supabase.auth.getSession();
       if (currentAuth.session?.user?.id !== requestedBy) return;
