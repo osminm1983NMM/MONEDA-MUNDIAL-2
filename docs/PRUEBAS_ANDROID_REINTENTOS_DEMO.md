@@ -56,3 +56,9 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 32. Cambiar importe o destinatario después del caso 30: debe tratarse como solicitud nueva y aplicar la validación de saldo, sin reutilizar la clave anterior.
 33. Repetir los casos 30–32 con aportación ficticia. Comprobar que no se duplica el débito.
 34. Cambiar de cuenta entre el intento incierto y el reintento: la cuenta B no debe reutilizar la clave de A.
+
+## Renovación de sesión y sincronización
+35. Mantener abierta Transferir con importe y destinatario escritos; renovar el token de acceso sin cambiar de usuario: no debe regresar a Inicio ni borrar el formulario.
+36. Mantener abierta la pantalla Convertir durante una renovación de token: debe conservarse la pantalla y la cotización válida.
+37. Cambiar de la cuenta A a la B: debe volver a Inicio, limpiar los datos privados de A y cargar los de B.
+38. Iniciar actualización de cuenta A, cambiar a B y provocar un error tardío en la consulta de A: no mostrar aviso de sincronización de A en B.
