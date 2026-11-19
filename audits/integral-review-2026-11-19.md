@@ -107,3 +107,8 @@
 - `requestSwapQuote` ahora usa bloqueo sincrónico `swapQuoteBusyRef`, activado solo tras validar la cantidad y liberado en `finally`. Evita solicitudes simultáneas por pulsaciones rápidas.
 - `confirmSwap` también verifica el bloqueo de cotización, evitando confirmar una cotización mientras se solicita otra.
 - Dos comprobaciones estáticas adicionales: **31 declaradas**; requieren ejecución de suite y Android antes de aprobar.
+
+## Integración de pruebas — 19 noviembre 2026
+- Se corrigió una aserción obsoleta de la suite estática: ahora verifica el bloqueo completo de confirmación de conversiones, incluido `swapQuoteBusyRef`. Antes, la aserción exigía una cadena antigua y podía fallar ante la corrección vigente.
+- `package.json` ahora define `npm test` como `node --test tests/*.test.cjs`, para incluir tanto las comprobaciones estáticas como las pruebas ejecutables de funciones puras.
+- Estas modificaciones no equivalen a ejecución completa confirmada. Continúa pendiente un resultado verificable de CI/Node y la validación Android.
