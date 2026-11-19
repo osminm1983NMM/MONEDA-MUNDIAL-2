@@ -177,3 +177,9 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 111. Cancelar orden en A, cambiar a B y recibir fallo de getSession de A: no mostrar «Cancelación registrada; sesión pendiente» en B.
 112. Cancelar orden en A, cambiar a B y recibir fallo RPC de A: no mostrar «Resultado de cancelación no confirmado» en B.
 113. Una actualización secundaria de Mis retiros rechaza tarde tras cambiar de cuenta: no mostrar «Actualización pendiente» de A en B.
+
+## Alertas tardías de transferencias y aportaciones
+114. Transferencia de A confirmada en servidor, cambiar a B y fallar verificación de sesión: no mostrar aviso de A en B.
+115. Aportación de A con respuesta incierta, cambiar a B antes de la verificación: no mostrar «Operación no confirmada» de A.
+116. Fallar getSession tras una transferencia de A y cambiar a B: no mostrar «Resultado pendiente de verificación» de A en B.
+117. La actualización secundaria de historial de A falla después del cambio a B: no mostrar «Actualización pendiente» de A.
