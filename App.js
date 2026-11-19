@@ -87,6 +87,7 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [passwordChangeBusy, setPasswordChangeBusy] = useState(false);
+  const passwordChangeBusyRef = useRef(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [screen, setScreen] = useState('Inicio');
   const [wallet, setWallet] = useState(null);
@@ -180,6 +181,7 @@ export default function App() {
     setPickupOrders([]);
     setNewPassword('');
     setPasswordChangeBusy(false);
+    passwordChangeBusyRef.current = false;
   }, [userId]);
 
   useEffect(() => {
@@ -312,10 +314,11 @@ export default function App() {
   }
 
   async function changeSignedInPassword() {
-    if (!userId || passwordChangeBusy) return;
+    if (!userId || passwordChangeBusyRef.current) return;
     if (newPassword.length < 12) {
       return message('Nueva contraseña', 'Utiliza al menos 12 caracteres.');
     }
+    passwordChangeBusyRef.current = true;
     setPasswordChangeBusy(true);
     const requestedUserId = userId;
     try {
@@ -335,7 +338,10 @@ export default function App() {
         message('Cambiar contraseña', error.message || 'No se pudo actualizar la contraseña.');
       }
     } finally {
-      if (requestedUserId === currentUserIdRef.current) setPasswordChangeBusy(false);
+      if (requestedUserId === currentUserIdRef.current) {
+        passwordChangeBusyRef.current = false;
+        setPasswordChangeBusy(false);
+      }
     }
   }
 
