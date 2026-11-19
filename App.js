@@ -146,6 +146,8 @@ export default function App() {
   useEffect(() => {
     pickupPendingRef.current = null;
     accountRefreshRevisionRef.current += 1;
+    setSyncing(false);
+    setSyncNotice('');
     swapQuoteRevisionRef.current += 1;
     setSwapQuote(null);
     setPickupAmount('');
