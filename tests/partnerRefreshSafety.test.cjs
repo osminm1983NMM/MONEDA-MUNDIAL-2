@@ -17,4 +17,8 @@ assert.ok(screen.slice(selected, selectedEnd).includes('!detailsReady'), 'Estado
 assert.ok(screen.includes('disabled={busy || !detailsReady}'), 'Botón de estado se bloquea sin detalles');
 assert.ok(screen.includes("detailsReady && audit.length === 0"), 'Historial vacío sólo tras consulta confirmada');
 assert.ok(screen.includes('Historial no verificado:'), 'Advertencia si falta verificación del historial');
-console.log('6 comprobaciones estructurales de recuperación definidas.');
+assert.ok(screen.includes('const requestNumber = ++partnersRequestRef.current'), 'Identificador para consultas del listado');
+assert.ok(screen.includes('if (requestNumber !== partnersRequestRef.current) return []'), 'Descarta listados atrasados');
+assert.ok(screen.includes('const requestNumber = ++detailsRequestRef.current'), 'Identificador para consultas de detalles');
+assert.ok(screen.includes('if (requestNumber !== detailsRequestRef.current) return;'), 'Descarta detalles atrasados');
+console.log('10 comprobaciones estructurales de recuperación definidas.');
