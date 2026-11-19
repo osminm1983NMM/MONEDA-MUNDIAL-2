@@ -73,4 +73,6 @@ assert.ok(pickup.includes('previous.cents < 100 || previous.cents > 100000'),
   'saved pickup amount must satisfy withdrawal-specific limits');
 assert.ok(pickup.includes('setPickupAmount(formatMWD(previous.cents))'),
   'mismatched pending pickup must restore the original amount');
-console.log('PASS: 25 static recovery and idempotency safety checks');
+assert.ok(app.includes("if (event === 'SIGNED_IN' || event === 'SIGNED_OUT')"),
+  'token refresh and user updates must not reset the current screen');
+console.log('PASS: 26 static recovery and idempotency safety checks');
