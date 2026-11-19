@@ -159,7 +159,7 @@ export default function App() {
         const p = JSON.parse(saved);
         if (!p || !['transfer', 'contribution'].includes(p.type) ||
             !Number.isSafeInteger(p.cents) || p.cents < 1 || p.cents > LIMIT_CENTS ||
-            typeof p.id !== 'string' || typeof p.code !== 'string' ||
+            typeof p.id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(p.id) || typeof p.code !== 'string' ||
             (p.type === 'transfer' && !/^MWD-[A-F0-9]{16}$/.test(p.code)) ||
             (p.type === 'contribution' && p.code !== '')) {
           throw new Error('Solicitud pendiente inválida');
@@ -263,6 +263,7 @@ export default function App() {
         if (!candidate || !['transfer', 'contribution'].includes(candidate.type) ||
             !Number.isSafeInteger(candidate.cents) || candidate.cents < 1 ||
             candidate.cents > LIMIT_CENTS || typeof candidate.id !== 'string' ||
+            !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(candidate.id) ||
             typeof candidate.code !== 'string' ||
             (candidate.type === 'transfer' && !/^MWD-[A-F0-9]{16}$/.test(candidate.code)) ||
             (candidate.type === 'contribution' && candidate.code !== '')) {
