@@ -136,6 +136,7 @@ export default function App() {
   useEffect(() => {
     let active = true;
     const processingRecoveryUrls = new Set();
+    const completedRecoveryUrls = new Set();
     const processRecoveryUrl = async url => {
       if (!url || !url.startsWith('monedamundial://auth/recovery')) return;
       const callbackPath = url.split(/[?#]/)[0];
@@ -156,7 +157,9 @@ export default function App() {
         if (active) message('Recuperar contraseña', 'El enlace no contiene una sesión válida. Solicita otro correo.');
         return;
       }
-      if (processingRecoveryUrls.has(url)) return;
+      // Initial URL and Linking events can deliver the same one-use link.
+      // Never exchange a successfully consumed code or token twice.
+      if (processingRecoveryUrls.has(url) || completedRecoveryUrls.has(url)) return;
       processingRecoveryUrls.add(url);
       try {
         const { error } = authCode
@@ -166,6 +169,7 @@ export default function App() {
               refresh_token: refreshToken,
             });
         if (error) throw error;
+        completedRecoveryUrls.add(url);
         if (active) {
           setRecoveryMode(true);
           setScreen('Cuenta');
