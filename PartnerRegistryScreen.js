@@ -1,6 +1,6 @@
 // Registro permanente de candidatos a socios financieros (solo modo demostración).
 // Las llamadas RPC comprueban el rol propietario en Supabase; ocultar esta pantalla no es una barrera de seguridad.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { validPartner, validLocation } from './partnerValidation';
 import { writeThenRefresh } from './partnerWriteFlow';
@@ -63,6 +63,7 @@ export default function PartnerRegistryScreen({ supabase }) {
   const [currency, setCurrency] = useState('USD');
   const [hours, setHours] = useState('');
   const [busy, setBusy] = useState(false);
+  const writingRef = useRef(false);
   const [listReady, setListReady] = useState(false);
   const [detailsReady, setDetailsReady] = useState(false);
   const [error, setError] = useState('');
@@ -111,12 +112,12 @@ export default function PartnerRegistryScreen({ supabase }) {
   }, [supabase]);
 
   async function savePartner() {
-    if (busy) return;
+    if (busy || writingRef.current) return;
     if (!validPartner(name, country)) {
       setError('Escribe un nombre de 2 a 150 caracteres y un código de país de 2 letras.');
       return;
     }
-    setError(''); setNotice(''); setBusy(true);
+    setError(''); setNotice(''); writingRef.current = true; setBusy(true);
     const outcome = await writeThenRefresh(
       () => request('mwd_owner_partner_save_demo', {
         p_legal_name: name.trim(),
@@ -141,6 +142,7 @@ export default function PartnerRegistryScreen({ supabase }) {
       setError('No se pudo confirmar el resultado del guardado. Verifica el listado antes de repetirlo. Detalle: ' + (outcome.error?.message || 'Error de conexión.'));
       setNotice('');
     }
+    writingRef.current = false;
     setBusy(false);
   }
   async function choosePartner(id) {
@@ -151,8 +153,8 @@ export default function PartnerRegistryScreen({ supabase }) {
     finally { setBusy(false); }
   }
   async function setStatus(status) {
-    if (!selectedId || busy || !detailsReady) return;
-    setError(''); setNotice(''); setBusy(true);
+    if (!selectedId || busy || writingRef.current || !detailsReady) return;
+    setError(''); setNotice(''); writingRef.current = true; setBusy(true);
     const id = selectedId;
     const outcome = await writeThenRefresh(
       () => request('mwd_owner_partner_set_status_demo', {
@@ -175,15 +177,16 @@ export default function PartnerRegistryScreen({ supabase }) {
       setError('No se pudo confirmar el cambio de estado. Actualiza el listado y los detalles antes de otra transición. Detalle: ' + (outcome.error?.message || 'Error de conexión.'));
       setNotice('');
     }
+    writingRef.current = false;
     setBusy(false);
   }
   async function saveLocation() {
-    if (!selectedId || busy || !detailsReady || selected?.review_status === 'archived') return;
+    if (!selectedId || busy || writingRef.current || !detailsReady || selected?.review_status === 'archived') return;
     if (!validLocation(branchName, city, currency, hours)) {
       setError('Revisa la sucursal (2-140 caracteres), ciudad (2-100), moneda (3 letras) y horario (máximo 140).');
       return;
     }
-    setError(''); setNotice(''); setBusy(true);
+    setError(''); setNotice(''); writingRef.current = true; setBusy(true);
     const id = selectedId;
     const outcome = await writeThenRefresh(
       () => request('mwd_owner_partner_location_save_demo', {
@@ -208,6 +211,7 @@ export default function PartnerRegistryScreen({ supabase }) {
       setError('No se pudo confirmar el guardado de la sucursal. Recarga los detalles y comprueba si aparece antes de repetirlo. Detalle: ' + (outcome.error?.message || 'Error de conexión.'));
       setNotice('');
     }
+    writingRef.current = false;
     setBusy(false);
   }
 
