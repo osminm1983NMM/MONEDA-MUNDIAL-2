@@ -54,3 +54,9 @@ test('cambio de cuenta libera indicadores de actualización y lista de retiros',
   assert.match(effect, /setPickupOrdersBusy\(false\);/);
   assert.match(effect, /setSyncing\(false\);/);
 });
+
+test('lista de retiros comprueba errores de sesión antes de mostrar órdenes', () => {
+  const code = section('  async function loadPickupOrders(', '  async function cancelDemoPickup(');
+  assert.match(code, /const authResult = await supabase\.auth\.getSession\(\);\s*if \(authResult\.error\) throw authResult\.error;/);
+  assert.match(code, /authResult\.data\.session\?\.user\?\.id !== requestedBy \|\| revision !== pickupOrdersRevisionRef\.current/);
+});
