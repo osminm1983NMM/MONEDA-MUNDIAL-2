@@ -145,4 +145,10 @@ assert.ok(app.includes('pickupCreateRevisionRef.current += 1;') &&
   app.includes('pickupCreateBusyRef.current = false;') &&
   app.includes('pickupCancelBusyRef.current = false;'),
   'account switch must invalidate and release old pickup requests');
-console.log('PASS: 45 static recovery and idempotency safety checks');
+assert.ok(app.includes("if (revision === swapWalletRevisionRef.current && requestedUserId === currentUserIdRef.current) message('Monedas de prueba'") &&
+  app.includes('if (revision === swapWalletRevisionRef.current && requestedUserId === currentUserIdRef.current) setSwapBusy(false);'),
+  'old conversion wallet errors and finally must not affect a new account');
+assert.ok(app.includes("if (revision === pickupOrdersRevisionRef.current && requestedUserId === currentUserIdRef.current) message('No se pudieron consultar las órdenes'") &&
+  app.includes('if (revision === pickupOrdersRevisionRef.current && requestedUserId === currentUserIdRef.current) setPickupOrdersBusy(false);'),
+  'old pickup history errors and finally must not affect a new account');
+console.log('PASS: 47 static recovery and idempotency safety checks');
