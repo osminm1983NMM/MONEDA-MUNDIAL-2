@@ -198,12 +198,18 @@ export default function App() {
   }
 
   function changeAmount(value) {
+    if (pendingRef.current) {
+      return message('Solicitud pendiente',
+        'Primero confirma o reintenta la operación original. No cambies el importe mientras su resultado sea incierto.');
+    }
     setAmount(value);
-    pendingRef.current = null;
   }
   function changeRecipient(value) {
+    if (pendingRef.current) {
+      return message('Solicitud pendiente',
+        'Primero confirma o reintenta la operación original. No cambies el destinatario mientras su resultado sea incierto.');
+    }
     setRecipientCode(value);
-    pendingRef.current = null;
   }
 
   async function executeOperation(type, cents, code = '') {
@@ -212,7 +218,10 @@ export default function App() {
     setBusy(true);
     try {
       const pending = pendingRef.current;
-      if (!pending || pending.type !== type || pending.cents !== cents || pending.code !== code) {
+      if (pending && (pending.type !== type || pending.cents !== cents || pending.code !== code)) {
+        throw new Error('Existe una solicitud pendiente. Reintenta con el tipo, importe y destinatario originales.');
+      }
+      if (!pending) {
         pendingRef.current = { type, cents, code, id: uniqueRequestId() };
       }
       const requestId = pendingRef.current.id;
