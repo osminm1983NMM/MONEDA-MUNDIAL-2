@@ -74,3 +74,9 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 44. Iniciar una consulta de Mis retiros en A y cambiar a B: ni la lista ni el error tardío de A deben aparecer en B.
 45. Cancelar una orden ficticia mientras existe una consulta anterior pendiente: la consulta anterior no debe reemplazar el resultado de la actualización posterior.
 46. Solicitar cotización Coin/Digital, modificar importe y solicitar otra: la primera petición no debe apagar el indicador de actividad de la segunda.
+
+## Confirmación de órdenes y respuestas perdidas
+47. Crear orden ficticia y cortar la respuesta de red después del registro en servidor: mostrar «Resultado de orden no confirmado», nunca afirmar que no se creó.
+48. Tras el caso 47, consultar Mis retiros antes de reintentar; si es necesario repetir con el mismo importe, conservar el identificador original y verificar que no aparezcan dos órdenes.
+49. Crear orden con respuesta exitosa: comprobar que la lista Mis retiros se actualiza automáticamente y contiene la nueva referencia.
+50. Cambiar de cuenta mientras se crea la orden: no mostrar el resultado ni el error de la cuenta anterior en la nueva sesión.
