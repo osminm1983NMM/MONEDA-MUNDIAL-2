@@ -111,6 +111,10 @@ export default function App() {
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
   const userId = session?.user?.id;
+  // Referencia actualizada en cada render para descartar respuestas de sesiones antiguas.
+  const activeUserRef = useRef(userId);
+  activeUserRef.current = userId;
+  const refreshSequenceRef = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -200,7 +204,8 @@ export default function App() {
   }, [userId]);
 
   async function refreshAccount(id = userId) {
-    if (!id) return;
+    if (!id || id !== activeUserRef.current) return;
+    const sequence = ++refreshSequenceRef.current;
     setSyncing(true);
     setSyncNotice('Actualizando...');
     try {
@@ -216,16 +221,21 @@ export default function App() {
       if (w.error) throw w.error;
       if (h.error) throw h.error;
       if (a.error) throw a.error;
-      if (supabase.auth.getUser && supabase.auth && id !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      if (id !== activeUserRef.current || sequence !== refreshSequenceRef.current) return;
+      const currentSession = await supabase.auth.getSession();
+      if (currentSession.error || currentSession.data.session?.user?.id !== id ||
+          id !== activeUserRef.current || sequence !== refreshSequenceRef.current) return;
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
       setSyncNotice('Saldo e historial actualizados correctamente.');
     } catch (error) {
-      setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
-      message('Sincronización', error.message || 'No se pudo consultar Supabase.');
+      if (id === activeUserRef.current && sequence === refreshSequenceRef.current) {
+        setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
+        message('Sincronización', error.message || 'No se pudo consultar Supabase.');
+      }
     } finally {
-      setSyncing(false);
+      if (id === activeUserRef.current && sequence === refreshSequenceRef.current) setSyncing(false);
     }
   }
 
