@@ -6,7 +6,9 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "test:partners": "node tests/partnerValidation.test.cjs"
+    "test:partners": "node tests/partnerValidation.test.cjs",
+    "test:network": "node tests/networkFailure.test.cjs",
+    "test:all": "npm run test:partners && npm run test:network"
   },
   "dependencies": {
     "expo": "~54.0.0",
