@@ -36,4 +36,6 @@ assert.ok(screen.includes('{listReady && partners.map('), 'No muestra socios con
 assert.ok(screen.includes('{listReady && selected && <View'), 'No muestra tarjeta de socio con listado no verificado');
 assert.ok(screen.includes('listReady ? partners.length : "sin verificar"'), 'No presenta conteo antiguo como vigente');
 assert.ok(screen.includes('!(NEXT[selected.review_status] || []).some(([next]) => next === status)'), 'Rechaza transiciones de estado no permitidas antes de llamar a RPC');
-console.log('26 comprobaciones estructurales de recuperación superadas.');
+assert.ok(screen.includes("setListReady(false);\n      setDetailsReady(false);\n      setError('No se pudo confirmar el resultado del guardado."), 'Resultado incierto de socio bloquea nuevas escrituras');
+assert.ok(screen.includes("setDetailsReady(false);\n      setError('No se pudo confirmar el guardado de la sucursal."), 'Resultado incierto de sucursal bloquea nuevas escrituras');
+console.log('28 comprobaciones estructurales de recuperación superadas.');
