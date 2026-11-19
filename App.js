@@ -105,6 +105,7 @@ export default function App() {
   const userId = session?.user?.id;
   const activeUserRef = useRef(null);
   const refreshSequenceRef = useRef(0);
+  const authUserRef = useRef(null);
   activeUserRef.current = userId;
 
   useEffect(() => {
@@ -119,11 +120,13 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return;
-      setSession(previous => {
-        // Un TOKEN_REFRESHED no debe expulsar al usuario de la pantalla actual.
-        if (previous?.user?.id !== nextSession?.user?.id) setScreen('Inicio');
-        return nextSession;
-      });
+      // Un TOKEN_REFRESHED no debe expulsar al usuario de la pantalla actual.
+      const nextUserId = nextSession?.user?.id || null;
+      if (authUserRef.current !== nextUserId) {
+        authUserRef.current = nextUserId;
+        setScreen('Inicio');
+      }
+      setSession(nextSession);
       setAuthLoading(false);
     });
     return () => { active = false; subscription.unsubscribe(); };
