@@ -97,17 +97,29 @@ export default function App() {
   const [swapAmount, setSwapAmount] = useState('');
   const [swapQuote, setSwapQuote] = useState(null);
   const [swapBusy, setSwapBusy] = useState(false);
+  const swapBusyRevisionRef = useRef(0);
+  const swapQuoteRevisionRef = useRef(0);
+  const swapConfirmRevisionRef = useRef(0);
   const [pickupAmount, setPickupAmount] = useState('');
+  const pickupPendingRef = useRef(null);
   const [pickupBusy, setPickupBusy] = useState(false);
+  const pickupCreateRevisionRef = useRef(0);
   const [pickupResult, setPickupResult] = useState(null);
   const [pickupOrders, setPickupOrders] = useState([]);
   const [pickupOrdersBusy, setPickupOrdersBusy] = useState(false);
   const [pickupCancelBusy, setPickupCancelBusy] = useState(false);
+  const pickupCancelRevisionRef = useRef(0);
   const [recipientCode, setRecipientCode] = useState('');
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+  const operationRevisionRef = useRef(0);
   const pendingRef = useRef(null);
+  const accountRefreshRevisionRef = useRef(0);
+  const authIdentityRef = useRef(undefined);
+  const authEventSeenRef = useRef(false);
+  const swapWalletRevisionRef = useRef(0);
+  const pickupOrdersRevisionRef = useRef(0);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -115,34 +127,83 @@ export default function App() {
     supabase.auth.getSession()
       .then(({ data, error }) => {
         if (error) throw error;
-        if (active) setSession(data.session);
+        if (active && !authEventSeenRef.current) {
+          const nextId = data.session?.user?.id || null;
+          if (authIdentityRef.current === undefined) authIdentityRef.current = nextId;
+          setSession(data.session);
+        }
       })
-      .catch(error => message('Sesión', error.message))
+      .catch(error => {
+        if (active && !authEventSeenRef.current) {
+          message('Sesión', error.message || 'No se pudo comprobar la sesión inicial.');
+        }
+      })
       .finally(() => { if (active) setAuthLoading(false); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return;
+      authEventSeenRef.current = true;
+      const nextId = nextSession?.user?.id || null;
+      if (authIdentityRef.current !== undefined && authIdentityRef.current !== nextId) {
+        setScreen('Inicio');
+      }
+      authIdentityRef.current = nextId;
       setSession(nextSession);
       setAuthLoading(false);
-      setScreen('Inicio');
     });
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
 
   useEffect(() => {
+    accountRefreshRevisionRef.current += 1;
+    swapWalletRevisionRef.current += 1;
+    pickupOrdersRevisionRef.current += 1;
+    pendingRef.current = null;
+    // Invalidar operaciones antiguas sin permitir que su finally libere un bloqueo nuevo.
+    operationRevisionRef.current += 1;
+    swapConfirmRevisionRef.current += 1;
+    swapBusyRevisionRef.current += 1;
+    pickupCreateRevisionRef.current += 1;
+    pickupCancelRevisionRef.current += 1;
+    // Las solicitudes invalidadas no ejecutarán su limpieza final: liberar también estos indicadores.
+    setSwapBusy(false);
+    setPickupBusy(false);
+    setPickupOrdersBusy(false);
+    setPickupCancelBusy(false);
+    setSyncing(false);
+    busyRef.current = false;
+    setBusy(false);
+    setAmount('');
+    setRecipientCode('');
     if (!userId) {
       setWallet(null);
       setOperations([]);
       setAdminRole(null);
       setSwapWallet(null);
+      swapQuoteRevisionRef.current += 1;
       setSwapQuote(null);
+      pickupPendingRef.current = null;
+      setPickupResult(null);
+      setPickupOrders([]);
+      setSyncNotice('');
       return;
     }
+    pickupPendingRef.current = null;
+    setPickupResult(null);
+    setPickupOrders([]);
+    setWallet(null);
+    setOperations([]);
+    setAdminRole(null);
+    setSwapWallet(null);
+    swapQuoteRevisionRef.current += 1;
+    setSwapQuote(null);
+    setSyncNotice('');
     refreshAccount(userId);
   }, [userId]);
 
   async function refreshAccount(id = userId) {
     if (!id) return;
+    const revision = ++accountRefreshRevisionRef.current;
     setSyncing(true);
     setSyncNotice('Actualizando...');
     try {
@@ -158,16 +219,30 @@ export default function App() {
       if (w.error) throw w.error;
       if (h.error) throw h.error;
       if (a.error) throw a.error;
-      if (supabase.auth.getUser && supabase.auth && id !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      const authResult = await supabase.auth.getSession();
+      if (authResult.error) throw authResult.error;
+      if (revision !== accountRefreshRevisionRef.current || authResult.data.session?.user?.id !== id) return;
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
       setSyncNotice('Saldo e historial actualizados correctamente.');
     } catch (error) {
+      if (revision !== accountRefreshRevisionRef.current) return;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (authResult.data.session?.user?.id !== id) return;
+      } catch (authError) {
+        if (revision !== accountRefreshRevisionRef.current) return;
+        setSyncNotice('No se pudo verificar la sesión. Vuelve a consultar.');
+        message('Sesión no verificada', 'No se pudo comprobar la cuenta actual. Verifica tu sesión antes de operar.');
+        return;
+      }
+      if (revision !== accountRefreshRevisionRef.current) return;
       setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
       message('Sincronización', error.message || 'No se pudo consultar Supabase.');
     } finally {
-      setSyncing(false);
+      if (revision === accountRefreshRevisionRef.current) setSyncing(false);
     }
   }
 
@@ -206,13 +281,15 @@ export default function App() {
   }
 
   async function executeOperation(type, cents, code = '') {
-    if (busyRef.current) return;
+    if (busyRef.current || !userId) return;
+    const operationUserId = userId;
+    const operationRevision = ++operationRevisionRef.current;
     busyRef.current = true;
     setBusy(true);
     try {
       const pending = pendingRef.current;
-      if (!pending || pending.type !== type || pending.cents !== cents || pending.code !== code) {
-        pendingRef.current = { type, cents, code, id: uniqueRequestId() };
+      if (!pending || pending.userId !== operationUserId || pending.type !== type || pending.cents !== cents || pending.code !== code) {
+        pendingRef.current = { userId: operationUserId, type, cents, code, id: uniqueRequestId() };
       }
       const requestId = pendingRef.current.id;
       const response = type === 'transfer'
@@ -226,20 +303,54 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
+      // La RPC ya confirmó el movimiento; un fallo posterior de sesión o lectura
+      // no debe presentarlo como una transferencia/aportación fallida.
+      let currentAuth;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        currentAuth = authResult.data;
+      } catch (authError) {
+        if (operationRevision !== operationRevisionRef.current) return;
+        message('Movimiento registrado; sesión pendiente',
+          'Supabase confirmó el movimiento ficticio. Verifica tu sesión y consulta el historial antes de intentar otro envío.');
+        return;
+      }
+      if (operationRevision !== operationRevisionRef.current || currentAuth.session?.user?.id !== operationUserId) return;
       pendingRef.current = null;
       setAmount('');
       setRecipientCode('');
       setScreen('Inicio');
-      await refreshAccount();
       message('Operación ficticia confirmada', type === 'transfer'
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
+      try {
+        await refreshAccount();
+      } catch (refreshError) {
+        if (operationRevision !== operationRevisionRef.current) return;
+        message('Actualización pendiente',
+          'El movimiento fue confirmado, pero el saldo o historial requiere actualización.');
+      }
     } catch (error) {
+      if (operationRevision !== operationRevisionRef.current) return;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (operationRevision !== operationRevisionRef.current || authResult.data.session?.user?.id !== operationUserId) return;
+      } catch (authError) {
+        if (operationRevision !== operationRevisionRef.current) return;
+        message('Resultado pendiente de verificación',
+          'No fue posible consultar la sesión. Comprueba tu cuenta e historial antes de reintentar.');
+        return;
+      }
+      if (operationRevision !== operationRevisionRef.current) return;
       message('Operación no confirmada',
         (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
     } finally {
-      busyRef.current = false;
-      setBusy(false);
+      if (operationRevision === operationRevisionRef.current) {
+        busyRef.current = false;
+        setBusy(false);
+      }
     }
   }
 
@@ -250,8 +361,15 @@ export default function App() {
       return message('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
     }
     if (!wallet) return message('Espera', 'Primero carga tu cuenta.');
-    if (cents > wallet.balance_cents) return message('Saldo insuficiente', 'No tienes suficientes MWD ficticios.');
     const code = recipientCode.trim().toUpperCase();
+    const pending = pendingRef.current;
+    const retrySameRequest = pending?.userId === userId && pending.type === type &&
+      pending.cents === cents && pending.code === code;
+    // Un reintento incierto conserva su clave aunque el primer intento haya debitado el saldo.
+    // El servidor debe aplicar idempotencia y validar los fondos en solicitudes nuevas.
+    if (!retrySameRequest && cents > wallet.balance_cents) {
+      return message('Saldo insuficiente', 'No tienes suficientes MWD ficticios.');
+    }
     if (type === 'transfer') {
       if (!/^MWD-[A-F0-9]{16}$/.test(code)) {
         return message('Identificador', 'Introduce el código MWD- seguido de 16 caracteres.');
@@ -259,7 +377,7 @@ export default function App() {
       if (code === wallet.account_code) return message('Destinatario', 'No puedes enviarte MWD a tu propia cuenta.');
     }
     confirmAction(type === 'transfer' ? 'Transferencia de prueba' : 'Aportación de prueba',
-      `${formatMWD(cents)} MWD ficticios${type === 'transfer' ? '\nDestino: ' + code : '\nFondo de demostración'}`,
+      `${formatMWD(cents)} MWD ficticios${type === 'transfer' ? '\nDestino: ' + code : '\nFondo de demostración'}${retrySameRequest ? '\nReintento de la misma solicitud: no se debe generar un segundo movimiento.' : ''}`,
       () => executeOperation(type, cents, code));
   }
 
@@ -271,21 +389,40 @@ export default function App() {
   const microDisplay = value => (Number(value || 0) / 1000000).toFixed(6);
 
   async function loadSwapWallet() {
+    const requestedBy = userId;
+    if (!requestedBy) return;
+    const revision = ++swapWalletRevisionRef.current;
+    const busyRevision = ++swapBusyRevisionRef.current;
     setSwapBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_wallet_demo');
       if (error) throw error;
+      const authResult = await supabase.auth.getSession();
+      if (authResult.error) throw authResult.error;
+      if (authResult.data.session?.user?.id !== requestedBy || revision !== swapWalletRevisionRef.current) return;
       setSwapWallet(data);
     } catch (error) {
+      if (revision !== swapWalletRevisionRef.current) return;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (authResult.data.session?.user?.id !== requestedBy) return;
+      } catch (authError) {
+        if (revision !== swapWalletRevisionRef.current) return;
+        message('Sesión no verificada', 'Comprueba tu sesión antes de consultar las monedas de prueba.');
+        return;
+      }
+      if (revision !== swapWalletRevisionRef.current) return;
       message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
     } finally {
-      setSwapBusy(false);
+      if (busyRevision === swapBusyRevisionRef.current) setSwapBusy(false);
     }
   }
 
   async function requestSwapQuote() {
+    if (swapBusy || !userId) return;
     const normalized = swapAmount.trim().replace(',', '.');
-    if (!/^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$/.test(normalized)) {
+    if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(normalized)) {
       return message('Cantidad inválida', 'Usa hasta seis decimales.');
     }
     const [whole, fraction = ''] = normalized.split('.');
@@ -293,6 +430,9 @@ export default function App() {
     if (!Number.isSafeInteger(micro) || micro < 1000000 || micro > 10000000000) {
       return message('Cantidad inválida', 'Introduce entre 1 y 10,000 unidades de prueba.');
     }
+    const revision = ++swapQuoteRevisionRef.current;
+    const busyRevision = ++swapBusyRevisionRef.current;
+    const requestedBy = userId;
     setSwapBusy(true);
     setSwapQuote(null);
     try {
@@ -300,21 +440,38 @@ export default function App() {
         p_from_asset: swapFrom, p_amount_micro: micro, p_client_request_id: uniqueRequestId(),
       });
       if (error) throw error;
+      const authResult = await supabase.auth.getSession();
+      if (authResult.error) throw authResult.error;
+      if (authResult.data.session?.user?.id !== requestedBy || revision !== swapQuoteRevisionRef.current) return;
       setSwapQuote(data);
     } catch (error) {
+      if (revision !== swapQuoteRevisionRef.current) return;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (authResult.data.session?.user?.id !== requestedBy) return;
+      } catch (authError) {
+        if (revision !== swapQuoteRevisionRef.current) return;
+        message('Sesión no verificada', 'Comprueba tu sesión antes de solicitar otra cotización.');
+        return;
+      }
+      if (revision !== swapQuoteRevisionRef.current) return;
       message('Cotización', error.message || 'No se pudo cotizar.');
     } finally {
-      setSwapBusy(false);
+      if (busyRevision === swapBusyRevisionRef.current) setSwapBusy(false);
     }
   }
 
   async function confirmSwap() {
-    if (!swapQuote?.quoteId || swapBusy) return;
+    if (!swapQuote?.quoteId || swapBusy || !userId) return;
+    const requestedBy = userId;
+    const confirmRevision = ++swapConfirmRevisionRef.current;
     const quote = swapQuote;
     if (new Date(quote.expiresAt).getTime() <= Date.now()) {
       setSwapQuote(null);
       return message('Cotización vencida', 'Solicita una cotización nueva.');
     }
+    const busyRevision = ++swapBusyRevisionRef.current;
     setSwapBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_confirm_demo', {
@@ -322,27 +479,81 @@ export default function App() {
       });
       if (error) throw error;
       if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
+      // Una confirmación recibida del servidor no debe convertirse en error
+      // por un fallo posterior al consultar la sesión.
+      let currentAuth;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        currentAuth = authResult.data;
+      } catch (authError) {
+        if (confirmRevision !== swapConfirmRevisionRef.current) return;
+        message('Conversión registrada; sesión pendiente',
+          'Supabase confirmó la conversión ficticia. Verifica tu sesión y consulta los saldos antes de repetirla.');
+        return;
+      }
+      if (confirmRevision !== swapConfirmRevisionRef.current || currentAuth.session?.user?.id !== requestedBy) return;
       setSwapQuote(null);
       setSwapAmount('');
-      const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
-      if (walletResponse.error) throw walletResponse.error;
-      setSwapWallet(walletResponse.data);
-      message('Conversión ficticia', 'Operación registrada correctamente.');
+      message('Conversión ficticia', 'Operación registrada correctamente. Actualizando saldos de prueba.');
+      // No permitir que una consulta posterior sobrescriba otra más reciente.
+      const walletRevision = ++swapWalletRevisionRef.current;
+      try {
+        const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
+        if (walletResponse.error) throw walletResponse.error;
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (confirmRevision !== swapConfirmRevisionRef.current || authResult.data.session?.user?.id !== requestedBy || walletRevision !== swapWalletRevisionRef.current) return;
+        setSwapWallet(walletResponse.data);
+      } catch (refreshError) {
+        let latestAuth;
+        try {
+          const authResult = await supabase.auth.getSession();
+          if (authResult.error) throw authResult.error;
+          latestAuth = authResult.data;
+        } catch (authError) {
+          if (confirmRevision !== swapConfirmRevisionRef.current || walletRevision !== swapWalletRevisionRef.current) return;
+          message('Actualización pendiente',
+            'La conversión ficticia fue confirmada. Verifica tu sesión y consulta los saldos antes de otra operación.');
+          return;
+        }
+        if (confirmRevision !== swapConfirmRevisionRef.current || latestAuth.session?.user?.id !== requestedBy || walletRevision !== swapWalletRevisionRef.current) return;
+        setSwapWallet(null);
+        message('Actualización pendiente',
+          'La conversión ficticia fue confirmada, pero no se pudieron consultar los saldos. Usa Consultar saldos antes de otra operación.');
+      }
     } catch (error) {
+      if (confirmRevision !== swapConfirmRevisionRef.current) return;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (confirmRevision !== swapConfirmRevisionRef.current || authResult.data.session?.user?.id !== requestedBy) return;
+      } catch (authError) {
+        if (confirmRevision !== swapConfirmRevisionRef.current) return;
+        message('Resultado de conversión pendiente',
+          'No fue posible verificar la sesión. Consulta tu cuenta y los saldos antes de intentar otra conversión.');
+        return;
+      }
+      if (confirmRevision !== swapConfirmRevisionRef.current) return;
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
-        '\\nConsulta los saldos antes de intentar otra conversión.');
+        '\nConsulta los saldos antes de intentar otra conversión.');
     } finally {
-      setSwapBusy(false);
+      if (busyRevision === swapBusyRevisionRef.current) setSwapBusy(false);
     }
   }
 
   async function createDemoPickup() {
-    if (pickupBusy) return;
+    if (pickupBusy || !userId) return;
+    const requestedBy = userId;
+    const createRevision = ++pickupCreateRevisionRef.current;
     const cents = amountToCents(pickupAmount);
     if (cents === null || cents < 100 || cents > 100000) {
       return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
     }
-    const requestId = uniqueRequestId();
+    if (!pickupPendingRef.current || pickupPendingRef.current.cents !== cents || pickupPendingRef.current.userId !== userId) {
+      pickupPendingRef.current = { cents, userId, id: uniqueRequestId() };
+    }
+    const requestId = pickupPendingRef.current.id;
     setPickupBusy(true);
     setPickupResult(null);
     try {
@@ -351,42 +562,126 @@ export default function App() {
       });
       if (error) throw error;
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
+      // El servidor ya confirmó la creación: un fallo de sesión posterior
+      // no debe presentarse como una orden fallida ni generar un reintento ciego.
+      let currentAuth;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        currentAuth = authResult.data;
+      } catch (authError) {
+        if (createRevision !== pickupCreateRevisionRef.current) return;
+        message('Orden registrada; sesión pendiente',
+          'Supabase confirmó la orden ficticia. Verifica tu sesión y consulta Mis retiros antes de intentar otra orden.');
+        return;
+      }
+      if (createRevision !== pickupCreateRevisionRef.current || currentAuth.session?.user?.id !== requestedBy) return;
       setPickupResult(data);
+      pickupPendingRef.current = null;
       setPickupAmount('');
+      // La actualización secundaria no debe cambiar el resultado confirmado de la creación.
+      loadPickupOrders().catch(() => {
+        if (createRevision !== pickupCreateRevisionRef.current) return;
+        message('Actualización pendiente', 'Orden ficticia creada; consulta Mis retiros para actualizar la lista.');
+      });
     } catch (error) {
-      message('Orden ficticia no creada', error.message || 'Error desconocido');
+      if (createRevision !== pickupCreateRevisionRef.current) return;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (createRevision !== pickupCreateRevisionRef.current || authResult.data.session?.user?.id !== requestedBy) return;
+      } catch (authError) {
+        if (createRevision !== pickupCreateRevisionRef.current) return;
+        message('Resultado de orden pendiente',
+          'No fue posible verificar la sesión. Consulta tu cuenta y Mis retiros antes de intentar otra orden.');
+        return;
+      }
+      if (createRevision !== pickupCreateRevisionRef.current) return;
+      message('Resultado de orden no confirmado',
+        (error.message || 'Error de conexión') +
+        '\nLa orden pudo haberse creado. Consulta Mis retiros y, si reintentas con el mismo monto, se conservará el identificador de solicitud.');
     } finally {
-      setPickupBusy(false);
+      if (createRevision === pickupCreateRevisionRef.current) setPickupBusy(false);
     }
   }
 
   async function loadPickupOrders() {
+    const requestedBy = userId;
+    if (!requestedBy) return;
+    const revision = ++pickupOrdersRevisionRef.current;
     setPickupOrdersBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_my_orders_demo');
       if (error) throw error;
       if (!Array.isArray(data)) throw new Error('Respuesta de órdenes no reconocida.');
+      const authResult = await supabase.auth.getSession();
+      if (authResult.error) throw authResult.error;
+      if (authResult.data.session?.user?.id !== requestedBy || revision !== pickupOrdersRevisionRef.current) return;
       setPickupOrders(data);
     } catch (error) {
+      if (revision !== pickupOrdersRevisionRef.current) return;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (authResult.data.session?.user?.id !== requestedBy) return;
+      } catch (authError) {
+        if (revision !== pickupOrdersRevisionRef.current) return;
+        message('Sesión no verificada', 'No se pudo verificar la cuenta al consultar Mis retiros.');
+        return;
+      }
+      if (revision !== pickupOrdersRevisionRef.current) return;
       message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
     } finally {
-      setPickupOrdersBusy(false);
+      if (revision === pickupOrdersRevisionRef.current) setPickupOrdersBusy(false);
     }
   }
 
   async function cancelDemoPickup(orderId) {
-    if (pickupCancelBusy) return;
+    if (pickupCancelBusy || !userId) return;
+    const requestedBy = userId;
+    const cancelRevision = ++pickupCancelRevisionRef.current;
     setPickupCancelBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_cancel_demo', { p_order_id: orderId });
       if (error) throw error;
       if (!['cancelled', 'already_cancelled'].includes(data?.status)) throw new Error('Respuesta de cancelación no reconocida.');
+      // Una cancelación confirmada no debe pasar a "no confirmada" por un error de sesión posterior.
+      let currentAuth;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        currentAuth = authResult.data;
+      } catch (authError) {
+        if (cancelRevision !== pickupCancelRevisionRef.current) return;
+        message('Cancelación registrada; sesión pendiente',
+          'Supabase confirmó la cancelación ficticia. Verifica tu sesión y consulta Mis retiros antes de repetirla.');
+        return;
+      }
+      if (cancelRevision !== pickupCancelRevisionRef.current || currentAuth.session?.user?.id !== requestedBy) return;
       message('Orden ficticia', data.status === 'cancelled' ? 'Orden cancelada correctamente.' : 'La orden ya estaba cancelada.');
-      await loadPickupOrders();
+      // La consulta posterior no debe convertir una cancelación confirmada en un fallo.
+      loadPickupOrders().catch(() => {
+        if (cancelRevision !== pickupCancelRevisionRef.current) return;
+        message('Actualización pendiente', 'Cancelación confirmada; actualiza Mis retiros para consultar la lista.');
+      });
     } catch (error) {
-      message('No se pudo cancelar', error.message || 'Error desconocido');
+      if (cancelRevision !== pickupCancelRevisionRef.current) return;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (cancelRevision !== pickupCancelRevisionRef.current || authResult.data.session?.user?.id !== requestedBy) return;
+      } catch (authError) {
+        if (cancelRevision !== pickupCancelRevisionRef.current) return;
+        message('Resultado de cancelación pendiente',
+          'No fue posible verificar la sesión. Consulta tu cuenta y Mis retiros antes de repetir la cancelación.');
+        return;
+      }
+      if (cancelRevision !== pickupCancelRevisionRef.current) return;
+      message('Resultado de cancelación no confirmado',
+        (error.message || 'Error de conexión') +
+        '\nLa cancelación pudo haberse procesado. Consulta Mis retiros antes de repetirla.');
     } finally {
-      setPickupCancelBusy(false);
+      if (cancelRevision === pickupCancelRevisionRef.current) setPickupCancelBusy(false);
     }
   }
 
@@ -394,9 +689,12 @@ export default function App() {
     setScreen(to);
     if (to === 'Convertir') loadSwapWallet();
     if (to === 'MisRetiros') loadPickupOrders();
-    setAmount('');
-    setRecipientCode('');
-    pendingRef.current = null;
+    // Conservar una solicitud de transferencia incierta al navegar.
+    // Solo se descarta si cambian importe/destinatario, usuario o se confirma.
+    if (!pendingRef.current) {
+      setAmount('');
+      setRecipientCode('');
+    }
   }
 
   return (
@@ -474,7 +772,7 @@ export default function App() {
               <Text style={styles.muted}>Monto de prueba: 1.00 a 1000.00 MWD</Text>
               <TextInput style={styles.input} placeholder="Ejemplo: 10.00"
                 placeholderTextColor="#9fb1c8" keyboardType="decimal-pad"
-                value={pickupAmount} onChangeText={setPickupAmount} editable={!pickupBusy} />
+                value={pickupAmount} onChangeText={value => { setPickupAmount(value); pickupPendingRef.current = null; }} editable={!pickupBusy} />
               <Text style={styles.muted}>Máximo 5 órdenes nuevas por hora por cuenta. Vigencia: 24 horas.</Text>
               <Btn title={pickupBusy ? 'Creando...' : 'Crear orden ficticia'}
                 onPress={createDemoPickup} disabled={pickupBusy} />
@@ -541,11 +839,12 @@ export default function App() {
               <Btn title={swapFrom === 'COIN' ? 'Origen: COIN (cambiar)' : 'Origen: DIGITAL (cambiar)'}
                 secondary disabled={swapBusy} onPress={() => {
                   setSwapFrom(swapFrom === 'COIN' ? 'STABLE' : 'COIN');
+                  swapQuoteRevisionRef.current += 1;
                   setSwapQuote(null);
                 }} />
               <TextInput style={styles.input} placeholder="Cantidad (mínimo 1)"
                 keyboardType="decimal-pad" placeholderTextColor="#9fb1c8"
-                value={swapAmount} onChangeText={value => { setSwapAmount(value); setSwapQuote(null); }} />
+                value={swapAmount} editable={!swapBusy} onChangeText={value => { swapQuoteRevisionRef.current += 1; setSwapAmount(value); setSwapQuote(null); }} />
               <Btn title={swapBusy ? 'Procesando...' : 'Solicitar cotización ficticia'}
                 disabled={swapBusy || !swapWallet} onPress={requestSwapQuote} />
               {swapQuote && <View>
