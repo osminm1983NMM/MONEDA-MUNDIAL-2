@@ -570,9 +570,12 @@ export default function App() {
     setScreen(to);
     if (to === 'Convertir') loadSwapWallet();
     if (to === 'MisRetiros') loadPickupOrders();
-    setAmount('');
-    setRecipientCode('');
-    pendingRef.current = null;
+    // Navigation must not discard an unresolved idempotency key.
+    // Keep the original amount and destination until the server confirms it.
+    if (!pendingRef.current) {
+      setAmount('');
+      setRecipientCode('');
+    }
   }
 
   return (
