@@ -39,4 +39,11 @@ assert.ok(app.includes("test(p.id)") && app.includes("test(candidate.id)"),
 assert.ok(app.includes(String.raw`/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/`),
   'conversion amount regex must match digits and decimal points');
 assert.ok(app.includes("test(previous.id)"), 'pickup recovery must validate persisted request ID');
-console.log('PASS: 14 static recovery and idempotency safety checks');
+const swapStart = app.indexOf('async function confirmSwap()');
+const pickupStart = app.indexOf('async function createDemoPickup()', swapStart);
+assert.ok(swapStart >= 0 && pickupStart > swapStart, 'swap confirmation flow exists');
+const swap = app.slice(swapStart, pickupStart);
+assert.ok(swap.indexOf("message('Conversión ficticia'") <
+  swap.indexOf("const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo')"),
+  'swap success must be shown before optional balance refresh');
+console.log('PASS: 15 static recovery and idempotency safety checks');
