@@ -98,3 +98,9 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 60. Perder respuesta de la RPC de transferencia: conservar el identificador de solicitud y permitir reintento con los mismos datos, comprobando que no se duplica el movimiento.
 61. Fallar la consulta de sesión mientras se intenta comprobar una respuesta RPC incierta: mostrar «Resultado pendiente de verificación» y recomendar consultar cuenta e historial.
 62. Confirmar transferencia y fallar la actualización posterior de saldo: mantener el mensaje de movimiento confirmado; no presentarlo como operación fallida.
+
+## Confirmación de conversión y fallo de sesión
+63. Confirmar conversión en Supabase y provocar fallo posterior en getSession: indicar «Conversión registrada; sesión pendiente», nunca que la conversión falló.
+64. Perder respuesta de confirmación de conversión y fallar la consulta de sesión: indicar «Resultado de conversión pendiente» y no aconsejar repetir sin revisar saldos.
+65. Confirmar conversión, fallar consulta de billetera y también la segunda consulta de sesión: mantener confirmación y mostrar «Actualización pendiente».
+66. Cambiar de cuenta durante la confirmación: no mostrar saldos ni mensajes privados de la cuenta anterior.
