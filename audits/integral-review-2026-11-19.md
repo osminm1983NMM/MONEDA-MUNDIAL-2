@@ -112,3 +112,12 @@
 - Se corrigió una aserción obsoleta de la suite estática: ahora verifica el bloqueo completo de confirmación de conversiones, incluido `swapQuoteBusyRef`. Antes, la aserción exigía una cadena antigua y podía fallar ante la corrección vigente.
 - `package.json` ahora define `npm test` como `node --test tests/*.test.cjs`, para incluir tanto las comprobaciones estáticas como las pruebas ejecutables de funciones puras.
 - Estas modificaciones no equivalen a ejecución completa confirmada. Continúa pendiente un resultado verificable de CI/Node y la validación Android.
+
+## Verificación directa de base de datos — 19 noviembre 2026
+Consulta SQL de solo lectura ejecutada sobre el proyecto Supabase `egrsdrlpavrtbgxoyxvg`:
+```sql
+select (select count(*) from public.mwd_operations where kind='contribution') as contributions,
+       (select count(*) from public.mwd_operations where kind='transfer') as transfers,
+       (select count(*) from public.mwd_wallets where balance_cents < 0) as negative_wallets;
+```
+**Resultado:** 6 aportaciones, 19 transferencias, 0 billeteras con saldo negativo. La consulta no modifica datos y no prueba por sí misma conciliación completa, idempotencia ni integridad de todas las entradas contables. Sigue pendiente la decisión sobre el tratamiento en el libro mayor de las aportaciones.
