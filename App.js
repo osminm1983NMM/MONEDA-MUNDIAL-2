@@ -142,31 +142,37 @@ export default function App() {
       return;
     }
     refreshAccount(userId);
-    // Recuperar borradores pendientes después de reiniciar Android.
-    // Nunca enviar automáticamente: el usuario debe revisar y confirmar.
+    // Restaurar ambos borradores en orden, sin competir por la navegación.
+    // Nunca ejecutar una operación durante la restauración.
     let active = true;
     (async () => {
+      let hasOperation = false;
       try {
         const raw = await AsyncStorage.getItem('mwd:pending-demo-operation:' + userId);
-        if (!raw || !active) return;
-        const saved = JSON.parse(raw);
-        if (!saved || !/^[0-9a-f-]{36}$/i.test(saved.id || '') ||
-            !Number.isSafeInteger(saved.cents) || saved.cents < 1 ||
-            saved.cents > LIMIT_CENTS || typeof saved.code !== 'string' ||
-            !['transfer', 'contribution'].includes(saved.type)) {
-          throw new Error('Datos pendientes inválidos.');
+        if (raw && active) {
+          const saved = JSON.parse(raw);
+          if (!saved || !/^[0-9a-f-]{36}$/i.test(saved.id || '') ||
+              !Number.isSafeInteger(saved.cents) || saved.cents < 1 ||
+              saved.cents > LIMIT_CENTS || typeof saved.code !== 'string' ||
+              !['transfer', 'contribution'].includes(saved.type) ||
+              (saved.type === 'transfer' && !/^MWD-[A-F0-9]{16}$/.test(saved.code)) ||
+              (saved.type === 'contribution' && saved.code !== '')) {
+            throw new Error('Datos pendientes inválidos.');
+          }
+          if (!active) return;
+          hasOperation = true;
+          pendingRef.current = saved;
+          setAmount(formatMWD(saved.cents));
+          setRecipientCode(saved.code);
+          setScreen(saved.type === 'transfer' ? 'Transferir' : 'Aportar');
+          message('Operación pendiente recuperada', 'Revisa los datos y confirma para consultar el servidor con la misma referencia. No se enviará automáticamente.');
         }
-        if (!active) return;
-        pendingRef.current = saved;
-        setAmount(formatMWD(saved.cents));
-        setRecipientCode(saved.code);
-        setScreen(saved.type === 'transfer' ? 'Transferir' : 'Aportar');
-        message('Operación pendiente recuperada', 'Revisa los datos y confirma para consultar el servidor con la misma referencia. No se enviará automáticamente.');
       } catch (_error) {
-        if (active) message('Operación pendiente', 'Hay datos locales que requieren revisión. No se enviará ninguna operación automáticamente.');
+        if (active) {
+          hasOperation = true; // Un borrador dañado también debe bloquear otro flujo.
+          message('Operación pendiente', 'Hay datos locales que requieren revisión. No se enviará ninguna operación automáticamente.');
+        }
       }
-    })();
-    (async () => {
       try {
         const raw = await AsyncStorage.getItem('mwd:pending-demo-pickup:' + userId);
         if (!raw || !active) return;
@@ -178,10 +184,7 @@ export default function App() {
         }
         if (!active) return;
         setPickupAmount(formatMWD(saved.cents));
-        // No reemplazar la pantalla de una transferencia pendiente recuperada.
-        const operationRaw = await AsyncStorage.getItem('mwd:pending-demo-operation:' + userId);
-        if (!active) return;
-        if (!operationRaw) setScreen('Retiros');
+        if (!hasOperation) setScreen('Retiros');
         message('Retiro ficticio pendiente', 'Se recuperó el importe. Revisa y confirma para reintentar con la misma referencia; no se enviará automáticamente.');
       } catch (_error) {
         if (active) message('Retiro pendiente', 'Hay una orden local pendiente que requiere revisión antes de crear otra.');
