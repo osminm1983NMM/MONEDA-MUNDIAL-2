@@ -110,25 +110,33 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession()
-      .then(({ data, error }) => {
-        if (error) throw error;
-        if (active) setSession(data.session);
-      })
-      .catch(error => message('Sesión', error.message))
-      .finally(() => { if (active) setAuthLoading(false); });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (!active) return;
-      // Un TOKEN_REFRESHED no debe expulsar al usuario de la pantalla actual.
+    let receivedAuthEvent = false;
+    const applySession = nextSession => {
       const nextUserId = nextSession?.user?.id || null;
+      // La renovación del token no debe reiniciar la navegación.
       if (authUserRef.current !== nextUserId) {
         authUserRef.current = nextUserId;
         setScreen('Inicio');
       }
       setSession(nextSession);
       setAuthLoading(false);
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!active) return;
+      receivedAuthEvent = true;
+      applySession(nextSession);
     });
+
+    supabase.auth.getSession()
+      .then(({ data, error }) => {
+        if (error) throw error;
+        // Nunca sobrescribir un evento de autenticación más reciente.
+        if (active && !receivedAuthEvent) applySession(data.session);
+      })
+      .catch(error => { if (active) message('Sesión', error.message); })
+      .finally(() => { if (active) setAuthLoading(false); });
+
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
 
