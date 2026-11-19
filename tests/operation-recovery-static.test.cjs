@@ -111,7 +111,7 @@ assert.ok(app.includes('const refreshRevision = ++accountRefreshRevisionRef.curr
   app.includes('refreshRevision !== accountRefreshRevisionRef.current ||') &&
   app.includes('id !== currentSession.session?.user?.id'),
   'late account refresh must not overwrite a newer or different account');
-assert.ok(app.includes('if (refreshRevision === accountRefreshRevisionRef.current) setSyncing(false);') &&
+assert.ok(app.includes('if (refreshRevision === accountRefreshRevisionRef.current && id === currentUserIdRef.current) setSyncing(false);') &&
   app.includes('accountRefreshRevisionRef.current += 1;'),
   'stale refresh must not overwrite loading state after account switch');
 assert.ok(app.includes('revision === swapWalletRevisionRef.current && requestedUserId === currentUserIdRef.current') &&
