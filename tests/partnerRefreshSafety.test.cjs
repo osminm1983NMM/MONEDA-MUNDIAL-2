@@ -26,4 +26,7 @@ assert.ok(reload.includes('++detailsRequestRef.current;'), 'La recarga de socios
 assert.ok(screen.includes('!Array.isArray(loc) || !Array.isArray(hist)'), 'Rechaza formatos inválidos de detalles');
 assert.ok(reload.includes('if (!Array.isArray(rows)) throw Error('), 'Recarga rechaza listados inválidos');
 assert.ok(screen.includes('else if (!Array.isArray(data)) report('), 'Carga inicial rechaza listados inválidos');
-console.log('15 comprobaciones estructurales de recuperación definidas.');
+assert.ok(screen.includes("typeof p.legal_name === 'string'"), 'Verifica campos esenciales de socios');
+assert.ok(screen.includes("typeof l.display_name === 'string'"), 'Verifica campos esenciales de sucursales');
+assert.ok(screen.includes("typeof a.changed_at === 'string'"), 'Verifica campos esenciales del historial');
+console.log('18 comprobaciones estructurales de recuperación definidas.');
