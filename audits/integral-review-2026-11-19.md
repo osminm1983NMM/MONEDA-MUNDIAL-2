@@ -126,3 +126,8 @@ select (select count(*) from public.mwd_operations where kind='contribution') as
 - La solicitud de cotización captura una revisión monotónica y el usuario. Antes de mostrar la respuesta, verifica que sigan siendo los vigentes.
 - Cambiar cantidad, activo de origen o usuario invalida respuestas anteriores, evitando mostrar cotizaciones obsoletas después de un retraso de red.
 - Dos nuevas comprobaciones estáticas; **33 declaradas**. Pendiente ejecutar suite completa y validar carrera real de red en Android.
+
+## Aislamiento de respuestas tardías de saldo e historial — 19 noviembre 2026
+- `refreshAccount` incrementa una revisión de solicitud y verifica que siga siendo la última, además de confirmar que el usuario de sesión corresponda a la cuenta consultada antes de actualizar billetera, historial o rol.
+- Respuestas y errores de consultas anteriores ya no sobreescriben la pantalla ni el estado de carga de consultas más recientes. El cambio de cuenta invalida respuestas previas y limpia la indicación de sincronización.
+- Dos aserciones estáticas nuevas; **35 comprobaciones declaradas**, pendientes de ejecución completa y validación Android con dos cuentas.
