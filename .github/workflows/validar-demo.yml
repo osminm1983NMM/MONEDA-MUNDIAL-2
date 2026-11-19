@@ -1,7 +1,13 @@
 name: Validar Moneda Mundial DEMO
 
-# Ejecución manual únicamente. No se activa con cada commit.
+# Pruebas automáticas ligeras en PR y ejecución manual.
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'App.js'
+      - 'tests/**'
+      - '.github/workflows/validar-demo.yml'
   workflow_dispatch:
 
 permissions:
@@ -24,7 +30,6 @@ jobs:
         run: node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))"
       - name: Comprobar protecciones de recuperación e idempotencia
         run: node --test tests/operation-recovery-static.test.cjs
-      - name: Instalar dependencias
-        run: npm install --no-audit --no-fund
+      # La instalación/compilación Android se valida por separado para no gastar minutos en cada cambio.
   
   
