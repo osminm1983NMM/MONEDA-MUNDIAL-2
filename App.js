@@ -371,8 +371,17 @@ export default function App() {
       if (currentAuth.session?.user?.id !== requestedBy || revision !== swapWalletRevisionRef.current) return;
       setSwapWallet(data);
     } catch (error) {
-      const { data: currentAuth } = await supabase.auth.getSession();
-      if (currentAuth.session?.user?.id !== requestedBy || revision !== swapWalletRevisionRef.current) return;
+      if (revision !== swapWalletRevisionRef.current) return;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (authResult.data.session?.user?.id !== requestedBy) return;
+      } catch (authError) {
+        if (revision !== swapWalletRevisionRef.current) return;
+        message('Sesión no verificada', 'Comprueba tu sesión antes de consultar las monedas de prueba.');
+        return;
+      }
+      if (revision !== swapWalletRevisionRef.current) return;
       message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
     } finally {
       if (revision === swapWalletRevisionRef.current) setSwapBusy(false);
@@ -403,8 +412,17 @@ export default function App() {
       if (currentAuth.session?.user?.id !== requestedBy || revision !== swapQuoteRevisionRef.current) return;
       setSwapQuote(data);
     } catch (error) {
-      const { data: currentAuth } = await supabase.auth.getSession();
-      if (currentAuth.session?.user?.id !== requestedBy || revision !== swapQuoteRevisionRef.current) return;
+      if (revision !== swapQuoteRevisionRef.current) return;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (authResult.data.session?.user?.id !== requestedBy) return;
+      } catch (authError) {
+        if (revision !== swapQuoteRevisionRef.current) return;
+        message('Sesión no verificada', 'Comprueba tu sesión antes de solicitar otra cotización.');
+        return;
+      }
+      if (revision !== swapQuoteRevisionRef.current) return;
       message('Cotización', error.message || 'No se pudo cotizar.');
     } finally {
       if (revision === swapQuoteRevisionRef.current) setSwapBusy(false);
