@@ -38,4 +38,5 @@ assert.ok(app.includes("test(p.id)") && app.includes("test(candidate.id)"),
   'both recovery paths must validate the persisted UUID');
 assert.ok(app.includes(String.raw`/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/`),
   'conversion amount regex must match digits and decimal points');
-console.log('PASS: 13 static recovery and idempotency safety checks');
+assert.ok(app.includes("test(previous.id)"), 'pickup recovery must validate persisted request ID');
+console.log('PASS: 14 static recovery and idempotency safety checks');
