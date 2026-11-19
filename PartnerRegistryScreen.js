@@ -153,28 +153,29 @@ export default function PartnerRegistryScreen({ supabase }) {
   async function setStatus(status) {
     if (!selectedId || busy || !detailsReady) return;
     setError(''); setNotice(''); setBusy(true);
-    try {
-      await request('mwd_owner_partner_set_status_demo', {
-        p_partner_id: selectedId, p_new_status: status,
-      });
-      // La transición ya fue confirmada. No tratar un fallo posterior de lectura
-      // como si el cambio de estado no hubiera ocurrido.
-      setNotice('Estado de revisión guardado. No habilita retiros ni pagos reales.');
-      setDetailsReady(false);
-      try {
+    const id = selectedId;
+    const outcome = await writeThenRefresh(
+      () => request('mwd_owner_partner_set_status_demo', {
+        p_partner_id: id, p_new_status: status,
+      }),
+      async () => {
+        setDetailsReady(false);
         await reloadPartners();
-        await reloadDetails(selectedId);
-      } catch (refreshError) {
-        setError('El estado se guardó, pero no se pudo actualizar la pantalla. Actualiza el listado antes de intentar otro cambio.');
-      }
-    } catch (err) {
-      // La respuesta puede perderse después de que Supabase cambió el estado.
-      // Bloquear nuevas transiciones hasta recuperar los datos del servidor.
+        await reloadDetails(id);
+      },
+    );
+    if (outcome.state === 'confirmed') {
+      setNotice('Estado de revisión guardado. No habilita retiros ni pagos reales.');
+    } else if (outcome.state === 'confirmed-refresh-failed') {
       setDetailsReady(false);
-      setError('No se pudo confirmar el cambio de estado. Actualiza el listado y los detalles antes de realizar otra transición. Detalle: ' + (err?.message || 'Error de conexión.'));
+      setNotice('Estado de revisión guardado. No habilita retiros ni pagos reales.');
+      setError('El estado se guardó, pero no se pudo actualizar la pantalla. Actualiza el listado y los detalles.');
+    } else {
+      setDetailsReady(false);
+      setError('No se pudo confirmar el cambio de estado. Actualiza el listado y los detalles antes de otra transición. Detalle: ' + (outcome.error?.message || 'Error de conexión.'));
       setNotice('');
     }
-    finally { setBusy(false); }
+    setBusy(false);
   }
   async function saveLocation() {
     if (!selectedId || busy || !detailsReady || selected?.review_status === 'archived') return;
