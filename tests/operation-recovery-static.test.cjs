@@ -107,4 +107,10 @@ assert.ok(app.includes('const refreshRevision = ++accountRefreshRevisionRef.curr
 assert.ok(app.includes('if (refreshRevision === accountRefreshRevisionRef.current) setSyncing(false);') &&
   app.includes('accountRefreshRevisionRef.current += 1;'),
   'stale refresh must not overwrite loading state after account switch');
-console.log('PASS: 35 static recovery and idempotency safety checks');
+assert.ok(app.includes('revision === swapWalletRevisionRef.current && requestedUserId === userId') &&
+  app.includes('swapWalletRevisionRef.current += 1;'),
+  'conversion wallet requests must ignore old-account responses');
+assert.ok(app.includes('revision === pickupOrdersRevisionRef.current && requestedUserId === userId') &&
+  app.includes('pickupOrdersRevisionRef.current += 1;'),
+  'pickup history requests must ignore old-account responses');
+console.log('PASS: 37 static recovery and idempotency safety checks');
