@@ -98,6 +98,7 @@ export default function App() {
   const pendingRef = useRef(null);
   const [pendingOperation, setPendingOperation] = useState(null);
   const [recovering, setRecovering] = useState(false);
+  const recoveringRef = useRef(false);
   const [pendingLoading, setPendingLoading] = useState(true);
   const [pendingStorageError, setPendingStorageError] = useState(false);
   const [pendingUnconfirmed, setPendingUnconfirmed] = useState(false);
@@ -132,6 +133,7 @@ export default function App() {
     busyRef.current = false;
     setBusy(false);
     setRecovering(false);
+    recoveringRef.current = false;
     pendingRef.current = null;
     setPendingOperation(null);
     setPendingLoading(true);
@@ -255,7 +257,8 @@ export default function App() {
 
   async function recoverPending() {
     const item = pendingRef.current || pendingOperation;
-    if (!item || !userId || item.userId !== userId || recovering || busyRef.current || pendingLoading || pendingStorageError) return;
+    if (!item || !userId || item.userId !== userId || recoveringRef.current || busyRef.current || pendingLoading || pendingStorageError) return;
+    recoveringRef.current = true;
     setPendingUnconfirmed(false);
     setRecovering(true);
     try {
@@ -280,14 +283,17 @@ export default function App() {
     } catch (error) {
       if (activeUserRef.current === item.userId) message('Verificación pendiente', error.message || 'No se pudo consultar el estado.');
     } finally {
-      if (activeUserRef.current === item.userId) setRecovering(false);
+      if (activeUserRef.current === item.userId) {
+        recoveringRef.current = false;
+        setRecovering(false);
+      }
     }
   }
 
   async function retryPending() {
     const item = pendingRef.current || pendingOperation;
     if (!pendingUnconfirmed || !item || item.userId !== userId ||
-        pendingLoading || pendingStorageError || recovering || busyRef.current) return;
+        pendingLoading || pendingStorageError || recoveringRef.current || busyRef.current) return;
     confirmAction('Reintento protegido',
       'Se enviará la MISMA solicitud ficticia con el MISMO identificador. Supabase debe impedir el doble descuento.',
       async () => {
@@ -387,7 +393,7 @@ export default function App() {
   }
 
   function prepareOperation(type) {
-    if (busyRef.current || recovering) return;
+    if (busyRef.current || recoveringRef.current) return;
     if (pendingLoading || pendingStorageError || pendingRef.current || pendingOperation) return message('Operación pendiente', 'Primero debemos verificar que no haya una operación anterior sin resolver.');
     const cents = amountToCents(amount);
     if (cents === null) {
@@ -410,7 +416,7 @@ export default function App() {
   async function logout() {
     // Evitar cambios de cuenta mientras una RPC o recuperación sigue activa.
     // Si existe una referencia pendiente, se conserva por usuario para recuperarla.
-    if (busyRef.current || recovering || pendingLoading || pendingStorageError) {
+    if (busyRef.current || recoveringRef.current || pendingLoading || pendingStorageError) {
       message('Operación en curso', 'Espera a que termine la verificación antes de cerrar sesión.');
       return;
     }
@@ -463,8 +469,8 @@ export default function App() {
               {pendingOperation && <View style={styles.card}>
                 <Text style={styles.heading}>Operación pendiente de verificación</Text>
                 <Text style={styles.muted}>No inicies otra operación hasta comprobar el resultado en Supabase.</Text>
-                <Btn title={recovering ? 'Consultando...' : 'Verificar operación pendiente'} onPress={recoverPending} disabled={recovering || busy} />
-                {pendingUnconfirmed && <Btn title="Reintentar misma solicitud" secondary onPress={retryPending} disabled={busy || recovering} />}
+                <Btn title={recovering ? 'Consultando...' : 'Verificar operación pendiente'} onPress={recoverPending} disabled={recovering || busy || pendingLoading || pendingStorageError} />
+                {pendingUnconfirmed && <Btn title="Reintentar misma solicitud" secondary onPress={retryPending} disabled={busy || recovering || pendingLoading || pendingStorageError} />}
               </View>}
               <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet || !!pendingOperation || pendingLoading || pendingStorageError || recovering} />
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet || !!pendingOperation || pendingLoading || pendingStorageError || recovering || busy} />
