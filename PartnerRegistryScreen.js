@@ -139,7 +139,7 @@ export default function PartnerRegistryScreen({ supabase }) {
     finally { setBusy(false); }
   }
   async function saveLocation() {
-    if (!selectedId || busy) return;
+    if (!selectedId || busy || selected?.review_status === 'archived') return;
     if (!validLocation(branchName, city, currency, hours)) {
       setError('Revisa la sucursal (2-140 caracteres), ciudad (2-100), moneda (3 letras) y horario (máximo 140).');
       return;
@@ -174,7 +174,7 @@ export default function PartnerRegistryScreen({ supabase }) {
       {KIND.map(([value, label]) => <Btn key={value}
         title={kind === value ? '✓ ' + label : label}
         secondary={kind !== value} disabled={busy} onPress={() => setKind(value)} />)}
-      <Btn title="Guardar borrador permanente" disabled={busy || !name.trim() || country.trim().length !== 2} onPress={savePartner} />
+      <Btn title="Guardar borrador permanente" disabled={busy || !validPartner(name, country)} onPress={savePartner} />
     </View>
 
     <View style={s.card}>
@@ -201,11 +201,12 @@ export default function PartnerRegistryScreen({ supabase }) {
       {locations.map(l => <Text key={l.id} style={s.text}>
         {l.display_name} — {l.city} — {l.currency_code} · Borrador
       </Text>)}
+      {selected.review_status === 'archived' && <Text style={s.warn}>Socio archivado: no se pueden registrar nuevas sucursales.</Text>}
       <Field label="Nombre de sucursal" value={branchName} onChangeText={setBranchName} />
       <Field label="Ciudad" value={city} onChangeText={setCity} />
       <Field label="Moneda de referencia (3 letras)" value={currency} onChangeText={setCurrency} />
       <Field label="Horario orientativo (opcional)" value={hours} onChangeText={setHours} />
-      <Btn title="Guardar sucursal candidata" disabled={busy || !branchName.trim() || !city.trim()}
+      <Btn title="Guardar sucursal candidata" disabled={busy || selected.review_status === 'archived' || !validLocation(branchName, city, currency, hours)}
         onPress={saveLocation} />
 
       <Text style={[s.title, { marginTop: 17 }]}>Historial de modificaciones</Text>
