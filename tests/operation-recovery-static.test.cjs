@@ -101,7 +101,7 @@ assert.ok(app.includes('if (swapBusy || swapQuoteBusyRef.current || swapConfirmB
 assert.ok(app.includes('swapConfirmBusyRef.current || swapQuoteBusyRef.current) return;'),
   'confirmation must not race against quote creation');
 assert.ok(app.includes('const quoteRevision = ++swapQuoteRevisionRef.current;') &&
-  app.includes('quoteRevision === swapQuoteRevisionRef.current && quoteUserId === userId'),
+  app.includes('quoteRevision === swapQuoteRevisionRef.current && quoteUserId === currentUserIdRef.current'),
   'late conversion quote responses must be ignored after changes');
 assert.ok(app.includes('swapQuoteRevisionRef.current += 1;') &&
   app.includes('setSwapAmount(value);') &&
@@ -114,16 +114,17 @@ assert.ok(app.includes('const refreshRevision = ++accountRefreshRevisionRef.curr
 assert.ok(app.includes('if (refreshRevision === accountRefreshRevisionRef.current) setSyncing(false);') &&
   app.includes('accountRefreshRevisionRef.current += 1;'),
   'stale refresh must not overwrite loading state after account switch');
-assert.ok(app.includes('revision === swapWalletRevisionRef.current && requestedUserId === userId') &&
+assert.ok(app.includes('revision === swapWalletRevisionRef.current && requestedUserId === currentUserIdRef.current') &&
   app.includes('swapWalletRevisionRef.current += 1;'),
   'conversion wallet requests must ignore old-account responses');
-assert.ok(app.includes('revision === pickupOrdersRevisionRef.current && requestedUserId === userId') &&
+assert.ok(app.includes('revision === pickupOrdersRevisionRef.current && requestedUserId === currentUserIdRef.current') &&
   app.includes('pickupOrdersRevisionRef.current += 1;'),
   'pickup history requests must ignore old-account responses');
-assert.ok(app.includes('if (quoteRevision === swapQuoteRevisionRef.current && quoteUserId === userId) {') &&
+assert.ok(app.includes('if (quoteRevision === swapQuoteRevisionRef.current && quoteUserId === currentUserIdRef.current) {') &&
   app.includes("message('Cotización', error.message"),
   'stale quote errors must not interrupt another account');
-assert.ok(app.includes('if (confirmRevision !== swapQuoteRevisionRef.current || confirmUserId !== userId) return;') &&
-  app.includes('if (confirmRevision === swapQuoteRevisionRef.current && confirmUserId === userId) {'),
+assert.ok(app.includes('if (confirmRevision !== swapQuoteRevisionRef.current || confirmUserId !== currentUserIdRef.current) return;') &&
+  app.includes('if (confirmRevision === swapQuoteRevisionRef.current && confirmUserId === currentUserIdRef.current) {'),
   'late conversion confirmation must not overwrite a newer screen');
-console.log('PASS: 39 static recovery and idempotency safety checks');
+assert.ok(app.includes('currentUserIdRef.current = userId;'), 'latest account identity must be updated on each render');
+console.log('PASS: 40 static recovery and idempotency safety checks');
