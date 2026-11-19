@@ -97,6 +97,7 @@ export default function App() {
   const [swapAmount, setSwapAmount] = useState('');
   const [swapQuote, setSwapQuote] = useState(null);
   const [swapBusy, setSwapBusy] = useState(false);
+  const swapBusyRef = useRef(false);
   const [pickupAmount, setPickupAmount] = useState('');
   const [pickupBusy, setPickupBusy] = useState(false);
   const pickupBusyRef = useRef(false);
@@ -419,6 +420,8 @@ export default function App() {
   const microDisplay = value => (Number(value || 0) / 1000000).toFixed(6);
 
   async function loadSwapWallet() {
+    if (swapBusyRef.current) return;
+    swapBusyRef.current = true;
     setSwapBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_wallet_demo');
@@ -427,11 +430,13 @@ export default function App() {
     } catch (error) {
       message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
     } finally {
+      swapBusyRef.current = false;
       setSwapBusy(false);
     }
   }
 
   async function requestSwapQuote() {
+    if (swapBusyRef.current) return;
     const normalized = swapAmount.trim().replace(',', '.');
     if (!/^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$/.test(normalized)) {
       return message('Cantidad inválida', 'Usa hasta seis decimales.');
@@ -441,6 +446,7 @@ export default function App() {
     if (!Number.isSafeInteger(micro) || micro < 1000000 || micro > 10000000000) {
       return message('Cantidad inválida', 'Introduce entre 1 y 10,000 unidades de prueba.');
     }
+    swapBusyRef.current = true;
     setSwapBusy(true);
     setSwapQuote(null);
     try {
@@ -452,17 +458,19 @@ export default function App() {
     } catch (error) {
       message('Cotización', error.message || 'No se pudo cotizar.');
     } finally {
+      swapBusyRef.current = false;
       setSwapBusy(false);
     }
   }
 
   async function confirmSwap() {
-    if (!swapQuote?.quoteId || swapBusy) return;
+    if (!swapQuote?.quoteId || swapBusyRef.current) return;
     const quote = swapQuote;
     if (new Date(quote.expiresAt).getTime() <= Date.now()) {
       setSwapQuote(null);
       return message('Cotización vencida', 'Solicita una cotización nueva.');
     }
+    swapBusyRef.current = true;
     setSwapBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_confirm_demo', {
@@ -480,6 +488,7 @@ export default function App() {
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
         '\\nConsulta los saldos antes de intentar otra conversión.');
     } finally {
+      swapBusyRef.current = false;
       setSwapBusy(false);
     }
   }
