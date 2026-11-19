@@ -306,11 +306,12 @@ export default function App() {
         if (authResult.error) throw authResult.error;
         currentAuth = authResult.data;
       } catch (authError) {
+        if (operationRevision !== operationRevisionRef.current) return;
         message('Movimiento registrado; sesión pendiente',
           'Supabase confirmó el movimiento ficticio. Verifica tu sesión y consulta el historial antes de intentar otro envío.');
         return;
       }
-      if (currentAuth.session?.user?.id !== operationUserId) return;
+      if (operationRevision !== operationRevisionRef.current || currentAuth.session?.user?.id !== operationUserId) return;
       pendingRef.current = null;
       setAmount('');
       setRecipientCode('');
@@ -321,19 +322,23 @@ export default function App() {
       try {
         await refreshAccount();
       } catch (refreshError) {
+        if (operationRevision !== operationRevisionRef.current) return;
         message('Actualización pendiente',
           'El movimiento fue confirmado, pero el saldo o historial requiere actualización.');
       }
     } catch (error) {
+      if (operationRevision !== operationRevisionRef.current) return;
       try {
         const authResult = await supabase.auth.getSession();
         if (authResult.error) throw authResult.error;
-        if (authResult.data.session?.user?.id !== operationUserId) return;
+        if (operationRevision !== operationRevisionRef.current || authResult.data.session?.user?.id !== operationUserId) return;
       } catch (authError) {
+        if (operationRevision !== operationRevisionRef.current) return;
         message('Resultado pendiente de verificación',
           'No fue posible consultar la sesión. Comprueba tu cuenta e historial antes de reintentar.');
         return;
       }
+      if (operationRevision !== operationRevisionRef.current) return;
       message('Operación no confirmada',
         (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
     } finally {
