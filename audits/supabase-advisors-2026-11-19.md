@@ -63,3 +63,19 @@ Se inspeccionó el texto SQL de las funciones en el catálogo de Postgres:
 La función auxiliar `mwd_partners_private.assert_owner()` exige `auth.uid()` no nulo y un registro `public.mwd_admin_roles` con `role='owner'`. Es un control del servidor, no solo de la interfaz.
 
 **Alcance:** inspección estática de código SQL; no se invocaron RPC de escritura ni se alteraron saldos, órdenes o socios. Estas cinco funciones fueron revisadas, pero **no declaradas aprobadas mediante pruebas dinámicas**. Las otras funciones privilegiadas siguen pendientes de revisión semántica.
+
+## Barrido de autorización administrativa
+
+Consulta de solo lectura del catálogo `pg_proc`:
+
+- **38** RPC `public.mwd_owner_%` con permiso `EXECUTE` para `authenticated`.
+- **38 de 38** contienen referencia textual a `assert_owner()` o una comparación explícita con `role='owner'`.
+- **0** funciones `mwd_owner_%` sin coincidencia en ese patrón.
+
+Inspección adicional de cuerpos:
+- `mwd_owner_summary_demo()`: verifica `auth.uid()` y `mwd_admin_roles.role='owner'` antes de consultar estadísticas.
+- `mwd_owner_demo_fee_catalog()`: verifica identidad y rol propietario antes de mostrar tarifas.
+- `mwd_owner_update_demo_fee(...)`: verifica identidad y rol propietario, limita los valores de comisión, bloquea la fila y restringe actualizaciones a rutas ficticias con `real_payments_enabled=false`.
+- `mwd_agent_my_scope_demo()`: filtra asignaciones por `a.user_id=auth.uid()`, estado activo y vencimiento.
+
+**Limitación:** la coincidencia textual 38/38 no equivale a prueba de resistencia ante ataques ni sustituye las pruebas negativas con usuarios reales de demostración. No se ejecutaron funciones de escritura.
