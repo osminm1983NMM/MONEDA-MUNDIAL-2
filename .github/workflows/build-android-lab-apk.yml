@@ -49,9 +49,25 @@ jobs:
         run: npm test
       - name: Generar proyecto nativo Android
         run: npx expo prebuild --platform android --no-install --non-interactive
+      - name: Incluir bundle JavaScript para abrir APK sin servidor Metro
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/build.gradle')
+          content = p.read_text()
+          if 'react {' not in content:
+              raise SystemExit('No se encontró bloque react en build.gradle')
+          content = content.replace('react {', 'react {\n    debuggableVariants = [] // LAB: incrustar JavaScript en debug', 1)
+          p.write_text(content)
+          PY
       - name: Compilar APK debug instalable de demostración
         working-directory: android
         run: bash ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Comprobar que APK contiene bundle JS integrado
+        shell: bash
+        run: |
+          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -E 'assets/index.android.bundle|assets/index.bundle'
       - name: Guardar APK y suma SHA-256
         shell: bash
         run: |
