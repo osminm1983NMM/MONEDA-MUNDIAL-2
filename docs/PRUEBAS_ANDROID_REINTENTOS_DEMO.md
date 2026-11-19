@@ -110,3 +110,19 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 68. Lanzar dos actualizaciones de cuenta; la primera falla tarde al consultar sesión: no reemplazar el estado ni mostrar un error obsoleto sobre la segunda.
 69. Iniciar carga de sesión y recibir un evento de autenticación más reciente; si falla la carga inicial, no mostrar una alerta antigua de sesión.
 70. Desmontar la pantalla antes de terminar la carga inicial de sesión: no mostrar una alerta tardía.
+
+## Pruebas de concurrencia controladas (pendientes, sin tocar billeteras actuales)
+**Preparación:** utilizar una base aislada o transacciones reversibles con cuentas nuevas de laboratorio. No usar las cinco billeteras existentes ni ejecutar solicitudes de débito en producción. Registrar saldo inicial, número de operaciones, request_id y saldos finales antes y después. No asumir que las pruebas están aprobadas por una inspección estática.
+
+71. Dos solicitudes simultáneas de transferencia del mismo usuario con el **mismo request_id y datos idénticos**: esperar un solo movimiento, una sola deducción y una sola acreditación; respuestas ok/already_processed.
+72. Dos solicitudes simultáneas de aportación con el **mismo request_id y datos idénticos**: esperar un solo débito y una sola fila de operación.
+73. Dos transferencias simultáneas con **request_id distintos** cuyo total excede el saldo: esperar como máximo una confirmación y ningún saldo negativo.
+74. Dos transferencias simultáneas A→B y B→A: comprobar que terminan sin bloqueo mutuo permanente y mantienen la suma de saldos.
+75. Reutilizar un request_id confirmado con **importe o destinatario diferente**: rechazar sin registrar ni modificar saldos.
+76. Reutilizar el mismo request_id para una aportación después de una transferencia (o viceversa): rechazar sin modificar saldos.
+77. Simular pérdida de respuesta tras el commit y reintentar exactamente la misma solicitud: obtener already_processed sin segundo movimiento.
+78. Cambiar de cuenta durante una operación en vuelo: no presentar datos privados de la cuenta anterior ni iniciar automáticamente una nueva solicitud.
+79. Provocar error de red antes de recibir confirmación: conservar request_id en el cliente y comparar los registros de servidor antes de cualquier nuevo intento.
+80. Verificar tras cada escenario: saldo total, operaciones por request_id, asiento de débito/crédito cuando corresponda, ausencia de saldos negativos y cero operaciones duplicadas.
+
+**Criterio de aprobación:** cada escenario debe tener evidencia de dos solicitudes concurrentes, resultados de ambas, consulta de operaciones y comparación de saldos. Las verificaciones SQL de solo lectura de la base actual no sustituyen estas pruebas.
