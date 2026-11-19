@@ -45,3 +45,10 @@ test('recovery callback only accepts the exact app path', () => {
   assert.match(app, /callbackPath !== 'monedamundial:\/\/auth\/recovery'/);
   assert.match(app, /url\.split\(\/\[\?#\]\/\)\[0\]/);
 });
+
+test('recovery callback supports PKCE code and rejects error callbacks', () => {
+  assert.match(app, /params\.get\('code'\)/);
+  assert.match(app, /supabase\.auth\.exchangeCodeForSession\(authCode\)/);
+  assert.match(app, /params\.get\('error'\)/);
+  assert.match(app, /supabase\.auth\.setSession\(\{/);
+});
