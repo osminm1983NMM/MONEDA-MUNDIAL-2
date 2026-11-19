@@ -391,7 +391,9 @@ export default function App() {
       setPickupResult(data);
       setPickupAmount('');
     } catch (error) {
-      message('Orden ficticia no creada', error.message || 'Error desconocido');
+      message('Estado de orden sin confirmar',
+        (error.message || 'Error de conexión') +
+        '\nLa orden podría haberse registrado. Reintenta con el mismo monto para consultar la misma solicitud; no generes otra orden diferente.');
     } finally {
       setPickupBusy(false);
     }
