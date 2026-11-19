@@ -288,10 +288,14 @@ export default function App() {
   const microDisplay = value => (Number(value || 0) / 1000000).toFixed(6);
 
   async function loadSwapWallet() {
+    const requestedBy = userId;
+    if (!requestedBy) return;
     setSwapBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_wallet_demo');
       if (error) throw error;
+      const { data: currentAuth } = await supabase.auth.getSession();
+      if (currentAuth.session?.user?.id !== requestedBy) return;
       setSwapWallet(data);
     } catch (error) {
       message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
