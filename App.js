@@ -100,6 +100,7 @@ export default function App() {
   const swapBusyRef = useRef(false);
   const [pickupAmount, setPickupAmount] = useState('');
   const [pickupBusy, setPickupBusy] = useState(false);
+  const pickupBusyRef = useRef(false);
   const [pickupResult, setPickupResult] = useState(null);
   const [pickupOrders, setPickupOrders] = useState([]);
   const [pickupOrdersBusy, setPickupOrdersBusy] = useState(false);
@@ -378,7 +379,7 @@ export default function App() {
   }
 
   async function createDemoPickup() {
-    if (pickupBusy) return;
+    if (pickupBusyRef.current) return;
     const cents = amountToCents(pickupAmount);
     if (cents === null || cents < 100 || cents > 100000) {
       return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
@@ -388,6 +389,7 @@ export default function App() {
       pickupPendingRef.current = { cents, id: uniqueRequestId() };
     }
     const requestId = pickupPendingRef.current.id;
+    pickupBusyRef.current = true;
     setPickupBusy(true);
     setPickupResult(null);
     try {
@@ -404,6 +406,7 @@ export default function App() {
         (error.message || 'Error de conexión') +
         '\nLa orden podría haberse registrado. Reintenta con el mismo monto para consultar la misma solicitud; no generes otra orden diferente.');
     } finally {
+      pickupBusyRef.current = false;
       setPickupBusy(false);
     }
   }
