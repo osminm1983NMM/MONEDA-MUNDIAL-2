@@ -40,4 +40,5 @@ assert.ok(screen.includes("setListReady(false);\n      setDetailsReady(false);\n
 assert.ok(screen.includes("setDetailsReady(false);\n      setError('No se pudo confirmar el guardado de la sucursal."), 'Resultado incierto de sucursal bloquea nuevas escrituras');
 assert.ok(screen.includes('if (busy || writingRef.current || !listReady) return;'), 'La función de guardado exige listado verificado');
 assert.ok(screen.includes('disabled={busy || !listReady || !validPartner(name, country)}'), 'El botón de guardado exige listado verificado');
-console.log('30 comprobaciones estructurales de recuperación superadas.');
+assert.ok(screen.includes("setListReady(false);\n      setDetailsReady(false);\n      setError('No se pudo confirmar el cambio de estado."), 'Estado remoto incierto invalida el listado y sus detalles');
+console.log('31 comprobaciones estructurales de recuperación superadas.');
