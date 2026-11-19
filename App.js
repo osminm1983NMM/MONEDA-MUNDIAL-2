@@ -210,12 +210,39 @@ export default function App() {
     busyRef.current = true;
     setBusy(true);
     try {
-      const pending = pendingRef.current;
-      if (!pending || pending.type !== type || pending.cents !== cents || pending.code !== code) {
-        pendingRef.current = { type, cents, code, id: uniqueRequestId() };
+      if (!userId) throw new Error('Inicia sesión antes de operar.');
+      // Guardar el UUID antes de enviar: permite recuperarlo tras cerrar Android.
+      const pendingKey = 'mwd:pending-demo-operation:' + userId;
+      const savedRaw = await AsyncStorage.getItem(pendingKey);
+      let saved = null;
+      if (savedRaw) {
+        try { saved = JSON.parse(savedRaw); }
+        catch (_parseError) { throw new Error('Hay una operación pendiente ilegible. Requiere revisión antes de continuar.'); }
+        if (!saved || !/^[0-9a-f-]{36}$/i.test(saved.id || '') ||
+            !['transfer', 'contribution'].includes(saved.type) ||
+            !Number.isSafeInteger(saved.cents) || typeof saved.code !== 'string') {
+          throw new Error('Hay una operación pendiente inválida. Requiere revisión antes de continuar.');
+        }
+        if (saved.type !== type || saved.cents !== cents || saved.code !== code) {
+          throw new Error('Hay una operación pendiente con otros datos. Repite sus datos originales para verificarla antes de crear otra.');
+        }
       }
-      const requestId = pendingRef.current.id;
-      const response = type === 'transfer'
+      const request = saved || { type, cents, code, id: uniqueRequestId() };
+      if (!saved) await AsyncStorage.setItem(pendingKey, JSON.stringify(request));
+      pendingRef.current = request;
+      const requestId = request.id;
+      // Consultar primero por si la respuesta se perdió antes de cerrar la app.
+      const previous = await supabase.rpc('mwd_operation_status_demo', { p_request_id: requestId });
+      const already = previous.data;
+      const matches = !previous.error && already?.status === 'processed' &&
+        already?.requestId === requestId && already?.amountCents === cents &&
+        already?.kind === (type === 'transfer' ? 'transfer' : 'contribution') &&
+        (type !== 'transfer' || already?.recipientCode === code);
+      if (already?.status === 'processed' && !matches) {
+        throw new Error('El servidor encontró una operación con datos diferentes. Requiere revisión.');
+      }
+      const response = matches ? { data: { status: 'already_processed' }, error: null } :
+        type === 'transfer'
         ? await supabase.rpc('mwd_transfer_demo', {
           p_recipient_code: code, p_amount_cents: cents, p_request_id: requestId,
         })
@@ -226,6 +253,7 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
+      await AsyncStorage.removeItem(pendingKey);
       pendingRef.current = null;
       setAmount('');
       setRecipientCode('');
@@ -250,6 +278,7 @@ export default function App() {
               result?.kind === (type === 'transfer' ? 'transfer' : 'contribution') &&
               (type !== 'transfer' || result?.recipientCode === code)) {
             verified = true;
+            await AsyncStorage.removeItem('mwd:pending-demo-operation:' + userId);
             pendingRef.current = null;
             setAmount('');
             setRecipientCode('');
