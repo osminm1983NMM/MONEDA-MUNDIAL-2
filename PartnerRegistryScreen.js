@@ -183,28 +183,31 @@ export default function PartnerRegistryScreen({ supabase }) {
       return;
     }
     setError(''); setNotice(''); setBusy(true);
-    try {
-      await request('mwd_owner_partner_location_save_demo', {
-        p_partner_id: selectedId,
+    const id = selectedId;
+    const outcome = await writeThenRefresh(
+      () => request('mwd_owner_partner_location_save_demo', {
+        p_partner_id: id,
         p_display_name: branchName.trim(),
         p_city: city.trim(),
         p_currency_code: currency.trim().toUpperCase(),
         p_hours_note: hours.trim() || null,
-      });
-      // La escritura ya fue confirmada. Limpiar antes de refrescar evita
-      // que un fallo de lectura provoque un segundo guardado accidental.
+      }),
+      async () => {
+        setBranchName(''); setCity(''); setHours('');
+        await reloadDetails(id);
+      },
+    );
+    if (outcome.state === 'confirmed') {
+      setNotice('Sucursal candidata guardada. No es un punto de retiro autorizado.');
+    } else if (outcome.state === 'confirmed-refresh-failed') {
       setBranchName(''); setCity(''); setHours('');
       setNotice('Sucursal candidata guardada. No es un punto de retiro autorizado.');
-      try {
-        await reloadDetails(selectedId);
-      } catch (refreshError) {
-        setError('La sucursal se guardó, pero no se pudo actualizar el listado. Reintenta cargar los detalles; no vuelvas a guardarla.');
-      }
-    } catch (err) {
-      setError('No se pudo confirmar el guardado de la sucursal. Recarga los detalles y verifica si aparece antes de intentar guardarla otra vez. Detalle: ' + (err?.message || 'Error de conexión.'));
+      setError('La sucursal se guardó, pero no se pudo actualizar el listado. Recarga los detalles; no vuelvas a guardarla.');
+    } else {
+      setError('No se pudo confirmar el guardado de la sucursal. Recarga los detalles y comprueba si aparece antes de repetirlo. Detalle: ' + (outcome.error?.message || 'Error de conexión.'));
       setNotice('');
     }
-    finally { setBusy(false); }
+    setBusy(false);
   }
 
   return <View>
