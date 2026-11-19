@@ -40,3 +40,8 @@ test('Android recovery links are handled with tokens and not logged', () => {
   assert.match(app, /redirectTo: 'monedamundial:\/\/auth\/recovery'/);
   assert.doesNotMatch(app, /console\.log\(accessToken\)/);
 });
+
+test('recovery callback only accepts the exact app path', () => {
+  assert.match(app, /callbackPath !== 'monedamundial:\/\/auth\/recovery'/);
+  assert.match(app, /url\.split\(\/\[\?#\]\/\)\[0\]/);
+});
