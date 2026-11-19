@@ -151,8 +151,16 @@ export default function PartnerRegistryScreen({ supabase }) {
       await request('mwd_owner_partner_set_status_demo', {
         p_partner_id: selectedId, p_new_status: status,
       });
-      await reloadPartners(); await reloadDetails(selectedId);
+      // La transición ya fue confirmada. No tratar un fallo posterior de lectura
+      // como si el cambio de estado no hubiera ocurrido.
       setNotice('Estado de revisión guardado. No habilita retiros ni pagos reales.');
+      setDetailsReady(false);
+      try {
+        await reloadPartners();
+        await reloadDetails(selectedId);
+      } catch (refreshError) {
+        setError('El estado se guardó, pero no se pudo actualizar la pantalla. Actualiza el listado antes de intentar otro cambio.');
+      }
     } catch (err) { report(err); }
     finally { setBusy(false); }
   }
