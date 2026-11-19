@@ -123,11 +123,15 @@ export default function App() {
       .catch(error => message('Sesión', error.message))
       .finally(() => { if (active) setAuthLoading(false); });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
       setSession(nextSession);
       setAuthLoading(false);
-      setScreen('Inicio');
+      // Token refreshes and user updates must not interrupt an unfinished flow.
+      // Only explicit sign-in/sign-out changes the visible screen.
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        setScreen('Inicio');
+      }
     });
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
