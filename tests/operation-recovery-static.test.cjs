@@ -87,4 +87,10 @@ assert.ok(app.includes('if (pickupCancelBusy || pickupCancelBusyRef.current) ret
   app.includes('pickupCancelBusyRef.current = true;') &&
   app.includes('pickupCancelBusyRef.current = false;'),
   'pickup cancellation must use synchronous guard');
-console.log('PASS: 29 static recovery and idempotency safety checks');
+assert.ok(app.includes('if (swapBusy || swapQuoteBusyRef.current || swapConfirmBusyRef.current) return;') &&
+  app.includes('swapQuoteBusyRef.current = true;') &&
+  app.includes('swapQuoteBusyRef.current = false;'),
+  'quote requests must be synchronously guarded');
+assert.ok(app.includes('swapConfirmBusyRef.current || swapQuoteBusyRef.current) return;'),
+  'confirmation must not race against quote creation');
+console.log('PASS: 31 static recovery and idempotency safety checks');
