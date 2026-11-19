@@ -46,4 +46,12 @@ const swap = app.slice(swapStart, pickupStart);
 assert.ok(swap.indexOf("message('Conversión ficticia'") <
   swap.indexOf("const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo')"),
   'swap success must be shown before optional balance refresh');
-console.log('PASS: 15 static recovery and idempotency safety checks');
+const navStart = app.indexOf('function navigate(to)');
+const navEnd = app.indexOf('\n  return (', navStart);
+assert.ok(navStart >= 0 && navEnd > navStart, 'navigation flow exists');
+const nav = app.slice(navStart, navEnd);
+assert.ok(!nav.includes('pendingRef.current = null'),
+  'navigation must not discard unresolved idempotency key');
+assert.ok(nav.includes('if (!pendingRef.current)'),
+  'navigation must retain original amount and destination when a request is pending');
+console.log('PASS: 17 static recovery and idempotency safety checks');
