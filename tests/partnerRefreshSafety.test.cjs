@@ -15,4 +15,6 @@ const selected = screen.indexOf('  async function setStatus(');
 const selectedEnd = screen.indexOf('  async function saveLocation(', selected);
 assert.ok(screen.slice(selected, selectedEnd).includes('!detailsReady'), 'Estado exige detalles actualizados');
 assert.ok(screen.includes('disabled={busy || !detailsReady}'), 'Botón de estado se bloquea sin detalles');
-console.log('4 comprobaciones estructurales de recuperación superadas.');
+assert.ok(screen.includes("detailsReady && audit.length === 0"), 'Historial vacío sólo tras consulta confirmada');
+assert.ok(screen.includes('Historial no verificado:'), 'Advertencia si falta verificación del historial');
+console.log('6 comprobaciones estructurales de recuperación definidas.');
