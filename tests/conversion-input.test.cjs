@@ -6,9 +6,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'App.js'), 'utf8');
-const match = source.match(/if \(!\/(\^\(\?:0\|\[1-9\].*?\$)\/\.test\(normalized\)\)/);
-assert.ok(match, 'No se encontró la expresión de validación en App.js');
-const pattern = new RegExp(match[1]);
+const line = source.split('\n').find(line => line.includes('if (!/^(?:0|[1-9]'));
+assert.ok(line, 'No se encontró la expresión de validación en App.js');
+const pattern = new RegExp(line.slice(line.indexOf('if (!/') + 6, line.lastIndexOf('/.test')));
 
 test('acepta enteros y hasta seis decimales', () => {
   for (const value of ['0', '1', '10', '1.5', '0.000001', '9999.999999']) {
