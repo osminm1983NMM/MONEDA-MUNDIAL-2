@@ -99,6 +99,7 @@ export default function App() {
   const [swapBusy, setSwapBusy] = useState(false);
   const [pickupAmount, setPickupAmount] = useState('');
   const [pickupBusy, setPickupBusy] = useState(false);
+  const pickupBusyRef = useRef(false);
   const [pickupResult, setPickupResult] = useState(null);
   const [pickupOrders, setPickupOrders] = useState([]);
   const [pickupOrdersBusy, setPickupOrdersBusy] = useState(false);
@@ -484,11 +485,12 @@ export default function App() {
   }
 
   async function createDemoPickup() {
-    if (pickupBusy) return;
+    if (pickupBusyRef.current) return;
     const cents = amountToCents(pickupAmount);
     if (cents === null || cents < 100 || cents > 100000) {
       return message('Monto inválido', 'Usa entre 1.00 y 1000.00 USD de referencia (solo simulación).');
     }
+    pickupBusyRef.current = true;
     setPickupBusy(true);
     setPickupResult(null);
     try {
@@ -529,6 +531,7 @@ export default function App() {
       message('Orden ficticia no confirmada', (error.message || 'Error desconocido') +
         '\nReintenta con el mismo importe para conservar la referencia.');
     } finally {
+      pickupBusyRef.current = false;
       setPickupBusy(false);
     }
   }
