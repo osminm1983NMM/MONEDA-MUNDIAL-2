@@ -75,3 +75,8 @@
 - Se validan los importes guardados de retiros con límites propios: **100 a 100000 centavos** (1–1000 MWD ficticios), además de UUID válido.
 - Si el usuario escribe un importe distinto al de la orden pendiente, la pantalla recupera el importe original y bloquea la nueva solicitud; no genera otro UUID.
 - Dos aserciones estáticas nuevas; **25 comprobaciones declaradas**. La suite automatizada y Android siguen pendientes de ejecución verificable.
+
+## Barrido de funciones privilegiadas — 19 noviembre 2026
+- Consulta SQL de solo lectura: funciones `public.mwd_%` con `SECURITY DEFINER` y permiso `EXECUTE` para `authenticated` cuyo texto no contiene ninguna referencia a `auth.uid`, `assert_owner`, `assert_agent` ni `mwd_admin_roles`: **0 coincidencias**.
+- Este resultado es **cribado textual**, no prueba de autorización por usuario ni garantía de seguridad; aún se requieren pruebas negativas con identidades reales de demostración y análisis de funciones auxiliares.
+- No se modificaron funciones, roles, permisos, tablas ni datos.
