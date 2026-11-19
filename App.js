@@ -111,6 +111,8 @@ export default function App() {
   const swapQuoteBusyRef = useRef(false);
   const swapQuoteRevisionRef = useRef(0);
   const accountRefreshRevisionRef = useRef(0);
+  const swapWalletRevisionRef = useRef(0);
+  const pickupOrdersRevisionRef = useRef(0);
   const pickupCreateBusyRef = useRef(false);
   const pickupCancelBusyRef = useRef(false);
   const pendingRef = useRef(null);
@@ -146,6 +148,10 @@ export default function App() {
   useEffect(() => {
     pickupPendingRef.current = null;
     accountRefreshRevisionRef.current += 1;
+    swapWalletRevisionRef.current += 1;
+    pickupOrdersRevisionRef.current += 1;
+    setSwapBusy(false);
+    setPickupOrdersBusy(false);
     setSyncing(false);
     setSyncNotice('');
     swapQuoteRevisionRef.current += 1;
@@ -466,15 +472,17 @@ export default function App() {
   const microDisplay = value => (Number(value || 0) / 1000000).toFixed(6);
 
   async function loadSwapWallet() {
+    const revision = ++swapWalletRevisionRef.current;
+    const requestedUserId = userId;
     setSwapBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_wallet_demo');
       if (error) throw error;
-      setSwapWallet(data);
+      if (revision === swapWalletRevisionRef.current && requestedUserId === userId) setSwapWallet(data);
     } catch (error) {
-      message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
+      if (revision === swapWalletRevisionRef.current) message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
     } finally {
-      setSwapBusy(false);
+      if (revision === swapWalletRevisionRef.current) setSwapBusy(false);
     }
   }
 
@@ -601,16 +609,18 @@ export default function App() {
   }
 
   async function loadPickupOrders() {
+    const revision = ++pickupOrdersRevisionRef.current;
+    const requestedUserId = userId;
     setPickupOrdersBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_my_orders_demo');
       if (error) throw error;
       if (!Array.isArray(data)) throw new Error('Respuesta de órdenes no reconocida.');
-      setPickupOrders(data);
+      if (revision === pickupOrdersRevisionRef.current && requestedUserId === userId) setPickupOrders(data);
     } catch (error) {
-      message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
+      if (revision === pickupOrdersRevisionRef.current) message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
     } finally {
-      setPickupOrdersBusy(false);
+      if (revision === pickupOrdersRevisionRef.current) setPickupOrdersBusy(false);
     }
   }
 
