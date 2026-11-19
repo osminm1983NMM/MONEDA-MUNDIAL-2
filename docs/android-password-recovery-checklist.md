@@ -23,5 +23,5 @@ Este procedimiento utiliza **solo cuentas de prueba**. No habilita pagos reales.
 
 - La configuración de URL permitida en Supabase **no se cambia automáticamente** al modificar `app.json`.
 - Los enlaces con tokens deben tratarse como secretos; no compartir capturas ni registros que los incluyan.
-- El código procesa enlaces con tokens de sesión de recuperación. Otras variantes del flujo de correo, como PKCE con `code`, requieren implementación y pruebas adicionales.
+- El código reconoce tanto enlaces con tokens de sesión como enlaces PKCE con `code`; este último requiere que el verificador PKCE esté disponible en el mismo dispositivo y sesión donde se solicitó la recuperación. Ambas variantes necesitan pruebas en APK real.
 - Las pruebas automáticas del repositorio son controles de código; **no reemplazan una prueba en APK real**.
