@@ -299,6 +299,7 @@ export default function App() {
   const microDisplay = value => (Number(value || 0) / 1000000).toFixed(6);
 
   async function loadSwapWallet() {
+    if (swapBusy) return;
     setSwapBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_wallet_demo');
@@ -312,6 +313,7 @@ export default function App() {
   }
 
   async function requestSwapQuote() {
+    if (swapBusy) return;
     const normalized = swapAmount.trim().replace(',', '.');
     if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(normalized)) {
       return message('Cantidad inválida', 'Usa hasta seis decimales.');
