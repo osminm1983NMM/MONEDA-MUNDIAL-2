@@ -285,7 +285,7 @@ export default function App() {
 
   async function requestSwapQuote() {
     const normalized = swapAmount.trim().replace(',', '.');
-    if (!/^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$/.test(normalized)) {
+    if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(normalized)) {
       return message('Cantidad inválida', 'Usa hasta seis decimales.');
     }
     const [whole, fraction = ''] = normalized.split('.');
@@ -330,7 +330,7 @@ export default function App() {
       message('Conversión ficticia', 'Operación registrada correctamente.');
     } catch (error) {
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
-        '\\nConsulta los saldos antes de intentar otra conversión.');
+        '\nConsulta los saldos antes de intentar otra conversión.');
     } finally {
       setSwapBusy(false);
     }
