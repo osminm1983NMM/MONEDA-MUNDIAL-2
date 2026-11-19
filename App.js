@@ -530,7 +530,7 @@ export default function App() {
       pickupPendingRef.current = null;
       setPickupAmount('');
     } catch (error) {
-      message('Estado del retiro no confirmado', (error.message || 'Error desconocido') + '\\nLa orden podría haberse registrado. Conserva el importe original y consulta Mis retiros antes de reintentar.');
+      message('Estado del retiro no confirmado', (error.message || 'Error desconocido') + '\nLa orden podría haberse registrado. Conserva el importe original y consulta Mis retiros antes de reintentar.');
     } finally {
       setPickupBusy(false);
     }
