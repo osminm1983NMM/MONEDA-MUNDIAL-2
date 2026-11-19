@@ -493,9 +493,9 @@ export default function App() {
       if (error) throw error;
       if (revision === swapWalletRevisionRef.current && requestedUserId === currentUserIdRef.current) setSwapWallet(data);
     } catch (error) {
-      if (revision === swapWalletRevisionRef.current) message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
+      if (revision === swapWalletRevisionRef.current && requestedUserId === currentUserIdRef.current) message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
     } finally {
-      if (revision === swapWalletRevisionRef.current) setSwapBusy(false);
+      if (revision === swapWalletRevisionRef.current && requestedUserId === currentUserIdRef.current) setSwapBusy(false);
     }
   }
 
@@ -657,9 +657,9 @@ export default function App() {
       if (!Array.isArray(data)) throw new Error('Respuesta de órdenes no reconocida.');
       if (revision === pickupOrdersRevisionRef.current && requestedUserId === currentUserIdRef.current) setPickupOrders(data);
     } catch (error) {
-      if (revision === pickupOrdersRevisionRef.current) message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
+      if (revision === pickupOrdersRevisionRef.current && requestedUserId === currentUserIdRef.current) message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
     } finally {
-      if (revision === pickupOrdersRevisionRef.current) setPickupOrdersBusy(false);
+      if (revision === pickupOrdersRevisionRef.current && requestedUserId === currentUserIdRef.current) setPickupOrdersBusy(false);
     }
   }
 
