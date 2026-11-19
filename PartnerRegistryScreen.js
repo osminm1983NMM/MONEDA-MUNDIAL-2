@@ -171,9 +171,15 @@ export default function PartnerRegistryScreen({ supabase }) {
         p_currency_code: currency.trim().toUpperCase(),
         p_hours_note: hours.trim() || null,
       });
-      await reloadDetails(selectedId);
+      // La escritura ya fue confirmada. Limpiar antes de refrescar evita
+      // que un fallo de lectura provoque un segundo guardado accidental.
       setBranchName(''); setCity(''); setHours('');
       setNotice('Sucursal candidata guardada. No es un punto de retiro autorizado.');
+      try {
+        await reloadDetails(selectedId);
+      } catch (refreshError) {
+        setError('La sucursal se guardó, pero no se pudo actualizar el listado. Reintenta cargar los detalles; no vuelvas a guardarla.');
+      }
     } catch (err) { report(err); }
     finally { setBusy(false); }
   }
