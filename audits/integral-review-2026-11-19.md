@@ -121,3 +121,8 @@ select (select count(*) from public.mwd_operations where kind='contribution') as
        (select count(*) from public.mwd_wallets where balance_cents < 0) as negative_wallets;
 ```
 **Resultado:** 6 aportaciones, 19 transferencias, 0 billeteras con saldo negativo. La consulta no modifica datos y no prueba por sí misma conciliación completa, idempotencia ni integridad de todas las entradas contables. Sigue pendiente la decisión sobre el tratamiento en el libro mayor de las aportaciones.
+
+## Respuestas tardías de cotizaciones — 19 noviembre 2026
+- La solicitud de cotización captura una revisión monotónica y el usuario. Antes de mostrar la respuesta, verifica que sigan siendo los vigentes.
+- Cambiar cantidad, activo de origen o usuario invalida respuestas anteriores, evitando mostrar cotizaciones obsoletas después de un retraso de red.
+- Dos nuevas comprobaciones estáticas; **33 declaradas**. Pendiente ejecutar suite completa y validar carrera real de red en Android.
