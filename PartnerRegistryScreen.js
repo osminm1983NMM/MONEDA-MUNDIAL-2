@@ -172,7 +172,7 @@ export default function PartnerRegistryScreen({ supabase }) {
     setBusy(false);
   }
   async function choosePartner(id) {
-    if (busy) return;
+    if (busy || !listReady || !partners.some(p => p.id === id)) return;
     setSelectedId(id); setLocations([]); setAudit([]); setDetailsReady(false); setError(''); setNotice(''); setBusy(true);
     try { await reloadDetails(id); }
     catch (err) { setLocations([]); setAudit([]); setDetailsReady(false); report(err); }
@@ -265,7 +265,7 @@ export default function PartnerRegistryScreen({ supabase }) {
       {listReady && partners.length === 0 && <Text style={s.dim}>Aún no existen registros permanentes.</Text>}
       {partners.map(p => <Btn key={p.id}
         title={(selectedId === p.id ? '✓ ' : '') + p.legal_name + ' · ' + p.country_code + '\n' + (LABELS[p.review_status] || p.review_status)}
-        secondary={selectedId !== p.id} disabled={busy} onPress={() => choosePartner(p.id)} />)}
+        secondary={selectedId !== p.id} disabled={busy || !listReady} onPress={() => choosePartner(p.id)} />)}
       <Btn title="Actualizar listado" secondary disabled={busy} onPress={async () => {
         setBusy(true); setError('');
         try {
