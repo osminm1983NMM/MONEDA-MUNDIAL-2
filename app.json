@@ -6,13 +6,16 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "android": {
-      "package": "com.monedamundial.app"
+      "package": "com.monedamundial.app",
+      "versionCode": 1
     },
     "owner": "12051983",
     "extra": {
       "eas": {
         "projectId": "93c31760-4d1e-49f3-888b-9b5845c31e53"
       }
-    }
+    },
+    "scheme": "monedamundial",
+    "description": "Aplicación de demostración. Saldos MWD ficticios; no procesa dinero real."
   }
 }
