@@ -155,4 +155,11 @@ assert.ok(app.includes('id !== currentUserIdRef.current ||') &&
   app.includes("if (refreshRevision === accountRefreshRevisionRef.current && id === currentUserIdRef.current) {") &&
   app.includes('if (refreshRevision === accountRefreshRevisionRef.current && id === currentUserIdRef.current) setSyncing(false);'),
   'account refresh results, errors and finally must belong to the current user');
-console.log('PASS: 48 static recovery and idempotency safety checks');
+assert.ok(app.includes('const operationRevision = ++operationRevisionRef.current;') &&
+  app.includes('operationUserId === currentUserIdRef.current') &&
+  app.includes('operationRevisionRef.current += 1;'),
+  'account switch must invalidate pending transfer and contribution callbacks');
+assert.ok(app.includes('if (!isCurrentOperation()) return;') &&
+  app.includes('if (isCurrentOperation()) {\n        busyRef.current = false;'),
+  'obsolete operation results must not overwrite another account or clear its busy state');
+console.log('PASS: 50 static recovery and idempotency safety checks');
