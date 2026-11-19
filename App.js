@@ -97,6 +97,7 @@ export default function App() {
   const [swapAmount, setSwapAmount] = useState('');
   const [swapQuote, setSwapQuote] = useState(null);
   const [swapBusy, setSwapBusy] = useState(false);
+  const swapQuoteRevisionRef = useRef(0);
   const [pickupAmount, setPickupAmount] = useState('');
   const pickupPendingRef = useRef(null);
   const [pickupBusy, setPickupBusy] = useState(false);
@@ -136,6 +137,7 @@ export default function App() {
       setOperations([]);
       setAdminRole(null);
       setSwapWallet(null);
+      swapQuoteRevisionRef.current += 1;
       setSwapQuote(null);
       pickupPendingRef.current = null;
       setPickupResult(null);
@@ -150,6 +152,7 @@ export default function App() {
     setOperations([]);
     setAdminRole(null);
     setSwapWallet(null);
+    swapQuoteRevisionRef.current += 1;
     setSwapQuote(null);
     setSyncNotice('');
     refreshAccount(userId);
@@ -298,6 +301,7 @@ export default function App() {
   }
 
   async function requestSwapQuote() {
+    if (swapBusy || !userId) return;
     const normalized = swapAmount.trim().replace(',', '.');
     if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(normalized)) {
       return message('Cantidad inválida', 'Usa hasta seis decimales.');
@@ -307,6 +311,8 @@ export default function App() {
     if (!Number.isSafeInteger(micro) || micro < 1000000 || micro > 10000000000) {
       return message('Cantidad inválida', 'Introduce entre 1 y 10,000 unidades de prueba.');
     }
+    const revision = ++swapQuoteRevisionRef.current;
+    const requestedBy = userId;
     setSwapBusy(true);
     setSwapQuote(null);
     try {
@@ -314,6 +320,8 @@ export default function App() {
         p_from_asset: swapFrom, p_amount_micro: micro, p_client_request_id: uniqueRequestId(),
       });
       if (error) throw error;
+      const { data: currentAuth } = await supabase.auth.getSession();
+      if (currentAuth.session?.user?.id !== requestedBy || revision !== swapQuoteRevisionRef.current) return;
       setSwapQuote(data);
     } catch (error) {
       message('Cotización', error.message || 'No se pudo cotizar.');
@@ -565,11 +573,12 @@ export default function App() {
               <Btn title={swapFrom === 'COIN' ? 'Origen: COIN (cambiar)' : 'Origen: DIGITAL (cambiar)'}
                 secondary disabled={swapBusy} onPress={() => {
                   setSwapFrom(swapFrom === 'COIN' ? 'STABLE' : 'COIN');
+                  swapQuoteRevisionRef.current += 1;
                   setSwapQuote(null);
                 }} />
               <TextInput style={styles.input} placeholder="Cantidad (mínimo 1)"
                 keyboardType="decimal-pad" placeholderTextColor="#9fb1c8"
-                value={swapAmount} onChangeText={value => { setSwapAmount(value); setSwapQuote(null); }} />
+                value={swapAmount} editable={!swapBusy} onChangeText={value => { swapQuoteRevisionRef.current += 1; setSwapAmount(value); setSwapQuote(null); }} />
               <Btn title={swapBusy ? 'Procesando...' : 'Solicitar cotización ficticia'}
                 disabled={swapBusy || !swapWallet} onPress={requestSwapQuote} />
               {swapQuote && <View>
