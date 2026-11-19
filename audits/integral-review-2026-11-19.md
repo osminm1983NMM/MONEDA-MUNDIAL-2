@@ -58,3 +58,10 @@
 - **Corregido:** la referencia en memoria `pickupPendingRef` se restablece al cambiar `userId`, junto con monto, resultado y lista de retiros. La persistencia local continúa separada por usuario; no se eliminan solicitudes pendientes guardadas.
 - **Corregido:** aviso de conversión no confirmada muestra salto de línea real en vez de texto `\\n`.
 - Suite estática actualizada a **19 comprobaciones declaradas**. Se inspeccionaron las dos nuevas aserciones contra el código actual y ambas coincidieron; **no hay resultado de ejecución de la suite completa**.
+
+## Integridad de operaciones confirmadas — limpieza local
+- **Corregido:** después de una respuesta de éxito del servidor, un error de `AsyncStorage.removeItem` no vuelve a clasificar la transferencia ni la orden de retiro como no confirmada.
+- En transferencias, si falla la limpieza local, se marca bloqueo de recuperación para evitar solicitudes nuevas sin resolver el estado persistido.
+- En retiros, una futura repetición conserva el UUID almacenado y debe recibir respuesta idempotente del servidor.
+- Dos comprobaciones estáticas añadidas; **21 aserciones declaradas**, ejecución completa de GitHub Actions todavía sin evidencia (consulta del último commit devolvió cero ejecuciones).
+- **Limitación importante:** esta corrección no reemplaza pruebas de fallo real de almacenamiento, cambio de cuenta y respuesta perdida en Android.
