@@ -93,4 +93,11 @@ assert.ok(app.includes('if (swapBusy || swapQuoteBusyRef.current || swapConfirmB
   'quote requests must be synchronously guarded');
 assert.ok(app.includes('swapConfirmBusyRef.current || swapQuoteBusyRef.current) return;'),
   'confirmation must not race against quote creation');
-console.log('PASS: 31 static recovery and idempotency safety checks');
+assert.ok(app.includes('const quoteRevision = ++swapQuoteRevisionRef.current;') &&
+  app.includes('quoteRevision === swapQuoteRevisionRef.current && quoteUserId === userId'),
+  'late conversion quote responses must be ignored after changes');
+assert.ok(app.includes('swapQuoteRevisionRef.current += 1;') &&
+  app.includes('setSwapAmount(value);') &&
+  app.includes("setSwapFrom(swapFrom === 'COIN' ? 'STABLE' : 'COIN');"),
+  'conversion inputs must invalidate old quotes');
+console.log('PASS: 33 static recovery and idempotency safety checks');
