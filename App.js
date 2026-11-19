@@ -165,9 +165,12 @@ export default function App() {
     swapBusyRevisionRef.current += 1;
     pickupCreateRevisionRef.current += 1;
     pickupCancelRevisionRef.current += 1;
+    // Las solicitudes invalidadas no ejecutarán su limpieza final: liberar también estos indicadores.
     setSwapBusy(false);
     setPickupBusy(false);
+    setPickupOrdersBusy(false);
     setPickupCancelBusy(false);
+    setSyncing(false);
     busyRef.current = false;
     setBusy(false);
     setAmount('');
