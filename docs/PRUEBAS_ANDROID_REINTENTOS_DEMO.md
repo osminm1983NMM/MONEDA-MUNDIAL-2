@@ -152,3 +152,9 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 ## Operaciones inciertas con error de sesión devuelto por Supabase
 95. Perder respuesta de transferencia y hacer que getSession devuelva {error} sin lanzar excepción: mostrar «Resultado pendiente de verificación», no afirmar que no hubo débito.
 96. Perder respuesta de aportación y devolver error explícito de sesión: conservar el identificador de solicitud y exigir revisión de historial antes de reintentar.
+
+## Bloqueo de operaciones tras cambio de usuario
+97. Iniciar transferencia en cuenta A, cambiar a B antes de que termine y comprobar que B puede iniciar su propia operación sin quedar bloqueada por A.
+98. Mientras B tiene una operación en vuelo, completar tardíamente la solicitud de A: el finally de A no debe liberar el indicador de operación de B.
+99. Cerrar sesión durante una aportación pendiente: el indicador de operación debe reiniciarse para la siguiente sesión y no conservar datos de A.
+100. Repetir la secuencia con una operación fallida de A: su finalización no debe alterar el bloqueo de la operación de B.
