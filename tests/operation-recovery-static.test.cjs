@@ -75,4 +75,16 @@ assert.ok(pickup.includes('setPickupAmount(formatMWD(previous.cents))'),
   'mismatched pending pickup must restore the original amount');
 assert.ok(app.includes("if (event === 'SIGNED_IN' || event === 'SIGNED_OUT')"),
   'token refresh and user updates must not reset the current screen');
-console.log('PASS: 26 static recovery and idempotency safety checks');
+assert.ok(app.includes('if (pickupBusy || pickupCreateBusyRef.current) return;') &&
+  app.includes('pickupCreateBusyRef.current = true;') &&
+  app.includes('pickupCreateBusyRef.current = false;'),
+  'pickup create must use synchronous guard against rapid double taps');
+assert.ok(app.includes('if (!swapQuote?.quoteId || swapBusy || swapConfirmBusyRef.current) return;') &&
+  app.includes('swapConfirmBusyRef.current = true;') &&
+  app.includes('swapConfirmBusyRef.current = false;'),
+  'swap confirmation must use synchronous guard');
+assert.ok(app.includes('if (pickupCancelBusy || pickupCancelBusyRef.current) return;') &&
+  app.includes('pickupCancelBusyRef.current = true;') &&
+  app.includes('pickupCancelBusyRef.current = false;'),
+  'pickup cancellation must use synchronous guard');
+console.log('PASS: 29 static recovery and idempotency safety checks');
