@@ -91,7 +91,9 @@ export default function PartnerRegistryScreen({ supabase }) {
     ++detailsRequestRef.current;
     const rows = await request('mwd_owner_partners_demo');
     if (requestNumber !== partnersRequestRef.current) throw Error('Consulta del listado reemplazada por una más reciente.');
-    if (!Array.isArray(rows)) throw Error('Formato de respuesta del listado inválido; vuelve a consultar.');
+    if (!Array.isArray(rows) || !rows.every(p => p && typeof p.id === 'string' && typeof p.legal_name === 'string' && typeof p.country_code === 'string' && typeof p.review_status === 'string')) {
+      throw Error('Formato de respuesta del listado inválido; vuelve a consultar.');
+    }
     setPartners(rows);
     setListReady(true);
     if (expectedSelectedId && !rows.some(p => p.id === expectedSelectedId)) {
@@ -113,7 +115,9 @@ export default function PartnerRegistryScreen({ supabase }) {
     if (requestNumber !== detailsRequestRef.current) throw Error('Consulta de detalles reemplazada por una más reciente.');
     // No publicar resultados parciales ni habilitar cambios si la RPC
     // devuelve un formato inesperado en lugar de un arreglo.
-    if (!Array.isArray(loc) || !Array.isArray(hist)) {
+    if (!Array.isArray(loc) || !Array.isArray(hist) ||
+        !loc.every(l => l && typeof l.id === 'string' && typeof l.display_name === 'string' && typeof l.city === 'string' && typeof l.currency_code === 'string') ||
+        !hist.every(a => a && typeof a.entity_type === 'string' && typeof a.action === 'string' && typeof a.changed_at === 'string')) {
       throw Error('Formato de respuesta de detalles inválido; vuelve a consultar.');
     }
     setLocations(loc);
@@ -126,7 +130,7 @@ export default function PartnerRegistryScreen({ supabase }) {
     supabase.rpc('mwd_owner_partners_demo').then(({ data, error: dbError }) => {
       if (!active || requestNumber !== partnersRequestRef.current) return;
       if (dbError) report(dbError);
-      else if (!Array.isArray(data)) report(Error('Formato de respuesta del listado inválido; vuelve a consultar.'));
+      else if (!Array.isArray(data) || !data.every(p => p && typeof p.id === 'string' && typeof p.legal_name === 'string' && typeof p.country_code === 'string' && typeof p.review_status === 'string')) report(Error('Formato de respuesta del listado inválido; vuelve a consultar.'));
       else { setPartners(data); setListReady(true); }
     }).catch(err => { if (active && requestNumber === partnersRequestRef.current) report(err); });
     return () => { active = false; };
