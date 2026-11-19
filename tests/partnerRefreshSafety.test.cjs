@@ -35,4 +35,5 @@ assert.ok(reload.includes('setLocations([]);') && reload.includes('setAudit([]);
 assert.ok(screen.includes('{listReady && partners.map('), 'No muestra socios con listado no verificado');
 assert.ok(screen.includes('{listReady && selected && <View'), 'No muestra tarjeta de socio con listado no verificado');
 assert.ok(screen.includes('listReady ? partners.length : "sin verificar"'), 'No presenta conteo antiguo como vigente');
-console.log('25 comprobaciones estructurales de recuperación superadas.');
+assert.ok(screen.includes('!(NEXT[selected.review_status] || []).some(([next]) => next === status)'), 'Rechaza transiciones de estado no permitidas antes de llamar a RPC');
+console.log('26 comprobaciones estructurales de recuperación superadas.');
