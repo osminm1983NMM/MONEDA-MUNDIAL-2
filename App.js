@@ -255,10 +255,12 @@ export default function App() {
       setAmount('');
       setRecipientCode('');
       setScreen('Inicio');
-      await refreshAccount();
+      // La confirmación RPC ya se completó; un error de sincronización posterior
+      // no debe describir la operación como fallida ni recomendar reintentar.
       message('Operación ficticia confirmada', type === 'transfer'
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
+      await refreshAccount();
     } catch (error) {
       message('Operación no confirmada',
         (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
