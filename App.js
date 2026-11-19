@@ -132,6 +132,14 @@ export default function App() {
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
 
+  // Never reuse a withdrawal request held in memory across account changes.
+  useEffect(() => {
+    pickupPendingRef.current = null;
+    setPickupAmount('');
+    setPickupResult(null);
+    setPickupOrders([]);
+  }, [userId]);
+
   useEffect(() => {
     if (!userId) {
       setWallet(null);
