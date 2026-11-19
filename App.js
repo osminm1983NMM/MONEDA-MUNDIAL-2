@@ -108,6 +108,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
+  const refreshSequenceRef = useRef(0);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -130,7 +131,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // Invalida lecturas anteriores al cambiar de cuenta o cerrar sesión.
+    refreshSequenceRef.current += 1;
     if (!userId) {
+      setSyncing(false);
+      setSyncNotice('');
       setWallet(null);
       setOperations([]);
       setAdminRole(null);
@@ -143,6 +148,8 @@ export default function App() {
 
   async function refreshAccount(id = userId) {
     if (!id) return;
+    const sequence = ++refreshSequenceRef.current;
+    const isLatest = () => refreshSequenceRef.current === sequence;
     setSyncing(true);
     setSyncNotice('Actualizando...');
     try {
@@ -152,22 +159,26 @@ export default function App() {
           .eq('user_id', id).single(),
         supabase.from('mwd_operations')
           .select('id,kind,source_user_id,destination_user_id,amount_cents,created_at')
+          .or(`source_user_id.eq.${id},destination_user_id.eq.${id}`)
           .order('created_at', { ascending: false }).limit(50),
         supabase.from('mwd_admin_roles').select('role').eq('user_id', id).maybeSingle(),
       ]);
+      if (!isLatest()) return;
       if (w.error) throw w.error;
       if (h.error) throw h.error;
       if (a.error) throw a.error;
-      if (supabase.auth.getUser && supabase.auth && id !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      const { data: current, error: sessionError } = await supabase.auth.getSession();
+      if (!isLatest() || sessionError || current.session?.user?.id !== id) return;
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
       setSyncNotice('Saldo e historial actualizados correctamente.');
     } catch (error) {
+      if (!isLatest()) return;
       setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
       message('Sincronización', error.message || 'No se pudo consultar Supabase.');
     } finally {
-      setSyncing(false);
+      if (isLatest()) setSyncing(false);
     }
   }
 
