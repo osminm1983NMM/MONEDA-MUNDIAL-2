@@ -293,6 +293,32 @@ export default function App() {
       // Persist BEFORE calling the server: timeout and app restart must reuse this ID.
       await AsyncStorage.setItem(storageKey, JSON.stringify(pendingRef.current));
       const requestId = pendingRef.current.id;
+      // A retry after a lost response must first ask whether the original was posted.
+      // Never create a new request ID merely because this status check fails.
+      if (pending) {
+        const check = await supabase.rpc('mwd_operation_status_demo', {
+          p_request_id: requestId,
+        });
+        if (check.error) throw check.error;
+        if (check.data?.status === 'processed') {
+          if (check.data.kind !== type || check.data.amountCents !== cents ||
+              (type === 'transfer' && check.data.recipientCode !== code)) {
+            throw new Error('La operación original no coincide. Requiere revisión manual.');
+          }
+          await AsyncStorage.removeItem(storageKey);
+          pendingRef.current = null;
+          setAmount('');
+          setRecipientCode('');
+          setScreen('Inicio');
+          message('Operación ficticia confirmada',
+            'El servidor confirmó que la solicitud original ya estaba registrada.');
+          refreshAccount().catch(() => {});
+          return;
+        }
+        if (check.data?.status !== 'unconfirmed') {
+          throw new Error('El estado de la operación no es verificable.');
+        }
+      }
       const response = type === 'transfer'
         ? await supabase.rpc('mwd_transfer_demo', {
           p_recipient_code: code, p_amount_cents: cents, p_request_id: requestId,
