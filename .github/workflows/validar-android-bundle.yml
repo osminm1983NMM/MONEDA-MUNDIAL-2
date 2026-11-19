@@ -1,0 +1,36 @@
+name: Validar bundle Android DEMO
+
+# Comprobación real de empaquetado JS/Expo; no solicita compilación EAS ni crea APK.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'App.js'
+      - 'PartnerRegistryScreen.js'
+      - 'package.json'
+      - 'app.json'
+      - 'eas.json'
+      - '.github/workflows/validar-android-bundle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle-android:
+    name: Exportar bundle Android Expo
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Obtener rama
+        uses: actions/checkout@v4
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias de la demo
+        run: npm install --no-audit --no-fund --package-lock=false
+      - name: Ejecutar pruebas
+        run: npm test
+      - name: Verificar empaquetado Android sin EAS
+        run: npx expo export --platform android --output-dir dist
