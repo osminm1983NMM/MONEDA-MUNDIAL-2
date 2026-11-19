@@ -195,6 +195,8 @@ export default function App() {
           .eq('user_id', id).single(),
         supabase.from('mwd_operations')
           .select('id,kind,source_user_id,destination_user_id,amount_cents,created_at')
+          // Defensa adicional a RLS: pedir solo operaciones donde participa esta cuenta.
+          .or(`source_user_id.eq.${id},destination_user_id.eq.${id}`)
           .order('created_at', { ascending: false }).limit(50),
         supabase.from('mwd_admin_roles').select('role').eq('user_id', id).maybeSingle(),
       ]);
