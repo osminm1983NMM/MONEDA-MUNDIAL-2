@@ -183,6 +183,11 @@ export default function PartnerRegistryScreen({ supabase }) {
   }
   async function setStatus(status) {
     if (!selectedId || busy || writingRef.current || !listReady || !detailsReady) return;
+    // Defensa adicional: impedir transiciones que la interfaz no ofrece.
+    if (!selected || !(NEXT[selected.review_status] || []).some(([next]) => next === status)) {
+      setError('Transición de estado no permitida. Actualiza el listado y los detalles.');
+      return;
+    }
     setError(''); setNotice(''); writingRef.current = true; setBusy(true);
     const id = selectedId;
     const outcome = await writeThenRefresh(
