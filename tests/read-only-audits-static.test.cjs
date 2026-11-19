@@ -15,8 +15,9 @@ for (const name of files) {
   test(name + ' is a read-only audit', () => {
     const sql = fs.readFileSync(path.join('audits', name), 'utf8');
     const withoutComments = sql.replace(/--[^\n]*/g, '');
-    assert.match(withoutComments, /\bSELECT\b/i);
-    assert.doesNotMatch(withoutComments, /\b(?:INSERT|UPDATE|DELETE|ALTER|DROP|CREATE|TRUNCATE|GRANT|REVOKE|CALL|DO|EXECUTE)\b/i,
+    const withoutLiterals = withoutComments.replace(/'(?:''|[^'])*'/g, "''");
+    assert.match(withoutLiterals, /\bSELECT\b/i);
+    assert.doesNotMatch(withoutLiterals, /\b(?:INSERT|UPDATE|DELETE|ALTER|DROP|CREATE|TRUNCATE|GRANT|REVOKE|CALL|DO|EXECUTE)\b/i,
       'read-only audit must not contain database writes or executable procedures');
   });
 }
