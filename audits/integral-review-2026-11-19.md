@@ -97,3 +97,8 @@
 - **Corregido:** `onAuthStateChange` ya no fuerza `Inicio` ante `TOKEN_REFRESHED` u otros eventos distintos de `SIGNED_IN`/`SIGNED_OUT`. Evita interrumpir pantallas de transferencia, conversión o retiro durante renovación automática del token.
 - Añadida comprobación estática específica; **26 comprobaciones declaradas**, más 5 pruebas dinámicas preparadas. No confundir con ejecución integral aprobada.
 - Riesgo residual: comprobar en Android la renovación de sesión durante solicitudes pendientes y el cierre de sesión con dos cuentas.
+
+## Protección de doble pulsación — 19 noviembre 2026
+- **Corregido:** creación de retiro, cancelación de retiro y confirmación de conversión ahora tienen bloqueo sincrónico mediante `useRef`, además de su estado React de carga. El bloqueo se activa antes del primer `await` y se libera en `finally`.
+- Motivo: `setState` no bloquea de forma inmediata una segunda invocación dentro del mismo ciclo de render; dos pulsaciones rápidas podían enviar solicitudes concurrentes, incluso con UUID distintos para nuevos retiros.
+- Se agregaron tres comprobaciones estáticas: **29 comprobaciones declaradas**. Pruebas Android de doble pulsación y verificación de idempotencia de servidor siguen pendientes.
