@@ -80,8 +80,10 @@ export default function PartnerRegistryScreen({ supabase }) {
     setNotice('');
   }
   async function reloadPartners() {
-    // La lista deja de considerarse vigente hasta que la lectura finaliza.
+    // No permitir decisiones sobre un estado potencialmente desactualizado
+    // mientras se consulta la lista, ni si la consulta termina fallando.
     setListReady(false);
+    setDetailsReady(false);
     const rows = await request('mwd_owner_partners_demo');
     setPartners(rows || []);
     setListReady(true);
