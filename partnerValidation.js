@@ -8,7 +8,7 @@ export function validLocation(branchName, city, currency, hours) {
   const b = (branchName || '').trim();
   const c = (city || '').trim();
   const m = (currency || '').trim();
-  const h = (hours || '').trim();
+  const h = hours || '';
   return b.length >= 2 && b.length <= 140 &&
     c.length >= 2 && c.length <= 100 &&
     /^[A-Za-z]{3}$/.test(m) && h.length <= 140;
