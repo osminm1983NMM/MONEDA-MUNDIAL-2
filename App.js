@@ -115,6 +115,7 @@ export default function App() {
   const activeUserRef = useRef(userId);
   activeUserRef.current = userId;
   const refreshSequenceRef = useRef(0);
+  const authEventUserRef = useRef(userId);
 
   useEffect(() => {
     let active = true;
@@ -128,11 +129,10 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return;
-      setSession(previous => {
-        // Un refresco de token no debe cerrar formularios ni borrar borradores.
-        if (previous?.user?.id !== nextSession?.user?.id) setScreen('Inicio');
-        return nextSession;
-      });
+      const nextId = nextSession?.user?.id;
+      if (authEventUserRef.current !== nextId) setScreen('Inicio');
+      authEventUserRef.current = nextId;
+      setSession(nextSession);
       setAuthLoading(false);
     });
     return () => { active = false; subscription.unsubscribe(); };
