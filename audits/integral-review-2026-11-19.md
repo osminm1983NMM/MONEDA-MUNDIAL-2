@@ -136,3 +136,9 @@ select (select count(*) from public.mwd_operations where kind='contribution') as
 - Las respuestas de `mwd_conversion_wallet_demo` y `mwd_pickup_my_orders_demo` se aplican solo cuando corresponden a la revisión de consulta más reciente y al usuario que la inició.
 - El cambio de cuenta invalida las revisiones pendientes y limpia indicadores de carga para impedir que respuestas antiguas sobrescriban datos visibles de la cuenta nueva.
 - Dos aserciones estáticas adicionales: **37 comprobaciones declaradas**. Pendiente ejecutar la suite y simular cambios de cuenta con red lenta en Android.
+
+## Confirmaciones de conversión tardías — 19 noviembre 2026
+- Las respuestas de confirmación de conversión capturan revisión y usuario de origen. Si el usuario cambió de cuenta o invalidó la cotización, la respuesta no modifica el formulario, saldo ni muestra avisos en la pantalla posterior.
+- Errores tardíos de solicitud de cotización también se descartan si la solicitud dejó de estar vigente.
+- La confirmación en servidor no se revierte: se evita únicamente una actualización visual perteneciente a una cuenta o cotización anterior.
+- Dos comprobaciones estáticas adicionales, **39 declaradas**. Pendiente ejecutar pruebas integrales Android con cambios de cuenta durante RPC.
