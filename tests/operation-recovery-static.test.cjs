@@ -80,8 +80,10 @@ assert.ok(pickup.includes('previous.cents < 100 || previous.cents > 100000'),
   'saved pickup amount must satisfy withdrawal-specific limits');
 assert.ok(pickup.includes('setPickupAmount(formatMWD(previous.cents))'),
   'mismatched pending pickup must restore the original amount');
-assert.ok(app.includes("if (event === 'SIGNED_IN' || event === 'SIGNED_OUT')"),
-  'token refresh and user updates must not reset the current screen');
+assert.ok(app.includes("event === 'PASSWORD_RECOVERY'") &&
+  app.includes("event === 'SIGNED_OUT'") &&
+  app.includes("event === 'SIGNED_IN'"),
+  'token refresh must not reset the screen and recovery must have its own handler');
 assert.ok(app.includes('if (pickupBusy || pickupCreateBusyRef.current) return;') &&
   app.includes('pickupCreateBusyRef.current = true;') &&
   app.includes('pickupCreateBusyRef.current = false;'),
