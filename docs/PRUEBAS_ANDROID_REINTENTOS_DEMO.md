@@ -91,3 +91,10 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 55. Confirmar conversión ficticia y lanzar después una consulta manual de saldos: si la consulta manual responde primero, la respuesta tardía de la actualización automática no debe sobrescribirla.
 56. Confirmar conversión ficticia, cambiar de cuenta y recibir tarde la consulta automática: los saldos de la cuenta anterior no deben aparecer en la nueva.
 57. Confirmar conversión ficticia y provocar fallo tardío en la actualización automática mientras una consulta manual más reciente ya terminó: no borrar los saldos nuevos ni mostrar una advertencia obsoleta.
+
+## Confirmación de transferencias y sesión posterior
+58. Confirmar transferencia ficticia en servidor y provocar error de getSession inmediatamente después: indicar «Movimiento registrado; sesión pendiente», sin afirmar que la transferencia falló.
+59. Confirmar aportación ficticia en servidor y provocar error de getSession: no aconsejar repetir el débito como si no hubiera ocurrido.
+60. Perder respuesta de la RPC de transferencia: conservar el identificador de solicitud y permitir reintento con los mismos datos, comprobando que no se duplica el movimiento.
+61. Fallar la consulta de sesión mientras se intenta comprobar una respuesta RPC incierta: mostrar «Resultado pendiente de verificación» y recomendar consultar cuenta e historial.
+62. Confirmar transferencia y fallar la actualización posterior de saldo: mantener el mensaje de movimiento confirmado; no presentarlo como operación fallida.
