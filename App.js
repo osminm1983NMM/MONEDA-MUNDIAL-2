@@ -413,7 +413,18 @@ export default function App() {
       });
       if (error) throw error;
       if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
-      const { data: currentAuth } = await supabase.auth.getSession();
+      // Una confirmación recibida del servidor no debe convertirse en error
+      // por un fallo posterior al consultar la sesión.
+      let currentAuth;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        currentAuth = authResult.data;
+      } catch (authError) {
+        message('Conversión registrada; sesión pendiente',
+          'Supabase confirmó la conversión ficticia. Verifica tu sesión y consulta los saldos antes de repetirla.');
+        return;
+      }
       if (currentAuth.session?.user?.id !== requestedBy) return;
       setSwapQuote(null);
       setSwapAmount('');
@@ -434,8 +445,15 @@ export default function App() {
           'La conversión ficticia fue confirmada, pero no se pudieron consultar los saldos. Usa Consultar saldos antes de otra operación.');
       }
     } catch (error) {
-      const { data: currentAuth } = await supabase.auth.getSession();
-      if (currentAuth.session?.user?.id !== requestedBy) return;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (authResult.data.session?.user?.id !== requestedBy) return;
+      } catch (authError) {
+        message('Resultado de conversión pendiente',
+          'No fue posible verificar la sesión. Consulta tu cuenta y los saldos antes de intentar otra conversión.');
+        return;
+      }
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
         '\nConsulta los saldos antes de intentar otra conversión.');
     } finally {
