@@ -236,8 +236,37 @@ export default function App() {
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
     } catch (error) {
-      message('Operación no confirmada',
-        (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
+      // A timeout does not prove that the server rolled back the operation.
+      // Check the original request before suggesting a retry.
+      const pending = pendingRef.current;
+      let verified = false;
+      if (pending) {
+        try {
+          const status = await supabase.rpc('mwd_operation_status_demo', {
+            p_request_id: pending.id,
+          });
+          if (!status.error && status.data?.status === 'processed' &&
+              status.data.kind === pending.type &&
+              status.data.amountCents === pending.cents &&
+              (pending.type !== 'transfer' || status.data.recipientCode === pending.code)) {
+            verified = true;
+            pendingRef.current = null;
+            setAmount('');
+            setRecipientCode('');
+            setScreen('Inicio');
+            await refreshAccount();
+            message('Operación ficticia confirmada',
+              'El servidor confirmó que la solicitud original ya estaba registrada.');
+          }
+        } catch (_statusError) {
+          // Keep the request ID: a failed status lookup is not proof of failure.
+        }
+      }
+      if (!verified) {
+        message('Operación no confirmada',
+          (error.message || 'Error desconocido') +
+          '\nNo cambies el importe ni el destinatario. Reintenta con los mismos datos.');
+      }
     } finally {
       busyRef.current = false;
       setBusy(false);
