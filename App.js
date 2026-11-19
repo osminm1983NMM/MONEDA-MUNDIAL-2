@@ -139,6 +139,31 @@ export default function App() {
       return;
     }
     refreshAccount(userId);
+    // Recuperar borradores pendientes después de reiniciar Android.
+    // Nunca enviar automáticamente: el usuario debe revisar y confirmar.
+    let active = true;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('mwd:pending-demo-operation:' + userId);
+        if (!raw || !active) return;
+        const saved = JSON.parse(raw);
+        if (!saved || !/^[0-9a-f-]{36}$/i.test(saved.id || '') ||
+            !Number.isSafeInteger(saved.cents) || saved.cents < 1 ||
+            saved.cents > LIMIT_CENTS || typeof saved.code !== 'string' ||
+            !['transfer', 'contribution'].includes(saved.type)) {
+          throw new Error('Datos pendientes inválidos.');
+        }
+        if (!active) return;
+        pendingRef.current = saved;
+        setAmount(formatMWD(saved.cents));
+        setRecipientCode(saved.code);
+        setScreen(saved.type === 'transfer' ? 'Transferir' : 'Aportar');
+        message('Operación pendiente recuperada', 'Revisa los datos y confirma para consultar el servidor con la misma referencia. No se enviará automáticamente.');
+      } catch (_error) {
+        if (active) message('Operación pendiente', 'Hay datos locales que requieren revisión. No se enviará ninguna operación automáticamente.');
+      }
+    })();
+    return () => { active = false; };
   }, [userId]);
 
   async function refreshAccount(id = userId) {
