@@ -200,8 +200,9 @@ export default function App() {
       if (w.error) throw w.error;
       if (h.error) throw h.error;
       if (a.error) throw a.error;
-      const { data: currentAuth } = await supabase.auth.getSession();
-      if (revision !== accountRefreshRevisionRef.current || currentAuth.session?.user?.id !== id) return;
+      const authResult = await supabase.auth.getSession();
+      if (authResult.error) throw authResult.error;
+      if (revision !== accountRefreshRevisionRef.current || authResult.data.session?.user?.id !== id) return;
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
