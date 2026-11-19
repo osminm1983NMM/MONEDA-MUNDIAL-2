@@ -21,3 +21,9 @@ Elegir la naturaleza contable de los créditos aportados: (A) fondo social ficti
 
 ## Criterio de aceptación
 Conciliación 6/6, cero duplicados, saldo histórico sin cambios por backfill, asientos equilibrados, denegación a usuarios no autorizados y pruebas reales registradas.
+
+## Decisión del propietario y restricciones reales — 19 noviembre 2026
+- Propietario **aprobó** la opción A: fondo social **ficticio** separado. La aprobación no autoriza dinero real ni la ejecución inmediata de un backfill irreversible.
+- Catálogo SQL inspeccionado: `ledger_accounts.account_type` solo permite `customer_liability`, `provider_clearing`, `fee_revenue` y `suspense`; `ledger_transactions.transaction_kind` solo permite `deposit`, `withdrawal`, `wallet_transfer`, `direct_transfer`, `fee`, `reversal`. Por tanto, **no existe** un tipo `social_fund` ni `contribution` permitido actualmente.
+- Antes de desplegar, preparar una migración versionada que amplíe **explícitamente** los CHECK constraints con tipos específicos `social_fund` y `contribution`, luego cuenta interna `MWD-DEMO-SOCIAL-FUND` y asiento por operación. Revisar primero los triggers existentes, el orden contable debit/credit para cuentas de pasivo, RLS y privilegios. Evitar utilizar `suspense` como atajo para clasificar el fondo social.
+- **No se aplicó migración** en Supabase ni se contabilizaron las seis aportaciones anteriores; primero deben existir pruebas y un plan de reversión. El historial actual permanece intacto.
