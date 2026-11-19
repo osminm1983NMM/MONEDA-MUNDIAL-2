@@ -2,6 +2,7 @@
 // Las llamadas RPC comprueban el rol propietario en Supabase; ocultar esta pantalla no es una barrera de seguridad.
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { validPartner, validLocation } from './partnerValidation';
 
 const KIND = [
   ['bank', 'Banco'],
@@ -99,7 +100,7 @@ export default function PartnerRegistryScreen({ supabase }) {
 
   async function savePartner() {
     if (busy) return;
-    if (name.trim().length < 2 || name.trim().length > 150 || !/^[A-Za-z]{2}$/.test(country.trim())) {
+    if (!validPartner(name, country)) {
       setError('Escribe un nombre de 2 a 150 caracteres y un código de país de 2 letras.');
       return;
     }
@@ -139,9 +140,7 @@ export default function PartnerRegistryScreen({ supabase }) {
   }
   async function saveLocation() {
     if (!selectedId || busy) return;
-    if (branchName.trim().length < 2 || branchName.trim().length > 140 ||
-        city.trim().length < 2 || city.trim().length > 100 ||
-        !/^[A-Za-z]{3}$/.test(currency.trim()) || hours.trim().length > 140) {
+    if (!validLocation(branchName, city, currency, hours)) {
       setError('Revisa la sucursal (2-140 caracteres), ciudad (2-100), moneda (3 letras) y horario (máximo 140).');
       return;
     }
