@@ -79,7 +79,7 @@ assert.ok(app.includes('if (pickupBusy || pickupCreateBusyRef.current) return;')
   app.includes('pickupCreateBusyRef.current = true;') &&
   app.includes('pickupCreateBusyRef.current = false;'),
   'pickup create must use synchronous guard against rapid double taps');
-assert.ok(app.includes('if (!swapQuote?.quoteId || swapBusy || swapConfirmBusyRef.current) return;') &&
+assert.ok(app.includes('if (!swapQuote?.quoteId || swapBusy || swapConfirmBusyRef.current || swapQuoteBusyRef.current) return;') &&
   app.includes('swapConfirmBusyRef.current = true;') &&
   app.includes('swapConfirmBusyRef.current = false;'),
   'swap confirmation must use synchronous guard');
