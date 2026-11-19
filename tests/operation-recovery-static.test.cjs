@@ -151,4 +151,8 @@ assert.ok(app.includes("if (revision === swapWalletRevisionRef.current && reques
 assert.ok(app.includes("if (revision === pickupOrdersRevisionRef.current && requestedUserId === currentUserIdRef.current) message('No se pudieron consultar las órdenes'") &&
   app.includes('if (revision === pickupOrdersRevisionRef.current && requestedUserId === currentUserIdRef.current) setPickupOrdersBusy(false);'),
   'old pickup history errors and finally must not affect a new account');
-console.log('PASS: 47 static recovery and idempotency safety checks');
+assert.ok(app.includes('id !== currentUserIdRef.current ||') &&
+  app.includes("if (refreshRevision === accountRefreshRevisionRef.current && id === currentUserIdRef.current) {") &&
+  app.includes('if (refreshRevision === accountRefreshRevisionRef.current && id === currentUserIdRef.current) setSyncing(false);'),
+  'account refresh results, errors and finally must belong to the current user');
+console.log('PASS: 48 static recovery and idempotency safety checks');
