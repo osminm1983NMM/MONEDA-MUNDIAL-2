@@ -14,3 +14,13 @@ test('preview Android build is an installable APK, not an app bundle', () => {
   assert.equal(eas.build.preview.android.buildType, 'apk');
   assert.equal(eas.build.preview.distribution, 'internal');
 });
+
+test('Expo EAS project ID is configured before APK release', () => {
+  assert.match(expo.extra.eas.projectId, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  assert.equal(expo.owner, '12051983');
+});
+
+test('preview profile is separate from production and uses Node 22', () => {
+  assert.equal(eas.build.preview.node, '22.14.0');
+  assert.equal(eas.build.production, undefined);
+});
