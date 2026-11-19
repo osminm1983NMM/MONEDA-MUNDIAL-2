@@ -141,18 +141,22 @@ export default function App() {
       const fragment = url.split('#')[1] || '';
       const query = url.split('?')[1]?.split('#')[0] || '';
       const params = new URLSearchParams(fragment || query);
-      if (params.get('type') !== 'recovery') return;
       const accessToken = params.get('access_token');
       const refreshToken = params.get('refresh_token');
-      if (!accessToken || !refreshToken) {
+      const authCode = params.get('code');
+      // PKCE callbacks carry a code; implicit recovery callbacks carry both tokens.
+      if (params.get('type') !== 'recovery' && !authCode) return;
+      if (params.get('error') || (!authCode && (!accessToken || !refreshToken))) {
         if (active) message('Recuperar contraseña', 'El enlace no contiene una sesión válida. Solicita otro correo.');
         return;
       }
       try {
-        const { error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
+        const { error } = authCode
+          ? await supabase.auth.exchangeCodeForSession(authCode)
+          : await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
         if (error) throw error;
         if (active) {
           setRecoveryMode(true);
