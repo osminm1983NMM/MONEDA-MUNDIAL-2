@@ -533,10 +533,16 @@ export default function App() {
       });
       if (error) throw error;
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
+      // Once the server confirms creation, cleanup failures must not make the
+      // application report an unconfirmed order or invite another request.
       setPickupResult(data);
-      await AsyncStorage.removeItem(storageKey);
       pickupPendingRef.current = null;
       setPickupAmount('');
+      try {
+        await AsyncStorage.removeItem(storageKey);
+      } catch (_cleanupError) {
+        // A later retry reuses the saved UUID and receives already_created.
+      }
     } catch (error) {
       message('Estado del retiro no confirmado', (error.message || 'Error desconocido') + '\nLa orden podría haberse registrado. Conserva el importe original y consulta Mis retiros antes de reintentar.');
     } finally {
