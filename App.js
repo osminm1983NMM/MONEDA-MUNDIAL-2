@@ -107,6 +107,9 @@ export default function App() {
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+  const swapConfirmBusyRef = useRef(false);
+  const pickupCreateBusyRef = useRef(false);
+  const pickupCancelBusyRef = useRef(false);
   const pendingRef = useRef(null);
   const pendingLoadedUserRef = useRef(null);
   const pendingRecoveryErrorRef = useRef(false);
@@ -487,12 +490,13 @@ export default function App() {
   }
 
   async function confirmSwap() {
-    if (!swapQuote?.quoteId || swapBusy) return;
+    if (!swapQuote?.quoteId || swapBusy || swapConfirmBusyRef.current) return;
     const quote = swapQuote;
     if (new Date(quote.expiresAt).getTime() <= Date.now()) {
       setSwapQuote(null);
       return message('Cotización vencida', 'Solicita una cotización nueva.');
     }
+    swapConfirmBusyRef.current = true;
     setSwapBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_confirm_demo', {
@@ -515,16 +519,18 @@ export default function App() {
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
         '\nConsulta los saldos antes de intentar otra conversión.');
     } finally {
+      swapConfirmBusyRef.current = false;
       setSwapBusy(false);
     }
   }
 
   async function createDemoPickup() {
-    if (pickupBusy) return;
+    if (pickupBusy || pickupCreateBusyRef.current) return;
     const cents = amountToCents(pickupAmount);
     if (cents === null || cents < 100 || cents > 100000) {
       return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
     }
+    pickupCreateBusyRef.current = true;
     setPickupBusy(true);
     setPickupResult(null);
     try {
@@ -567,6 +573,7 @@ export default function App() {
     } catch (error) {
       message('Estado del retiro no confirmado', (error.message || 'Error desconocido') + '\nLa orden podría haberse registrado. Conserva el importe original y consulta Mis retiros antes de reintentar.');
     } finally {
+      pickupCreateBusyRef.current = false;
       setPickupBusy(false);
     }
   }
@@ -586,7 +593,8 @@ export default function App() {
   }
 
   async function cancelDemoPickup(orderId) {
-    if (pickupCancelBusy) return;
+    if (pickupCancelBusy || pickupCancelBusyRef.current) return;
+    pickupCancelBusyRef.current = true;
     setPickupCancelBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_cancel_demo', { p_order_id: orderId });
@@ -597,6 +605,7 @@ export default function App() {
     } catch (error) {
       message('No se pudo cancelar', error.message || 'Error desconocido');
     } finally {
+      pickupCancelBusyRef.current = false;
       setPickupCancelBusy(false);
     }
   }
