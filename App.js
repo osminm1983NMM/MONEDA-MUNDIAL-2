@@ -502,7 +502,18 @@ export default function App() {
       });
       if (error) throw error;
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
-      const { data: currentAuth } = await supabase.auth.getSession();
+      // El servidor ya confirmó la creación: un fallo de sesión posterior
+      // no debe presentarse como una orden fallida ni generar un reintento ciego.
+      let currentAuth;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        currentAuth = authResult.data;
+      } catch (authError) {
+        message('Orden registrada; sesión pendiente',
+          'Supabase confirmó la orden ficticia. Verifica tu sesión y consulta Mis retiros antes de intentar otra orden.');
+        return;
+      }
       if (currentAuth.session?.user?.id !== requestedBy) return;
       setPickupResult(data);
       pickupPendingRef.current = null;
@@ -512,8 +523,15 @@ export default function App() {
         message('Actualización pendiente', 'Orden ficticia creada; consulta Mis retiros para actualizar la lista.');
       });
     } catch (error) {
-      const { data: currentAuth } = await supabase.auth.getSession();
-      if (currentAuth.session?.user?.id !== requestedBy) return;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (authResult.data.session?.user?.id !== requestedBy) return;
+      } catch (authError) {
+        message('Resultado de orden pendiente',
+          'No fue posible verificar la sesión. Consulta tu cuenta y Mis retiros antes de intentar otra orden.');
+        return;
+      }
       message('Resultado de orden no confirmado',
         (error.message || 'Error de conexión') +
         '\nLa orden pudo haberse creado. Consulta Mis retiros y, si reintentas con el mismo monto, se conservará el identificador de solicitud.');
