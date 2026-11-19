@@ -183,3 +183,10 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 115. Aportación de A con respuesta incierta, cambiar a B antes de la verificación: no mostrar «Operación no confirmada» de A.
 116. Fallar getSession tras una transferencia de A y cambiar a B: no mostrar «Resultado pendiente de verificación» de A en B.
 117. La actualización secundaria de historial de A falla después del cambio a B: no mostrar «Actualización pendiente» de A.
+
+## Respuestas tardías de confirmación Coin/Digital
+118. Confirmación de conversión en A, cambiar a B y fallar getSession: no mostrar «Conversión registrada; sesión pendiente» de A.
+119. Conversión de A con respuesta incierta, cambiar a B y recibir error RPC: no mostrar «Conversión no confirmada» de A.
+120. Conversión de A confirmada, cambiar a B durante lectura posterior de billetera: no sobrescribir saldo Coin/Digital de B.
+121. Fallar getSession durante lectura posterior de billetera de A, tras cambiar a B: no mostrar «Actualización pendiente» de A.
+122. getSession devuelve campo error durante actualización posterior a conversión confirmada: conservar confirmación, advertir actualización pendiente y no mostrar saldo antiguo como actualizado.
