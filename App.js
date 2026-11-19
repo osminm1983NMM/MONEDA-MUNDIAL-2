@@ -128,9 +128,12 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return;
-      setSession(nextSession);
+      setSession(previous => {
+        // Un refresco de token no debe cerrar formularios ni borrar borradores.
+        if (previous?.user?.id !== nextSession?.user?.id) setScreen('Inicio');
+        return nextSession;
+      });
       setAuthLoading(false);
-      setScreen('Inicio');
     });
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
@@ -143,6 +146,14 @@ export default function App() {
     setPickupAmount('');
     setPickupResult(null);
     setPickupOrders([]);
+    // Nunca conservar el saldo, historial o privilegios de otra cuenta
+    // mientras llega la respuesta asíncrona de Supabase.
+    setWallet(null);
+    setOperations([]);
+    setAdminRole(null);
+    setSwapWallet(null);
+    setSwapQuote(null);
+    setSyncNotice('');
     if (!userId) {
       setWallet(null);
       setOperations([]);
