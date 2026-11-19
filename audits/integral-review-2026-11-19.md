@@ -157,3 +157,10 @@ select (select count(*) from public.mwd_operations where kind='contribution') as
 ## Unificación del control automático — 19 noviembre 2026
 - El workflow `.github/workflows/validar-demo.yml` ejecuta ahora `npm test`, que incluye ambas suites `tests/*.test.cjs`, en lugar de dos invocaciones independientes.
 - La ejecución #229 previa estaba verde; esta modificación del workflow requiere su propia ejecución de CI para considerarse validada. Se preserva el diseño sin instalación de Expo ni compilación Android para minimizar consumo.
+
+## Verificación SQL de solo lectura y CI unificado — 19 noviembre 2026
+- GitHub Actions run #232 (`44543814818`): job `Sintaxis y controles DEMO` **completed / success**; pasos de sintaxis JSON y `npm test` satisfactorios. Al consultar la ejecución principal figuraba `in_progress` mientras el job ya estaba finalizado.
+- Esquema confirmado: `mwd_operations` con `actor_id`, `request_id`, `kind`, `source_user_id`, `destination_user_id`, `amount_cents`; `mwd_wallets` con `user_id`, `balance_cents`.
+- SQL lectura: **19 transferencias / 21,700 centavos ficticios**, **6 aportaciones / 2,400 centavos ficticios**; **5 billeteras / 4,997,600 centavos ficticios de saldo agregado**.
+- Resultado 0 en: billeteras negativas, importes no positivos, solicitudes duplicadas por par `(actor_id,request_id)`, solicitudes sin ID, transferencias sin origen/destino, autotransferencias, aportaciones sin origen, aportaciones con destino, operaciones que referencian billeteras de origen/destino inexistentes.
+- Las aportaciones reducen el saldo de origen y no tienen destinatario en `mwd_operations`; queda **pendiente definir la contrapartida contable** antes de afirmar conciliación completa. No se modificaron datos ni estructura.
