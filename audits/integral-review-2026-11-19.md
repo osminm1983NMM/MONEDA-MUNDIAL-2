@@ -70,3 +70,8 @@
 - **Corregido:** tanto la ruta `already processed` antes del reintento como la comprobación de estado después de un timeout mantienen el resultado confirmado cuando falla `AsyncStorage.removeItem`.
 - Si falla la limpieza local, se activa `pendingRecoveryErrorRef` para bloquear operaciones nuevas hasta recuperar el almacenamiento; se evita sugerir que la operación confirmada no existe.
 - Suite estática ampliada a **23 comprobaciones declaradas**; no se debe afirmar que la suite pasó hasta ejecutarla en Node/GitHub Actions.
+
+## Recuperación de órdenes de retiro — importe original
+- Se validan los importes guardados de retiros con límites propios: **100 a 100000 centavos** (1–1000 MWD ficticios), además de UUID válido.
+- Si el usuario escribe un importe distinto al de la orden pendiente, la pantalla recupera el importe original y bloquea la nueva solicitud; no genera otro UUID.
+- Dos aserciones estáticas nuevas; **25 comprobaciones declaradas**. La suite automatizada y Android siguen pendientes de ejecución verificable.
