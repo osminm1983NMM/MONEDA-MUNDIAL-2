@@ -263,10 +263,10 @@ export default function PartnerRegistryScreen({ supabase }) {
     </View>
 
     <View style={s.card}>
-      <Text style={s.title}>Candidatos registrados ({partners.length})</Text>
+      <Text style={s.title}>Candidatos registrados ({listReady ? partners.length : "sin verificar"})</Text>
       {!listReady && <Text style={s.dim}>Listado no cargado. Presiona Actualizar listado para reintentar.</Text>}
       {listReady && partners.length === 0 && <Text style={s.dim}>Aún no existen registros permanentes.</Text>}
-      {partners.map(p => <Btn key={p.id}
+      {listReady && partners.map(p => <Btn key={p.id}
         title={(selectedId === p.id ? '✓ ' : '') + p.legal_name + ' · ' + p.country_code + '\n' + (LABELS[p.review_status] || p.review_status)}
         secondary={selectedId !== p.id} disabled={busy || !listReady} onPress={() => choosePartner(p.id)} />)}
       <Btn title="Actualizar listado" secondary disabled={busy} onPress={async () => {
@@ -282,7 +282,7 @@ export default function PartnerRegistryScreen({ supabase }) {
       }} />
     </View>
 
-    {selected && <View style={s.card}>
+    {listReady && selected && <View style={s.card}>
       <Text style={s.title}>{selected.legal_name}</Text>
       <Text style={s.dim}>Estado: {LABELS[selected.review_status] || selected.review_status}</Text>
       <Text style={s.warn}>“Documentación revisada” no equivale a licencia, contrato ni autorización operativa.</Text>
