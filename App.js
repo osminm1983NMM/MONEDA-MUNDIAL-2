@@ -166,6 +166,27 @@ export default function App() {
         if (active) message('Operación pendiente', 'Hay datos locales que requieren revisión. No se enviará ninguna operación automáticamente.');
       }
     })();
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('mwd:pending-demo-pickup:' + userId);
+        if (!raw || !active) return;
+        const saved = JSON.parse(raw);
+        if (!saved || !/^[0-9a-f-]{36}$/i.test(saved.id || '') ||
+            saved.country !== 'HN' || !Number.isSafeInteger(saved.cents) ||
+            saved.cents < 100 || saved.cents > 100000) {
+          throw new Error('Orden pendiente inválida.');
+        }
+        if (!active) return;
+        setPickupAmount(formatMWD(saved.cents));
+        // No reemplazar la pantalla de una transferencia pendiente recuperada.
+        const operationRaw = await AsyncStorage.getItem('mwd:pending-demo-operation:' + userId);
+        if (!active) return;
+        if (!operationRaw) setScreen('Retiros');
+        message('Retiro ficticio pendiente', 'Se recuperó el importe. Revisa y confirma para reintentar con la misma referencia; no se enviará automáticamente.');
+      } catch (_error) {
+        if (active) message('Retiro pendiente', 'Hay una orden local pendiente que requiere revisión antes de crear otra.');
+      }
+    })();
     return () => { active = false; };
   }, [userId]);
 
