@@ -91,15 +91,16 @@ export default function PartnerRegistryScreen({ supabase }) {
     ++detailsRequestRef.current;
     const rows = await request('mwd_owner_partners_demo');
     if (requestNumber !== partnersRequestRef.current) throw Error('Consulta del listado reemplazada por una más reciente.');
-    setPartners(rows || []);
+    if (!Array.isArray(rows)) throw Error('Formato de respuesta del listado inválido; vuelve a consultar.');
+    setPartners(rows);
     setListReady(true);
-    if (expectedSelectedId && !(rows || []).some(p => p.id === expectedSelectedId)) {
+    if (expectedSelectedId && !rows.some(p => p.id === expectedSelectedId)) {
       setSelectedId(null);
       setLocations([]);
       setAudit([]);
       setDetailsReady(false);
     }
-    return rows || [];
+    return rows;
   }
   async function reloadDetails(id) {
     const requestNumber = ++detailsRequestRef.current;
@@ -125,7 +126,8 @@ export default function PartnerRegistryScreen({ supabase }) {
     supabase.rpc('mwd_owner_partners_demo').then(({ data, error: dbError }) => {
       if (!active || requestNumber !== partnersRequestRef.current) return;
       if (dbError) report(dbError);
-      else { setPartners(data || []); setListReady(true); }
+      else if (!Array.isArray(data)) report(Error('Formato de respuesta del listado inválido; vuelve a consultar.'));
+      else { setPartners(data); setListReady(true); }
     }).catch(err => { if (active && requestNumber === partnersRequestRef.current) report(err); });
     return () => { active = false; };
   }, [supabase]);
