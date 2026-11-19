@@ -132,4 +132,17 @@ assert.ok(app.includes('if (quoteRevision === swapQuoteRevisionRef.current &&\n 
   'stale quote and confirmation finally blocks must not clear newer loading states');
 assert.ok(app.includes('swapQuoteBusyRef.current = false;\n    swapConfirmBusyRef.current = false;'),
   'account changes must reset obsolete conversion busy refs');
-console.log('PASS: 42 static recovery and idempotency safety checks');
+assert.ok(app.includes('const createRevision = ++pickupCreateRevisionRef.current;') &&
+  app.includes('createUserId === currentUserIdRef.current') &&
+  app.includes('createRevision !== pickupCreateRevisionRef.current || createUserId !== currentUserIdRef.current'),
+  'late pickup creation must not update another account');
+assert.ok(app.includes('const cancelRevision = ++pickupCancelRevisionRef.current;') &&
+  app.includes('cancelUserId === currentUserIdRef.current') &&
+  app.includes('cancelRevision !== pickupCancelRevisionRef.current || cancelUserId !== currentUserIdRef.current'),
+  'late pickup cancellation must not update another account');
+assert.ok(app.includes('pickupCreateRevisionRef.current += 1;') &&
+  app.includes('pickupCancelRevisionRef.current += 1;') &&
+  app.includes('pickupCreateBusyRef.current = false;') &&
+  app.includes('pickupCancelBusyRef.current = false;'),
+  'account switch must invalidate and release old pickup requests');
+console.log('PASS: 45 static recovery and idempotency safety checks');
