@@ -88,7 +88,7 @@ export default function PartnerRegistryScreen({ supabase }) {
     setListReady(false);
     setDetailsReady(false);
     const rows = await request('mwd_owner_partners_demo');
-    if (requestNumber !== partnersRequestRef.current) return [];
+    if (requestNumber !== partnersRequestRef.current) throw Error('Consulta del listado reemplazada por una más reciente.');
     setPartners(rows || []);
     setListReady(true);
     if (expectedSelectedId && !(rows || []).some(p => p.id === expectedSelectedId)) {
