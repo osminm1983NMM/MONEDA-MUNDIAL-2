@@ -128,8 +128,13 @@ test('reintento revalida estado al aceptar diálogo de confirmación', () => {
 });
 
 test('renovación de token no restablece navegación si identidad sigue igual', () => {
-  const callback = app.slice(app.indexOf('supabase.auth.onAuthStateChange'), app.indexOf('return () => { active = false; subscription.unsubscribe(); }'));
-  assert.match(callback, /const nextUserId = nextSession\?\.user\?\.id \|\| null/);
-  assert.match(callback, /if \(authUserRef\.current !== nextUserId\) \{\s*authUserRef\.current = nextUserId;\s*setScreen\('Inicio'\)/);
-  assert.match(callback, /setSession\(nextSession\)/);
+  const fn = app.slice(app.indexOf('const applySession = nextSession =>'), app.indexOf('supabase.auth.getSession()', app.indexOf('const applySession = nextSession =>')));
+  assert.match(fn, /const nextUserId = nextSession\?\.user\?\.id \|\| null/);
+  assert.match(fn, /if \(authUserRef\.current !== nextUserId\) \{\s*authUserRef\.current = nextUserId;\s*setScreen\('Inicio'\)/);
+  assert.match(fn, /setSession\(nextSession\)/);
+});
+test('respuesta tardía de getSession no sobrescribe evento de autenticación reciente', () => {
+  const fn = app.slice(app.indexOf('let receivedAuthEvent = false'), app.indexOf('return () => { active = false; subscription.unsubscribe(); }'));
+  assert.match(fn, /receivedAuthEvent = true;\s*applySession\(nextSession\)/);
+  assert.match(fn, /if \(active && !receivedAuthEvent\) applySession\(data\.session\)/);
 });
