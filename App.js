@@ -110,6 +110,7 @@ export default function App() {
   const swapConfirmBusyRef = useRef(false);
   const swapQuoteBusyRef = useRef(false);
   const swapQuoteRevisionRef = useRef(0);
+  const accountRefreshRevisionRef = useRef(0);
   const pickupCreateBusyRef = useRef(false);
   const pickupCancelBusyRef = useRef(false);
   const pendingRef = useRef(null);
@@ -144,6 +145,7 @@ export default function App() {
   // Never reuse a withdrawal request held in memory across account changes.
   useEffect(() => {
     pickupPendingRef.current = null;
+    accountRefreshRevisionRef.current += 1;
     swapQuoteRevisionRef.current += 1;
     setSwapQuote(null);
     setPickupAmount('');
@@ -201,6 +203,7 @@ export default function App() {
 
   async function refreshAccount(id = userId) {
     if (!id) return;
+    const refreshRevision = ++accountRefreshRevisionRef.current;
     setSyncing(true);
     setSyncNotice('Actualizando...');
     try {
@@ -216,16 +219,21 @@ export default function App() {
       if (w.error) throw w.error;
       if (h.error) throw h.error;
       if (a.error) throw a.error;
-      if (supabase.auth.getUser && supabase.auth && id !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      const { data: currentSession, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (refreshRevision !== accountRefreshRevisionRef.current ||
+          id !== currentSession.session?.user?.id) return;
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
       setSyncNotice('Saldo e historial actualizados correctamente.');
     } catch (error) {
-      setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
-      message('Sincronización', error.message || 'No se pudo consultar Supabase.');
+      if (refreshRevision === accountRefreshRevisionRef.current) {
+        setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
+        message('Sincronización', error.message || 'No se pudo consultar Supabase.');
+      }
     } finally {
-      setSyncing(false);
+      if (refreshRevision === accountRefreshRevisionRef.current) setSyncing(false);
     }
   }
 
