@@ -335,7 +335,9 @@ export default function App() {
       setAmount('');
       setRecipientCode('');
       setScreen('Inicio');
-      await refreshAccount();
+      // The server has confirmed the operation; a failed screen refresh must not
+      // reclassify it as an unconfirmed transfer or trigger another RPC.
+      refreshAccount().catch(() => {});
       message('Operación ficticia confirmada', type === 'transfer'
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
@@ -359,7 +361,7 @@ export default function App() {
             setAmount('');
             setRecipientCode('');
             setScreen('Inicio');
-            await refreshAccount();
+            refreshAccount().catch(() => {});
             message('Operación ficticia confirmada',
               'El servidor confirmó que la solicitud original ya estaba registrada.');
           }
