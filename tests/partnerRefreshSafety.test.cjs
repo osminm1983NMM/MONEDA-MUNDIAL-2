@@ -14,11 +14,12 @@ assert.ok(reload.indexOf('setListReady(false)') < request, 'Invalida listado ant
 const selected = screen.indexOf('  async function setStatus(');
 const selectedEnd = screen.indexOf('  async function saveLocation(', selected);
 assert.ok(screen.slice(selected, selectedEnd).includes('!detailsReady'), 'Estado exige detalles actualizados');
-assert.ok(screen.includes('disabled={busy || !detailsReady}'), 'Botón de estado se bloquea sin detalles');
+assert.ok(screen.includes('disabled={busy || !listReady || !detailsReady}'), 'Botón de estado exige listado y detalles vigentes');
 assert.ok(screen.includes("detailsReady && audit.length === 0"), 'Historial vacío sólo tras consulta confirmada');
 assert.ok(screen.includes('Historial no verificado:'), 'Advertencia si falta verificación del historial');
 assert.ok(screen.includes('const requestNumber = ++partnersRequestRef.current'), 'Identificador para consultas del listado');
 assert.ok(screen.includes('if (requestNumber !== partnersRequestRef.current) return []'), 'Descarta listados atrasados');
 assert.ok(screen.includes('const requestNumber = ++detailsRequestRef.current'), 'Identificador para consultas de detalles');
 assert.ok(screen.includes('if (requestNumber !== detailsRequestRef.current) return;'), 'Descarta detalles atrasados');
-console.log('10 comprobaciones estructurales de recuperación definidas.');
+assert.ok(screen.includes('disabled={busy || !listReady || !detailsReady || selected.review_status'), 'Botón de sucursal exige listado y detalles vigentes');
+console.log('11 comprobaciones estructurales de recuperación definidas.');
