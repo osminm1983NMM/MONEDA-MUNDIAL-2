@@ -109,6 +109,7 @@ export default function App() {
   const busyRef = useRef(false);
   const swapConfirmBusyRef = useRef(false);
   const swapQuoteBusyRef = useRef(false);
+  const swapQuoteRevisionRef = useRef(0);
   const pickupCreateBusyRef = useRef(false);
   const pickupCancelBusyRef = useRef(false);
   const pendingRef = useRef(null);
@@ -143,6 +144,8 @@ export default function App() {
   // Never reuse a withdrawal request held in memory across account changes.
   useEffect(() => {
     pickupPendingRef.current = null;
+    swapQuoteRevisionRef.current += 1;
+    setSwapQuote(null);
     setPickupAmount('');
     setPickupResult(null);
     setPickupOrders([]);
@@ -477,6 +480,8 @@ export default function App() {
       return message('Cantidad inválida', 'Introduce entre 1 y 10,000 unidades de prueba.');
     }
     swapQuoteBusyRef.current = true;
+    const quoteRevision = ++swapQuoteRevisionRef.current;
+    const quoteUserId = userId;
     setSwapBusy(true);
     setSwapQuote(null);
     try {
@@ -484,7 +489,10 @@ export default function App() {
         p_from_asset: swapFrom, p_amount_micro: micro, p_client_request_id: uniqueRequestId(),
       });
       if (error) throw error;
-      setSwapQuote(data);
+      // Ignore responses for an amount, asset or account that has since changed.
+      if (quoteRevision === swapQuoteRevisionRef.current && quoteUserId === userId) {
+        setSwapQuote(data);
+      }
     } catch (error) {
       message('Cotización', error.message || 'No se pudo cotizar.');
     } finally {
@@ -767,12 +775,17 @@ export default function App() {
               <Btn title="Consultar saldos" secondary onPress={loadSwapWallet} disabled={swapBusy} />
               <Btn title={swapFrom === 'COIN' ? 'Origen: COIN (cambiar)' : 'Origen: DIGITAL (cambiar)'}
                 secondary disabled={swapBusy} onPress={() => {
+                  swapQuoteRevisionRef.current += 1;
                   setSwapFrom(swapFrom === 'COIN' ? 'STABLE' : 'COIN');
                   setSwapQuote(null);
                 }} />
               <TextInput style={styles.input} placeholder="Cantidad (mínimo 1)"
                 keyboardType="decimal-pad" placeholderTextColor="#9fb1c8"
-                value={swapAmount} onChangeText={value => { setSwapAmount(value); setSwapQuote(null); }} />
+                value={swapAmount} onChangeText={value => {
+                  swapQuoteRevisionRef.current += 1;
+                  setSwapAmount(value);
+                  setSwapQuote(null);
+                }} />
               <Btn title={swapBusy ? 'Procesando...' : 'Solicitar cotización ficticia'}
                 disabled={swapBusy || !swapWallet} onPress={requestSwapQuote} />
               {swapQuote && <View>
