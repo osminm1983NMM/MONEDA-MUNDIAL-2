@@ -243,18 +243,19 @@ export default function App() {
       const { data: currentSession, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
       if (refreshRevision !== accountRefreshRevisionRef.current ||
+          id !== currentUserIdRef.current ||
           id !== currentSession.session?.user?.id) return;
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
       setSyncNotice('Saldo e historial actualizados correctamente.');
     } catch (error) {
-      if (refreshRevision === accountRefreshRevisionRef.current) {
+      if (refreshRevision === accountRefreshRevisionRef.current && id === currentUserIdRef.current) {
         setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
         message('Sincronización', error.message || 'No se pudo consultar Supabase.');
       }
     } finally {
-      if (refreshRevision === accountRefreshRevisionRef.current) setSyncing(false);
+      if (refreshRevision === accountRefreshRevisionRef.current && id === currentUserIdRef.current) setSyncing(false);
     }
   }
 
