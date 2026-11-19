@@ -64,6 +64,8 @@ export default function PartnerRegistryScreen({ supabase }) {
   const [hours, setHours] = useState('');
   const [busy, setBusy] = useState(false);
   const writingRef = useRef(false);
+  const partnersRequestRef = useRef(0);
+  const detailsRequestRef = useRef(0);
   const [listReady, setListReady] = useState(false);
   const [detailsReady, setDetailsReady] = useState(false);
   const [error, setError] = useState('');
@@ -82,9 +84,11 @@ export default function PartnerRegistryScreen({ supabase }) {
   async function reloadPartners() {
     // No permitir decisiones sobre un estado potencialmente desactualizado
     // mientras se consulta la lista, ni si la consulta termina fallando.
+    const requestNumber = ++partnersRequestRef.current;
     setListReady(false);
     setDetailsReady(false);
     const rows = await request('mwd_owner_partners_demo');
+    if (requestNumber !== partnersRequestRef.current) return [];
     setPartners(rows || []);
     setListReady(true);
     if (selectedId && !(rows || []).some(p => p.id === selectedId)) {
@@ -96,23 +100,26 @@ export default function PartnerRegistryScreen({ supabase }) {
     return rows || [];
   }
   async function reloadDetails(id) {
+    const requestNumber = ++detailsRequestRef.current;
     if (!id) { setLocations([]); setAudit([]); setDetailsReady(false); return; }
     setLocations([]); setAudit([]); setDetailsReady(false);
     const [loc, hist] = await Promise.all([
       request('mwd_owner_partner_locations_demo', { p_partner_id: id }),
       request('mwd_owner_partner_audit_demo', { p_partner_id: id }),
     ]);
+    if (requestNumber !== detailsRequestRef.current) return;
     setLocations(loc || []);
     setAudit(hist || []);
     setDetailsReady(true);
   }
   useEffect(() => {
     let active = true;
+    const requestNumber = ++partnersRequestRef.current;
     supabase.rpc('mwd_owner_partners_demo').then(({ data, error: dbError }) => {
-      if (!active) return;
+      if (!active || requestNumber !== partnersRequestRef.current) return;
       if (dbError) report(dbError);
       else { setPartners(data || []); setListReady(true); }
-    }).catch(err => { if (active) report(err); });
+    }).catch(err => { if (active && requestNumber === partnersRequestRef.current) report(err); });
     return () => { active = false; };
   }, [supabase]);
 
