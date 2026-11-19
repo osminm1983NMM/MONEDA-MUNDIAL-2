@@ -104,3 +104,9 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 64. Perder respuesta de confirmación de conversión y fallar la consulta de sesión: indicar «Resultado de conversión pendiente» y no aconsejar repetir sin revisar saldos.
 65. Confirmar conversión, fallar consulta de billetera y también la segunda consulta de sesión: mantener confirmación y mostrar «Actualización pendiente».
 66. Cambiar de cuenta durante la confirmación: no mostrar saldos ni mensajes privados de la cuenta anterior.
+
+## Fallos de sesión durante actualización de cuenta
+67. Provocar error al consultar billetera e historial y también al verificar sesión: mostrar «Sesión no verificada» sin prometer que se actualizaron los datos.
+68. Lanzar dos actualizaciones de cuenta; la primera falla tarde al consultar sesión: no reemplazar el estado ni mostrar un error obsoleto sobre la segunda.
+69. Iniciar carga de sesión y recibir un evento de autenticación más reciente; si falla la carga inicial, no mostrar una alerta antigua de sesión.
+70. Desmontar la pantalla antes de terminar la carga inicial de sesión: no mostrar una alerta tardía.
