@@ -39,7 +39,7 @@ const swapCases = [
 ];
 function quoteMicro(value) {
   const normalized = value.trim().replace(',', '.');
-  if (!/^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$/.test(normalized)) return null;
+  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(normalized)) return null;
   const [whole, fraction = ''] = normalized.split('.');
   const micro = Number(whole) * 1000000 + Number(fraction.padEnd(6, '0'));
   return Number.isSafeInteger(micro) && micro >= 1000000 && micro <= 10000000000 ? micro : null;
