@@ -213,6 +213,9 @@ export default function PartnerRegistryScreen({ supabase }) {
       setNotice('Estado de revisión guardado. No habilita retiros ni pagos reales.');
       setError('El estado se guardó, pero no se pudo actualizar la pantalla. Actualiza el listado y los detalles.');
     } else {
+      // El servidor pudo haber cambiado el estado aunque la respuesta se perdiera.
+      // No mostrar ni reutilizar el estado anterior como si estuviera verificado.
+      setListReady(false);
       setDetailsReady(false);
       setError('No se pudo confirmar el cambio de estado. Actualiza el listado y los detalles antes de otra transición. Detalle: ' + (outcome.error?.message || 'Error de conexión.'));
       setNotice('');
