@@ -343,19 +343,29 @@ export default function App() {
     if (cents === null || cents < 100 || cents > 100000) {
       return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
     }
-    if (!pickupPendingRef.current || pickupPendingRef.current.cents !== cents) {
-      pickupPendingRef.current = { cents, id: uniqueRequestId() };
-    }
-    const requestId = pickupPendingRef.current.id;
     setPickupBusy(true);
     setPickupResult(null);
     try {
+      // Keep the same request ID after app restarts or network timeouts.
+      // Scope the saved request to the signed-in user to avoid cross-account reuse.
+      if (!userId) throw new Error('Inicia sesión antes de crear una orden.');
+      const storageKey = 'mwd_demo_pickup_pending_' + userId;
+      const stored = await AsyncStorage.getItem(storageKey);
+      const previous = stored ? JSON.parse(stored) : pickupPendingRef.current;
+      if (previous && previous.cents !== cents) {
+        throw new Error('Hay una orden sin confirmar de otro monto. Reintenta primero con el monto original o consulta Mis retiros.');
+      }
+      const pending = previous || { cents, id: uniqueRequestId() };
+      pickupPendingRef.current = pending;
+      await AsyncStorage.setItem(storageKey, JSON.stringify(pending));
+      const requestId = pending.id;
       const { data, error } = await supabase.rpc('mwd_pickup_create_demo', {
         p_destination_country: 'HN', p_amount_cents: cents, p_request_id: requestId,
       });
       if (error) throw error;
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
       setPickupResult(data);
+      await AsyncStorage.removeItem(storageKey);
       pickupPendingRef.current = null;
       setPickupAmount('');
     } catch (error) {
