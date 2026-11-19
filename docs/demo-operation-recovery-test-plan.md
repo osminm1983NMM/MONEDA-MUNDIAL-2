@@ -47,6 +47,10 @@ Este plan no habilita pagos reales. Ejecutar solo con cuentas y créditos fictic
 28. **Nuevo envío sin saldo**: sin solicitud pendiente, verificar que se mantiene el bloqueo por saldo insuficiente.
 29. **Doble pulsación de retiro**: pulsar dos veces rápidamente Crear orden ficticia y comprobar una sola invocación a la RPC de creación desde la interfaz.
 
+30. **Doble confirmación de conversión**: pulsar rápidamente dos veces Confirmar conversión ficticia; comprobar una sola invocación de confirmación desde Android.
+31. **Cotización y consulta simultáneas**: mientras se solicita una cotización, intentar actualizar saldos y viceversa. La interfaz debe serializar las solicitudes.
+32. **Error en RPC de conversión**: provocar un error y comprobar que el bloqueo se libera, permitiendo una consulta posterior.
+
 ## Criterios de aprobación
 - Ninguna operación duplicada por reintento o reinicio.
 - Ninguna operación nueva con una referencia pendiente de datos distintos.
