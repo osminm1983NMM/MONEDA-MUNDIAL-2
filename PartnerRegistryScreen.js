@@ -62,6 +62,7 @@ export default function PartnerRegistryScreen({ supabase }) {
   const [currency, setCurrency] = useState('USD');
   const [hours, setHours] = useState('');
   const [busy, setBusy] = useState(false);
+  const [detailsReady, setDetailsReady] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -80,14 +81,15 @@ export default function PartnerRegistryScreen({ supabase }) {
     setPartners(rows || []);
   }
   async function reloadDetails(id) {
-    if (!id) { setLocations([]); setAudit([]); return; }
-    setLocations([]); setAudit([]);
+    if (!id) { setLocations([]); setAudit([]); setDetailsReady(false); return; }
+    setLocations([]); setAudit([]); setDetailsReady(false);
     const [loc, hist] = await Promise.all([
       request('mwd_owner_partner_locations_demo', { p_partner_id: id }),
       request('mwd_owner_partner_audit_demo', { p_partner_id: id }),
     ]);
     setLocations(loc || []);
     setAudit(hist || []);
+    setDetailsReady(true);
   }
   useEffect(() => {
     let active = true;
@@ -122,9 +124,9 @@ export default function PartnerRegistryScreen({ supabase }) {
   }
   async function choosePartner(id) {
     if (busy) return;
-    setSelectedId(id); setLocations([]); setAudit([]); setError(''); setNotice(''); setBusy(true);
+    setSelectedId(id); setLocations([]); setAudit([]); setDetailsReady(false); setError(''); setNotice(''); setBusy(true);
     try { await reloadDetails(id); }
-    catch (err) { setLocations([]); setAudit([]); report(err); }
+    catch (err) { setLocations([]); setAudit([]); setDetailsReady(false); report(err); }
     finally { setBusy(false); }
   }
   async function setStatus(status) {
@@ -140,7 +142,7 @@ export default function PartnerRegistryScreen({ supabase }) {
     finally { setBusy(false); }
   }
   async function saveLocation() {
-    if (!selectedId || busy || selected?.review_status === 'archived') return;
+    if (!selectedId || busy || !detailsReady || selected?.review_status === 'archived') return;
     if (!validLocation(branchName, city, currency, hours)) {
       setError('Revisa la sucursal (2-140 caracteres), ciudad (2-100), moneda (3 letras) y horario (máximo 140).');
       return;
@@ -198,6 +200,7 @@ export default function PartnerRegistryScreen({ supabase }) {
       {(NEXT[selected.review_status] || []).map(([status, label]) =>
         <Btn key={status} title={label} secondary disabled={busy} onPress={() => setStatus(status)} />)}
 
+      {!detailsReady && <Text style={s.dim}>Los detalles no están disponibles. Selecciona nuevamente el socio para reintentar.</Text>}
       <Text style={[s.title, { marginTop: 17 }]}>Sucursales candidatas</Text>
       {locations.map(l => <Text key={l.id} style={s.text}>
         {l.display_name} — {l.city} — {l.currency_code} · Borrador
@@ -207,7 +210,7 @@ export default function PartnerRegistryScreen({ supabase }) {
       <Field label="Ciudad" value={city} onChangeText={setCity} />
       <Field label="Moneda de referencia (3 letras)" value={currency} onChangeText={setCurrency} />
       <Field label="Horario orientativo (opcional)" value={hours} onChangeText={setHours} />
-      <Btn title="Guardar sucursal candidata" disabled={busy || selected.review_status === 'archived' || !validLocation(branchName, city, currency, hours)}
+      <Btn title="Guardar sucursal candidata" disabled={busy || !detailsReady || selected.review_status === 'archived' || !validLocation(branchName, city, currency, hours)}
         onPress={saveLocation} />
 
       <Text style={[s.title, { marginTop: 17 }]}>Historial de modificaciones</Text>
