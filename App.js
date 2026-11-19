@@ -111,6 +111,7 @@ export default function App() {
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
   const accountRefreshRevisionRef = useRef(0);
+  const authIdentityRef = useRef(undefined);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -118,16 +119,24 @@ export default function App() {
     supabase.auth.getSession()
       .then(({ data, error }) => {
         if (error) throw error;
-        if (active) setSession(data.session);
+        if (active) {
+          const nextId = data.session?.user?.id || null;
+          if (authIdentityRef.current === undefined) authIdentityRef.current = nextId;
+          setSession(data.session);
+        }
       })
       .catch(error => message('Sesión', error.message))
       .finally(() => { if (active) setAuthLoading(false); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return;
+      const nextId = nextSession?.user?.id || null;
+      if (authIdentityRef.current !== undefined && authIdentityRef.current !== nextId) {
+        setScreen('Inicio');
+      }
+      authIdentityRef.current = nextId;
       setSession(nextSession);
       setAuthLoading(false);
-      setScreen('Inicio');
     });
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
@@ -189,6 +198,8 @@ export default function App() {
       setSyncNotice('Saldo e historial actualizados correctamente.');
     } catch (error) {
       if (revision !== accountRefreshRevisionRef.current) return;
+      const { data: currentAuth } = await supabase.auth.getSession();
+      if (currentAuth.session?.user?.id !== id) return;
       setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
       message('Sincronización', error.message || 'No se pudo consultar Supabase.');
     } finally {
