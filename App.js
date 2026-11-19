@@ -140,11 +140,18 @@ export default function App() {
       pickupPendingRef.current = null;
       setPickupResult(null);
       setPickupOrders([]);
+      setSyncNotice('');
       return;
     }
     pickupPendingRef.current = null;
     setPickupResult(null);
     setPickupOrders([]);
+    setWallet(null);
+    setOperations([]);
+    setAdminRole(null);
+    setSwapWallet(null);
+    setSwapQuote(null);
+    setSyncNotice('');
     refreshAccount(userId);
   }, [userId]);
 
