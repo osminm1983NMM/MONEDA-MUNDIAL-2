@@ -9,7 +9,7 @@ test('login offers password recovery without requiring old password', () => {
   const end = app.indexOf('function changeAmount(', start);
   assert.ok(start >= 0 && end > start, 'password recovery handler exists');
   const handler = app.slice(start, end);
-  assert.match(handler, /supabase\.auth\.resetPasswordForEmail\(cleanEmail\)/);
+  assert.match(handler, /supabase\.auth\.resetPasswordForEmail\(cleanEmail, \{/);
   assert.match(handler, /email\.trim\(\)\.toLowerCase\(\)/);
   assert.doesNotMatch(handler, /password\.length|signInWithPassword/);
   assert.match(handler, /if \(authBusy\) return/);
@@ -30,4 +30,13 @@ test('password reset email validation accepts ordinary addresses', () => {
   assert.equal(emailPattern.test('persona@example.com'), true);
   assert.equal(emailPattern.test('persona+demo@example.org'), true);
   assert.equal(emailPattern.test('correo-invalido'), false);
+});
+
+test('Android recovery links are handled with tokens and not logged', () => {
+  assert.match(app, /Linking\.getInitialURL\(\)/);
+  assert.match(app, /Linking\.addEventListener\('url'/);
+  assert.match(app, /params\.get\('type'\) !== 'recovery'/);
+  assert.match(app, /supabase\.auth\.setSession\(\{/);
+  assert.match(app, /redirectTo: 'monedamundial:\/\/auth\/recovery'/);
+  assert.doesNotMatch(app, /console\.log\(accessToken\)/);
 });
