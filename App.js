@@ -311,8 +311,9 @@ export default function App() {
       }
     } catch (error) {
       try {
-        const { data: currentAuth } = await supabase.auth.getSession();
-        if (currentAuth.session?.user?.id !== operationUserId) return;
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (authResult.data.session?.user?.id !== operationUserId) return;
       } catch (authError) {
         message('Resultado pendiente de verificación',
           'No fue posible consultar la sesión. Comprueba tu cuenta e historial antes de reintentar.');
