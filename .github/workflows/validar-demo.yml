@@ -30,6 +30,8 @@ jobs:
         run: node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))"
       - name: Comprobar protecciones de recuperación e idempotencia
         run: node --test tests/operation-recovery-static.test.cjs
+      - name: Ejecutar pruebas reales de funciones puras
+        run: node --test tests/pure-helpers.test.cjs
       # La instalación/compilación Android se valida por separado para no gastar minutos en cada cambio.
   
   
