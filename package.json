@@ -8,7 +8,8 @@
     "android": "expo start --android",
     "test:partners": "node tests/partnerValidation.test.cjs",
     "test:network": "node tests/networkFailure.test.cjs",
-    "test:all": "npm run test:partners && npm run test:network"
+    "test:all": "npm run test:partners && npm run test:network && npm run test:write-flow",
+    "test:write-flow": "node tests/partnerWriteFlow.test.cjs"
   },
   "dependencies": {
     "expo": "~54.0.0",
