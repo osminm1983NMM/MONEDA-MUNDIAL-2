@@ -65,3 +65,8 @@
 - En retiros, una futura repetición conserva el UUID almacenado y debe recibir respuesta idempotente del servidor.
 - Dos comprobaciones estáticas añadidas; **21 aserciones declaradas**, ejecución completa de GitHub Actions todavía sin evidencia (consulta del último commit devolvió cero ejecuciones).
 - **Limitación importante:** esta corrección no reemplaza pruebas de fallo real de almacenamiento, cambio de cuenta y respuesta perdida en Android.
+
+## Recuperación de transferencias — dos rutas adicionales
+- **Corregido:** tanto la ruta `already processed` antes del reintento como la comprobación de estado después de un timeout mantienen el resultado confirmado cuando falla `AsyncStorage.removeItem`.
+- Si falla la limpieza local, se activa `pendingRecoveryErrorRef` para bloquear operaciones nuevas hasta recuperar el almacenamiento; se evita sugerir que la operación confirmada no existe.
+- Suite estática ampliada a **23 comprobaciones declaradas**; no se debe afirmar que la suite pasó hasta ejecutarla en Node/GitHub Actions.
