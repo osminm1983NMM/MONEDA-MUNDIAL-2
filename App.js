@@ -549,28 +549,33 @@ export default function App() {
         if (authResult.error) throw authResult.error;
         currentAuth = authResult.data;
       } catch (authError) {
+        if (createRevision !== pickupCreateRevisionRef.current) return;
         message('Orden registrada; sesión pendiente',
           'Supabase confirmó la orden ficticia. Verifica tu sesión y consulta Mis retiros antes de intentar otra orden.');
         return;
       }
-      if (currentAuth.session?.user?.id !== requestedBy) return;
+      if (createRevision !== pickupCreateRevisionRef.current || currentAuth.session?.user?.id !== requestedBy) return;
       setPickupResult(data);
       pickupPendingRef.current = null;
       setPickupAmount('');
       // La actualización secundaria no debe cambiar el resultado confirmado de la creación.
       loadPickupOrders().catch(() => {
+        if (createRevision !== pickupCreateRevisionRef.current) return;
         message('Actualización pendiente', 'Orden ficticia creada; consulta Mis retiros para actualizar la lista.');
       });
     } catch (error) {
+      if (createRevision !== pickupCreateRevisionRef.current) return;
       try {
         const authResult = await supabase.auth.getSession();
         if (authResult.error) throw authResult.error;
-        if (authResult.data.session?.user?.id !== requestedBy) return;
+        if (createRevision !== pickupCreateRevisionRef.current || authResult.data.session?.user?.id !== requestedBy) return;
       } catch (authError) {
+        if (createRevision !== pickupCreateRevisionRef.current) return;
         message('Resultado de orden pendiente',
           'No fue posible verificar la sesión. Consulta tu cuenta y Mis retiros antes de intentar otra orden.');
         return;
       }
+      if (createRevision !== pickupCreateRevisionRef.current) return;
       message('Resultado de orden no confirmado',
         (error.message || 'Error de conexión') +
         '\nLa orden pudo haberse creado. Consulta Mis retiros y, si reintentas con el mismo monto, se conservará el identificador de solicitud.');
@@ -625,26 +630,31 @@ export default function App() {
         if (authResult.error) throw authResult.error;
         currentAuth = authResult.data;
       } catch (authError) {
+        if (cancelRevision !== pickupCancelRevisionRef.current) return;
         message('Cancelación registrada; sesión pendiente',
           'Supabase confirmó la cancelación ficticia. Verifica tu sesión y consulta Mis retiros antes de repetirla.');
         return;
       }
-      if (currentAuth.session?.user?.id !== requestedBy) return;
+      if (cancelRevision !== pickupCancelRevisionRef.current || currentAuth.session?.user?.id !== requestedBy) return;
       message('Orden ficticia', data.status === 'cancelled' ? 'Orden cancelada correctamente.' : 'La orden ya estaba cancelada.');
       // La consulta posterior no debe convertir una cancelación confirmada en un fallo.
       loadPickupOrders().catch(() => {
+        if (cancelRevision !== pickupCancelRevisionRef.current) return;
         message('Actualización pendiente', 'Cancelación confirmada; actualiza Mis retiros para consultar la lista.');
       });
     } catch (error) {
+      if (cancelRevision !== pickupCancelRevisionRef.current) return;
       try {
         const authResult = await supabase.auth.getSession();
         if (authResult.error) throw authResult.error;
-        if (authResult.data.session?.user?.id !== requestedBy) return;
+        if (cancelRevision !== pickupCancelRevisionRef.current || authResult.data.session?.user?.id !== requestedBy) return;
       } catch (authError) {
+        if (cancelRevision !== pickupCancelRevisionRef.current) return;
         message('Resultado de cancelación pendiente',
           'No fue posible verificar la sesión. Consulta tu cuenta y Mis retiros antes de repetir la cancelación.');
         return;
       }
+      if (cancelRevision !== pickupCancelRevisionRef.current) return;
       message('Resultado de cancelación no confirmado',
         (error.message || 'Error de conexión') +
         '\nLa cancelación pudo haberse procesado. Consulta Mis retiros antes de repetirla.');
