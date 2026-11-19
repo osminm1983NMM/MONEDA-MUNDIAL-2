@@ -144,3 +144,7 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 90. Fallar cotización y también getSession: mostrar «Sesión no verificada» y no afirmar que existe cotización válida.
 91. Iniciar dos consultas de billetera Coin/Digital; falla tarde la antigua: no mostrar alerta obsoleta ni sobrescribir datos recientes.
 92. Cambiar de cuenta durante una cotización fallida: no mostrar errores ni cotizaciones de la cuenta anterior.
+
+## Actualización de cuenta con error explícito de sesión
+93. Completar consultas de saldo e historial pero devolver getSession con campo error (sin lanzar excepción): mostrar «Sesión no verificada» y no declarar actualización exitosa.
+94. Iniciar dos actualizaciones y recibir error de sesión de la primera después de que termina la segunda: descartar el aviso antiguo.
