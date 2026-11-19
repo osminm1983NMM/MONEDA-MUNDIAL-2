@@ -85,6 +85,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [passwordChangeBusy, setPasswordChangeBusy] = useState(false);
   const passwordChangeBusyRef = useRef(false);
@@ -789,7 +790,9 @@ export default function App() {
               autoCapitalize="none" autoCorrect={false} value={email} onChangeText={setEmail} />
             <TextInput style={styles.input} placeholder="Contraseña (8 caracteres mínimo)"
               placeholderTextColor="#9fb1c8" autoCapitalize="none"
-              secureTextEntry value={password} onChangeText={setPassword} />
+              secureTextEntry={!showPassword} value={password} onChangeText={setPassword} />
+            <Btn title={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} secondary
+              onPress={() => setShowPassword(value => !value)} disabled={authBusy} />
             <Btn title={authBusy ? 'Espera...' : 'Iniciar sesión'} onPress={() => authenticate('login')} disabled={authBusy} />
             <Btn title="Crear cuenta de prueba" secondary onPress={() => authenticate('register')} disabled={authBusy} />
             <Btn title="Olvidé mi contraseña" secondary onPress={requestPasswordReset} disabled={authBusy} />
