@@ -87,3 +87,10 @@ test('successfully consumed recovery links cannot be exchanged twice in one app 
   assert.match(app, /processingRecoveryUrls\.has\(url\) \|\| completedRecoveryUrls\.has\(url\)/);
   assert.match(app, /completedRecoveryUrls\.add\(url\)/);
 });
+
+test('expired recovery links show a generic message before checking callback type', () => {
+  const errorBranch = app.indexOf("if (params.get('error'))");
+  const typeBranch = app.indexOf("if (params.get('type') !== 'recovery' && !authCode)");
+  assert.ok(errorBranch > 0 && typeBranch > errorBranch);
+  assert.match(app.slice(errorBranch, typeBranch), /El enlace venció o no es válido/);
+});
