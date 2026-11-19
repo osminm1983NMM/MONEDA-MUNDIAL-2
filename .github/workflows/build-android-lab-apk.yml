@@ -11,6 +11,7 @@ on:
       - 'app.json'
       - 'package.json'
       - 'eas.json'
+      - 'tests/**'
 
 concurrency:
   group: android-lab-apk-${{ github.ref }}
