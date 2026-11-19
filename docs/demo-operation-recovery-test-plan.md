@@ -26,6 +26,12 @@ Este plan no habilita pagos reales. Ejecutar solo con cuentas y créditos fictic
 13. **Operación confirmada con error de almacenamiento local**: simular fallo de `AsyncStorage.removeItem`. Verificar que se informa la confirmación y que un reintento con el mismo UUID no duplica la operación.
 14. **Retiro creado con respuesta perdida**: repetir el importe después de reiniciar Android. Verificar una sola orden y que el código secreto no se expone nuevamente.
 
+
+15. **Reinicio con borrador pendiente**: reiniciar Android después de guardar la referencia; comprobar que se abre la pantalla correcta con importe y destinatario originales, sin ejecutar RPC de envío automáticamente.
+16. **Cierre de sesión y cambio de usuario**: comprobar que el borrador de una cuenta no aparece en otra y que no se envían solicitudes durante la restauración.
+17. **Datos locales dañados**: introducir JSON inválido en almacenamiento de pruebas; comprobar bloqueo y aviso, sin envío.
+18. **Fallo de consulta previa con red caída**: comprobar que el sistema no intenta enviar transferencias/aportaciones si falla la RPC de estado.
+
 ## Criterios de aprobación
 - Ninguna operación duplicada por reintento o reinicio.
 - Ninguna operación nueva con una referencia pendiente de datos distintos.
