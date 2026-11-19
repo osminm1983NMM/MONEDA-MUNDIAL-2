@@ -42,3 +42,10 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 22. Ejecutar conversión ficticia exitosa y provocar fallo solo al consultar saldos: debe indicar conversión confirmada y actualización pendiente, nunca «conversión no confirmada».
 23. Tras el caso anterior, pulsar **Consultar saldos** y verificar el saldo en el servidor antes de otra conversión.
 24. Provocar error en el RPC de conversión antes de obtener confirmación: debe mostrarse operación no confirmada y no inventar un resultado exitoso.
+
+## Recuperación de transferencias tras navegar
+25. Iniciar una transferencia ficticia, simular pérdida de respuesta y regresar a Inicio: al volver a Transferir, el importe y destinatario deben conservarse para reintentar con la misma clave.
+26. Tras ese error, pulsar «Mis movimientos» y volver a Transferir: no se debe generar una segunda solicitud al repetir exactamente los mismos datos.
+27. Cambiar importe o destinatario después del fallo: se debe crear una nueva clave; verificar que no se confunda con el intento previo.
+28. Solicitar una cotización y cambiar de usuario mientras falla la red: no mostrar un error tardío de la cuenta anterior.
+29. Confirmar que los mensajes de conversión muestran un salto de línea real, no los caracteres literales barra invertida y n.
