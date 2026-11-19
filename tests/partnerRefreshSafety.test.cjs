@@ -20,6 +20,7 @@ assert.ok(screen.includes('Historial no verificado:'), 'Advertencia si falta ver
 assert.ok(screen.includes('const requestNumber = ++partnersRequestRef.current'), 'Identificador para consultas del listado');
 assert.ok(screen.includes("if (requestNumber !== partnersRequestRef.current) throw Error("), 'Descarta listados atrasados sin presentarlos como vacíos');
 assert.ok(screen.includes('const requestNumber = ++detailsRequestRef.current'), 'Identificador para consultas de detalles');
-assert.ok(screen.includes('if (requestNumber !== detailsRequestRef.current) return;'), 'Descarta detalles atrasados');
+assert.ok(screen.includes("if (requestNumber !== detailsRequestRef.current) throw Error("), 'Descarta detalles atrasados con error explícito');
 assert.ok(screen.includes('disabled={busy || !listReady || !detailsReady || selected.review_status'), 'Botón de sucursal exige listado y detalles vigentes');
-console.log('11 comprobaciones estructurales de recuperación definidas.');
+assert.ok(reload.includes('++detailsRequestRef.current;'), 'La recarga de socios invalida detalles pendientes');
+console.log('12 comprobaciones estructurales de recuperación definidas.');
