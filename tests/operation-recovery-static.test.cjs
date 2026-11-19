@@ -54,4 +54,8 @@ assert.ok(!nav.includes('pendingRef.current = null'),
   'navigation must not discard unresolved idempotency key');
 assert.ok(nav.includes('if (!pendingRef.current)'),
   'navigation must retain original amount and destination when a request is pending');
-console.log('PASS: 17 static recovery and idempotency safety checks');
+assert.ok(app.includes("pickupPendingRef.current = null;\n    setPickupAmount('');\n    setPickupResult(null);\n    setPickupOrders([]);\n  }, [userId]);"),
+  'pickup request memory must be cleared on account switch');
+assert.ok(app.includes(String.raw`'\nConsulta los saldos antes de intentar otra conversión.'`),
+  'conversion recovery message must use a real newline escape');
+console.log('PASS: 19 static recovery and idempotency safety checks');
