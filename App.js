@@ -133,6 +133,10 @@ export default function App() {
     pendingRef.current = null;
     setAmount('');
     setRecipientCode('');
+    // Evitar mostrar datos de retiro de la cuenta anterior.
+    setPickupAmount('');
+    setPickupResult(null);
+    setPickupOrders([]);
     if (!userId) {
       setWallet(null);
       setOperations([]);
@@ -341,7 +345,12 @@ export default function App() {
               result?.kind === (type === 'transfer' ? 'transfer' : 'contribution') &&
               (type !== 'transfer' || result?.recipientCode === code)) {
             verified = true;
-            await AsyncStorage.removeItem('mwd:pending-demo-operation:' + userId);
+            try {
+              await AsyncStorage.removeItem('mwd:pending-demo-operation:' + userId);
+            } catch (_storageError) {
+              // El servidor ya confirmó la operación; conservar el UUID es seguro.
+              message('Registro local pendiente', 'La operación está confirmada. El registro local se verificará en el próximo intento.');
+            }
             pendingRef.current = null;
             setAmount('');
             setRecipientCode('');
