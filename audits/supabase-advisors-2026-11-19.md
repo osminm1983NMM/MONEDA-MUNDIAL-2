@@ -79,3 +79,18 @@ Inspección adicional de cuerpos:
 - `mwd_agent_my_scope_demo()`: filtra asignaciones por `a.user_id=auth.uid()`, estado activo y vencimiento.
 
 **Limitación:** la coincidencia textual 38/38 no equivale a prueba de resistencia ante ataques ni sustituye las pruebas negativas con usuarios reales de demostración. No se ejecutaron funciones de escritura.
+
+## Comprobación de privilegios directos en tablas privadas
+
+Consulta de solo lectura sobre `pg_class`/`pg_namespace` y `has_table_privilege` para las tablas ordinarias/particionadas de los esquemas `mwd_%private`:
+
+| Comprobación | Resultado |
+| --- | ---: |
+| Tablas privadas inspeccionadas | 30 |
+| Tablas con RLS habilitada | 30 |
+| Tablas con alguno de los privilegios SELECT/INSERT/UPDATE/DELETE para `anon` | 0 |
+| Tablas con alguno de esos privilegios para `authenticated` | 0 |
+
+**Interpretación:** no hay permisos de acceso directo a las 30 tablas privadas para los roles públicos de cliente. El aviso `rls_enabled_no_policy` no debe resolverse agregando políticas públicas sin justificación. Las funciones `SECURITY DEFINER` siguen requiriendo auditoría de autorización, ya que pueden acceder a tablas privadas bajo privilegios del definidor.
+
+No se ejecutó ninguna sentencia de modificación de datos o esquema.
