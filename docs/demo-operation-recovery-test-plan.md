@@ -36,6 +36,10 @@ Este plan no habilita pagos reales. Ejecutar solo con cuentas y créditos fictic
 20. **Ambos borradores pendientes**: verificar que la recuperación del retiro no sustituye la pantalla de una transferencia pendiente; el usuario debe poder revisar cada solicitud por separado.
 21. **Código secreto de retiro**: tras una respuesta perdida, el servidor devuelve `already_created` y `pickupCode: null`. La app debe explicar que el código no se puede recuperar, sin inventarlo ni crear otra orden.
 
+22. **Carrera de restauración**: guardar a la vez una transferencia y un retiro pendientes. Reiniciar repetidamente y verificar que la pantalla de transferencia mantiene prioridad, independientemente del tiempo de respuesta de AsyncStorage.
+23. **Datos de destinatario dañados**: recuperar transferencia con código distinto de `MWD-` más 16 caracteres hexadecimales; la app debe avisar y no enviar.
+24. **Aportación con destinatario no vacío**: recuperar borrador de aportación manipulado; debe rechazarse.
+
 ## Criterios de aprobación
 - Ninguna operación duplicada por reintento o reinicio.
 - Ninguna operación nueva con una referencia pendiente de datos distintos.
