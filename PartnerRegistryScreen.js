@@ -110,8 +110,13 @@ export default function PartnerRegistryScreen({ supabase }) {
       request('mwd_owner_partner_audit_demo', { p_partner_id: id }),
     ]);
     if (requestNumber !== detailsRequestRef.current) throw Error('Consulta de detalles reemplazada por una más reciente.');
-    setLocations(loc || []);
-    setAudit(hist || []);
+    // No publicar resultados parciales ni habilitar cambios si la RPC
+    // devuelve un formato inesperado en lugar de un arreglo.
+    if (!Array.isArray(loc) || !Array.isArray(hist)) {
+      throw Error('Formato de respuesta de detalles inválido; vuelve a consultar.');
+    }
+    setLocations(loc);
+    setAudit(hist);
     setDetailsReady(true);
   }
   useEffect(() => {
