@@ -12,6 +12,7 @@ const checks = [
   ['transferencia con idempotencia', /mwd_transfer_demo[\s\S]{0,150}p_request_id: requestId/],
   ['retiro con idempotencia', /mwd_pickup_create_demo[\s\S]{0,170}p_request_id: requestId/],
   ['reintento retiro conserva identificador', /pickupPendingRef\.current\.id/],
+  ['renovación de token no reinicia navegación', /if \(event === 'SIGNED_IN' \|\| event === 'SIGNED_OUT' \|\| event === 'USER_DELETED'\)/],
 ];
 let failures = 0;
 for (const [name, regex] of checks) {
