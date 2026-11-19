@@ -3,7 +3,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { pathToFileURL } = require('node:url');
 (async () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'partnerValidation.js'), 'utf8');
   const mod = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
@@ -22,5 +21,7 @@ const { pathToFileURL } = require('node:url');
   assert.equal(validLocation('Sucursal', 'Tegucigalpa', 'HN', ''), false);
   assert.equal(validLocation('Sucursal', 'Tegucigalpa', 'HNL', 'x'.repeat(141)), false);
   assert.equal(validLocation('S'.repeat(141), 'Tegucigalpa', 'HNL', ''), false);
-  console.log('14 pruebas de validación completadas.');
+  assert.equal(validLocation('Sucursal', 'Tegucigalpa', 'HNL', ' '.repeat(141)), false);
+  assert.equal(validLocation('Sucursal', 'Tegucigalpa', 'HNL', ' '.repeat(140)), true);
+  console.log('16 pruebas de validación completadas.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
