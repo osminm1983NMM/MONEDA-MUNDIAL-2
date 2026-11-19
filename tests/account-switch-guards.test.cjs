@@ -38,3 +38,11 @@ test('retiros antiguos no liberan bloqueos ni muestran errores tardíos', () => 
   assert.match(create, /if \(createRevision !== pickupCreateRevisionRef\.current\) return;\s*message\('Resultado de orden no confirmado'/);
   assert.match(cancel, /if \(cancelRevision !== pickupCancelRevisionRef\.current\) return;\s*message\('Resultado de cancelación no confirmado'/);
 });
+
+test('consulta y cotización comprueban error explícito de sesión', () => {
+  const wallet = section('  async function loadSwapWallet(', '  async function requestSwapQuote(');
+  const quote = section('  async function requestSwapQuote(', '  async function confirmSwap(');
+  for (const code of [wallet, quote]) {
+    assert.match(code, /const authResult = await supabase\.auth\.getSession\(\);\s*if \(authResult\.error\) throw authResult\.error;/);
+  }
+});
