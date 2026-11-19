@@ -137,8 +137,14 @@ export default function App() {
       setAdminRole(null);
       setSwapWallet(null);
       setSwapQuote(null);
+      pickupPendingRef.current = null;
+      setPickupResult(null);
+      setPickupOrders([]);
       return;
     }
+    pickupPendingRef.current = null;
+    setPickupResult(null);
+    setPickupOrders([]);
     refreshAccount(userId);
   }, [userId]);
 
@@ -343,8 +349,8 @@ export default function App() {
     if (cents === null || cents < 100 || cents > 100000) {
       return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
     }
-    if (!pickupPendingRef.current || pickupPendingRef.current.cents !== cents) {
-      pickupPendingRef.current = { cents, id: uniqueRequestId() };
+    if (!pickupPendingRef.current || pickupPendingRef.current.cents !== cents || pickupPendingRef.current.userId !== userId) {
+      pickupPendingRef.current = { cents, userId, id: uniqueRequestId() };
     }
     const requestId = pickupPendingRef.current.id;
     setPickupBusy(true);
