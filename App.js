@@ -85,6 +85,8 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordChangeBusy, setPasswordChangeBusy] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [screen, setScreen] = useState('Inicio');
   const [wallet, setWallet] = useState(null);
@@ -176,6 +178,8 @@ export default function App() {
     setPickupAmount('');
     setPickupResult(null);
     setPickupOrders([]);
+    setNewPassword('');
+    setPasswordChangeBusy(false);
   }, [userId]);
 
   useEffect(() => {
@@ -304,6 +308,34 @@ export default function App() {
       message('Recuperar contraseña', error.message || 'No fue posible solicitar la recuperación.');
     } finally {
       setAuthBusy(false);
+    }
+  }
+
+  async function changeSignedInPassword() {
+    if (!userId || passwordChangeBusy) return;
+    if (newPassword.length < 12) {
+      return message('Nueva contraseña', 'Utiliza al menos 12 caracteres.');
+    }
+    setPasswordChangeBusy(true);
+    const requestedUserId = userId;
+    try {
+      const { data, error: sessionError } = await supabase.auth.getUser();
+      if (sessionError) throw sessionError;
+      if (data.user?.id !== requestedUserId || requestedUserId !== currentUserIdRef.current) {
+        throw new Error('La sesión cambió. Vuelve a iniciar sesión.');
+      }
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      if (requestedUserId === currentUserIdRef.current) {
+        setNewPassword('');
+        message('Contraseña actualizada', 'Tu contraseña fue cambiada correctamente.');
+      }
+    } catch (error) {
+      if (requestedUserId === currentUserIdRef.current) {
+        message('Cambiar contraseña', error.message || 'No se pudo actualizar la contraseña.');
+      }
+    } finally {
+      if (requestedUserId === currentUserIdRef.current) setPasswordChangeBusy(false);
     }
   }
 
@@ -849,6 +881,12 @@ export default function App() {
               <Text selectable style={styles.code}>{wallet?.account_code}</Text>
               <Text style={styles.muted}>Comparte este identificador con otra cuenta de prueba. No compartas tu contraseña.</Text>
               <Text style={styles.small}>Correo: {session.user.email}</Text>
+              <Text style={styles.heading}>Cambiar contraseña</Text>
+              <TextInput style={styles.input} placeholder="Nueva contraseña (mínimo 12 caracteres)"
+                placeholderTextColor="#9fb1c8" secureTextEntry autoCapitalize="none"
+                autoCorrect={false} value={newPassword} onChangeText={setNewPassword} />
+              <Btn title={passwordChangeBusy ? 'Actualizando...' : 'Guardar nueva contraseña'}
+                secondary onPress={changeSignedInPassword} disabled={passwordChangeBusy} />
             </View>}
 
             {screen === 'Historial' && <>
