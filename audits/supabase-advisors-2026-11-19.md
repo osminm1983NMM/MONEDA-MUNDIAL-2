@@ -48,3 +48,18 @@ Consulta de catálogo `pg_proc` y `pg_namespace` sobre las funciones `public.mwd
 El catálogo confirmó asimismo que `public.mwd_handle_new_user()` no concede `EXECUTE` ni a `anon` ni a `authenticated`; no forma parte de los 56 avisos.
 
 **Acción:** conservar permisos actuales; no conceder acceso directo a tablas privadas. Siguiente fase: inspección de cuerpos y dependencias de funciones críticas, seguida de pruebas negativas con usuarios de distintos roles.
+
+## Revisión semántica de cuatro RPC críticas (solo lectura)
+
+Se inspeccionó el texto SQL de las funciones en el catálogo de Postgres:
+
+| Función | Controles observados | Verificación pendiente |
+| --- | --- | --- |
+| `public.mwd_transfer_demo` | `auth.uid()` obligatorio, destinatario distinto del remitente, bloqueo de las dos billeteras en orden, validación de saldo y solicitud idempotente por actor | Dos usuarios concurrentes, errores de red, límites de saldo, aislamiento de historial |
+| `public.mwd_pickup_create_demo` | Identidad requerida, validación de monto y país, bloqueo por usuario, máximo cinco órdenes por hora, identificador idempotente y código almacenado como SHA-256 | Simulación concurrente y reintentos tras respuesta perdida |
+| `public.mwd_pickup_cancel_demo` | Filtra la orden por `sender_user_id=auth.uid()`, bloquea la fila, solo cancela pendientes y permite repetir cancelación | Denegación con cuenta ajena y estados terminales |
+| `public.mwd_owner_partner_save_demo` | Llama a `mwd_partners_private.assert_owner()` antes de crear/editar, valida campos y restringe estados editables | Prueba negativa con usuario sin rol propietario |
+
+La función auxiliar `mwd_partners_private.assert_owner()` exige `auth.uid()` no nulo y un registro `public.mwd_admin_roles` con `role='owner'`. Es un control del servidor, no solo de la interfaz.
+
+**Alcance:** inspección estática de código SQL; no se invocaron RPC de escritura ni se alteraron saldos, órdenes o socios. Estas cinco funciones fueron revisadas, pero **no declaradas aprobadas mediante pruebas dinámicas**. Las otras funciones privilegiadas siguen pendientes de revisión semántica.
