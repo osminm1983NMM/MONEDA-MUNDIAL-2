@@ -512,7 +512,9 @@ export default function App() {
         setSwapQuote(data);
       }
     } catch (error) {
-      message('Cotización', error.message || 'No se pudo cotizar.');
+      if (quoteRevision === swapQuoteRevisionRef.current && quoteUserId === userId) {
+        message('Cotización', error.message || 'No se pudo cotizar.');
+      }
     } finally {
       swapQuoteBusyRef.current = false;
       setSwapBusy(false);
@@ -522,6 +524,8 @@ export default function App() {
   async function confirmSwap() {
     if (!swapQuote?.quoteId || swapBusy || swapConfirmBusyRef.current || swapQuoteBusyRef.current) return;
     const quote = swapQuote;
+    const confirmRevision = swapQuoteRevisionRef.current;
+    const confirmUserId = userId;
     if (new Date(quote.expiresAt).getTime() <= Date.now()) {
       setSwapQuote(null);
       return message('Cotización vencida', 'Solicita una cotización nueva.');
@@ -534,6 +538,8 @@ export default function App() {
       });
       if (error) throw error;
       if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
+      // Do not let an old account's confirmation overwrite a new account's form.
+      if (confirmRevision !== swapQuoteRevisionRef.current || confirmUserId !== userId) return;
       setSwapQuote(null);
       setSwapAmount('');
       // A successful confirmation is final even when refreshing balances fails.
@@ -541,13 +547,17 @@ export default function App() {
       try {
         const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
         if (walletResponse.error) throw walletResponse.error;
-        setSwapWallet(walletResponse.data);
+        if (confirmRevision === swapQuoteRevisionRef.current && confirmUserId === userId) {
+          setSwapWallet(walletResponse.data);
+        }
       } catch (_refreshError) {
         // Never present a completed conversion as a failed confirmation.
       }
     } catch (error) {
-      message('Conversión no confirmada', (error.message || 'Error desconocido') +
-        '\nConsulta los saldos antes de intentar otra conversión.');
+      if (confirmRevision === swapQuoteRevisionRef.current && confirmUserId === userId) {
+        message('Conversión no confirmada', (error.message || 'Error desconocido') +
+          '\nConsulta los saldos antes de intentar otra conversión.');
+      }
     } finally {
       swapConfirmBusyRef.current = false;
       setSwapBusy(false);
