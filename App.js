@@ -476,10 +476,15 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
       setSwapQuote(null);
       setSwapAmount('');
-      const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
-      if (walletResponse.error) throw walletResponse.error;
-      setSwapWallet(walletResponse.data);
-      message('Conversión ficticia', 'Operación registrada correctamente.');
+      // A successful confirmation is final even when refreshing balances fails.
+      message('Conversión ficticia', 'Operación registrada correctamente. Actualiza los saldos para verificarla.');
+      try {
+        const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
+        if (walletResponse.error) throw walletResponse.error;
+        setSwapWallet(walletResponse.data);
+      } catch (_refreshError) {
+        // Never present a completed conversion as a failed confirmation.
+      }
     } catch (error) {
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
         '\\nConsulta los saldos antes de intentar otra conversión.');
