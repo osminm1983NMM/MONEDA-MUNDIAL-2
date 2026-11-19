@@ -372,20 +372,38 @@ export default function App() {
     }
   }
 
-  function prepareOperation(type) {
+  async function prepareOperation(type) {
     if (busyRef.current) return;
     const cents = amountToCents(amount);
     if (cents === null) {
       return message('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
     }
     if (!wallet) return message('Espera', 'Primero carga tu cuenta.');
-    if (cents > wallet.balance_cents) return message('Saldo insuficiente', 'No tienes suficientes MWD ficticios.');
     const code = recipientCode.trim().toUpperCase();
     if (type === 'transfer') {
       if (!/^MWD-[A-F0-9]{16}$/.test(code)) {
         return message('Identificador', 'Introduce el código MWD- seguido de 16 caracteres.');
       }
       if (code === wallet.account_code) return message('Destinatario', 'No puedes enviarte MWD a tu propia cuenta.');
+    }
+    // Si ya se envió la solicitud y se perdió la respuesta, el saldo pudo
+    // disminuir. Permitir consultar ese mismo UUID sin bloquear por saldo.
+    let recovering = false;
+    try {
+      const raw = await AsyncStorage.getItem('mwd:pending-demo-operation:' + userId);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (!saved || !/^[0-9a-f-]{36}$/i.test(saved.id || '') ||
+            saved.type !== type || saved.cents !== cents || saved.code !== (type === 'transfer' ? code : '')) {
+          return message('Operación pendiente', 'Hay otra operación pendiente o datos locales inválidos. No se creará una solicitud diferente.');
+        }
+        recovering = true;
+      }
+    } catch (_error) {
+      return message('Verificación pendiente', 'No se pudo leer el registro local. No se enviará ninguna operación.');
+    }
+    if (!recovering && cents > wallet.balance_cents) {
+      return message('Saldo insuficiente', 'No tienes suficientes MWD ficticios.');
     }
     confirmAction(type === 'transfer' ? 'Transferencia de prueba' : 'Aportación de prueba',
       `${formatMWD(cents)} MWD ficticios${type === 'transfer' ? '\nDestino: ' + code : '\nFondo de demostración'}`,
