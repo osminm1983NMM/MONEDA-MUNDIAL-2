@@ -81,7 +81,7 @@ export default function PartnerRegistryScreen({ supabase }) {
     setError(err?.message || 'No se pudo completar la operación.');
     setNotice('');
   }
-  async function reloadPartners() {
+  async function reloadPartners(expectedSelectedId = selectedId) {
     // No permitir decisiones sobre un estado potencialmente desactualizado
     // mientras se consulta la lista, ni si la consulta termina fallando.
     const requestNumber = ++partnersRequestRef.current;
@@ -91,7 +91,7 @@ export default function PartnerRegistryScreen({ supabase }) {
     if (requestNumber !== partnersRequestRef.current) return [];
     setPartners(rows || []);
     setListReady(true);
-    if (selectedId && !(rows || []).some(p => p.id === selectedId)) {
+    if (expectedSelectedId && !(rows || []).some(p => p.id === expectedSelectedId)) {
       setSelectedId(null);
       setLocations([]);
       setAudit([]);
@@ -140,7 +140,8 @@ export default function PartnerRegistryScreen({ supabase }) {
         setName('');
         setSelectedId(result.id);
         setLocations([]); setAudit([]); setDetailsReady(false);
-        await reloadPartners();
+        const rows = await reloadPartners(result.id);
+        if (!rows.some(p => p.id === result.id)) throw Error('El socio guardado no aparece en el listado actualizado.');
         await reloadDetails(result.id);
       },
     );
@@ -174,7 +175,8 @@ export default function PartnerRegistryScreen({ supabase }) {
       }),
       async () => {
         setDetailsReady(false);
-        await reloadPartners();
+        const rows = await reloadPartners(id);
+        if (!rows.some(p => p.id === id)) throw Error('El socio no aparece en el listado actualizado.');
         await reloadDetails(id);
       },
     );
