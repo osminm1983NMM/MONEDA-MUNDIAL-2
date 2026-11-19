@@ -76,3 +76,8 @@ test('Supabase uses PKCE so Android code exchange has a stored verifier', () => 
   assert.match(app, /storage: AsyncStorage/);
   assert.match(app, /detectSessionInUrl: false/);
 });
+
+test('recovery rejects ambiguous callbacks with both PKCE code and session tokens', () => {
+  assert.match(app, /authCode && \(accessToken \|\| refreshToken\)/);
+  assert.match(app, /params\.get\('type'\) !== 'recovery' && !authCode/);
+});
