@@ -340,7 +340,7 @@ export default function App() {
     busyRef.current = true;
     setBusy(true);
     try {
-      if (!userId || pendingLoading || pendingStorageError || pendingRef.current || pendingOperation) {
+      if (!userId || pendingLoading || pendingStorageError || recoveringRef.current || pendingRef.current || pendingOperation) {
         throw new Error('Existe una operación pendiente o una verificación incompleta. Revisa su estado antes de continuar.');
       }
       const item = { type, cents, code, id: uniqueRequestId(), userId };
