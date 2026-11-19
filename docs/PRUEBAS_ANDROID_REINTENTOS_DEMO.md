@@ -36,3 +36,9 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 20. Pulsar actualizar dos veces en momentos cercanos (cuando esté disponible); una respuesta anterior no debe sobrescribir una más reciente.
 
 **Criterio crítico:** no usar estas pruebas para afirmar que una petición se canceló en el servidor al cambiar de cuenta. Los RPC pueden finalizar; verificar su resultado en el historial y en la base de datos.
+
+## Confirmación del servidor frente a error de actualización
+21. Ejecutar una transferencia ficticia exitosa y provocar fallo solo al refrescar el historial: debe indicar operación confirmada; no repetir el envío automáticamente.
+22. Ejecutar conversión ficticia exitosa y provocar fallo solo al consultar saldos: debe indicar conversión confirmada y actualización pendiente, nunca «conversión no confirmada».
+23. Tras el caso anterior, pulsar **Consultar saldos** y verificar el saldo en el servidor antes de otra conversión.
+24. Provocar error en el RPC de conversión antes de obtener confirmación: debe mostrarse operación no confirmada y no inventar un resultado exitoso.
