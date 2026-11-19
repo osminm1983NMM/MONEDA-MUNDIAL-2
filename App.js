@@ -88,6 +88,7 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [passwordChangeBusy, setPasswordChangeBusy] = useState(false);
+  const [recoveryMode, setRecoveryMode] = useState(false);
   const passwordChangeBusyRef = useRef(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [screen, setScreen] = useState('Inicio');
@@ -147,7 +148,13 @@ export default function App() {
       setAuthLoading(false);
       // Token refreshes and user updates must not interrupt an unfinished flow.
       // Only explicit sign-in/sign-out changes the visible screen.
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecoveryMode(true);
+        setScreen('Cuenta');
+      } else if (event === 'SIGNED_OUT') {
+        setRecoveryMode(false);
+        setScreen('Inicio');
+      } else if (event === 'SIGNED_IN') {
         setScreen('Inicio');
       }
     });
@@ -332,6 +339,7 @@ export default function App() {
       if (error) throw error;
       if (requestedUserId === currentUserIdRef.current) {
         setNewPassword('');
+        setRecoveryMode(false);
         message('Contraseña actualizada', 'Tu contraseña fue cambiada correctamente.');
       }
     } catch (error) {
@@ -886,6 +894,7 @@ export default function App() {
             </View>}
 
             {screen === 'Cuenta' && <View style={styles.card}>
+              {recoveryMode && <Text style={styles.warning}>Recuperación de cuenta: establece una contraseña nueva para terminar.</Text>}
               <Text style={styles.heading}>Mi identificador para recibir</Text>
               <Text selectable style={styles.code}>{wallet?.account_code}</Text>
               <Text style={styles.muted}>Comparte este identificador con otra cuenta de prueba. No compartas tu contraseña.</Text>
