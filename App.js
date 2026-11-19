@@ -212,6 +212,7 @@ export default function App() {
       if (activeUserRef.current === id && sequence === refreshSequenceRef.current) {
         setWallet(null);
         setOperations([]);
+        setAdminRole(null);
         message('Sincronización', error.message || 'No se pudo consultar Supabase.');
       }
       return false;
