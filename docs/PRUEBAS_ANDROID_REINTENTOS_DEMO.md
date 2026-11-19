@@ -163,3 +163,10 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 101. Iniciar confirmación Coin/Digital en A y cambiar a B antes de recibir respuesta: B no debe conservar el indicador ocupado de A.
 102. Iniciar una nueva confirmación en B y recibir después el finally de A: A no debe desactivar el indicador ocupado de B.
 103. Cerrar sesión mientras se confirma una conversión: el indicador debe quedar libre para la próxima sesión sin afirmar resultado de la operación antigua.
+
+## Indicadores de creación y cancelación de retiros al cambiar de cuenta
+104. Iniciar creación de retiro ficticio en A y cambiar a B: el indicador de creación debe quedar libre para B.
+105. Mientras B crea una orden, completar tardíamente la creación de A: el finally de A no debe liberar el indicador de B.
+106. Iniciar cancelación de retiro en A y cambiar a B: el indicador de cancelación debe quedar libre para B.
+107. Mientras B cancela una orden, completar tardíamente la cancelación de A: el finally de A no debe liberar el indicador de B.
+108. Cerrar sesión durante creación o cancelación: los indicadores deben reiniciarse sin afirmar resultado de las RPC antiguas.
