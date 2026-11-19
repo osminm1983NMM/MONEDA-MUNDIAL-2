@@ -7,6 +7,7 @@ on:
     paths:
       - 'App.js'
       - 'tests/**'
+      - 'audits/sql-draft-social-fund-contribution-v1.sql'
       - '.github/workflows/validar-demo.yml'
   workflow_dispatch:
 
