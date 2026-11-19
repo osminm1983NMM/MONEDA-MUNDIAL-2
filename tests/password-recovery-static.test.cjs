@@ -81,3 +81,9 @@ test('recovery rejects ambiguous callbacks with both PKCE code and session token
   assert.match(app, /authCode && \(accessToken \|\| refreshToken\)/);
   assert.match(app, /params\.get\('type'\) !== 'recovery' && !authCode/);
 });
+
+test('successfully consumed recovery links cannot be exchanged twice in one app session', () => {
+  assert.match(app, /const completedRecoveryUrls = new Set\(\)/);
+  assert.match(app, /processingRecoveryUrls\.has\(url\) \|\| completedRecoveryUrls\.has\(url\)/);
+  assert.match(app, /completedRecoveryUrls\.add\(url\)/);
+});
