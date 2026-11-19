@@ -614,8 +614,9 @@ export default function App() {
       const { data, error } = await supabase.rpc('mwd_pickup_my_orders_demo');
       if (error) throw error;
       if (!Array.isArray(data)) throw new Error('Respuesta de órdenes no reconocida.');
-      const { data: currentAuth } = await supabase.auth.getSession();
-      if (currentAuth.session?.user?.id !== requestedBy || revision !== pickupOrdersRevisionRef.current) return;
+      const authResult = await supabase.auth.getSession();
+      if (authResult.error) throw authResult.error;
+      if (authResult.data.session?.user?.id !== requestedBy || revision !== pickupOrdersRevisionRef.current) return;
       setPickupOrders(data);
     } catch (error) {
       if (revision !== pickupOrdersRevisionRef.current) return;
