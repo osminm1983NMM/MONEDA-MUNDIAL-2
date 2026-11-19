@@ -1,0 +1,63 @@
+name: Build Android LAB APK (demo only)
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev/recuperacion-transferencias
+    paths:
+      - '.github/workflows/build-android-lab-apk.yml'
+      - 'App.js'
+      - 'PartnerRegistryScreen.js'
+      - 'app.json'
+      - 'package.json'
+      - 'eas.json'
+
+concurrency:
+  group: android-lab-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-debug-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - name: Descargar rama de laboratorio
+        uses: actions/checkout@v4
+      - name: Preparar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preparar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Preparar Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Instalar dependencias
+        run: npm install --no-package-lock --no-audit --no-fund
+      - name: Ejecutar suite de pruebas antes de compilar
+        run: npm test
+      - name: Generar proyecto nativo Android
+        run: npx expo prebuild --platform android --no-install --non-interactive
+      - name: Compilar APK debug instalable de demostración
+        working-directory: android
+        run: bash ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Guardar APK y suma SHA-256
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/moneda-mundial-lab-debug.apk
+          (cd dist && sha256sum moneda-mundial-lab-debug.apk > SHA256SUMS.txt)
+      - name: Publicar APK de laboratorio
+        uses: actions/upload-artifact@v4
+        with:
+          name: moneda-mundial-lab-debug-${{ github.run_number }}
+          path: dist/
+          retention-days: 3
+          if-no-files-found: error
