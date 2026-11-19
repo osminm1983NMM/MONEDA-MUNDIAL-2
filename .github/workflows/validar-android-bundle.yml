@@ -13,6 +13,11 @@ on:
       - '.github/workflows/validar-android-bundle.yml'
   workflow_dispatch:
 
+# Cancelar validaciones obsoletas de la misma rama para ahorrar minutos.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
