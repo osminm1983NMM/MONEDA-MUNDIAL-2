@@ -8,7 +8,8 @@ const path = require('node:path');
 const files = [
   'sql-readonly-social-fund-preflight-2026-11-19.sql',
   'sql-readonly-transfer-crosscheck-2026-11-19.sql',
-  'sql-readonly-public-rls-review-2026-11-19.sql'
+  'sql-readonly-public-rls-review-2026-11-19.sql',
+  'sql-readonly-privilege-preflight-2026-11-19.sql'
 ];
 
 for (const name of files) {
