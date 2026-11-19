@@ -108,6 +108,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
+  const pickupPendingRef = useRef(null);
   const refreshSequenceRef = useRef(0);
   const userId = session?.user?.id;
 
@@ -133,6 +134,8 @@ export default function App() {
   useEffect(() => {
     // Invalida lecturas anteriores al cambiar de cuenta o cerrar sesión.
     refreshSequenceRef.current += 1;
+    pendingRef.current = null;
+    pickupPendingRef.current = null;
     if (!userId) {
       setSyncing(false);
       setSyncNotice('');
@@ -353,7 +356,11 @@ export default function App() {
     if (cents === null || cents < 100 || cents > 100000) {
       return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
     }
-    const requestId = uniqueRequestId();
+    // Reutilizar el identificador ante timeout evita una segunda orden accidental.
+    if (!pickupPendingRef.current || pickupPendingRef.current.cents !== cents) {
+      pickupPendingRef.current = { cents, id: uniqueRequestId() };
+    }
+    const requestId = pickupPendingRef.current.id;
     setPickupBusy(true);
     setPickupResult(null);
     try {
@@ -362,6 +369,7 @@ export default function App() {
       });
       if (error) throw error;
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
+      pickupPendingRef.current = null;
       setPickupResult(data);
       setPickupAmount('');
     } catch (error) {
@@ -408,6 +416,7 @@ export default function App() {
     setAmount('');
     setRecipientCode('');
     pendingRef.current = null;
+    pickupPendingRef.current = null;
   }
 
   return (
