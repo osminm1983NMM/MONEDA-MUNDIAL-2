@@ -23,4 +23,5 @@ assert.ok(screen.includes('const requestNumber = ++detailsRequestRef.current'), 
 assert.ok(screen.includes("if (requestNumber !== detailsRequestRef.current) throw Error("), 'Descarta detalles atrasados con error explícito');
 assert.ok(screen.includes('disabled={busy || !listReady || !detailsReady || selected.review_status'), 'Botón de sucursal exige listado y detalles vigentes');
 assert.ok(reload.includes('++detailsRequestRef.current;'), 'La recarga de socios invalida detalles pendientes');
-console.log('12 comprobaciones estructurales de recuperación definidas.');
+assert.ok(screen.includes('!Array.isArray(loc) || !Array.isArray(hist)'), 'Rechaza formatos inválidos de detalles');
+console.log('13 comprobaciones estructurales de recuperación definidas.');
