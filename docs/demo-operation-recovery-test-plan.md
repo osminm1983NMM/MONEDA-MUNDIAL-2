@@ -51,6 +51,10 @@ Este plan no habilita pagos reales. Ejecutar solo con cuentas y créditos fictic
 31. **Cotización y consulta simultáneas**: mientras se solicita una cotización, intentar actualizar saldos y viceversa. La interfaz debe serializar las solicitudes.
 32. **Error en RPC de conversión**: provocar un error y comprobar que el bloqueo se libera, permitiendo una consulta posterior.
 
+33. **Respuesta tardía después de cambiar de cuenta**: iniciar sincronización de A, entrar en B y liberar la respuesta de A. La billetera, historial y rol de B no deben sobrescribirse.
+34. **Actualizaciones superpuestas**: iniciar dos sincronizaciones de la misma cuenta y completar la más nueva primero. La respuesta antigua no debe sustituir los datos recientes.
+35. **Error de sincronización antigua**: provocar un error de una solicitud de A después de iniciar B. No debe aparecer un aviso de error perteneciente a A ni alterar el estado de sincronización de B.
+
 ## Criterios de aprobación
 - Ninguna operación duplicada por reintento o reinicio.
 - Ninguna operación nueva con una referencia pendiente de datos distintos.
