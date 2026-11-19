@@ -31,4 +31,5 @@ assert.ok(screen.includes("typeof l.display_name === 'string'"), 'Verifica campo
 assert.ok(screen.includes("typeof a.changed_at === 'string'"), 'Verifica campos esenciales del historial');
 assert.ok(screen.includes('if (busy || !listReady || !partners.some(p => p.id === id)) return;'), 'Impide seleccionar un socio sin listado vigente');
 assert.ok(screen.includes('secondary={selectedId !== p.id} disabled={busy || !listReady}'), 'Deshabilita selección en listado no verificado');
-console.log('21 comprobaciones estructurales de recuperación superadas.');
+assert.ok(reload.includes('setLocations([]);') && reload.includes('setAudit([]);') && reload.indexOf('setAudit([]);') < request, 'Oculta sucursales e historial antiguos antes de consultar');
+console.log('22 comprobaciones estructurales de recuperación superadas.');
