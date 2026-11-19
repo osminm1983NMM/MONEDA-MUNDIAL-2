@@ -132,3 +132,9 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 82. Perder respuesta de creación de orden y fallar getSession al manejar el error: mostrar «Resultado de orden pendiente» y pedir consultar Mis retiros.
 83. Reintentar creación con mismo importe e identificador tras respuesta incierta: esperar already_created sin segunda orden.
 84. Cambiar de usuario mientras se crea una orden: no mostrar el código de retiro ni los datos privados al usuario nuevo.
+
+## Cancelación de retiro y consulta de lista ante errores de sesión
+85. Cancelar orden en servidor y fallar la verificación posterior de sesión: mostrar «Cancelación registrada; sesión pendiente» sin afirmar que falló.
+86. Perder respuesta de cancelación y fallar getSession en el manejo de error: mostrar «Resultado de cancelación pendiente» y pedir consultar Mis retiros.
+87. Fallar consulta de Mis retiros y fallar también getSession: mostrar «Sesión no verificada» sin excepción no controlada.
+88. Dos consultas de Mis retiros en vuelo; falla la antigua después de la nueva: no mostrar alertas obsoletas ni sobrescribir lista.
