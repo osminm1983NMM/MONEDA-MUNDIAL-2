@@ -141,7 +141,7 @@ export default function PartnerRegistryScreen({ supabase }) {
       setError('No se pudo confirmar el resultado del guardado. Verifica el listado antes de repetirlo. Detalle: ' + (outcome.error?.message || 'Error de conexión.'));
       setNotice('');
     }
-    finally { setBusy(false); }
+    setBusy(false);
   }
   async function choosePartner(id) {
     if (busy) return;
