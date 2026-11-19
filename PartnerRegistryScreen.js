@@ -136,7 +136,7 @@ export default function PartnerRegistryScreen({ supabase }) {
     finally { setBusy(false); }
   }
   async function setStatus(status) {
-    if (!selectedId || busy) return;
+    if (!selectedId || busy || !detailsReady) return;
     setError(''); setNotice(''); setBusy(true);
     try {
       await request('mwd_owner_partner_set_status_demo', {
@@ -204,7 +204,7 @@ export default function PartnerRegistryScreen({ supabase }) {
       <Text style={s.dim}>Estado: {LABELS[selected.review_status] || selected.review_status}</Text>
       <Text style={s.warn}>“Documentación revisada” no equivale a licencia, contrato ni autorización operativa.</Text>
       {(NEXT[selected.review_status] || []).map(([status, label]) =>
-        <Btn key={status} title={label} secondary disabled={busy} onPress={() => setStatus(status)} />)}
+        <Btn key={status} title={label} secondary disabled={busy || !detailsReady} onPress={() => setStatus(status)} />)}
 
       {!detailsReady && <Text style={s.dim}>Los detalles no están disponibles. Puedes reintentar la consulta.</Text>}
       {!detailsReady && <Btn title="Reintentar carga de detalles" secondary disabled={busy} onPress={async () => {
