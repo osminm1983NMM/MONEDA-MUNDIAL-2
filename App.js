@@ -454,7 +454,7 @@ export default function App() {
               {pickupOrders.map(order => (
                 <View key={order.orderId} style={styles.card}>
                   <Text style={styles.small}>Destino: {order.destinationCountry === 'HN' ? 'Honduras' : order.destinationCountry}</Text>
-                  <Text style={styles.small}>Monto: {formatMWD(order.amountCents)} MWD ficticios</Text>
+                  <Text style={styles.small}>Monto de referencia: {formatMWD(order.amountCents)} {order.currency || 'moneda no indicada'} (simulación, sin dinero real)</Text>
                   <Text style={styles.small}>Estado: {order.status}</Text>
                   <Text style={styles.muted}>Creada: {new Date(order.createdAt).toLocaleString()}</Text>
                   <Text style={styles.muted}>Vence: {new Date(order.expiresAt).toLocaleString()}</Text>
