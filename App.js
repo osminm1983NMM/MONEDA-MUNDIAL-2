@@ -134,6 +134,7 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
+    const processingRecoveryUrls = new Set();
     const processRecoveryUrl = async url => {
       if (!url || !url.startsWith('monedamundial://auth/recovery')) return;
       const callbackPath = url.split(/[?#]/)[0];
@@ -152,6 +153,8 @@ export default function App() {
         if (active) message('Recuperar contraseña', 'El enlace no contiene una sesión válida. Solicita otro correo.');
         return;
       }
+      if (processingRecoveryUrls.has(url)) return;
+      processingRecoveryUrls.add(url);
       try {
         const { error } = authCode
           ? await supabase.auth.exchangeCodeForSession(authCode)
@@ -166,6 +169,8 @@ export default function App() {
         }
       } catch (_error) {
         if (active) message('Recuperar contraseña', 'No se pudo abrir el enlace. Solicita uno nuevo.');
+      } finally {
+        processingRecoveryUrls.delete(url);
       }
     };
     Linking.getInitialURL().then(processRecoveryUrl).catch(() => {});
