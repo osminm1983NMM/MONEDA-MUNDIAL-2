@@ -24,3 +24,15 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 - Repetir solicitudes de forma controlada y comparar IDs y número de filas antes/después.
 - No considerar aprobada la corrección por revisión estática solamente: se requiere prueba Android + consulta de datos.
 - No activar pagos reales ni fusionar a `main` hasta superar las pruebas.
+
+## Cambio de sesión durante operaciones en curso
+13. Cuenta A: iniciar actualización de saldo y cambiar a B antes de la respuesta; jamás debe mostrarse el saldo ni historial de A en B.
+14. Cuenta A: iniciar cotización Coin/Digital y cerrar sesión; la cotización no debe mostrarse en una sesión posterior.
+15. Cuenta A: confirmar una conversión ficticia y cambiar a B; el resultado de A no debe actualizar la billetera de B. Comprobar en servidor si A procesó la operación.
+16. Cuenta A: iniciar consulta de retiros y cambiar a B; descartar lista y errores tardíos de A.
+17. Cuenta A: iniciar creación de retiro y cambiar a B; no mostrar resultado ni error de A en B. Verificar si el servidor creó la orden en A.
+18. Cuenta A: cancelar un retiro y cambiar a B; no mostrar notificación de cancelación de A en B; consultar estado de A por separado.
+19. Cuenta A: iniciar transferencia y cambiar a B; no mostrar éxito/error de A en B; consultar ambos historiales y verificar que no se duplicó.
+20. Pulsar actualizar dos veces en momentos cercanos (cuando esté disponible); una respuesta anterior no debe sobrescribir una más reciente.
+
+**Criterio crítico:** no usar estas pruebas para afirmar que una petición se canceló en el servidor al cambiar de cuenta. Los RPC pueden finalizar; verificar su resultado en el historial y en la base de datos.
