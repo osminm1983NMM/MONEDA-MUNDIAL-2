@@ -18,6 +18,8 @@ const checks = [
   ['validación decimal de conversión corregida', app.includes(String.raw`/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/`)],
   ['cambio de importe no descarta reintento', /function changeAmount\(value\) \{\s*setAmount\(value\);\s*\}/],
   ['cambio de destinatario no descarta reintento', /function changeRecipient\(value\) \{\s*setRecipientCode\(value\);\s*\}/],
+  ['candado síncrono de conversión', /if \(swapBusyRef\.current\) return;[\s\S]{0,70}swapBusyRef\.current = true/],
+  ['candado síncrono de retiro', /if \(pickupBusyRef\.current\) return;[\s\S]{0,450}pickupBusyRef\.current = true/],
 ];
 let failures = 0;
 for (const [name, regex] of checks) {
