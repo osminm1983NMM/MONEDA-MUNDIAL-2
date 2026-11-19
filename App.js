@@ -235,8 +235,36 @@ export default function App() {
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
     } catch (error) {
-      message('Operación no confirmada',
-        (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
+      // Una respuesta perdida no significa que la operación haya fallado.
+      // Consultamos el servidor usando el mismo identificador de reintento.
+      const pending = pendingRef.current;
+      let verified = false;
+      if (pending && pending.type === type && pending.cents === cents && pending.code === code) {
+        try {
+          const statusResponse = await supabase.rpc('mwd_operation_status_demo', {
+            p_request_id: pending.id,
+          });
+          const result = statusResponse.data;
+          if (!statusResponse.error && result?.status === 'processed' &&
+              result?.requestId === pending.id && result?.amountCents === cents &&
+              result?.kind === (type === 'transfer' ? 'transfer' : 'contribution') &&
+              (type !== 'transfer' || result?.recipientCode === code)) {
+            verified = true;
+            pendingRef.current = null;
+            setAmount('');
+            setRecipientCode('');
+            setScreen('Inicio');
+            await refreshAccount();
+            message('Operación ficticia verificada', 'El servidor confirma que la operación ya fue registrada. No se envió de nuevo.');
+          }
+        } catch (_statusError) {
+          // Sin confirmación conservamos el mismo UUID para un reintento seguro.
+        }
+      }
+      if (!verified) {
+        message('Operación no confirmada',
+          (error.message || 'Error desconocido') + '\nNo cambies los datos si deseas reintentar. El servidor evita duplicados con la misma referencia.');
+      }
     } finally {
       busyRef.current = false;
       setBusy(false);
