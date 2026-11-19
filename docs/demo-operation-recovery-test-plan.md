@@ -40,6 +40,9 @@ Este plan no habilita pagos reales. Ejecutar solo con cuentas y créditos fictic
 23. **Datos de destinatario dañados**: recuperar transferencia con código distinto de `MWD-` más 16 caracteres hexadecimales; la app debe avisar y no enviar.
 24. **Aportación con destinatario no vacío**: recuperar borrador de aportación manipulado; debe rechazarse.
 
+25. **Cambio de usuario con retiro cargado**: abrir la lista de retiros de la cuenta A, cerrar sesión e iniciar con B. Deben borrarse los datos de retiro de A antes de consultar los de B.
+26. **Confirmación remota y fallo de limpieza local**: simular `processed` y fallo de `AsyncStorage.removeItem`; comprobar que la app reconoce la operación confirmada, no vuelve a enviar y muestra aviso de registro local pendiente.
+
 ## Criterios de aprobación
 - Ninguna operación duplicada por reintento o reinicio.
 - Ninguna operación nueva con una referencia pendiente de datos distintos.
