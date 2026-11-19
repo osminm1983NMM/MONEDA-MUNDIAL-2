@@ -55,6 +55,10 @@ Este plan no habilita pagos reales. Ejecutar solo con cuentas y créditos fictic
 34. **Actualizaciones superpuestas**: iniciar dos sincronizaciones de la misma cuenta y completar la más nueva primero. La respuesta antigua no debe sustituir los datos recientes.
 35. **Error de sincronización antigua**: provocar un error de una solicitud de A después de iniciar B. No debe aparecer un aviso de error perteneciente a A ni alterar el estado de sincronización de B.
 
+36. **Renovación de token**: mantener abierto el formulario de transferencia y provocar TOKEN_REFRESHED con el mismo usuario. La pantalla y el importe no deben reiniciarse.
+37. **Cambio de identidad**: con saldo, historial y rol de A visibles, iniciar sesión con B. Los datos de A deben limpiarse antes de que termine la consulta de B.
+38. **Cierre de sesión**: al salir, no deben permanecer visibles saldos, historial, privilegios ni órdenes de retiro del usuario anterior.
+
 ## Criterios de aprobación
 - Ninguna operación duplicada por reintento o reinicio.
 - Ninguna operación nueva con una referencia pendiente de datos distintos.
