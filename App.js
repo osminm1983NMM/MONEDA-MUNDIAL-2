@@ -458,6 +458,10 @@ export default function App() {
       }
       const request = saved || { id: uniqueRequestId(), country: 'HN', cents };
       if (!saved) await AsyncStorage.setItem(pendingKey, JSON.stringify(request));
+      const activeSession = await supabase.auth.getSession();
+      if (activeSession.error || activeSession.data.session?.user?.id !== userId) {
+        throw new Error('La sesión cambió. No se creará ninguna orden.');
+      }
       const { data, error } = await supabase.rpc('mwd_pickup_create_demo', {
         p_destination_country: request.country, p_amount_cents: request.cents,
         p_request_id: request.id,
