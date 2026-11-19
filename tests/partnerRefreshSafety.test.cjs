@@ -38,4 +38,6 @@ assert.ok(screen.includes('listReady ? partners.length : "sin verificar"'), 'No 
 assert.ok(screen.includes('!(NEXT[selected.review_status] || []).some(([next]) => next === status)'), 'Rechaza transiciones de estado no permitidas antes de llamar a RPC');
 assert.ok(screen.includes("setListReady(false);\n      setDetailsReady(false);\n      setError('No se pudo confirmar el resultado del guardado."), 'Resultado incierto de socio bloquea nuevas escrituras');
 assert.ok(screen.includes("setDetailsReady(false);\n      setError('No se pudo confirmar el guardado de la sucursal."), 'Resultado incierto de sucursal bloquea nuevas escrituras');
-console.log('28 comprobaciones estructurales de recuperación superadas.');
+assert.ok(screen.includes('if (busy || writingRef.current || !listReady) return;'), 'La función de guardado exige listado verificado');
+assert.ok(screen.includes('disabled={busy || !listReady || !validPartner(name, country)}'), 'El botón de guardado exige listado verificado');
+console.log('30 comprobaciones estructurales de recuperación superadas.');
