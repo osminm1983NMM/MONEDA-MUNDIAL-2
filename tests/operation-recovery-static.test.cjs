@@ -69,4 +69,8 @@ assert.ok(operation.includes('if (check.data?.status === \'processed\')') &&
 assert.ok(operation.includes('verified = true;\n            try {') &&
   operation.includes("await AsyncStorage.removeItem('mwd_demo_operation_pending_' + userId)"),
   'timeout recovery must mark server-confirmed operations before cleanup');
-console.log('PASS: 23 static recovery and idempotency safety checks');
+assert.ok(pickup.includes('previous.cents < 100 || previous.cents > 100000'),
+  'saved pickup amount must satisfy withdrawal-specific limits');
+assert.ok(pickup.includes('setPickupAmount(formatMWD(previous.cents))'),
+  'mismatched pending pickup must restore the original amount');
+console.log('PASS: 25 static recovery and idempotency safety checks');
