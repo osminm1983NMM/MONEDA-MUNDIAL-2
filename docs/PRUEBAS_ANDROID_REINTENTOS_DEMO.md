@@ -62,3 +62,9 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 36. Mantener abierta la pantalla Convertir durante una renovación de token: debe conservarse la pantalla y la cotización válida.
 37. Cambiar de la cuenta A a la B: debe volver a Inicio, limpiar los datos privados de A y cargar los de B.
 38. Iniciar actualización de cuenta A, cambiar a B y provocar un error tardío en la consulta de A: no mostrar aviso de sincronización de A en B.
+
+## Respuestas de autenticación y billetera fuera de orden
+39. Abrir la aplicación y provocar que getSession responda después del evento de autenticación: la respuesta inicial no debe reemplazar la sesión ya establecida.
+40. Abrir Convertir en A, iniciar consulta de saldos y cambiar a B antes de recibirla: la respuesta de A no debe mostrarse en B.
+41. Solicitar dos consultas de saldos Coin/Digital con respuestas fuera de orden: solo la última debe actualizar los saldos mostrados.
+42. Provocar error tardío en una consulta de saldos Coin/Digital de A tras cambiar a B: no debe aparecer un mensaje de error de A en B.
