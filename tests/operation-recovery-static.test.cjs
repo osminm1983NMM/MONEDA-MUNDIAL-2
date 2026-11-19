@@ -127,4 +127,9 @@ assert.ok(app.includes('if (confirmRevision !== swapQuoteRevisionRef.current || 
   app.includes('if (confirmRevision === swapQuoteRevisionRef.current && confirmUserId === currentUserIdRef.current) {'),
   'late conversion confirmation must not overwrite a newer screen');
 assert.ok(app.includes('currentUserIdRef.current = userId;'), 'latest account identity must be updated on each render');
-console.log('PASS: 40 static recovery and idempotency safety checks');
+assert.ok(app.includes('if (quoteRevision === swapQuoteRevisionRef.current &&\n          quoteUserId === currentUserIdRef.current) {') &&
+  app.includes('if (confirmRevision === swapQuoteRevisionRef.current &&\n          confirmUserId === currentUserIdRef.current) {'),
+  'stale quote and confirmation finally blocks must not clear newer loading states');
+assert.ok(app.includes('swapQuoteBusyRef.current = false;\n    swapConfirmBusyRef.current = false;'),
+  'account changes must reset obsolete conversion busy refs');
+console.log('PASS: 42 static recovery and idempotency safety checks');
