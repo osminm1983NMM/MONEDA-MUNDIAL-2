@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - 'App.js'
+      - 'app.json'
+      - 'eas.json'
       - 'tests/**'
       - 'audits/**'
       - '.github/workflows/validar-demo.yml'
