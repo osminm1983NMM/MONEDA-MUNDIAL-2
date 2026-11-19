@@ -109,6 +109,7 @@ export default function App() {
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
   const pendingLoadedUserRef = useRef(null);
+  const pendingRecoveryErrorRef = useRef(false);
   const pickupPendingRef = useRef(null);
   const userId = session?.user?.id;
 
@@ -146,6 +147,7 @@ export default function App() {
   useEffect(() => {
     let active = true;
     pendingLoadedUserRef.current = null;
+    pendingRecoveryErrorRef.current = false;
     pendingRef.current = null;
     setAmount('');
     setRecipientCode('');
@@ -168,8 +170,10 @@ export default function App() {
         message('Operación pendiente',
           'Se recuperó una solicitud anterior. Confirma su estado antes de enviar otra.');
       }
+      pendingRecoveryErrorRef.current = false;
       pendingLoadedUserRef.current = userId;
     }).catch(() => {
+      if (active) pendingRecoveryErrorRef.current = true;
       if (active) message('Recuperación',
         'No fue posible leer la solicitud pendiente. No envíes otra hasta revisar la conexión y el almacenamiento.');
     });
@@ -249,6 +253,9 @@ export default function App() {
   async function loadPendingOperation() {
     if (!userId) throw new Error('Inicia sesión para recuperar la solicitud.');
     const key = 'mwd_demo_operation_pending_' + userId;
+    if (pendingRecoveryErrorRef.current) {
+      throw new Error('La recuperación local falló. No se enviará una nueva operación hasta poder leer las solicitudes pendientes.');
+    }
     if (pendingLoadedUserRef.current !== userId) {
       const saved = await AsyncStorage.getItem(key);
       if (saved) {
@@ -352,6 +359,9 @@ export default function App() {
       return message('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
     }
     if (!wallet) return message('Espera', 'Primero carga tu cuenta.');
+    if (pendingRecoveryErrorRef.current) {
+      return message('Recuperación pendiente', 'No es seguro enviar una nueva operación hasta recuperar el almacenamiento local.');
+    }
     if (pendingLoadedUserRef.current !== userId) {
       return message('Verificando solicitudes', 'Espera a que termine la recuperación de operaciones pendientes.');
     }
