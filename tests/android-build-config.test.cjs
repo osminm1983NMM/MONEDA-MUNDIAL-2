@@ -24,3 +24,9 @@ test('preview profile is separate from production and uses Node 22', () => {
   assert.equal(eas.build.preview.node, '22.14.0');
   assert.equal(eas.build.production, undefined);
 });
+
+test('Android demo metadata explicitly warns that credits are fictitious', () => {
+  assert.match(expo.description, /demostración/);
+  assert.match(expo.description, /ficticios/);
+  assert.equal(expo.android.versionCode, 1);
+});
