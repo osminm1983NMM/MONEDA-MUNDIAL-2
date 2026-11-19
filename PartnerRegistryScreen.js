@@ -80,6 +80,8 @@ export default function PartnerRegistryScreen({ supabase }) {
     setNotice('');
   }
   async function reloadPartners() {
+    // La lista deja de considerarse vigente hasta que la lectura finaliza.
+    setListReady(false);
     const rows = await request('mwd_owner_partners_demo');
     setPartners(rows || []);
     setListReady(true);
