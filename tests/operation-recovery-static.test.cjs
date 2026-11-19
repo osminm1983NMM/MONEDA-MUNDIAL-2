@@ -100,4 +100,11 @@ assert.ok(app.includes('swapQuoteRevisionRef.current += 1;') &&
   app.includes('setSwapAmount(value);') &&
   app.includes("setSwapFrom(swapFrom === 'COIN' ? 'STABLE' : 'COIN');"),
   'conversion inputs must invalidate old quotes');
-console.log('PASS: 33 static recovery and idempotency safety checks');
+assert.ok(app.includes('const refreshRevision = ++accountRefreshRevisionRef.current;') &&
+  app.includes('refreshRevision !== accountRefreshRevisionRef.current ||') &&
+  app.includes('id !== currentSession.session?.user?.id'),
+  'late account refresh must not overwrite a newer or different account');
+assert.ok(app.includes('if (refreshRevision === accountRefreshRevisionRef.current) setSyncing(false);') &&
+  app.includes('accountRefreshRevisionRef.current += 1;'),
+  'stale refresh must not overwrite loading state after account switch');
+console.log('PASS: 35 static recovery and idempotency safety checks');
