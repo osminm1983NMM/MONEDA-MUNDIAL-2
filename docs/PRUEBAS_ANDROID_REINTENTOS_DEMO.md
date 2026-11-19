@@ -158,3 +158,8 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 98. Mientras B tiene una operación en vuelo, completar tardíamente la solicitud de A: el finally de A no debe liberar el indicador de operación de B.
 99. Cerrar sesión durante una aportación pendiente: el indicador de operación debe reiniciarse para la siguiente sesión y no conservar datos de A.
 100. Repetir la secuencia con una operación fallida de A: su finalización no debe alterar el bloqueo de la operación de B.
+
+## Indicador de conversión y cambio de cuenta
+101. Iniciar confirmación Coin/Digital en A y cambiar a B antes de recibir respuesta: B no debe conservar el indicador ocupado de A.
+102. Iniciar una nueva confirmación en B y recibir después el finally de A: A no debe desactivar el indicador ocupado de B.
+103. Cerrar sesión mientras se confirma una conversión: el indicador debe quedar libre para la próxima sesión sin afirmar resultado de la operación antigua.
