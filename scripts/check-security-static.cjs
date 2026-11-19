@@ -13,6 +13,8 @@ const checks = [
   ['retiro con idempotencia', /mwd_pickup_create_demo[\s\S]{0,170}p_request_id: requestId/],
   ['reintento retiro conserva identificador', /pickupPendingRef\.current\.id/],
   ['renovación de token no reinicia navegación', /if \(event === 'SIGNED_IN' \|\| event === 'SIGNED_OUT' \|\| event === 'USER_DELETED'\)/],
+  ['lectura inicial de sesión protegida de carreras', /active && !authEventReceived/],
+  ['confirmación antes de refresco', /message\('Operación ficticia confirmada'[\s\S]{0,230}await refreshAccount\(\)/],
 ];
 let failures = 0;
 for (const [name, regex] of checks) {
