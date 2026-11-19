@@ -438,7 +438,16 @@ export default function App() {
         if (latestAuth.session?.user?.id !== requestedBy || walletRevision !== swapWalletRevisionRef.current) return;
         setSwapWallet(walletResponse.data);
       } catch (refreshError) {
-        const { data: latestAuth } = await supabase.auth.getSession();
+        let latestAuth;
+        try {
+          const authResult = await supabase.auth.getSession();
+          if (authResult.error) throw authResult.error;
+          latestAuth = authResult.data;
+        } catch (authError) {
+          message('Actualización pendiente',
+            'La conversión ficticia fue confirmada. Verifica tu sesión y consulta los saldos antes de otra operación.');
+          return;
+        }
         if (latestAuth.session?.user?.id !== requestedBy || walletRevision !== swapWalletRevisionRef.current) return;
         setSwapWallet(null);
         message('Actualización pendiente',
