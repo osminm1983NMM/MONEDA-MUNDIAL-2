@@ -35,3 +35,9 @@
 - Transferencia y consulta de estado verifican `auth.uid()` y vinculan la operación al actor; la transferencia valida el identificador idempotente antes de crear un segundo movimiento.
 - De 38 funciones `mwd_owner_*` en `public`, **35 llaman un helper `assert_owner`** y **3 contienen referencias directas a `mwd_admin_roles`**. Se comprobó que los helpers de socios y remesas verifican el rol `owner` usando `auth.uid()`. La clasificación es evidencia estructural, no una prueba exhaustiva de acceso denegado.
 - Pendiente: probar denegación real desde una cuenta autenticada no propietaria y revisar las restantes funciones SECURITY DEFINER no owner.
+
+## Continuación técnica — validación local y correcciones
+- Se ejecutaron **9 casos aislados** con Node.js 22 para la expresión regular de conversión; 9/9 correctos. No se ejecutó la suite completa del repositorio ni se compiló Android.
+- Se corrigió el mensaje de error de creación de retiro para no afirmar falsamente que una orden no existe tras un timeout; se conserva la solicitud pendiente para recuperación.
+- `package.json` ahora expone `npm test` para ejecutar la suite estática sin dependencias externas.
+- PR #125 permanece en borrador, sin fusionar. La ejecución del workflow todavía no tiene resultados confirmados.
