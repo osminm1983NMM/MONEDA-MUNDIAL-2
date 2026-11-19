@@ -131,3 +131,8 @@ select (select count(*) from public.mwd_operations where kind='contribution') as
 - `refreshAccount` incrementa una revisión de solicitud y verifica que siga siendo la última, además de confirmar que el usuario de sesión corresponda a la cuenta consultada antes de actualizar billetera, historial o rol.
 - Respuestas y errores de consultas anteriores ya no sobreescriben la pantalla ni el estado de carga de consultas más recientes. El cambio de cuenta invalida respuestas previas y limpia la indicación de sincronización.
 - Dos aserciones estáticas nuevas; **35 comprobaciones declaradas**, pendientes de ejecución completa y validación Android con dos cuentas.
+
+## Aislamiento de consultas de conversión y retiros — 19 noviembre 2026
+- Las respuestas de `mwd_conversion_wallet_demo` y `mwd_pickup_my_orders_demo` se aplican solo cuando corresponden a la revisión de consulta más reciente y al usuario que la inició.
+- El cambio de cuenta invalida las revisiones pendientes y limpia indicadores de carga para impedir que respuestas antiguas sobrescriban datos visibles de la cuenta nueva.
+- Dos aserciones estáticas adicionales: **37 comprobaciones declaradas**. Pendiente ejecutar la suite y simular cambios de cuenta con red lenta en Android.
