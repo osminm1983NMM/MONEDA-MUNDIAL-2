@@ -34,10 +34,10 @@ test('las transferencias repetidas reutilizan el identificador', () => {
   assert.match(app.slice(start, end), /p_request_id: item\.id/);
 });
 test('cambio de sesión limpia estado local', () => {
-  assert.match(app, /busyRef\.current = false;\s*setBusy\(false\);\s*setRecovering\(false\);\s*pendingRef\.current = null/);
+  assert.match(app, /busyRef\.current = false;\s*setBusy\(false\);\s*setRecovering\(false\);\s*recoveringRef\.current = false;\s*pendingRef\.current = null/);
 });
 test('cierre de sesión bloqueado durante operación o recuperación', () => {
-  assert.match(app, /if \(busyRef\.current \|\| recovering \|\| pendingLoading\)/);
+  assert.match(app, /if \(busyRef\.current \|\| recoveringRef\.current \|\| pendingLoading \|\| pendingStorageError\)/);
 });
 test('respuestas tardías no limpian el estado de otra cuenta', () => {
   assert.match(app, /if \(activeUserRef\.current === item\.userId\) \{\s*busyRef\.current = false/);
