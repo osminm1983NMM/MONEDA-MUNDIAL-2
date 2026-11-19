@@ -120,3 +120,9 @@ test('recuperación bloqueada sincrónicamente contra pulsaciones simultáneas',
 test('cambio de cuenta restablece bloqueo de recuperación', () => {
   assert.match(app, /setRecovering\(false\);\s*recoveringRef\.current = false;\s*pendingRef\.current = null/);
 });
+
+test('reintento revalida estado al aceptar diálogo de confirmación', () => {
+  const fn = app.slice(app.indexOf('async function retryPending'), app.indexOf('async function executeOperation'));
+  assert.match(fn, /async \(\) => \{\s*\/\/[^\n]*\n\s*if \(busyRef\.current \|\| recoveringRef\.current \|\| pendingLoading \|\| pendingStorageError \|\|/);
+  assert.match(fn, /!pendingUnconfirmed \|\| activeUserRef\.current !== item\.userId/);
+});
