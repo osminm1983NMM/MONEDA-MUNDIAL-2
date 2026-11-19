@@ -128,7 +128,11 @@ export default function App() {
           setSession(data.session);
         }
       })
-      .catch(error => message('Sesión', error.message))
+      .catch(error => {
+        if (active && !authEventSeenRef.current) {
+          message('Sesión', error.message || 'No se pudo comprobar la sesión inicial.');
+        }
+      })
       .finally(() => { if (active) setAuthLoading(false); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
