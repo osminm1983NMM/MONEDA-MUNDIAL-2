@@ -115,6 +115,8 @@ export default function App() {
   const pickupOrdersRevisionRef = useRef(0);
   const pickupCreateBusyRef = useRef(false);
   const pickupCancelBusyRef = useRef(false);
+  const pickupCreateRevisionRef = useRef(0);
+  const pickupCancelRevisionRef = useRef(0);
   const pendingRef = useRef(null);
   const pendingLoadedUserRef = useRef(null);
   const pendingRecoveryErrorRef = useRef(false);
@@ -150,6 +152,12 @@ export default function App() {
   // Never reuse a withdrawal request held in memory across account changes.
   useEffect(() => {
     pickupPendingRef.current = null;
+    pickupCreateRevisionRef.current += 1;
+    pickupCancelRevisionRef.current += 1;
+    pickupCreateBusyRef.current = false;
+    pickupCancelBusyRef.current = false;
+    setPickupBusy(false);
+    setPickupCancelBusy(false);
     accountRefreshRevisionRef.current += 1;
     swapWalletRevisionRef.current += 1;
     pickupOrdersRevisionRef.current += 1;
@@ -584,6 +592,8 @@ export default function App() {
       return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
     }
     pickupCreateBusyRef.current = true;
+    const createRevision = ++pickupCreateRevisionRef.current;
+    const createUserId = userId;
     setPickupBusy(true);
     setPickupResult(null);
     try {
@@ -600,13 +610,15 @@ export default function App() {
         throw new Error('Solicitud de retiro guardada inválida. Requiere revisión antes de reintentar.');
       }
       if (previous && previous.cents !== cents) {
-        setPickupAmount(formatMWD(previous.cents));
+        if (createRevision === pickupCreateRevisionRef.current && createUserId === currentUserIdRef.current) setPickupAmount(formatMWD(previous.cents));
         throw new Error('Hay una orden sin confirmar por ' + formatMWD(previous.cents) +
           ' MWD. Se restauró su importe original; consulta Mis retiros y reintenta únicamente esa solicitud.');
       }
       const pending = previous || { cents, id: uniqueRequestId() };
+      if (createRevision !== pickupCreateRevisionRef.current || createUserId !== currentUserIdRef.current) return;
       pickupPendingRef.current = pending;
       await AsyncStorage.setItem(storageKey, JSON.stringify(pending));
+      if (createRevision !== pickupCreateRevisionRef.current || createUserId !== currentUserIdRef.current) return;
       const requestId = pending.id;
       const { data, error } = await supabase.rpc('mwd_pickup_create_demo', {
         p_destination_country: 'HN', p_amount_cents: cents, p_request_id: requestId,
@@ -615,19 +627,23 @@ export default function App() {
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
       // Once the server confirms creation, cleanup failures must not make the
       // application report an unconfirmed order or invite another request.
-      setPickupResult(data);
-      pickupPendingRef.current = null;
-      setPickupAmount('');
+      if (createRevision === pickupCreateRevisionRef.current && createUserId === currentUserIdRef.current) {
+        setPickupResult(data);
+        pickupPendingRef.current = null;
+        setPickupAmount('');
+      }
       try {
         await AsyncStorage.removeItem(storageKey);
       } catch (_cleanupError) {
         // A later retry reuses the saved UUID and receives already_created.
       }
     } catch (error) {
-      message('Estado del retiro no confirmado', (error.message || 'Error desconocido') + '\nLa orden podría haberse registrado. Conserva el importe original y consulta Mis retiros antes de reintentar.');
+      if (createRevision === pickupCreateRevisionRef.current && createUserId === currentUserIdRef.current) message('Estado del retiro no confirmado', (error.message || 'Error desconocido') + '\nLa orden podría haberse registrado. Conserva el importe original y consulta Mis retiros antes de reintentar.');
     } finally {
-      pickupCreateBusyRef.current = false;
-      setPickupBusy(false);
+      if (createRevision === pickupCreateRevisionRef.current && createUserId === currentUserIdRef.current) {
+        pickupCreateBusyRef.current = false;
+        setPickupBusy(false);
+      }
     }
   }
 
@@ -650,18 +666,23 @@ export default function App() {
   async function cancelDemoPickup(orderId) {
     if (pickupCancelBusy || pickupCancelBusyRef.current) return;
     pickupCancelBusyRef.current = true;
+    const cancelRevision = ++pickupCancelRevisionRef.current;
+    const cancelUserId = userId;
     setPickupCancelBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_cancel_demo', { p_order_id: orderId });
       if (error) throw error;
       if (!['cancelled', 'already_cancelled'].includes(data?.status)) throw new Error('Respuesta de cancelación no reconocida.');
+      if (cancelRevision !== pickupCancelRevisionRef.current || cancelUserId !== currentUserIdRef.current) return;
       message('Orden ficticia', data.status === 'cancelled' ? 'Orden cancelada correctamente.' : 'La orden ya estaba cancelada.');
       await loadPickupOrders();
     } catch (error) {
-      message('No se pudo cancelar', error.message || 'Error desconocido');
+      if (cancelRevision === pickupCancelRevisionRef.current && cancelUserId === currentUserIdRef.current) message('No se pudo cancelar', error.message || 'Error desconocido');
     } finally {
-      pickupCancelBusyRef.current = false;
-      setPickupCancelBusy(false);
+      if (cancelRevision === pickupCancelRevisionRef.current && cancelUserId === currentUserIdRef.current) {
+        pickupCancelBusyRef.current = false;
+        setPickupCancelBusy(false);
+      }
     }
   }
 
