@@ -102,3 +102,8 @@
 - **Corregido:** creación de retiro, cancelación de retiro y confirmación de conversión ahora tienen bloqueo sincrónico mediante `useRef`, además de su estado React de carga. El bloqueo se activa antes del primer `await` y se libera en `finally`.
 - Motivo: `setState` no bloquea de forma inmediata una segunda invocación dentro del mismo ciclo de render; dos pulsaciones rápidas podían enviar solicitudes concurrentes, incluso con UUID distintos para nuevos retiros.
 - Se agregaron tres comprobaciones estáticas: **29 comprobaciones declaradas**. Pruebas Android de doble pulsación y verificación de idempotencia de servidor siguen pendientes.
+
+## Cotizaciones concurrentes — 19 noviembre 2026
+- `requestSwapQuote` ahora usa bloqueo sincrónico `swapQuoteBusyRef`, activado solo tras validar la cantidad y liberado en `finally`. Evita solicitudes simultáneas por pulsaciones rápidas.
+- `confirmSwap` también verifica el bloqueo de cotización, evitando confirmar una cotización mientras se solicita otra.
+- Dos comprobaciones estáticas adicionales: **31 declaradas**; requieren ejecución de suite y Android antes de aprobar.
