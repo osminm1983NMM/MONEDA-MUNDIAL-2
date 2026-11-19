@@ -109,6 +109,7 @@ export default function App() {
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+  const operationRevisionRef = useRef(0);
   const pendingRef = useRef(null);
   const accountRefreshRevisionRef = useRef(0);
   const authIdentityRef = useRef(undefined);
@@ -154,6 +155,10 @@ export default function App() {
     swapWalletRevisionRef.current += 1;
     pickupOrdersRevisionRef.current += 1;
     pendingRef.current = null;
+    // Invalidar operaciones antiguas sin permitir que su finally libere un bloqueo nuevo.
+    operationRevisionRef.current += 1;
+    busyRef.current = false;
+    setBusy(false);
     setAmount('');
     setRecipientCode('');
     if (!userId) {
@@ -264,6 +269,7 @@ export default function App() {
   async function executeOperation(type, cents, code = '') {
     if (busyRef.current || !userId) return;
     const operationUserId = userId;
+    const operationRevision = ++operationRevisionRef.current;
     busyRef.current = true;
     setBusy(true);
     try {
@@ -322,8 +328,10 @@ export default function App() {
       message('Operación no confirmada',
         (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
     } finally {
-      busyRef.current = false;
-      setBusy(false);
+      if (operationRevision === operationRevisionRef.current) {
+        busyRef.current = false;
+        setBusy(false);
+      }
     }
   }
 
