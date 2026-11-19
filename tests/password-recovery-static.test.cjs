@@ -70,3 +70,9 @@ test('recovery deep links cannot be exchanged concurrently twice', () => {
   assert.match(app, /processingRecoveryUrls\.add\(url\)/);
   assert.match(app, /finally\s*\{\s*processingRecoveryUrls\.delete\(url\)/);
 });
+
+test('Supabase uses PKCE so Android code exchange has a stored verifier', () => {
+  assert.match(app, /flowType: 'pkce'/);
+  assert.match(app, /storage: AsyncStorage/);
+  assert.match(app, /detectSessionInUrl: false/);
+});
