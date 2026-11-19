@@ -148,3 +148,8 @@ select (select count(*) from public.mwd_operations where kind='contribution') as
 - Falló la aserción estática `pickup request memory must be cleared on account switch` en la línea 57, porque esperaba una cadena contigua de líneas que dejó de existir al añadir revisiones de seguridad al mismo efecto. El código de limpieza sí conserva las llamadas requeridas.
 - Se corrigió el test para inspeccionar el efecto de cambio de cuenta y verificar las cuatro operaciones por separado, sin depender de su adyacencia. Commit `ad1c2e3b`.
 - El workflow anterior no ejecutó la suite de funciones puras porque se detuvo en la prueba estática. **No se declara CI verde** hasta obtener una nueva ejecución satisfactoria.
+
+## CI verde confirmado — 19 noviembre 2026
+- Ejecución GitHub Actions `44543625068` (run #229), PR #125, commit `b7dcd6ecc7b3d108edf820cad46130405b0af846`: **completed / success**.
+- Pasos satisfactorios: validación JSON de `package.json`, comprobaciones estáticas de recuperación/idempotencia y pruebas ejecutables de funciones puras.
+- Esta validación no incluye instalación de dependencias Expo, compilación APK, dispositivo Android ni simulación de desconexión real; siguen pendientes.
