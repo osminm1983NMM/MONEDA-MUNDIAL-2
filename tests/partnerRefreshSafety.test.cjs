@@ -24,4 +24,6 @@ assert.ok(screen.includes("if (requestNumber !== detailsRequestRef.current) thro
 assert.ok(screen.includes('disabled={busy || !listReady || !detailsReady || selected.review_status'), 'Botón de sucursal exige listado y detalles vigentes');
 assert.ok(reload.includes('++detailsRequestRef.current;'), 'La recarga de socios invalida detalles pendientes');
 assert.ok(screen.includes('!Array.isArray(loc) || !Array.isArray(hist)'), 'Rechaza formatos inválidos de detalles');
-console.log('13 comprobaciones estructurales de recuperación definidas.');
+assert.ok(reload.includes('if (!Array.isArray(rows)) throw Error('), 'Recarga rechaza listados inválidos');
+assert.ok(screen.includes('else if (!Array.isArray(data)) report('), 'Carga inicial rechaza listados inválidos');
+console.log('15 comprobaciones estructurales de recuperación definidas.');
