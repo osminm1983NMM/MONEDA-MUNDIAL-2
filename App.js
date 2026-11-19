@@ -205,10 +205,12 @@ export default function App() {
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
+      return true;
     } catch (error) {
       if (activeUserRef.current === id && sequence === refreshSequenceRef.current) {
         message('Sincronización', error.message || 'No se pudo consultar Supabase.');
       }
+      return false;
     } finally {
       if (activeUserRef.current === id && sequence === refreshSequenceRef.current) setSyncing(false);
     }
@@ -355,10 +357,11 @@ export default function App() {
       setAmount('');
       setRecipientCode('');
       setScreen('Inicio');
-      await refreshAccount();
-      if (activeUserRef.current === userId) message('Operación ficticia confirmada', type === 'transfer'
+      const refreshed = await refreshAccount(item.userId);
+      if (activeUserRef.current === item.userId) message('Operación ficticia confirmada', (type === 'transfer'
         ? 'Transferencia de demostración registrada en Supabase.'
-        : 'Aportación de demostración registrada en Supabase.');
+        : 'Aportación de demostración registrada en Supabase.') +
+        (refreshed ? '' : '\\nNo se pudo actualizar el saldo o historial. Vuelve a sincronizar desde Inicio.'));
     } catch (error) {
       // Si el almacenamiento falló antes de crear la referencia, no se envió la RPC.
       // Si falló después, conservar el bloqueo y consultar el estado antes de reintentar.
