@@ -321,8 +321,8 @@ export default function App() {
               status.data.kind === pending.type &&
               status.data.amountCents === pending.cents &&
               (pending.type !== 'transfer' || status.data.recipientCode === pending.code)) {
-            verified = true;
             await AsyncStorage.removeItem('mwd_demo_operation_pending_' + userId);
+            verified = true;
             pendingRef.current = null;
             setAmount('');
             setRecipientCode('');
@@ -338,7 +338,7 @@ export default function App() {
       if (!verified) {
         message('Operación no confirmada',
           (error.message || 'Error desconocido') +
-          '\nNo cambies el importe ni el destinatario. Reintenta con los mismos datos.');
+          '\nConserva la solicitud original. No cambies el importe ni el destinatario; vuelve a consultar o reintenta con los mismos datos.');
       }
     } finally {
       busyRef.current = false;
