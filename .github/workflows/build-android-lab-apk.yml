@@ -37,8 +37,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Preparar Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Usar Android SDK preinstalado en GitHub Actions
+        shell: bash
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          test -d "${ANDROID_HOME:-/usr/local/lib/android/sdk}"
       - name: Instalar dependencias
         run: npm install --no-package-lock --no-audit --no-fund
       - name: Ejecutar suite de pruebas antes de compilar
