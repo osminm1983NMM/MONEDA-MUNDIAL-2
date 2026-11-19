@@ -334,7 +334,11 @@ export default function App() {
   async function authenticate(action) {
     const cleanEmail = email.trim().toLowerCase();
     if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) return message('Correo', 'Introduce un correo válido.');
-    if (password.length < 8) return message('Contraseña', 'Debe tener por lo menos 8 caracteres.');
+    if (password.length < (action === 'register' ? 12 : 8)) {
+      return message('Contraseña', action === 'register'
+        ? 'Para crear una cuenta, utiliza al menos 12 caracteres.'
+        : 'Introduce la contraseña de tu cuenta.');
+    }
     if (authBusy) return;
     setAuthBusy(true);
     try {
