@@ -477,11 +477,12 @@ export default function App() {
         if (authResult.error) throw authResult.error;
         currentAuth = authResult.data;
       } catch (authError) {
+        if (confirmRevision !== swapConfirmRevisionRef.current) return;
         message('Conversión registrada; sesión pendiente',
           'Supabase confirmó la conversión ficticia. Verifica tu sesión y consulta los saldos antes de repetirla.');
         return;
       }
-      if (currentAuth.session?.user?.id !== requestedBy) return;
+      if (confirmRevision !== swapConfirmRevisionRef.current || currentAuth.session?.user?.id !== requestedBy) return;
       setSwapQuote(null);
       setSwapAmount('');
       message('Conversión ficticia', 'Operación registrada correctamente. Actualizando saldos de prueba.');
@@ -490,8 +491,9 @@ export default function App() {
       try {
         const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
         if (walletResponse.error) throw walletResponse.error;
-        const { data: latestAuth } = await supabase.auth.getSession();
-        if (latestAuth.session?.user?.id !== requestedBy || walletRevision !== swapWalletRevisionRef.current) return;
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (confirmRevision !== swapConfirmRevisionRef.current || authResult.data.session?.user?.id !== requestedBy || walletRevision !== swapWalletRevisionRef.current) return;
         setSwapWallet(walletResponse.data);
       } catch (refreshError) {
         let latestAuth;
@@ -500,25 +502,29 @@ export default function App() {
           if (authResult.error) throw authResult.error;
           latestAuth = authResult.data;
         } catch (authError) {
+          if (confirmRevision !== swapConfirmRevisionRef.current || walletRevision !== swapWalletRevisionRef.current) return;
           message('Actualización pendiente',
             'La conversión ficticia fue confirmada. Verifica tu sesión y consulta los saldos antes de otra operación.');
           return;
         }
-        if (latestAuth.session?.user?.id !== requestedBy || walletRevision !== swapWalletRevisionRef.current) return;
+        if (confirmRevision !== swapConfirmRevisionRef.current || latestAuth.session?.user?.id !== requestedBy || walletRevision !== swapWalletRevisionRef.current) return;
         setSwapWallet(null);
         message('Actualización pendiente',
           'La conversión ficticia fue confirmada, pero no se pudieron consultar los saldos. Usa Consultar saldos antes de otra operación.');
       }
     } catch (error) {
+      if (confirmRevision !== swapConfirmRevisionRef.current) return;
       try {
         const authResult = await supabase.auth.getSession();
         if (authResult.error) throw authResult.error;
-        if (authResult.data.session?.user?.id !== requestedBy) return;
+        if (confirmRevision !== swapConfirmRevisionRef.current || authResult.data.session?.user?.id !== requestedBy) return;
       } catch (authError) {
+        if (confirmRevision !== swapConfirmRevisionRef.current) return;
         message('Resultado de conversión pendiente',
           'No fue posible verificar la sesión. Consulta tu cuenta y los saldos antes de intentar otra conversión.');
         return;
       }
+      if (confirmRevision !== swapConfirmRevisionRef.current) return;
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
         '\nConsulta los saldos antes de intentar otra conversión.');
     } finally {
