@@ -108,6 +108,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const swapConfirmBusyRef = useRef(false);
+  const swapQuoteBusyRef = useRef(false);
   const pickupCreateBusyRef = useRef(false);
   const pickupCancelBusyRef = useRef(false);
   const pendingRef = useRef(null);
@@ -465,6 +466,7 @@ export default function App() {
   }
 
   async function requestSwapQuote() {
+    if (swapBusy || swapQuoteBusyRef.current || swapConfirmBusyRef.current) return;
     const normalized = swapAmount.trim().replace(',', '.');
     if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(normalized)) {
       return message('Cantidad inválida', 'Usa hasta seis decimales.');
@@ -474,6 +476,7 @@ export default function App() {
     if (!Number.isSafeInteger(micro) || micro < 1000000 || micro > 10000000000) {
       return message('Cantidad inválida', 'Introduce entre 1 y 10,000 unidades de prueba.');
     }
+    swapQuoteBusyRef.current = true;
     setSwapBusy(true);
     setSwapQuote(null);
     try {
@@ -485,12 +488,13 @@ export default function App() {
     } catch (error) {
       message('Cotización', error.message || 'No se pudo cotizar.');
     } finally {
+      swapQuoteBusyRef.current = false;
       setSwapBusy(false);
     }
   }
 
   async function confirmSwap() {
-    if (!swapQuote?.quoteId || swapBusy || swapConfirmBusyRef.current) return;
+    if (!swapQuote?.quoteId || swapBusy || swapConfirmBusyRef.current || swapQuoteBusyRef.current) return;
     const quote = swapQuote;
     if (new Date(quote.expiresAt).getTime() <= Date.now()) {
       setSwapQuote(null);
