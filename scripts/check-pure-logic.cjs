@@ -18,7 +18,7 @@ const sandbox = { Number, Uint8Array, Array, globalThis: { crypto: {
 } } };
 vm.createContext(sandbox);
 vm.runInContext(
-  extract('function amountToCents(value)', 'function uniqueRequestId()') +
+  'const LIMIT_CENTS = 100000000;\n' + extract('function amountToCents(value)', 'function uniqueRequestId()') +
   extract('function uniqueRequestId()', 'function message(') +
   ';globalThis.amountToCents=amountToCents;globalThis.uniqueRequestId=uniqueRequestId;',
   sandbox
