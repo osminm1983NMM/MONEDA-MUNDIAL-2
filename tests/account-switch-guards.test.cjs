@@ -46,3 +46,11 @@ test('consulta y cotización comprueban error explícito de sesión', () => {
     assert.match(code, /const authResult = await supabase\.auth\.getSession\(\);\s*if \(authResult\.error\) throw authResult\.error;/);
   }
 });
+
+test('cambio de cuenta libera indicadores de actualización y lista de retiros', () => {
+  const effect = section('  useEffect(() => {\n    accountRefreshRevisionRef.current', '  async function refreshAccount(');
+  assert.match(effect, /pickupOrdersRevisionRef\.current \+= 1;/);
+  assert.match(effect, /accountRefreshRevisionRef\.current \+= 1;/);
+  assert.match(effect, /setPickupOrdersBusy\(false\);/);
+  assert.match(effect, /setSyncing\(false\);/);
+});
