@@ -112,6 +112,8 @@ export default function App() {
   const pendingRef = useRef(null);
   const accountRefreshRevisionRef = useRef(0);
   const authIdentityRef = useRef(undefined);
+  const authEventSeenRef = useRef(false);
+  const swapWalletRevisionRef = useRef(0);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -119,7 +121,7 @@ export default function App() {
     supabase.auth.getSession()
       .then(({ data, error }) => {
         if (error) throw error;
-        if (active) {
+        if (active && !authEventSeenRef.current) {
           const nextId = data.session?.user?.id || null;
           if (authIdentityRef.current === undefined) authIdentityRef.current = nextId;
           setSession(data.session);
@@ -130,6 +132,7 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return;
+      authEventSeenRef.current = true;
       const nextId = nextSession?.user?.id || null;
       if (authIdentityRef.current !== undefined && authIdentityRef.current !== nextId) {
         setScreen('Inicio');
@@ -143,6 +146,7 @@ export default function App() {
 
   useEffect(() => {
     accountRefreshRevisionRef.current += 1;
+    swapWalletRevisionRef.current += 1;
     pendingRef.current = null;
     setAmount('');
     setRecipientCode('');
@@ -321,17 +325,20 @@ export default function App() {
   async function loadSwapWallet() {
     const requestedBy = userId;
     if (!requestedBy) return;
+    const revision = ++swapWalletRevisionRef.current;
     setSwapBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_wallet_demo');
       if (error) throw error;
       const { data: currentAuth } = await supabase.auth.getSession();
-      if (currentAuth.session?.user?.id !== requestedBy) return;
+      if (currentAuth.session?.user?.id !== requestedBy || revision !== swapWalletRevisionRef.current) return;
       setSwapWallet(data);
     } catch (error) {
+      const { data: currentAuth } = await supabase.auth.getSession();
+      if (currentAuth.session?.user?.id !== requestedBy || revision !== swapWalletRevisionRef.current) return;
       message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
     } finally {
-      setSwapBusy(false);
+      if (revision === swapWalletRevisionRef.current) setSwapBusy(false);
     }
   }
 
