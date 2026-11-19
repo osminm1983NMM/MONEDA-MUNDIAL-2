@@ -258,10 +258,10 @@ export default function App() {
       setAmount('');
       setRecipientCode('');
       setScreen('Inicio');
-      await refreshAccount();
       message('Operación ficticia confirmada', type === 'transfer'
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
+      await refreshAccount();
     } catch (error) {
       const { data: currentAuth } = await supabase.auth.getSession();
       if (currentAuth.session?.user?.id !== operationUserId) return;
