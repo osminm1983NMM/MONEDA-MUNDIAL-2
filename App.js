@@ -250,7 +250,6 @@ export default function App() {
     if (!userId) throw new Error('Inicia sesión para recuperar la solicitud.');
     const key = 'mwd_demo_operation_pending_' + userId;
     if (pendingLoadedUserRef.current !== userId) {
-      pendingRef.current = null;
       const saved = await AsyncStorage.getItem(key);
       if (saved) {
         const candidate = JSON.parse(saved);
