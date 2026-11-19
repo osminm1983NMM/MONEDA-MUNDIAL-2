@@ -399,19 +399,41 @@ export default function App() {
     if (cents === null || cents < 100 || cents > 100000) {
       return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
     }
-    const requestId = uniqueRequestId();
     setPickupBusy(true);
     setPickupResult(null);
     try {
+      if (!userId) throw new Error('Inicia sesión antes de crear una orden.');
+      const pendingKey = 'mwd:pending-demo-pickup:' + userId;
+      const raw = await AsyncStorage.getItem(pendingKey);
+      let saved = null;
+      if (raw) {
+        try { saved = JSON.parse(raw); }
+        catch (_error) { throw new Error('Orden pendiente ilegible. Requiere revisión.'); }
+        if (!saved || !/^[0-9a-f-]{36}$/i.test(saved.id || '') ||
+            saved.country !== 'HN' || !Number.isSafeInteger(saved.cents)) {
+          throw new Error('Orden pendiente inválida. Requiere revisión.');
+        }
+        if (saved.cents !== cents) {
+          throw new Error('Existe una orden pendiente con otro importe. Repite el importe original para recuperarla.');
+        }
+      }
+      const request = saved || { id: uniqueRequestId(), country: 'HN', cents };
+      if (!saved) await AsyncStorage.setItem(pendingKey, JSON.stringify(request));
       const { data, error } = await supabase.rpc('mwd_pickup_create_demo', {
-        p_destination_country: 'HN', p_amount_cents: cents, p_request_id: requestId,
+        p_destination_country: request.country, p_amount_cents: request.cents,
+        p_request_id: request.id,
       });
       if (error) throw error;
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
+      await AsyncStorage.removeItem(pendingKey);
       setPickupResult(data);
       setPickupAmount('');
+      if (data.status === 'already_created' && !data.pickupCode) {
+        message('Orden ficticia recuperada', 'La orden ya existía. Por seguridad el código secreto no se muestra de nuevo. Consulta tus órdenes; no crees otra para recuperar el código.');
+      }
     } catch (error) {
-      message('Orden ficticia no creada', error.message || 'Error desconocido');
+      message('Orden ficticia no confirmada', (error.message || 'Error desconocido') +
+        '\\nReintenta con el mismo importe para conservar la referencia.');
     } finally {
       setPickupBusy(false);
     }
