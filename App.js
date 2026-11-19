@@ -151,7 +151,8 @@ export default function App() {
       // PKCE callbacks may contain only a code, while implicit callbacks
       // include type=recovery and tokens. The callback path is exact-matched.
       if (params.get('type') !== 'recovery' && !authCode) return;
-      if (params.get('error') || (!authCode && (!accessToken || !refreshToken))) {
+      if (params.get('error') || (authCode && (accessToken || refreshToken)) ||
+          (!authCode && (!accessToken || !refreshToken))) {
         if (active) message('Recuperar contraseña', 'El enlace no contiene una sesión válida. Solicita otro correo.');
         return;
       }
