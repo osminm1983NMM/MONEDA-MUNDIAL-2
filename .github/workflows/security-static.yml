@@ -16,4 +16,6 @@ jobs:
         with:
           node-version: '22'
       - name: Run dependency-free security regression checks
-        run: node scripts/check-security-static.cjs
+        run: |
+          node scripts/check-security-static.cjs
+          node scripts/check-pure-logic.cjs
