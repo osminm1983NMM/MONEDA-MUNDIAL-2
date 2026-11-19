@@ -49,3 +49,10 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 27. Cambiar importe o destinatario después del fallo: se debe crear una nueva clave; verificar que no se confunda con el intento previo.
 28. Solicitar una cotización y cambiar de usuario mientras falla la red: no mostrar un error tardío de la cuenta anterior.
 29. Confirmar que los mensajes de conversión muestran un salto de línea real, no los caracteres literales barra invertida y n.
+
+## Reintentos con saldo ya debitado
+30. Cuenta A con saldo ficticio suficiente: ejecutar una transferencia y simular pérdida de respuesta tras el débito. Refrescar saldo, volver a Transferir y reintentar exactamente mismo importe y destinatario: debe usar la misma clave aunque el saldo mostrado ya sea inferior al importe.
+31. Confirmar que el diálogo del caso 30 identifica el reintento de la misma solicitud. Verificar en el libro mayor que solo exista un movimiento y que el RPC responda idempotentemente.
+32. Cambiar importe o destinatario después del caso 30: debe tratarse como solicitud nueva y aplicar la validación de saldo, sin reutilizar la clave anterior.
+33. Repetir los casos 30–32 con aportación ficticia. Comprobar que no se duplica el débito.
+34. Cambiar de cuenta entre el intento incierto y el reintento: la cuenta B no debe reutilizar la clave de A.
