@@ -339,8 +339,14 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
-      await AsyncStorage.removeItem(storageKey);
-      pendingRef.current = null;
+      // Server success is definitive. Local cleanup may fail independently.
+      // Keep the persisted UUID if cleanup fails; a later retry will query status.
+      try {
+        await AsyncStorage.removeItem(storageKey);
+        pendingRef.current = null;
+      } catch (_cleanupError) {
+        pendingRecoveryErrorRef.current = true;
+      }
       setAmount('');
       setRecipientCode('');
       setScreen('Inicio');
