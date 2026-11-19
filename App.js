@@ -497,7 +497,9 @@ export default function App() {
     } catch (error) {
       const { data: currentAuth } = await supabase.auth.getSession();
       if (currentAuth.session?.user?.id !== requestedBy) return;
-      message('No se pudo cancelar', error.message || 'Error desconocido');
+      message('Resultado de cancelación no confirmado',
+        (error.message || 'Error de conexión') +
+        '\nLa cancelación pudo haberse procesado. Consulta Mis retiros antes de repetirla.');
     } finally {
       setPickupCancelBusy(false);
     }
