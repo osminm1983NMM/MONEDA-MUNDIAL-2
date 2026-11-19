@@ -348,7 +348,8 @@ export default function App() {
   }
 
   async function confirmSwap() {
-    if (!swapQuote?.quoteId || swapBusy) return;
+    if (!swapQuote?.quoteId || swapBusy || !userId) return;
+    const requestedBy = userId;
     const quote = swapQuote;
     if (new Date(quote.expiresAt).getTime() <= Date.now()) {
       setSwapQuote(null);
@@ -361,13 +362,19 @@ export default function App() {
       });
       if (error) throw error;
       if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
+      const { data: currentAuth } = await supabase.auth.getSession();
+      if (currentAuth.session?.user?.id !== requestedBy) return;
       setSwapQuote(null);
       setSwapAmount('');
       const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
       if (walletResponse.error) throw walletResponse.error;
+      const { data: latestAuth } = await supabase.auth.getSession();
+      if (latestAuth.session?.user?.id !== requestedBy) return;
       setSwapWallet(walletResponse.data);
       message('Conversión ficticia', 'Operación registrada correctamente.');
     } catch (error) {
+      const { data: currentAuth } = await supabase.auth.getSession();
+      if (currentAuth.session?.user?.id !== requestedBy) return;
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
         '\\nConsulta los saldos antes de intentar otra conversión.');
     } finally {
@@ -376,7 +383,8 @@ export default function App() {
   }
 
   async function createDemoPickup() {
-    if (pickupBusy) return;
+    if (pickupBusy || !userId) return;
+    const requestedBy = userId;
     const cents = amountToCents(pickupAmount);
     if (cents === null || cents < 100 || cents > 100000) {
       return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
@@ -394,11 +402,13 @@ export default function App() {
       if (error) throw error;
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
       const { data: currentAuth } = await supabase.auth.getSession();
-      if (currentAuth.session?.user?.id !== userId) return;
+      if (currentAuth.session?.user?.id !== requestedBy) return;
       setPickupResult(data);
       pickupPendingRef.current = null;
       setPickupAmount('');
     } catch (error) {
+      const { data: currentAuth } = await supabase.auth.getSession();
+      if (currentAuth.session?.user?.id !== requestedBy) return;
       message('Orden ficticia no creada', error.message || 'Error desconocido');
     } finally {
       setPickupBusy(false);
