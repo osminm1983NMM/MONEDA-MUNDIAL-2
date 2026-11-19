@@ -164,3 +164,9 @@ select (select count(*) from public.mwd_operations where kind='contribution') as
 - SQL lectura: **19 transferencias / 21,700 centavos ficticios**, **6 aportaciones / 2,400 centavos ficticios**; **5 billeteras / 4,997,600 centavos ficticios de saldo agregado**.
 - Resultado 0 en: billeteras negativas, importes no positivos, solicitudes duplicadas por par `(actor_id,request_id)`, solicitudes sin ID, transferencias sin origen/destino, autotransferencias, aportaciones sin origen, aportaciones con destino, operaciones que referencian billeteras de origen/destino inexistentes.
 - Las aportaciones reducen el saldo de origen y no tienen destinatario en `mwd_operations`; queda **pendiente definir la contrapartida contable** antes de afirmar conciliación completa. No se modificaron datos ni estructura.
+
+## Conciliación cruzada de libro mayor — 19 noviembre 2026
+- Auditoría SQL **solo lectura** en `mwd_finance_private`: 5 cuentas, 19 transacciones `wallet_transfer` en estado `posted` y moneda `MWD`, 38 asientos. **0** transacciones descuadradas (sumas debit/credit), con menos de 2 asientos, con asientos inválidos o con asientos huérfanos.
+- Se identificó formato de referencia `mwd-demo-transfer:<operation_id>`. Cruce de `public.mwd_operations` (kind transfer) contra `ledger_transactions.external_reference`: **19/19** coincidencias, **0** transferencias sin registro contable.
+- En las 19 transferencias coinciden importes de débitos y créditos con `amount_cents`; cada una tiene un débito de cuenta perteneciente al origen y un crédito de cuenta perteneciente al destino. **0** discrepancias de importe o de dirección/propietario.
+- **Alcance:** conciliación de transferencias existentes en el libro mayor, no reconstrucción histórica de saldos iniciales ni certificación de concurrencia. Las **6 aportaciones** por 2,400 centavos ficticios siguen sin contrapartida contable definida y no se generaron asientos.
