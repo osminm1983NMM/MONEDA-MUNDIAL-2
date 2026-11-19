@@ -29,3 +29,9 @@
 - No se creó rama temporal ni recurso de pago en Supabase.
 - No se ejecutaron transacciones de prueba que alteren saldos.
 - GitHub Actions continúa manual y pendiente de ejecución.
+
+## Revisión de permisos privilegiados — evidencia adicional
+- Se examinaron los cuerpos SQL de `mwd_transfer_demo`, `mwd_operation_status_demo`, `mwd_owner_summary_demo` y `mwd_owner_partner_save_demo`.
+- Transferencia y consulta de estado verifican `auth.uid()` y vinculan la operación al actor; la transferencia valida el identificador idempotente antes de crear un segundo movimiento.
+- De 38 funciones `mwd_owner_*` en `public`, **35 llaman un helper `assert_owner`** y **3 contienen referencias directas a `mwd_admin_roles`**. Se comprobó que los helpers de socios y remesas verifican el rol `owner` usando `auth.uid()`. La clasificación es evidencia estructural, no una prueba exhaustiva de acceso denegado.
+- Pendiente: probar denegación real desde una cuenta autenticada no propietaria y revisar las restantes funciones SECURITY DEFINER no owner.
