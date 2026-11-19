@@ -55,7 +55,7 @@ export default function PartnerRegistryScreen({ supabase }) {
   const [audit, setAudit] = useState([]);
   const [name, setName] = useState('');
   const [kind, setKind] = useState('bank');
-  const [country, setCountry] = useState('NI');
+  const [country, setCountry] = useState('HN');
   const [branchName, setBranchName] = useState('');
   const [city, setCity] = useState('');
   const [currency, setCurrency] = useState('USD');
@@ -99,6 +99,10 @@ export default function PartnerRegistryScreen({ supabase }) {
 
   async function savePartner() {
     if (busy) return;
+    if (name.trim().length < 2 || name.trim().length > 150 || !/^[A-Za-z]{2}$/.test(country.trim())) {
+      setError('Escribe un nombre de 2 a 150 caracteres y un código de país de 2 letras.');
+      return;
+    }
     setError(''); setNotice(''); setBusy(true);
     try {
       const result = await request('mwd_owner_partner_save_demo', {
@@ -135,6 +139,12 @@ export default function PartnerRegistryScreen({ supabase }) {
   }
   async function saveLocation() {
     if (!selectedId || busy) return;
+    if (branchName.trim().length < 2 || branchName.trim().length > 140 ||
+        city.trim().length < 2 || city.trim().length > 100 ||
+        !/^[A-Za-z]{3}$/.test(currency.trim()) || hours.trim().length > 140) {
+      setError('Revisa la sucursal (2-140 caracteres), ciudad (2-100), moneda (3 letras) y horario (máximo 140).');
+      return;
+    }
     setError(''); setNotice(''); setBusy(true);
     try {
       await request('mwd_owner_partner_location_save_demo', {
