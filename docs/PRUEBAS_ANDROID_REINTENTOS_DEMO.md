@@ -68,3 +68,9 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 40. Abrir Convertir en A, iniciar consulta de saldos y cambiar a B antes de recibirla: la respuesta de A no debe mostrarse en B.
 41. Solicitar dos consultas de saldos Coin/Digital con respuestas fuera de orden: solo la última debe actualizar los saldos mostrados.
 42. Provocar error tardío en una consulta de saldos Coin/Digital de A tras cambiar a B: no debe aparecer un mensaje de error de A en B.
+
+## Consultas de retiros fuera de orden
+43. Iniciar dos consultas de Mis retiros y hacer que la primera responda al final: solo la segunda debe actualizar la lista.
+44. Iniciar una consulta de Mis retiros en A y cambiar a B: ni la lista ni el error tardío de A deben aparecer en B.
+45. Cancelar una orden ficticia mientras existe una consulta anterior pendiente: la consulta anterior no debe reemplazar el resultado de la actualización posterior.
+46. Solicitar cotización Coin/Digital, modificar importe y solicitar otra: la primera petición no debe apagar el indicador de actividad de la segunda.
