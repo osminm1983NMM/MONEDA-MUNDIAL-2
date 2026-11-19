@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { validPartner, validLocation } from './partnerValidation';
+import { writeThenRefresh } from './partnerWriteFlow';
 
 const KIND = [
   ['bank', 'Banco'],
@@ -116,28 +117,28 @@ export default function PartnerRegistryScreen({ supabase }) {
       return;
     }
     setError(''); setNotice(''); setBusy(true);
-    try {
-      const result = await request('mwd_owner_partner_save_demo', {
+    const outcome = await writeThenRefresh(
+      () => request('mwd_owner_partner_save_demo', {
         p_legal_name: name.trim(),
         p_partner_kind: kind,
         p_country_code: country.trim().toUpperCase(),
-      });
-      // El guardado ya fue confirmado: no permitir un segundo registro accidental
-      // aunque falle la consulta posterior del listado o del historial.
-      setName('');
-      setSelectedId(result.id);
-      setLocations([]); setAudit([]); setDetailsReady(false);
-      setNotice('Candidato guardado como borrador; sin capacidad de pagar remesas.');
-      try {
+      }),
+      async result => {
+        setName('');
+        setSelectedId(result.id);
+        setLocations([]); setAudit([]); setDetailsReady(false);
         await reloadPartners();
         await reloadDetails(result.id);
-      } catch (refreshError) {
-        setError('El candidato se guardó, pero no se pudo actualizar la pantalla. Usa Actualizar listado; no vuelvas a guardarlo.');
-      }
-    } catch (err) {
-      // Un fallo de red puede ocurrir después de que el servidor haya guardado.
-      // No afirmar que el registro falló ni recomendar reintentar a ciegas.
-      setError('No se pudo confirmar el resultado del guardado. Actualiza el listado y verifica si el candidato existe antes de volver a guardar. Detalle: ' + (err?.message || 'Error de conexión.'));
+      },
+    );
+    if (outcome.state === 'confirmed') {
+      setNotice('Candidato guardado como borrador; sin capacidad de pagar remesas.');
+    } else if (outcome.state === 'confirmed-refresh-failed') {
+      setName('');
+      setNotice('Candidato guardado como borrador; sin capacidad de pagar remesas.');
+      setError('El candidato se guardó, pero no se pudo actualizar la pantalla. Actualiza el listado; no vuelvas a guardarlo.');
+    } else {
+      setError('No se pudo confirmar el resultado del guardado. Verifica el listado antes de repetirlo. Detalle: ' + (outcome.error?.message || 'Error de conexión.'));
       setNotice('');
     }
     finally { setBusy(false); }
