@@ -134,7 +134,12 @@ export default function PartnerRegistryScreen({ supabase }) {
       } catch (refreshError) {
         setError('El candidato se guardó, pero no se pudo actualizar la pantalla. Usa Actualizar listado; no vuelvas a guardarlo.');
       }
-    } catch (err) { report(err); }
+    } catch (err) {
+      // Un fallo de red puede ocurrir después de que el servidor haya guardado.
+      // No afirmar que el registro falló ni recomendar reintentar a ciegas.
+      setError('No se pudo confirmar el resultado del guardado. Actualiza el listado y verifica si el candidato existe antes de volver a guardar. Detalle: ' + (err?.message || 'Error de conexión.'));
+      setNotice('');
+    }
     finally { setBusy(false); }
   }
   async function choosePartner(id) {
@@ -188,7 +193,10 @@ export default function PartnerRegistryScreen({ supabase }) {
       } catch (refreshError) {
         setError('La sucursal se guardó, pero no se pudo actualizar el listado. Reintenta cargar los detalles; no vuelvas a guardarla.');
       }
-    } catch (err) { report(err); }
+    } catch (err) {
+      setError('No se pudo confirmar el guardado de la sucursal. Recarga los detalles y verifica si aparece antes de intentar guardarla otra vez. Detalle: ' + (err?.message || 'Error de conexión.'));
+      setNotice('');
+    }
     finally { setBusy(false); }
   }
 
