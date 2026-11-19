@@ -148,9 +148,9 @@ export default function App() {
       const accessToken = params.get('access_token');
       const refreshToken = params.get('refresh_token');
       const authCode = params.get('code');
-      // A recovery callback must explicitly identify its purpose. A generic
-      // auth code must never activate the password-reset screen.
-      if (params.get('type') !== 'recovery') return;
+      // PKCE callbacks may contain only a code, while implicit callbacks
+      // include type=recovery and tokens. The callback path is exact-matched.
+      if (params.get('type') !== 'recovery' && !authCode) return;
       if (params.get('error') || (!authCode && (!accessToken || !refreshToken))) {
         if (active) message('Recuperar contraseña', 'El enlace no contiene una sesión válida. Solicita otro correo.');
         return;
