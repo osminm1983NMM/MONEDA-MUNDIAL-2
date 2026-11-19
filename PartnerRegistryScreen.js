@@ -79,6 +79,12 @@ export default function PartnerRegistryScreen({ supabase }) {
   async function reloadPartners() {
     const rows = await request('mwd_owner_partners_demo');
     setPartners(rows || []);
+    if (selectedId && !(rows || []).some(p => p.id === selectedId)) {
+      setSelectedId(null);
+      setLocations([]);
+      setAudit([]);
+      setDetailsReady(false);
+    }
   }
   async function reloadDetails(id) {
     if (!id) { setLocations([]); setAudit([]); setDetailsReady(false); return; }
@@ -200,7 +206,12 @@ export default function PartnerRegistryScreen({ supabase }) {
       {(NEXT[selected.review_status] || []).map(([status, label]) =>
         <Btn key={status} title={label} secondary disabled={busy} onPress={() => setStatus(status)} />)}
 
-      {!detailsReady && <Text style={s.dim}>Los detalles no están disponibles. Selecciona nuevamente el socio para reintentar.</Text>}
+      {!detailsReady && <Text style={s.dim}>Los detalles no están disponibles. Puedes reintentar la consulta.</Text>}
+      {!detailsReady && <Btn title="Reintentar carga de detalles" secondary disabled={busy} onPress={async () => {
+        setBusy(true); setError('');
+        try { await reloadDetails(selectedId); } catch (err) { report(err); }
+        finally { setBusy(false); }
+      }} />}
       <Text style={[s.title, { marginTop: 17 }]}>Sucursales candidatas</Text>
       {locations.map(l => <Text key={l.id} style={s.text}>
         {l.display_name} — {l.city} — {l.currency_code} · Borrador
