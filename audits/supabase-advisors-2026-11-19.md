@@ -32,3 +32,19 @@ Remediaciones oficiales:
 6. Completar APK instalada y pruebas de dos cuentas antes de dar por cerrada la demo Android.
 
 **Conclusión:** la exportación Android no sustituye una auditoría de autorización del backend ni pruebas reales de instalación.
+
+## Verificación SQL de permisos (solo lectura)
+
+Consulta de catálogo `pg_proc` y `pg_namespace` sobre las funciones `public.mwd_%` con `SECURITY DEFINER` ejecutables por `authenticated`:
+
+- Total: **56**.
+- Sin permiso `EXECUTE` para `anon`: **56 de 56**.
+- Con configuración explícita de `search_path`: **56 de 56**.
+- Con referencia textual directa a `auth.uid()`: **21 de 56**.
+- Con referencia textual a posibles funciones auxiliares de roles/propietario/alcance: **40 de 56**.
+
+**Precaución:** los dos últimos conteos son búsquedas de texto en el cuerpo SQL, se superponen y **no son pruebas de autorización efectiva**. Una función puede delegar comprobaciones en auxiliares o tener una condición incorrecta. Los 56 procedimientos requieren revisión semántica de sus rutas de acceso, especialmente funciones `mwd_owner_%`, transferencias, retiros y conversiones.
+
+El catálogo confirmó asimismo que `public.mwd_handle_new_user()` no concede `EXECUTE` ni a `anon` ni a `authenticated`; no forma parte de los 56 avisos.
+
+**Acción:** conservar permisos actuales; no conceder acceso directo a tablas privadas. Siguiente fase: inspección de cuerpos y dependencias de funciones críticas, seguida de pruebas negativas con usuarios de distintos roles.
