@@ -168,6 +168,10 @@ export default function PartnerRegistryScreen({ supabase }) {
       setNotice('Candidato guardado como borrador; sin capacidad de pagar remesas.');
       setError('El candidato se guardó, pero no se pudo actualizar la pantalla. Actualiza el listado; no vuelvas a guardarlo.');
     } else {
+      // Una respuesta perdida puede ocultar una escritura confirmada en servidor.
+      // Bloquear nuevos guardados hasta verificar el listado.
+      setListReady(false);
+      setDetailsReady(false);
       setError('No se pudo confirmar el resultado del guardado. Verifica el listado antes de repetirlo. Detalle: ' + (outcome.error?.message || 'Error de conexión.'));
       setNotice('');
     }
@@ -243,6 +247,8 @@ export default function PartnerRegistryScreen({ supabase }) {
       setNotice('Sucursal candidata guardada. No es un punto de retiro autorizado.');
       setError('La sucursal se guardó, pero no se pudo actualizar el listado. Recarga los detalles; no vuelvas a guardarla.');
     } else {
+      // No seguir habilitando escrituras con detalles potencialmente obsoletos.
+      setDetailsReady(false);
       setError('No se pudo confirmar el guardado de la sucursal. Recarga los detalles y comprueba si aparece antes de repetirlo. Detalle: ' + (outcome.error?.message || 'Error de conexión.'));
       setNotice('');
     }
