@@ -233,12 +233,16 @@ export default function App() {
       const requestId = request.id;
       // Consultar primero por si la respuesta se perdió antes de cerrar la app.
       const previous = await supabase.rpc('mwd_operation_status_demo', { p_request_id: requestId });
+      if (previous.error) throw new Error('No se pudo consultar el estado previo. No se enviará una nueva solicitud hasta verificarlo.');
       const already = previous.data;
+      if (!already || !['processed', 'unconfirmed'].includes(already.status)) {
+        throw new Error('Estado remoto inesperado. Operación detenida para revisión.');
+      }
       const matches = !previous.error && already?.status === 'processed' &&
         already?.requestId === requestId && already?.amountCents === cents &&
         already?.kind === (type === 'transfer' ? 'transfer' : 'contribution') &&
         (type !== 'transfer' || already?.recipientCode === code);
-      if (!previous.error && already?.status === 'processed' && !matches) {
+      if (already?.status === 'processed' && !matches) {
         throw new Error('El servidor encontró una operación con datos diferentes. Requiere revisión.');
       }
       const response = matches ? { data: { status: 'already_processed' }, error: null } :
@@ -253,7 +257,9 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
-      await AsyncStorage.removeItem(pendingKey);
+      // El servidor ya confirmó la operación; errores de refresco no deben reintentarla.
+      try { await AsyncStorage.removeItem(pendingKey); }
+      catch (_storageError) { message('Sincronización pendiente', 'Operación confirmada; el registro local se verificará en el próximo intento.'); }
       pendingRef.current = null;
       setAmount('');
       setRecipientCode('');
