@@ -120,6 +120,9 @@ export default function App() {
   const pendingRecoveryErrorRef = useRef(false);
   const pickupPendingRef = useRef(null);
   const userId = session?.user?.id;
+  // Updated on every render: async callbacks must not compare against their stale closure.
+  const currentUserIdRef = useRef(userId);
+  currentUserIdRef.current = userId;
 
   useEffect(() => {
     let active = true;
@@ -478,7 +481,7 @@ export default function App() {
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_wallet_demo');
       if (error) throw error;
-      if (revision === swapWalletRevisionRef.current && requestedUserId === userId) setSwapWallet(data);
+      if (revision === swapWalletRevisionRef.current && requestedUserId === currentUserIdRef.current) setSwapWallet(data);
     } catch (error) {
       if (revision === swapWalletRevisionRef.current) message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
     } finally {
@@ -508,11 +511,11 @@ export default function App() {
       });
       if (error) throw error;
       // Ignore responses for an amount, asset or account that has since changed.
-      if (quoteRevision === swapQuoteRevisionRef.current && quoteUserId === userId) {
+      if (quoteRevision === swapQuoteRevisionRef.current && quoteUserId === currentUserIdRef.current) {
         setSwapQuote(data);
       }
     } catch (error) {
-      if (quoteRevision === swapQuoteRevisionRef.current && quoteUserId === userId) {
+      if (quoteRevision === swapQuoteRevisionRef.current && quoteUserId === currentUserIdRef.current) {
         message('Cotización', error.message || 'No se pudo cotizar.');
       }
     } finally {
@@ -539,7 +542,7 @@ export default function App() {
       if (error) throw error;
       if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
       // Do not let an old account's confirmation overwrite a new account's form.
-      if (confirmRevision !== swapQuoteRevisionRef.current || confirmUserId !== userId) return;
+      if (confirmRevision !== swapQuoteRevisionRef.current || confirmUserId !== currentUserIdRef.current) return;
       setSwapQuote(null);
       setSwapAmount('');
       // A successful confirmation is final even when refreshing balances fails.
@@ -547,14 +550,14 @@ export default function App() {
       try {
         const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
         if (walletResponse.error) throw walletResponse.error;
-        if (confirmRevision === swapQuoteRevisionRef.current && confirmUserId === userId) {
+        if (confirmRevision === swapQuoteRevisionRef.current && confirmUserId === currentUserIdRef.current) {
           setSwapWallet(walletResponse.data);
         }
       } catch (_refreshError) {
         // Never present a completed conversion as a failed confirmation.
       }
     } catch (error) {
-      if (confirmRevision === swapQuoteRevisionRef.current && confirmUserId === userId) {
+      if (confirmRevision === swapQuoteRevisionRef.current && confirmUserId === currentUserIdRef.current) {
         message('Conversión no confirmada', (error.message || 'Error desconocido') +
           '\nConsulta los saldos antes de intentar otra conversión.');
       }
@@ -626,7 +629,7 @@ export default function App() {
       const { data, error } = await supabase.rpc('mwd_pickup_my_orders_demo');
       if (error) throw error;
       if (!Array.isArray(data)) throw new Error('Respuesta de órdenes no reconocida.');
-      if (revision === pickupOrdersRevisionRef.current && requestedUserId === userId) setPickupOrders(data);
+      if (revision === pickupOrdersRevisionRef.current && requestedUserId === currentUserIdRef.current) setPickupOrders(data);
     } catch (error) {
       if (revision === pickupOrdersRevisionRef.current) message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
     } finally {
