@@ -130,6 +130,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    pendingRef.current = null;
+    setAmount('');
+    setRecipientCode('');
     if (!userId) {
       setWallet(null);
       setOperations([]);
@@ -139,6 +142,55 @@ export default function App() {
       return;
     }
     refreshAccount(userId);
+    // Restaurar ambos borradores en orden, sin competir por la navegación.
+    // Nunca ejecutar una operación durante la restauración.
+    let active = true;
+    (async () => {
+      let hasOperation = false;
+      try {
+        const raw = await AsyncStorage.getItem('mwd:pending-demo-operation:' + userId);
+        if (raw && active) {
+          const saved = JSON.parse(raw);
+          if (!saved || !/^[0-9a-f-]{36}$/i.test(saved.id || '') ||
+              !Number.isSafeInteger(saved.cents) || saved.cents < 1 ||
+              saved.cents > LIMIT_CENTS || typeof saved.code !== 'string' ||
+              !['transfer', 'contribution'].includes(saved.type) ||
+              (saved.type === 'transfer' && !/^MWD-[A-F0-9]{16}$/.test(saved.code)) ||
+              (saved.type === 'contribution' && saved.code !== '')) {
+            throw new Error('Datos pendientes inválidos.');
+          }
+          if (!active) return;
+          hasOperation = true;
+          pendingRef.current = saved;
+          setAmount(formatMWD(saved.cents));
+          setRecipientCode(saved.code);
+          setScreen(saved.type === 'transfer' ? 'Transferir' : 'Aportar');
+          message('Operación pendiente recuperada', 'Revisa los datos y confirma para consultar el servidor con la misma referencia. No se enviará automáticamente.');
+        }
+      } catch (_error) {
+        if (active) {
+          hasOperation = true; // Un borrador dañado también debe bloquear otro flujo.
+          message('Operación pendiente', 'Hay datos locales que requieren revisión. No se enviará ninguna operación automáticamente.');
+        }
+      }
+      try {
+        const raw = await AsyncStorage.getItem('mwd:pending-demo-pickup:' + userId);
+        if (!raw || !active) return;
+        const saved = JSON.parse(raw);
+        if (!saved || !/^[0-9a-f-]{36}$/i.test(saved.id || '') ||
+            saved.country !== 'HN' || !Number.isSafeInteger(saved.cents) ||
+            saved.cents < 100 || saved.cents > 100000) {
+          throw new Error('Orden pendiente inválida.');
+        }
+        if (!active) return;
+        setPickupAmount(formatMWD(saved.cents));
+        if (!hasOperation) setScreen('Retiros');
+        message('Retiro ficticio pendiente', 'Se recuperó el importe. Revisa y confirma para reintentar con la misma referencia; no se enviará automáticamente.');
+      } catch (_error) {
+        if (active) message('Retiro pendiente', 'Hay una orden local pendiente que requiere revisión antes de crear otra.');
+      }
+    })();
+    return () => { active = false; };
   }, [userId]);
 
   async function refreshAccount(id = userId) {
@@ -210,12 +262,48 @@ export default function App() {
     busyRef.current = true;
     setBusy(true);
     try {
-      const pending = pendingRef.current;
-      if (!pending || pending.type !== type || pending.cents !== cents || pending.code !== code) {
-        pendingRef.current = { type, cents, code, id: uniqueRequestId() };
+      if (!userId) throw new Error('Inicia sesión antes de operar.');
+      // Guardar el UUID antes de enviar: permite recuperarlo tras cerrar Android.
+      const pendingKey = 'mwd:pending-demo-operation:' + userId;
+      const savedRaw = await AsyncStorage.getItem(pendingKey);
+      let saved = null;
+      if (savedRaw) {
+        try { saved = JSON.parse(savedRaw); }
+        catch (_parseError) { throw new Error('Hay una operación pendiente ilegible. Requiere revisión antes de continuar.'); }
+        if (!saved || !/^[0-9a-f-]{36}$/i.test(saved.id || '') ||
+            !['transfer', 'contribution'].includes(saved.type) ||
+            !Number.isSafeInteger(saved.cents) || typeof saved.code !== 'string') {
+          throw new Error('Hay una operación pendiente inválida. Requiere revisión antes de continuar.');
+        }
+        if (saved.type !== type || saved.cents !== cents || saved.code !== code) {
+          throw new Error('Hay una operación pendiente con otros datos. Repite sus datos originales para verificarla antes de crear otra.');
+        }
       }
-      const requestId = pendingRef.current.id;
-      const response = type === 'transfer'
+      const request = saved || { type, cents, code, id: uniqueRequestId() };
+      if (!saved) await AsyncStorage.setItem(pendingKey, JSON.stringify(request));
+      pendingRef.current = request;
+      const requestId = request.id;
+      // Consultar primero por si la respuesta se perdió antes de cerrar la app.
+      const previous = await supabase.rpc('mwd_operation_status_demo', { p_request_id: requestId });
+      if (previous.error) throw new Error('No se pudo consultar el estado previo. No se enviará una nueva solicitud hasta verificarlo.');
+      const already = previous.data;
+      if (!already || !['processed', 'unconfirmed'].includes(already.status)) {
+        throw new Error('Estado remoto inesperado. Operación detenida para revisión.');
+      }
+      const matches = !previous.error && already?.status === 'processed' &&
+        already?.requestId === requestId && already?.amountCents === cents &&
+        already?.kind === (type === 'transfer' ? 'transfer' : 'contribution') &&
+        (type !== 'transfer' || already?.recipientCode === code);
+      if (already?.status === 'processed' && !matches) {
+        throw new Error('El servidor encontró una operación con datos diferentes. Requiere revisión.');
+      }
+      // El borrador pertenece a la cuenta activa, no a una sesión anterior.
+      const activeSession = await supabase.auth.getSession();
+      if (activeSession.error || activeSession.data.session?.user?.id !== userId) {
+        throw new Error('La sesión cambió. No se enviará ninguna operación.');
+      }
+      const response = matches ? { data: { status: 'already_processed' }, error: null } :
+        type === 'transfer'
         ? await supabase.rpc('mwd_transfer_demo', {
           p_recipient_code: code, p_amount_cents: cents, p_request_id: requestId,
         })
@@ -226,6 +314,9 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
+      // El servidor ya confirmó la operación; errores de refresco no deben reintentarla.
+      try { await AsyncStorage.removeItem(pendingKey); }
+      catch (_storageError) { message('Sincronización pendiente', 'Operación confirmada; el registro local se verificará en el próximo intento.'); }
       pendingRef.current = null;
       setAmount('');
       setRecipientCode('');
@@ -235,8 +326,37 @@ export default function App() {
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
     } catch (error) {
-      message('Operación no confirmada',
-        (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
+      // Una respuesta perdida no significa que la operación haya fallado.
+      // Consultamos el servidor usando el mismo identificador de reintento.
+      const pending = pendingRef.current;
+      let verified = false;
+      if (pending && pending.type === type && pending.cents === cents && pending.code === code) {
+        try {
+          const statusResponse = await supabase.rpc('mwd_operation_status_demo', {
+            p_request_id: pending.id,
+          });
+          const result = statusResponse.data;
+          if (!statusResponse.error && result?.status === 'processed' &&
+              result?.requestId === pending.id && result?.amountCents === cents &&
+              result?.kind === (type === 'transfer' ? 'transfer' : 'contribution') &&
+              (type !== 'transfer' || result?.recipientCode === code)) {
+            verified = true;
+            await AsyncStorage.removeItem('mwd:pending-demo-operation:' + userId);
+            pendingRef.current = null;
+            setAmount('');
+            setRecipientCode('');
+            setScreen('Inicio');
+            await refreshAccount();
+            message('Operación ficticia verificada', 'El servidor confirma que la operación ya fue registrada. No se envió de nuevo.');
+          }
+        } catch (_statusError) {
+          // Sin confirmación conservamos el mismo UUID para un reintento seguro.
+        }
+      }
+      if (!verified) {
+        message('Operación no confirmada',
+          (error.message || 'Error desconocido') + '\nNo cambies los datos si deseas reintentar. El servidor evita duplicados con la misma referencia.');
+      }
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -340,21 +460,47 @@ export default function App() {
     if (pickupBusy) return;
     const cents = amountToCents(pickupAmount);
     if (cents === null || cents < 100 || cents > 100000) {
-      return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
+      return message('Monto inválido', 'Usa entre 1.00 y 1000.00 USD de referencia (solo simulación).');
     }
-    const requestId = uniqueRequestId();
     setPickupBusy(true);
     setPickupResult(null);
     try {
+      if (!userId) throw new Error('Inicia sesión antes de crear una orden.');
+      const pendingKey = 'mwd:pending-demo-pickup:' + userId;
+      const raw = await AsyncStorage.getItem(pendingKey);
+      let saved = null;
+      if (raw) {
+        try { saved = JSON.parse(raw); }
+        catch (_error) { throw new Error('Orden pendiente ilegible. Requiere revisión.'); }
+        if (!saved || !/^[0-9a-f-]{36}$/i.test(saved.id || '') ||
+            saved.country !== 'HN' || !Number.isSafeInteger(saved.cents)) {
+          throw new Error('Orden pendiente inválida. Requiere revisión.');
+        }
+        if (saved.cents !== cents) {
+          throw new Error('Existe una orden pendiente con otro importe. Repite el importe original para recuperarla.');
+        }
+      }
+      const request = saved || { id: uniqueRequestId(), country: 'HN', cents };
+      if (!saved) await AsyncStorage.setItem(pendingKey, JSON.stringify(request));
+      const activeSession = await supabase.auth.getSession();
+      if (activeSession.error || activeSession.data.session?.user?.id !== userId) {
+        throw new Error('La sesión cambió. No se creará ninguna orden.');
+      }
       const { data, error } = await supabase.rpc('mwd_pickup_create_demo', {
-        p_destination_country: 'HN', p_amount_cents: cents, p_request_id: requestId,
+        p_destination_country: request.country, p_amount_cents: request.cents,
+        p_request_id: request.id,
       });
       if (error) throw error;
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
+      await AsyncStorage.removeItem(pendingKey);
       setPickupResult(data);
       setPickupAmount('');
+      if (data.status === 'already_created' && !data.pickupCode) {
+        message('Orden ficticia recuperada', 'La orden ya existía. Por seguridad el código secreto no se muestra de nuevo. Consulta tus órdenes; no crees otra para recuperar el código.');
+      }
     } catch (error) {
-      message('Orden ficticia no creada', error.message || 'Error desconocido');
+      message('Orden ficticia no confirmada', (error.message || 'Error desconocido') +
+        '\nReintenta con el mismo importe para conservar la referencia.');
     } finally {
       setPickupBusy(false);
     }
@@ -454,7 +600,7 @@ export default function App() {
               {pickupOrders.map(order => (
                 <View key={order.orderId} style={styles.card}>
                   <Text style={styles.small}>Destino: {order.destinationCountry === 'HN' ? 'Honduras' : order.destinationCountry}</Text>
-                  <Text style={styles.small}>Monto: {formatMWD(order.amountCents)} MWD ficticios</Text>
+                  <Text style={styles.small}>Monto de referencia: {formatMWD(order.amountCents)} {order.currency || 'moneda no indicada'} (simulación, sin dinero real)</Text>
                   <Text style={styles.small}>Estado: {order.status}</Text>
                   <Text style={styles.muted}>Creada: {new Date(order.createdAt).toLocaleString()}</Text>
                   <Text style={styles.muted}>Vence: {new Date(order.expiresAt).toLocaleString()}</Text>
@@ -471,7 +617,7 @@ export default function App() {
             {screen === 'Retiros' && <View style={styles.card}>
               <Text style={styles.heading}>Retiro ficticio a Honduras</Text>
               <Text style={styles.warning}>Solo simulación. No se entrega dinero real.</Text>
-              <Text style={styles.muted}>Monto de prueba: 1.00 a 1000.00 MWD</Text>
+              <Text style={styles.muted}>Monto de referencia: 1.00 a 1000.00 USD (sin dinero real ni débito MWD)</Text>
               <TextInput style={styles.input} placeholder="Ejemplo: 10.00"
                 placeholderTextColor="#9fb1c8" keyboardType="decimal-pad"
                 value={pickupAmount} onChangeText={setPickupAmount} editable={!pickupBusy} />
