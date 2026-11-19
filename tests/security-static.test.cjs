@@ -80,3 +80,28 @@ test('un error tardío no restaura operaciones de otra sesión', () => {
   const fn = app.slice(start, end);
   assert.match(fn, /if \(activeUserRef\.current === userId && pendingRef\.current\?\.userId === userId\) \{\s*setPendingOperation\(pendingRef\.current\)/);
 });
+
+test('historial limitado a origen o destino del usuario además de RLS', () => {
+  assert.match(app, /\.or\(`source_user_id\.eq\.\$\{id\},destination_user_id\.eq\.\$\{id\}`\)/);
+});
+test('sincronización obsoleta no se considera exitosa', () => {
+  assert.match(app, /activeUserRef\.current !== id \|\| sequence !== refreshSequenceRef\.current\) return false/);
+});
+test('fallo de sincronización retira saldo e historial posiblemente obsoletos', () => {
+  const fn = app.slice(app.indexOf('async function refreshAccount'), app.indexOf('async function authenticate'));
+  assert.match(fn, /catch \(error\)[\s\S]*setWallet\(null\);\s*setOperations\(\[\]\)/);
+});
+test('confirmación y recuperación distinguen RPC confirmada de lectura fallida', () => {
+  for (const [start, end] of [
+    ['async function recoverPending', 'async function retryPending'],
+    ['async function retryPending', 'async function executeOperation'],
+    ['async function executeOperation', 'function prepareOperation'],
+  ]) {
+    const fn = app.slice(app.indexOf(start), app.indexOf(end));
+    assert.match(fn, /const refreshed = await refreshAccount\(item\.userId\)/);
+    assert.match(fn, /refreshed \? '' :/);
+  }
+});
+test('error de almacenamiento local impide cerrar sesión sin resolver', () => {
+  assert.match(app, /if \(busyRef\.current \|\| recovering \|\| pendingLoading \|\| pendingStorageError\)/);
+});
