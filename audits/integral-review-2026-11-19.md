@@ -47,3 +47,9 @@
 - Ahora la navegación preserva el identificador y los datos originales mientras haya una solicitud pendiente.
 - Se añadieron dos aserciones estáticas de regresión: 17 comprobaciones declaradas en la suite.
 - Verificación directa del texto de código actualizado: 4/4 condiciones comprobadas. **No equivale a ejecutar la suite Node ni a prueba Android.**
+
+## Verificación integrada adicional — 19 noviembre 2026
+- Recuento Supabase consultado sin escritura: **5 billeteras**, **25 operaciones**, de ellas **19 transferencias** y **6 aportaciones**; **0 billeteras con saldo negativo**. Este recuento no sustituye conciliación de asientos ni pruebas de concurrencia.
+- Se corrigió el salto de línea mostrado al informar un retiro con respuesta incierta; antes se mostraba literalmente `\\n`.
+- Entorno de ejecución local tiene Node 22, pero no dispone de acceso de red al repositorio privado. Por tanto, no se ha ejecutado aquí la suite completa de GitHub. La comprobación de GitHub Actions continúa pendiente de resultado verificable.
+- Se mantiene prohibido fusionar PR #125 hasta obtener pruebas automatizadas, comprobación de Android y pruebas de autorización.
