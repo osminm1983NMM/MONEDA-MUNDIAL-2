@@ -138,3 +138,9 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 86. Perder respuesta de cancelación y fallar getSession en el manejo de error: mostrar «Resultado de cancelación pendiente» y pedir consultar Mis retiros.
 87. Fallar consulta de Mis retiros y fallar también getSession: mostrar «Sesión no verificada» sin excepción no controlada.
 88. Dos consultas de Mis retiros en vuelo; falla la antigua después de la nueva: no mostrar alertas obsoletas ni sobrescribir lista.
+
+## Errores de sesión en consultas de conversión
+89. Fallar consulta de billetera Coin/Digital y también getSession: mostrar «Sesión no verificada» sin excepción no controlada.
+90. Fallar cotización y también getSession: mostrar «Sesión no verificada» y no afirmar que existe cotización válida.
+91. Iniciar dos consultas de billetera Coin/Digital; falla tarde la antigua: no mostrar alerta obsoleta ni sobrescribir datos recientes.
+92. Cambiar de cuenta durante una cotización fallida: no mostrar errores ni cotizaciones de la cuenta anterior.
