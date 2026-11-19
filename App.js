@@ -280,8 +280,15 @@ export default function App() {
       return message('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
     }
     if (!wallet) return message('Espera', 'Primero carga tu cuenta.');
-    if (cents > wallet.balance_cents) return message('Saldo insuficiente', 'No tienes suficientes MWD ficticios.');
     const code = recipientCode.trim().toUpperCase();
+    const pending = pendingRef.current;
+    const retrySameRequest = pending?.userId === userId && pending.type === type &&
+      pending.cents === cents && pending.code === code;
+    // Un reintento incierto conserva su clave aunque el primer intento haya debitado el saldo.
+    // El servidor debe aplicar idempotencia y validar los fondos en solicitudes nuevas.
+    if (!retrySameRequest && cents > wallet.balance_cents) {
+      return message('Saldo insuficiente', 'No tienes suficientes MWD ficticios.');
+    }
     if (type === 'transfer') {
       if (!/^MWD-[A-F0-9]{16}$/.test(code)) {
         return message('Identificador', 'Introduce el código MWD- seguido de 16 caracteres.');
