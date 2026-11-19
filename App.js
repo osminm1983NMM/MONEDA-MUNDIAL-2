@@ -119,16 +119,19 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
+    let authEventReceived = false;
     supabase.auth.getSession()
       .then(({ data, error }) => {
         if (error) throw error;
-        if (active) setSession(data.session);
+        // La consulta inicial puede llegar después de un evento de login/logout.
+        if (active && !authEventReceived) setSession(data.session);
       })
       .catch(error => message('Sesión', error.message))
       .finally(() => { if (active) setAuthLoading(false); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return;
+      authEventReceived = true;
       const nextId = nextSession?.user?.id;
       if (authEventUserRef.current !== nextId) setScreen('Inicio');
       authEventUserRef.current = nextId;
