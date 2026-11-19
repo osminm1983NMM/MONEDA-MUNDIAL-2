@@ -32,4 +32,7 @@ assert.ok(screen.includes("typeof a.changed_at === 'string'"), 'Verifica campos 
 assert.ok(screen.includes('if (busy || !listReady || !partners.some(p => p.id === id)) return;'), 'Impide seleccionar un socio sin listado vigente');
 assert.ok(screen.includes('secondary={selectedId !== p.id} disabled={busy || !listReady}'), 'Deshabilita selección en listado no verificado');
 assert.ok(reload.includes('setLocations([]);') && reload.includes('setAudit([]);') && reload.indexOf('setAudit([]);') < request, 'Oculta sucursales e historial antiguos antes de consultar');
-console.log('22 comprobaciones estructurales de recuperación superadas.');
+assert.ok(screen.includes('{listReady && partners.map('), 'No muestra socios con listado no verificado');
+assert.ok(screen.includes('{listReady && selected && <View'), 'No muestra tarjeta de socio con listado no verificado');
+assert.ok(screen.includes('listReady ? partners.length : "sin verificar"'), 'No presenta conteo antiguo como vigente');
+console.log('25 comprobaciones estructurales de recuperación superadas.');
