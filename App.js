@@ -9,7 +9,7 @@ import 'react-native-get-random-values';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, Alert, Platform, StatusBar, ActivityIndicator
+  StyleSheet, Alert, Platform, StatusBar, ActivityIndicator, Linking
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
@@ -131,6 +131,41 @@ export default function App() {
   // Updated on every render: async callbacks must not compare against their stale closure.
   const currentUserIdRef = useRef(userId);
   currentUserIdRef.current = userId;
+
+  useEffect(() => {
+    let active = true;
+    const processRecoveryUrl = async url => {
+      if (!url || !url.startsWith('monedamundial://')) return;
+      const fragment = url.split('#')[1] || '';
+      const query = url.split('?')[1]?.split('#')[0] || '';
+      const params = new URLSearchParams(fragment || query);
+      if (params.get('type') !== 'recovery') return;
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      if (!accessToken || !refreshToken) {
+        if (active) message('Recuperar contraseña', 'El enlace no contiene una sesión válida. Solicita otro correo.');
+        return;
+      }
+      try {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (error) throw error;
+        if (active) {
+          setRecoveryMode(true);
+          setScreen('Cuenta');
+        }
+      } catch (_error) {
+        if (active) message('Recuperar contraseña', 'No se pudo abrir el enlace. Solicita uno nuevo.');
+      }
+    };
+    Linking.getInitialURL().then(processRecoveryUrl).catch(() => {});
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      processRecoveryUrl(url);
+    });
+    return () => { active = false; subscription.remove(); };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -310,7 +345,9 @@ export default function App() {
     if (authBusy) return;
     setAuthBusy(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail);
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: 'monedamundial://auth/recovery',
+      });
       if (error) throw error;
       message('Recuperar contraseña',
         'Si el correo corresponde a una cuenta, revisa tu bandeja de entrada y sigue las instrucciones. No compartas el enlace.');
