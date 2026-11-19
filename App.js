@@ -314,8 +314,12 @@ export default function App() {
               (type === 'transfer' && check.data.recipientCode !== code)) {
             throw new Error('La operación original no coincide. Requiere revisión manual.');
           }
-          await AsyncStorage.removeItem(storageKey);
-          pendingRef.current = null;
+          try {
+            await AsyncStorage.removeItem(storageKey);
+            pendingRef.current = null;
+          } catch (_cleanupError) {
+            pendingRecoveryErrorRef.current = true;
+          }
           setAmount('');
           setRecipientCode('');
           setScreen('Inicio');
@@ -370,9 +374,13 @@ export default function App() {
               status.data.kind === pending.type &&
               status.data.amountCents === pending.cents &&
               (pending.type !== 'transfer' || status.data.recipientCode === pending.code)) {
-            await AsyncStorage.removeItem('mwd_demo_operation_pending_' + userId);
             verified = true;
-            pendingRef.current = null;
+            try {
+              await AsyncStorage.removeItem('mwd_demo_operation_pending_' + userId);
+              pendingRef.current = null;
+            } catch (_cleanupError) {
+              pendingRecoveryErrorRef.current = true;
+            }
             setAmount('');
             setRecipientCode('');
             setScreen('Inicio');
