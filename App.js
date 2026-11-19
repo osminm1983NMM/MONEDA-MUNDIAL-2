@@ -107,6 +107,7 @@ export default function App() {
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+  const operationRevisionRef = useRef(0);
   const swapConfirmBusyRef = useRef(false);
   const swapQuoteBusyRef = useRef(false);
   const swapQuoteRevisionRef = useRef(0);
@@ -152,6 +153,9 @@ export default function App() {
   // Never reuse a withdrawal request held in memory across account changes.
   useEffect(() => {
     pickupPendingRef.current = null;
+    operationRevisionRef.current += 1;
+    busyRef.current = false;
+    setBusy(false);
     pickupCreateRevisionRef.current += 1;
     pickupCancelRevisionRef.current += 1;
     pickupCreateBusyRef.current = false;
@@ -330,9 +334,14 @@ export default function App() {
   async function executeOperation(type, cents, code = '') {
     if (busyRef.current) return;
     busyRef.current = true;
+    const operationRevision = ++operationRevisionRef.current;
+    const operationUserId = userId;
+    const isCurrentOperation = () => operationRevision === operationRevisionRef.current &&
+      operationUserId === currentUserIdRef.current;
     setBusy(true);
     try {
       const storageKey = await loadPendingOperation();
+      if (!isCurrentOperation()) return;
       const pending = pendingRef.current;
       if (pending && (pending.type !== type || pending.cents !== cents || pending.code !== code)) {
         throw new Error('Existe una solicitud pendiente. Reintenta con el tipo, importe y destinatario originales.');
@@ -342,6 +351,7 @@ export default function App() {
       }
       // Persist BEFORE calling the server: timeout and app restart must reuse this ID.
       await AsyncStorage.setItem(storageKey, JSON.stringify(pendingRef.current));
+      if (!isCurrentOperation()) return;
       const requestId = pendingRef.current.id;
       // A retry after a lost response must first ask whether the original was posted.
       // Never create a new request ID merely because this status check fails.
@@ -349,6 +359,7 @@ export default function App() {
         const check = await supabase.rpc('mwd_operation_status_demo', {
           p_request_id: requestId,
         });
+        if (!isCurrentOperation()) return;
         if (check.error) throw check.error;
         if (check.data?.status === 'processed') {
           if (check.data.kind !== type || check.data.amountCents !== cents ||
@@ -380,6 +391,7 @@ export default function App() {
         : await supabase.rpc('mwd_contribute_demo', {
           p_amount_cents: cents, p_request_id: requestId,
         });
+      if (!isCurrentOperation()) return;
       if (response.error) throw response.error;
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
@@ -404,6 +416,7 @@ export default function App() {
     } catch (error) {
       // A timeout does not prove that the server rolled back the operation.
       // Check the original request before suggesting a retry.
+      if (!isCurrentOperation()) return;
       const pending = pendingRef.current;
       let verified = false;
       if (pending) {
@@ -411,6 +424,7 @@ export default function App() {
           const status = await supabase.rpc('mwd_operation_status_demo', {
             p_request_id: pending.id,
           });
+          if (!isCurrentOperation()) return;
           if (!status.error && status.data?.status === 'processed' &&
               status.data.kind === pending.type &&
               status.data.amountCents === pending.cents &&
@@ -439,8 +453,10 @@ export default function App() {
           '\nConserva la solicitud original. No cambies el importe ni el destinatario; vuelve a consultar o reintenta con los mismos datos.');
       }
     } finally {
-      busyRef.current = false;
-      setBusy(false);
+      if (isCurrentOperation()) {
+        busyRef.current = false;
+        setBusy(false);
+      }
     }
   }
 
