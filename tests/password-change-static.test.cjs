@@ -20,7 +20,7 @@ test('signed-in password change validates session and uses Supabase Auth', () =>
 test('account screen masks password and prevents duplicate submission', () => {
   assert.match(app, /secureTextEntry autoCapitalize="none"/);
   assert.match(app, /onPress=\{changeSignedInPassword\} disabled=\{passwordChangeBusy\}/);
-  assert.match(app, /setNewPassword\(''\);\s*setPasswordChangeBusy\(false\);\s*\}, \[userId\]\)/);
+  assert.match(app, /setNewPassword\(''\);\s*setPasswordChangeBusy\(false\);\s*passwordChangeBusyRef\.current = false;\s*\}, \[userId\]\)/);
 });
 
 test('password update uses a synchronous guard for rapid taps', () => {
