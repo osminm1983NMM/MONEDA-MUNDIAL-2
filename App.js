@@ -182,16 +182,19 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
+    let receivedAuthEvent = false;
     supabase.auth.getSession()
       .then(({ data, error }) => {
         if (error) throw error;
-        if (active) setSession(data.session);
+        // An auth event is more recent than the initial session lookup.
+        if (active && !receivedAuthEvent) setSession(data.session);
       })
-      .catch(error => message('Sesión', error.message))
+      .catch(error => { if (active && !receivedAuthEvent) message('Sesión', error.message); })
       .finally(() => { if (active) setAuthLoading(false); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
+      receivedAuthEvent = true;
       setSession(nextSession);
       setAuthLoading(false);
       // Token refreshes and user updates must not interrupt an unfinished flow.
