@@ -43,6 +43,10 @@ Este plan no habilita pagos reales. Ejecutar solo con cuentas y créditos fictic
 25. **Cambio de usuario con retiro cargado**: abrir la lista de retiros de la cuenta A, cerrar sesión e iniciar con B. Deben borrarse los datos de retiro de A antes de consultar los de B.
 26. **Confirmación remota y fallo de limpieza local**: simular `processed` y fallo de `AsyncStorage.removeItem`; comprobar que la app reconoce la operación confirmada, no vuelve a enviar y muestra aviso de registro local pendiente.
 
+27. **Respuesta perdida y saldo ya debitado**: simular transferencia procesada cuyo saldo disponible es inferior al importe original. Confirmar que se puede consultar el UUID pendiente y que no se ejecuta un segundo débito.
+28. **Nuevo envío sin saldo**: sin solicitud pendiente, verificar que se mantiene el bloqueo por saldo insuficiente.
+29. **Doble pulsación de retiro**: pulsar dos veces rápidamente Crear orden ficticia y comprobar una sola invocación a la RPC de creación desde la interfaz.
+
 ## Criterios de aprobación
 - Ninguna operación duplicada por reintento o reinicio.
 - Ninguna operación nueva con una referencia pendiente de datos distintos.
