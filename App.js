@@ -446,7 +446,9 @@ export default function App() {
     } catch (error) {
       const { data: currentAuth } = await supabase.auth.getSession();
       if (currentAuth.session?.user?.id !== requestedBy) return;
-      message('Orden ficticia no creada', error.message || 'Error desconocido');
+      message('Resultado de orden no confirmado',
+        (error.message || 'Error de conexión') +
+        '\nLa orden pudo haberse creado. Consulta Mis retiros y, si reintentas con el mismo monto, se conservará el identificador de solicitud.');
     } finally {
       setPickupBusy(false);
     }
