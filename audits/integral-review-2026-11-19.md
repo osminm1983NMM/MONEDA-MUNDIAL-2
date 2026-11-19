@@ -153,3 +153,7 @@ select (select count(*) from public.mwd_operations where kind='contribution') as
 - Ejecución GitHub Actions `44543625068` (run #229), PR #125, commit `b7dcd6ecc7b3d108edf820cad46130405b0af846`: **completed / success**.
 - Pasos satisfactorios: validación JSON de `package.json`, comprobaciones estáticas de recuperación/idempotencia y pruebas ejecutables de funciones puras.
 - Esta validación no incluye instalación de dependencias Expo, compilación APK, dispositivo Android ni simulación de desconexión real; siguen pendientes.
+
+## Unificación del control automático — 19 noviembre 2026
+- El workflow `.github/workflows/validar-demo.yml` ejecuta ahora `npm test`, que incluye ambas suites `tests/*.test.cjs`, en lugar de dos invocaciones independientes.
+- La ejecución #229 previa estaba verde; esta modificación del workflow requiere su propia ejecución de CI para considerarse validada. Se preserva el diseño sin instalación de Expo ni compilación Android para minimizar consumo.
