@@ -92,3 +92,8 @@
 - **Aprobados:** 7 casos de importes válidos, 12 casos de importes inválidos y 2 aserciones de formato de saldo; **0 discrepancias**.
 - `uniqueRequestId` devolvió error por falta de `crypto.getRandomValues` en el entorno aislado. Esto es comportamiento seguro de fallo cerrado, **no** equivale a la prueba positiva de generación de 500 UUID. Esa prueba sigue pendiente en Node 22/Android.
 - Estas comprobaciones parciales no prueban las 25 aserciones estáticas ni el workflow completo; no declarar CI verde.
+
+## Estabilidad de sesión y navegación — 19 noviembre 2026
+- **Corregido:** `onAuthStateChange` ya no fuerza `Inicio` ante `TOKEN_REFRESHED` u otros eventos distintos de `SIGNED_IN`/`SIGNED_OUT`. Evita interrumpir pantallas de transferencia, conversión o retiro durante renovación automática del token.
+- Añadida comprobación estática específica; **26 comprobaciones declaradas**, más 5 pruebas dinámicas preparadas. No confundir con ejecución integral aprobada.
+- Riesgo residual: comprobar en Android la renovación de sesión durante solicitudes pendientes y el cierre de sesión con dos cuentas.
