@@ -108,6 +108,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
+  const pendingLoadedUserRef = useRef(null);
   const pickupPendingRef = useRef(null);
   const userId = session?.user?.id;
 
@@ -212,11 +213,37 @@ export default function App() {
     setRecipientCode(value);
   }
 
+  async function loadPendingOperation() {
+    if (!userId) throw new Error('Inicia sesión para recuperar la solicitud.');
+    const key = 'mwd_demo_operation_pending_' + userId;
+    if (pendingLoadedUserRef.current !== userId) {
+      pendingRef.current = null;
+      const saved = await AsyncStorage.getItem(key);
+      if (saved) {
+        const candidate = JSON.parse(saved);
+        if (!candidate || !['transfer', 'contribution'].includes(candidate.type) ||
+            !Number.isSafeInteger(candidate.cents) || candidate.cents < 1 ||
+            candidate.cents > LIMIT_CENTS || typeof candidate.id !== 'string' ||
+            typeof candidate.code !== 'string' ||
+            (candidate.type === 'transfer' && !/^MWD-[A-F0-9]{16}$/.test(candidate.code)) ||
+            (candidate.type === 'contribution' && candidate.code !== '')) {
+          throw new Error('Solicitud guardada inválida. Requiere revisión antes de enviar otra.');
+        }
+        pendingRef.current = candidate;
+        setAmount(formatMWD(candidate.cents));
+        setRecipientCode(candidate.code);
+      }
+      pendingLoadedUserRef.current = userId;
+    }
+    return key;
+  }
+
   async function executeOperation(type, cents, code = '') {
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
     try {
+      const storageKey = await loadPendingOperation();
       const pending = pendingRef.current;
       if (pending && (pending.type !== type || pending.cents !== cents || pending.code !== code)) {
         throw new Error('Existe una solicitud pendiente. Reintenta con el tipo, importe y destinatario originales.');
@@ -224,6 +251,8 @@ export default function App() {
       if (!pending) {
         pendingRef.current = { type, cents, code, id: uniqueRequestId() };
       }
+      // Persist BEFORE calling the server: timeout and app restart must reuse this ID.
+      await AsyncStorage.setItem(storageKey, JSON.stringify(pendingRef.current));
       const requestId = pendingRef.current.id;
       const response = type === 'transfer'
         ? await supabase.rpc('mwd_transfer_demo', {
@@ -236,6 +265,7 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
+      await AsyncStorage.removeItem(storageKey);
       pendingRef.current = null;
       setAmount('');
       setRecipientCode('');
@@ -259,6 +289,7 @@ export default function App() {
               status.data.amountCents === pending.cents &&
               (pending.type !== 'transfer' || status.data.recipientCode === pending.code)) {
             verified = true;
+            await AsyncStorage.removeItem('mwd_demo_operation_pending_' + userId);
             pendingRef.current = null;
             setAmount('');
             setRecipientCode('');
