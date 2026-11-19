@@ -553,8 +553,17 @@ export default function App() {
       if (currentAuth.session?.user?.id !== requestedBy || revision !== pickupOrdersRevisionRef.current) return;
       setPickupOrders(data);
     } catch (error) {
-      const { data: currentAuth } = await supabase.auth.getSession();
-      if (currentAuth.session?.user?.id !== requestedBy || revision !== pickupOrdersRevisionRef.current) return;
+      if (revision !== pickupOrdersRevisionRef.current) return;
+      try {
+        const authResult = await supabase.auth.getSession();
+        if (authResult.error) throw authResult.error;
+        if (authResult.data.session?.user?.id !== requestedBy) return;
+      } catch (authError) {
+        if (revision !== pickupOrdersRevisionRef.current) return;
+        message('Sesión no verificada', 'No se pudo verificar la cuenta al consultar Mis retiros.');
+        return;
+      }
+      if (revision !== pickupOrdersRevisionRef.current) return;
       message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
     } finally {
       if (revision === pickupOrdersRevisionRef.current) setPickupOrdersBusy(false);
