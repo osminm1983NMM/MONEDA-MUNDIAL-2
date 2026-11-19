@@ -165,6 +165,9 @@ export default function PartnerRegistryScreen({ supabase }) {
     if (outcome.state === 'confirmed') {
       setNotice('Candidato guardado como borrador; sin capacidad de pagar remesas.');
     } else if (outcome.state === 'confirmed-refresh-failed') {
+      // Incluso si falla la recarga antes de invalidarse, no permitir otro guardado.
+      setListReady(false);
+      setDetailsReady(false);
       setName('');
       setNotice('Candidato guardado como borrador; sin capacidad de pagar remesas.');
       setError('El candidato se guardó, pero no se pudo actualizar la pantalla. Actualiza el listado; no vuelvas a guardarlo.');
@@ -209,6 +212,7 @@ export default function PartnerRegistryScreen({ supabase }) {
     if (outcome.state === 'confirmed') {
       setNotice('Estado de revisión guardado. No habilita retiros ni pagos reales.');
     } else if (outcome.state === 'confirmed-refresh-failed') {
+      setListReady(false);
       setDetailsReady(false);
       setNotice('Estado de revisión guardado. No habilita retiros ni pagos reales.');
       setError('El estado se guardó, pero no se pudo actualizar la pantalla. Actualiza el listado y los detalles.');
