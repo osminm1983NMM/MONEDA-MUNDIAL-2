@@ -15,7 +15,7 @@ const checks = [
   ['renovación de token no reinicia navegación', /if \(event === 'SIGNED_IN' \|\| event === 'SIGNED_OUT' \|\| event === 'USER_DELETED'\)/],
   ['lectura inicial de sesión protegida de carreras', /active && !authEventReceived/],
   ['confirmación antes de refresco', /message\('Operación ficticia confirmada'[\s\S]{0,230}await refreshAccount\(\)/],
-  ['validación decimal de conversión corregida', app.includes(String.raw`/^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$/`)],
+  ['validación decimal de conversión corregida', app.includes(String.raw`/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/`)],
   ['cambio de importe no descarta reintento', /function changeAmount\(value\) \{\s*setAmount\(value\);\s*\}/],
   ['cambio de destinatario no descarta reintento', /function changeRecipient\(value\) \{\s*setRecipientCode\(value\);\s*\}/],
 ];
