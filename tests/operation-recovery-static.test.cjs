@@ -63,4 +63,10 @@ assert.ok(pickup.includes('try {\n        await AsyncStorage.removeItem(storageK
   'pickup success must tolerate failure to clear saved request ID');
 assert.ok(operation.includes('pendingRecoveryErrorRef.current = true;'),
   'confirmed transfer with failed cleanup must block new requests until recovery');
-console.log('PASS: 21 static recovery and idempotency safety checks');
+assert.ok(operation.includes('if (check.data?.status === \'processed\')') &&
+  operation.includes('try {\n            await AsyncStorage.removeItem(storageKey);'),
+  'already-processed recovery must not fail when local cleanup fails');
+assert.ok(operation.includes('verified = true;\n            try {') &&
+  operation.includes("await AsyncStorage.removeItem('mwd_demo_operation_pending_' + userId)"),
+  'timeout recovery must mark server-confirmed operations before cleanup');
+console.log('PASS: 23 static recovery and idempotency safety checks');
