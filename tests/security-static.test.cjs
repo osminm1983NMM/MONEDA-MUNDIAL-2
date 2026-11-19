@@ -126,3 +126,10 @@ test('reintento revalida estado al aceptar diálogo de confirmación', () => {
   assert.match(fn, /async \(\) => \{\s*\/\/[^\n]*\n\s*if \(busyRef\.current \|\| recoveringRef\.current \|\| pendingLoading \|\| pendingStorageError \|\|/);
   assert.match(fn, /!pendingUnconfirmed \|\| activeUserRef\.current !== item\.userId/);
 });
+
+test('renovación de token no restablece navegación si identidad sigue igual', () => {
+  const callback = app.slice(app.indexOf('supabase.auth.onAuthStateChange'), app.indexOf('return () => { active = false; subscription.unsubscribe(); }'));
+  assert.match(callback, /const nextUserId = nextSession\?\.user\?\.id \|\| null/);
+  assert.match(callback, /if \(authUserRef\.current !== nextUserId\) \{\s*authUserRef\.current = nextUserId;\s*setScreen\('Inicio'\)/);
+  assert.match(callback, /setSession\(nextSession\)/);
+});
