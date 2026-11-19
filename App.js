@@ -503,6 +503,11 @@ export default function App() {
       const storageKey = 'mwd_demo_pickup_pending_' + userId;
       const stored = await AsyncStorage.getItem(storageKey);
       const previous = stored ? JSON.parse(stored) : pickupPendingRef.current;
+      if (previous && (!Number.isSafeInteger(previous.cents) ||
+          typeof previous.id !== 'string' ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(previous.id))) {
+        throw new Error('Solicitud de retiro guardada inválida. Requiere revisión antes de reintentar.');
+      }
       if (previous && previous.cents !== cents) {
         throw new Error('Hay una orden sin confirmar de otro monto. Reintenta primero con el monto original o consulta Mis retiros.');
       }
