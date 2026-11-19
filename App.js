@@ -97,6 +97,7 @@ export default function App() {
   const [swapAmount, setSwapAmount] = useState('');
   const [swapQuote, setSwapQuote] = useState(null);
   const [swapBusy, setSwapBusy] = useState(false);
+  const swapBusyRevisionRef = useRef(0);
   const swapQuoteRevisionRef = useRef(0);
   const swapConfirmRevisionRef = useRef(0);
   const [pickupAmount, setPickupAmount] = useState('');
@@ -161,6 +162,7 @@ export default function App() {
     // Invalidar operaciones antiguas sin permitir que su finally libere un bloqueo nuevo.
     operationRevisionRef.current += 1;
     swapConfirmRevisionRef.current += 1;
+    swapBusyRevisionRef.current += 1;
     pickupCreateRevisionRef.current += 1;
     pickupCancelRevisionRef.current += 1;
     setSwapBusy(false);
@@ -387,6 +389,7 @@ export default function App() {
     const requestedBy = userId;
     if (!requestedBy) return;
     const revision = ++swapWalletRevisionRef.current;
+    const busyRevision = ++swapBusyRevisionRef.current;
     setSwapBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_wallet_demo');
@@ -408,7 +411,7 @@ export default function App() {
       if (revision !== swapWalletRevisionRef.current) return;
       message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
     } finally {
-      if (revision === swapWalletRevisionRef.current) setSwapBusy(false);
+      if (busyRevision === swapBusyRevisionRef.current) setSwapBusy(false);
     }
   }
 
@@ -424,6 +427,7 @@ export default function App() {
       return message('Cantidad inválida', 'Introduce entre 1 y 10,000 unidades de prueba.');
     }
     const revision = ++swapQuoteRevisionRef.current;
+    const busyRevision = ++swapBusyRevisionRef.current;
     const requestedBy = userId;
     setSwapBusy(true);
     setSwapQuote(null);
@@ -449,7 +453,7 @@ export default function App() {
       if (revision !== swapQuoteRevisionRef.current) return;
       message('Cotización', error.message || 'No se pudo cotizar.');
     } finally {
-      if (revision === swapQuoteRevisionRef.current) setSwapBusy(false);
+      if (busyRevision === swapBusyRevisionRef.current) setSwapBusy(false);
     }
   }
 
@@ -462,6 +466,7 @@ export default function App() {
       setSwapQuote(null);
       return message('Cotización vencida', 'Solicita una cotización nueva.');
     }
+    const busyRevision = ++swapBusyRevisionRef.current;
     setSwapBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_confirm_demo', {
@@ -528,7 +533,7 @@ export default function App() {
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
         '\nConsulta los saldos antes de intentar otra conversión.');
     } finally {
-      if (confirmRevision === swapConfirmRevisionRef.current) setSwapBusy(false);
+      if (busyRevision === swapBusyRevisionRef.current) setSwapBusy(false);
     }
   }
 
