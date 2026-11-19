@@ -170,3 +170,10 @@ Rama: `fix/mobile-swap-validation-pickup-idempotency`. No fusionar antes de veri
 106. Iniciar cancelación de retiro en A y cambiar a B: el indicador de cancelación debe quedar libre para B.
 107. Mientras B cancela una orden, completar tardíamente la cancelación de A: el finally de A no debe liberar el indicador de B.
 108. Cerrar sesión durante creación o cancelación: los indicadores deben reiniciarse sin afirmar resultado de las RPC antiguas.
+
+## Alertas tardías de retiros tras cambio de cuenta
+109. Crear orden en A, cambiar a B y recibir fallo de getSession de A: no mostrar «Orden registrada; sesión pendiente» en B.
+110. Crear orden en A, cambiar a B y recibir fallo RPC de A: no mostrar «Resultado de orden no confirmado» en B.
+111. Cancelar orden en A, cambiar a B y recibir fallo de getSession de A: no mostrar «Cancelación registrada; sesión pendiente» en B.
+112. Cancelar orden en A, cambiar a B y recibir fallo RPC de A: no mostrar «Resultado de cancelación no confirmado» en B.
+113. Una actualización secundaria de Mis retiros rechaza tarde tras cambiar de cuenta: no mostrar «Actualización pendiente» de A en B.
