@@ -34,4 +34,6 @@ assert.ok(app.includes("const key = 'mwd_demo_operation_pending_' + userId"),
   'pending storage must be scoped to the signed-in user');
 assert.ok(operation.includes('refreshAccount().catch(() => {})'),
   'UI refresh errors must not turn a confirmed RPC into an unconfirmed operation');
-console.log('PASS: 11 static recovery and idempotency safety checks');
+assert.ok(app.includes("test(p.id)") && app.includes("test(candidate.id)"),
+  'both recovery paths must validate the persisted UUID');
+console.log('PASS: 12 static recovery and idempotency safety checks');
