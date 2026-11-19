@@ -81,6 +81,7 @@ export default function PartnerRegistryScreen({ supabase }) {
   }
   async function reloadDetails(id) {
     if (!id) { setLocations([]); setAudit([]); return; }
+    setLocations([]); setAudit([]);
     const [loc, hist] = await Promise.all([
       request('mwd_owner_partner_locations_demo', { p_partner_id: id }),
       request('mwd_owner_partner_audit_demo', { p_partner_id: id }),
@@ -121,9 +122,9 @@ export default function PartnerRegistryScreen({ supabase }) {
   }
   async function choosePartner(id) {
     if (busy) return;
-    setSelectedId(id); setError(''); setNotice(''); setBusy(true);
+    setSelectedId(id); setLocations([]); setAudit([]); setError(''); setNotice(''); setBusy(true);
     try { await reloadDetails(id); }
-    catch (err) { report(err); }
+    catch (err) { setLocations([]); setAudit([]); report(err); }
     finally { setBusy(false); }
   }
   async function setStatus(status) {
