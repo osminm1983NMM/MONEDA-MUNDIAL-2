@@ -367,6 +367,10 @@ export default function App() {
       pickupPendingRef.current = null;
       setPickupResult(data);
       setPickupAmount('');
+      if (data.status === 'already_created' && !data.pickupCode) {
+        message('Orden ficticia recuperada',
+          'La orden ya existe, pero por seguridad el código de retiro no se vuelve a mostrar. Consulta Mis retiros; no crees otra orden para recuperar el código.');
+      }
     } catch (error) {
       message('Orden ficticia no creada', error.message || 'Error desconocido');
     } finally {
