@@ -113,16 +113,19 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
+    let authEventReceived = false;
     supabase.auth.getSession()
       .then(({ data, error }) => {
         if (error) throw error;
-        if (active) setSession(data.session);
+        // Una respuesta inicial tardía no debe sobrescribir una sesión más reciente.
+        if (active && !authEventReceived) setSession(data.session);
       })
       .catch(error => message('Sesión', error.message))
       .finally(() => { if (active) setAuthLoading(false); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
+      authEventReceived = true;
       setSession(nextSession);
       setAuthLoading(false);
       // TOKEN_REFRESHED no debe expulsar al usuario de una pantalla activa.
