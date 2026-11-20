@@ -1,0 +1,99 @@
+// Validación local, sin red ni acceso a Supabase. No modifica datos.
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const files = ['package.json', 'app.json', 'App.js'];
+for (const file of files) assert.ok(fs.existsSync(file), 'Falta ' + file);
+const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+const config = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+const app = fs.readFileSync('App.js', 'utf8');
+assert.ok(pkg.dependencies?.expo, 'Falta Expo');
+assert.ok(pkg.dependencies?.['@supabase/supabase-js'], 'Falta cliente Supabase');
+assert.ok(config.expo?.android?.package, 'Falta identificador Android');
+assert.ok(config.expo?.extra?.eas?.projectId, 'Falta EAS projectId');
+assert.match(app, /créditos ficticios|creditos ficticios/i, 'Falta aviso de créditos ficticios');
+assert.match(app, /NO mueve dinero real/i, 'Falta aviso de que no mueve dinero real');
+const prohibited = [
+  /sb_secret_[A-Za-z0-9_-]+/g,
+  /(?:service_role|SUPABASE_SERVICE_ROLE_KEY)\s*[:=]\s*['"][^'"]+['"]/g,
+  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g,
+];
+for (const [index, pattern] of prohibited.entries()) {
+  assert.ok(!pattern.test(app), 'Posible secreto incrustado en App.js (regla ' + (index + 1) + ')');
+}
+
+// Regression: conversion input must accept positive decimals and reject malformed text.
+const quoteBody = app.split('async function requestSwapQuote() {')[1]?.split('async function confirmSwap() {')[0];
+assert.ok(quoteBody, 'Falta función de cotización');
+const quoteLine = quoteBody.split('\n').find(line => line.includes("if (!/") && line.includes(".test(normalized)"));
+assert.ok(quoteLine, 'Falta validación de cotización');
+const start = quoteLine.indexOf('if (!/') + 'if (!/'.length;
+const end = quoteLine.indexOf('/.test(normalized)', start);
+assert.ok(end > start, 'No se pudo extraer el patrón de cotización');
+const quotePattern = new RegExp(quoteLine.slice(start, end));
+for (const value of ['1', '10.25', '0.123456', '10000']) {
+  assert.ok(quotePattern.test(value), 'Cotización rechaza cantidad válida: ' + value);
+}
+for (const value of ['1x25', '1,2', '-1', '0.1234567', '1..2', '']) {
+  assert.ok(!quotePattern.test(value), 'Cotización acepta cantidad inválida: ' + value);
+}
+
+
+const pickupBody = app.split('async function createDemoPickup() {')[1]?.split('async function loadPickupOrders() {')[0];
+assert.ok(pickupBody, 'Falta función de retiro ficticio');
+assert.match(pickupBody, /pickupPendingRef\.current\.id/, 'Retiro sin clave persistente para reintentos');
+assert.match(pickupBody, /p_request_id:\s*requestId/, 'RPC de retiro sin clave idempotente');
+assert.match(pickupBody, /pickupPendingRef\.current = null/, 'Retiro sin limpieza al confirmar');
+assert.match(app, /onChangeText=\{value => \{ setPickupAmount\(value\); pickupPendingRef\.current = null; \}\}/, 'Editar monto debe invalidar el identificador');
+
+
+const navigationBody = app.split('function navigate(to) {')[1]?.split('  return (')[0];
+assert.ok(navigationBody, 'Falta navegación');
+assert.ok(!navigationBody.includes('pendingRef.current = null'), 'Navegar no debe perder clave de transferencia incierta');
+assert.ok(!navigationBody.includes("setAmount('')"), 'Navegar no debe borrar monto de reintento');
+assert.ok(!navigationBody.includes("setRecipientCode('')"), 'Navegar no debe borrar destinatario de reintento');
+
+
+// Navigation must remain stable during automatic session refresh.
+const authBody = app.split('supabase.auth.onAuthStateChange(')[1]?.split('subscription.unsubscribe()')[0];
+assert.ok(authBody, 'Falta observador de autenticación');
+assert.match(authBody, /event === 'SIGNED_IN' \|\| event === 'SIGNED_OUT'/,
+  'No reiniciar navegación por TOKEN_REFRESHED');
+assert.match(app, /cents > wallet\.balance_cents && !samePending/,
+  'El reintento incierto debe poder consultar al servidor aunque el saldo local sea antiguo');
+assert.match(app, /setPickupResult\(data\)/, 'Falta resultado de retiro');
+const operationBody = app.split('function prepareOperation(type) {')[1]?.split('async function logout()')[0];
+assert.ok(operationBody, 'Falta preparación de operaciones');
+assert.match(operationBody, /pendingRef\.current\?\.type === type/, 'El reintento debe conservar tipo de operación');
+assert.match(operationBody, /pendingRef\.current\?\.cents === cents/, 'El reintento debe conservar cantidad');
+assert.match(operationBody, /pendingRef\.current\?\.code ===/, 'El reintento debe conservar destinatario');
+
+
+
+const transferBody = app.split("async function executeOperation(type, cents, code = '') {")[1]?.split('function prepareOperation(type) {')[0];
+assert.ok(transferBody, 'Falta ejecutor de transferencias');
+assert.match(transferBody, /pendingRef\.current = null/, 'Falta limpieza de solicitud confirmada');
+assert.match(app, /executeOperation\(type, cents, type === 'transfer' \? code : ''\)/,
+  'Las aportaciones no deben heredar destinatarios de transferencias');
+const swapConfirmBody = app.split('async function confirmSwap() {')[1]?.split('async function createDemoPickup() {')[0];
+assert.ok(swapConfirmBody, 'Falta confirmación de conversiones');
+assert.ok(!swapConfirmBody.includes("return message('Cotización vencida'"),
+  'No bloquear reintentos de conversiones que podrían haberse confirmado');
+assert.match(swapConfirmBody, /message\('Conversión ficticia'/,
+  'Falta aviso de confirmación de conversión');
+assert.match(swapConfirmBody, /catch \(syncError\)/,
+  'Fallo de actualización posterior no debe confundirse con fallo de conversión');
+
+assert.match(authBody, /authEventReceived = true/, 'El evento de autenticación debe invalidar una respuesta inicial tardía');
+assert.match(app, /if \(active && !authEventReceived\) setSession\(data\.session\)/,
+  'La sesión inicial tardía no debe sobrescribir un inicio o cierre de sesión reciente');
+
+const refreshBody = app.split('async function refreshAccount(id = userId) {')[1]?.split('async function authenticate(action) {')[0];
+assert.ok(refreshBody, 'Falta actualización de cuenta');
+assert.match(app, /currentUserRef\.current = userId/, 'Falta identidad actual para descartar respuestas antiguas');
+assert.match(refreshBody, /if \(id !== currentUserRef\.current\) return/,
+  'No se deben mostrar datos de una cuenta anterior');
+assert.match(refreshBody, /if \(id === currentUserRef\.current\) setSyncing\(false\)/,
+  'Una solicitud antigua no debe alterar la sincronización de otra cuenta');
+
+console.log('PASS: estructura, configuración Android, advertencia DEMO y comprobación básica de secretos.');
+console.log('NOTA: no valida RLS, RPC, transferencias, contabilidad, conexión ni instalación APK.');

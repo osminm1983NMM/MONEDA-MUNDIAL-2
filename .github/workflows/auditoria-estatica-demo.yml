@@ -1,0 +1,23 @@
+name: Auditoría estática DEMO (manual)
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'App.js'
+      - 'package.json'
+      - 'app.json'
+      - 'scripts/audit-demo-static.cjs'
+      - '.github/workflows/auditoria-estatica-demo.yml'
+permissions:
+  contents: read
+jobs:
+  auditoria:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Revisar configuración y barreras básicas
+        run: node scripts/audit-demo-static.cjs
