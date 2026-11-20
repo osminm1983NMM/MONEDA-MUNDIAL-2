@@ -87,5 +87,13 @@ assert.match(authBody, /authEventReceived = true/, 'El evento de autenticación 
 assert.match(app, /if \(active && !authEventReceived\) setSession\(data\.session\)/,
   'La sesión inicial tardía no debe sobrescribir un inicio o cierre de sesión reciente');
 
+const refreshBody = app.split('async function refreshAccount(id = userId) {')[1]?.split('async function authenticate(action) {')[0];
+assert.ok(refreshBody, 'Falta actualización de cuenta');
+assert.match(app, /currentUserRef\.current = userId/, 'Falta identidad actual para descartar respuestas antiguas');
+assert.match(refreshBody, /if \(id !== currentUserRef\.current\) return/,
+  'No se deben mostrar datos de una cuenta anterior');
+assert.match(refreshBody, /if \(id === currentUserRef\.current\) setSyncing\(false\)/,
+  'Una solicitud antigua no debe alterar la sincronización de otra cuenta');
+
 console.log('PASS: estructura, configuración Android, advertencia DEMO y comprobación básica de secretos.');
 console.log('NOTA: no valida RLS, RPC, transferencias, contabilidad, conexión ni instalación APK.');
