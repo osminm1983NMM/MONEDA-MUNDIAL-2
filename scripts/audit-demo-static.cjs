@@ -22,7 +22,9 @@ for (const [index, pattern] of prohibited.entries()) {
 }
 
 // Regression: conversion input must accept positive decimals and reject malformed text.
-const quoteLine = app.split('\n').find(line => line.includes("if (!/") && line.includes(".test(normalized)"));
+const quoteBody = app.split('async function requestSwapQuote() {')[1]?.split('async function confirmSwap() {')[0];
+assert.ok(quoteBody, 'Falta función de cotización');
+const quoteLine = quoteBody.split('\n').find(line => line.includes("if (!/") && line.includes(".test(normalized)"));
 assert.ok(quoteLine, 'Falta validación de cotización');
 const start = quoteLine.indexOf('if (!/') + 'if (!/'.length;
 const end = quoteLine.indexOf('/.test(normalized)', start);
