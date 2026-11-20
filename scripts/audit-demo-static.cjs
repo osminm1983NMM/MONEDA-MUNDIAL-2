@@ -58,9 +58,15 @@ const authBody = app.split('supabase.auth.onAuthStateChange(')[1]?.split('subscr
 assert.ok(authBody, 'Falta observador de autenticación');
 assert.match(authBody, /event === 'SIGNED_IN' \|\| event === 'SIGNED_OUT'/,
   'No reiniciar navegación por TOKEN_REFRESHED');
-assert.match(app, /cents > wallet\.balance_cents && !pendingRef\.current/,
+assert.match(app, /cents > wallet\.balance_cents && !samePending/,
   'El reintento incierto debe poder consultar al servidor aunque el saldo local sea antiguo');
 assert.match(app, /setPickupResult\(data\)/, 'Falta resultado de retiro');
+const operationBody = app.split('function prepareOperation(type) {')[1]?.split('async function logout()')[0];
+assert.ok(operationBody, 'Falta preparación de operaciones');
+assert.match(operationBody, /pendingRef\.current\?\.type === type/, 'El reintento debe conservar tipo de operación');
+assert.match(operationBody, /pendingRef\.current\?\.cents === cents/, 'El reintento debe conservar cantidad');
+assert.match(operationBody, /pendingRef\.current\?\.code ===/, 'El reintento debe conservar destinatario');
+
 
 console.log('PASS: estructura, configuración Android, advertencia DEMO y comprobación básica de secretos.');
 console.log('NOTA: no valida RLS, RPC, transferencias, contabilidad, conexión ni instalación APK.');
