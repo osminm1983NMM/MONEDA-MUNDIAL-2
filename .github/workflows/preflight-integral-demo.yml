@@ -1,0 +1,28 @@
+name: Preflight integral DEMO (manual y PR)
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'App.js'
+      - 'package.json'
+      - 'app.json'
+      - 'eas.json'
+      - 'scripts/**'
+      - '.github/workflows/preflight-integral-demo.yml'
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Auditoría estática de demostración
+        run: node scripts/audit-demo-static.cjs
+      - name: Regresiones de seguridad
+        run: node scripts/audit-regression-safety.cjs
+      - name: Configuración Android y secretos evidentes
+        run: node scripts/preflight-release-local.js
