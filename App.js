@@ -261,10 +261,13 @@ export default function App() {
     if (!wallet) return message('Espera', 'Primero carga tu cuenta.');
     // Tras un error de red el saldo local puede estar desactualizado.
     // Permitir el reintento con la misma clave; el servidor verifica el saldo.
-    if (cents > wallet.balance_cents && !pendingRef.current) {
+    const code = recipientCode.trim().toUpperCase();
+    const samePending = pendingRef.current?.type === type &&
+      pendingRef.current?.cents === cents &&
+      pendingRef.current?.code === (type === 'transfer' ? code : '');
+    if (cents > wallet.balance_cents && !samePending) {
       return message('Saldo insuficiente', 'No tienes suficientes MWD ficticios.');
     }
-    const code = recipientCode.trim().toUpperCase();
     if (type === 'transfer') {
       if (!/^MWD-[A-F0-9]{16}$/.test(code)) {
         return message('Identificador', 'Introduce el código MWD- seguido de 16 caracteres.');
