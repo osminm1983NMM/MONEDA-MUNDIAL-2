@@ -147,15 +147,6 @@ export default function App() {
     setRecipientCode('');
     setPickupAmount('');
     if (!userId) {
-      setWallet(null);
-      setOperations([]);
-      setAdminRole(null);
-      setSwapWallet(null);
-      setSwapQuote(null);
-      pendingRef.current = null;
-      pickupPendingRef.current = null;
-      setPickupOrders([]);
-      setPickupResult(null);
       return;
     }
     refreshAccount(userId);
@@ -253,6 +244,8 @@ export default function App() {
       message('Operación ficticia confirmada', type === 'transfer'
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
+      // La confirmación de la RPC ya es definitiva; un fallo de sincronización
+      // posterior nunca debe presentarse como fallo de la transferencia.
       await refreshAccount();
     } catch (error) {
       message('Operación no confirmada',
