@@ -121,11 +121,12 @@ export default function App() {
       .catch(error => message('Sesión', error.message))
       .finally(() => { if (active) setAuthLoading(false); });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
       setSession(nextSession);
       setAuthLoading(false);
-      setScreen('Inicio');
+      // TOKEN_REFRESHED no debe expulsar al usuario de una pantalla activa.
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') setScreen('Inicio');
     });
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
@@ -258,7 +259,11 @@ export default function App() {
       return message('Cantidad inválida', 'Introduce un importe positivo, máximo 1,000,000 MWD y dos decimales.');
     }
     if (!wallet) return message('Espera', 'Primero carga tu cuenta.');
-    if (cents > wallet.balance_cents) return message('Saldo insuficiente', 'No tienes suficientes MWD ficticios.');
+    // Tras un error de red el saldo local puede estar desactualizado.
+    // Permitir el reintento con la misma clave; el servidor verifica el saldo.
+    if (cents > wallet.balance_cents && !pendingRef.current) {
+      return message('Saldo insuficiente', 'No tienes suficientes MWD ficticios.');
+    }
     const code = recipientCode.trim().toUpperCase();
     if (type === 'transfer') {
       if (!/^MWD-[A-F0-9]{16}$/.test(code)) {
@@ -338,7 +343,7 @@ export default function App() {
       message('Conversión ficticia', 'Operación registrada correctamente.');
     } catch (error) {
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
-        '\\nConsulta los saldos antes de intentar otra conversión.');
+        '\nConsulta los saldos antes de intentar otra conversión.');
     } finally {
       setSwapBusy(false);
     }
