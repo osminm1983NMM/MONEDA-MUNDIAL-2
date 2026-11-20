@@ -68,5 +68,20 @@ assert.match(operationBody, /pendingRef\.current\?\.cents === cents/, 'El reinte
 assert.match(operationBody, /pendingRef\.current\?\.code ===/, 'El reintento debe conservar destinatario');
 
 
+
+const transferBody = app.split('async function executeOperation(type, cents, code = \'\') {')[1]?.split('function prepareOperation(type) {')[0];
+assert.ok(transferBody, 'Falta ejecutor de transferencias');
+assert.match(transferBody, /pendingRef\\.current = null/, 'Falta limpieza de solicitud confirmada');
+assert.match(app, /executeOperation\\(type, cents, type === 'transfer' \\? code : ''\\)/,
+  'Las aportaciones no deben heredar destinatarios de transferencias');
+const swapConfirmBody = app.split('async function confirmSwap() {')[1]?.split('async function createDemoPickup() {')[0];
+assert.ok(swapConfirmBody, 'Falta confirmación de conversiones');
+assert.ok(!swapConfirmBody.includes('setSwapQuote(null);\\n      return message(\'Cotización vencida\''),
+  'No bloquear reintentos de conversiones que podrían haberse confirmado');
+assert.match(swapConfirmBody, /message\\('Conversión ficticia'/,
+  'Falta aviso de confirmación de conversión');
+assert.match(swapConfirmBody, /catch \\(syncError\\)/,
+  'Fallo de actualización posterior no debe confundirse con fallo de conversión');
+
 console.log('PASS: estructura, configuración Android, advertencia DEMO y comprobación básica de secretos.');
 console.log('NOTA: no valida RLS, RPC, transferencias, contabilidad, conexión ni instalación APK.');
