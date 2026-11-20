@@ -52,5 +52,15 @@ assert.ok(!navigationBody.includes('pendingRef.current = null'), 'Navegar no deb
 assert.ok(!navigationBody.includes("setAmount('')"), 'Navegar no debe borrar monto de reintento');
 assert.ok(!navigationBody.includes("setRecipientCode('')"), 'Navegar no debe borrar destinatario de reintento');
 
+
+// Navigation must remain stable during automatic session refresh.
+const authBody = app.split('supabase.auth.onAuthStateChange(')[1]?.split('subscription.unsubscribe()')[0];
+assert.ok(authBody, 'Falta observador de autenticación');
+assert.match(authBody, /event === 'SIGNED_IN' \|\| event === 'SIGNED_OUT'/,
+  'No reiniciar navegación por TOKEN_REFRESHED');
+assert.match(app, /cents > wallet\.balance_cents && !pendingRef\.current/,
+  'El reintento incierto debe poder consultar al servidor aunque el saldo local sea antiguo');
+assert.match(app, /setPickupResult\(data\)/, 'Falta resultado de retiro');
+
 console.log('PASS: estructura, configuración Android, advertencia DEMO y comprobación básica de secretos.');
 console.log('NOTA: no valida RLS, RPC, transferencias, contabilidad, conexión ni instalación APK.');
