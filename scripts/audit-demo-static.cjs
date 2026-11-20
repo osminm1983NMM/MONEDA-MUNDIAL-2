@@ -37,5 +37,13 @@ for (const value of ['1x25', '1,2', '-1', '0.1234567', '1..2', '']) {
   assert.ok(!quotePattern.test(value), 'Cotización acepta cantidad inválida: ' + value);
 }
 
+
+const pickupBody = app.split('async function createDemoPickup() {')[1]?.split('async function loadPickupOrders() {')[0];
+assert.ok(pickupBody, 'Falta función de retiro ficticio');
+assert.match(pickupBody, /pickupPendingRef\.current\.id/, 'Retiro sin clave persistente para reintentos');
+assert.match(pickupBody, /p_request_id:\s*requestId/, 'RPC de retiro sin clave idempotente');
+assert.match(pickupBody, /pickupPendingRef\.current = null/, 'Retiro sin limpieza al confirmar');
+assert.match(app, /onChangeText=\{value => \{ setPickupAmount\(value\); pickupPendingRef\.current = null; \}\}/, 'Editar monto debe invalidar el identificador');
+
 console.log('PASS: estructura, configuración Android, advertencia DEMO y comprobación básica de secretos.');
 console.log('NOTA: no valida RLS, RPC, transferencias, contabilidad, conexión ni instalación APK.');
