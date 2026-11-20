@@ -137,7 +137,10 @@ export default function App() {
       setAdminRole(null);
       setSwapWallet(null);
       setSwapQuote(null);
+      pendingRef.current = null;
       pickupPendingRef.current = null;
+      setPickupOrders([]);
+      setPickupResult(null);
       return;
     }
     refreshAccount(userId);
@@ -404,7 +407,8 @@ export default function App() {
     if (to === 'MisRetiros') loadPickupOrders();
     setAmount('');
     setRecipientCode('');
-    pendingRef.current = null;
+    // No descartar una clave de operación incierta solo por navegar.
+    // Se invalida cuando el usuario cambia los datos o al cerrar sesión.
   }
 
   return (
