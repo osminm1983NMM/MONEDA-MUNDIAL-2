@@ -83,5 +83,9 @@ assert.match(swapConfirmBody, /message\('Conversión ficticia'/,
 assert.match(swapConfirmBody, /catch \(syncError\)/,
   'Fallo de actualización posterior no debe confundirse con fallo de conversión');
 
+assert.match(authBody, /authEventReceived = true/, 'El evento de autenticación debe invalidar una respuesta inicial tardía');
+assert.match(app, /if \(active && !authEventReceived\) setSession\(data\.session\)/,
+  'La sesión inicial tardía no debe sobrescribir un inicio o cierre de sesión reciente');
+
 console.log('PASS: estructura, configuración Android, advertencia DEMO y comprobación básica de secretos.');
 console.log('NOTA: no valida RLS, RPC, transferencias, contabilidad, conexión ni instalación APK.');
