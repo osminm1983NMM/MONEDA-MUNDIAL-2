@@ -45,5 +45,12 @@ assert.match(pickupBody, /p_request_id:\s*requestId/, 'RPC de retiro sin clave i
 assert.match(pickupBody, /pickupPendingRef\.current = null/, 'Retiro sin limpieza al confirmar');
 assert.match(app, /onChangeText=\{value => \{ setPickupAmount\(value\); pickupPendingRef\.current = null; \}\}/, 'Editar monto debe invalidar el identificador');
 
+
+const navigationBody = app.split('function navigate(to) {')[1]?.split('  return (')[0];
+assert.ok(navigationBody, 'Falta navegación');
+assert.ok(!navigationBody.includes('pendingRef.current = null'), 'Navegar no debe perder clave de transferencia incierta');
+assert.ok(!navigationBody.includes("setAmount('')"), 'Navegar no debe borrar monto de reintento');
+assert.ok(!navigationBody.includes("setRecipientCode('')"), 'Navegar no debe borrar destinatario de reintento');
+
 console.log('PASS: estructura, configuración Android, advertencia DEMO y comprobación básica de secretos.');
 console.log('NOTA: no valida RLS, RPC, transferencias, contabilidad, conexión ni instalación APK.');
