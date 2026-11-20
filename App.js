@@ -250,10 +250,10 @@ export default function App() {
       setAmount('');
       setRecipientCode('');
       setScreen('Inicio');
-      await refreshAccount();
       message('Operación ficticia confirmada', type === 'transfer'
         ? 'Transferencia de demostración registrada en Supabase.'
         : 'Aportación de demostración registrada en Supabase.');
+      await refreshAccount();
     } catch (error) {
       message('Operación no confirmada',
         (error.message || 'Error desconocido') + '\nPuedes reintentar sin cambiar los datos.');
@@ -287,7 +287,7 @@ export default function App() {
     }
     confirmAction(type === 'transfer' ? 'Transferencia de prueba' : 'Aportación de prueba',
       `${formatMWD(cents)} MWD ficticios${type === 'transfer' ? '\nDestino: ' + code : '\nFondo de demostración'}`,
-      () => executeOperation(type, cents, code));
+      () => executeOperation(type, cents, type === 'transfer' ? code : ''));
   }
 
   async function logout() {
@@ -338,10 +338,8 @@ export default function App() {
   async function confirmSwap() {
     if (!swapQuote?.quoteId || swapBusy) return;
     const quote = swapQuote;
-    if (new Date(quote.expiresAt).getTime() <= Date.now()) {
-      setSwapQuote(null);
-      return message('Cotización vencida', 'Solicita una cotización nueva.');
-    }
+    // No descartar una cotización después de un fallo ambiguo: el servidor
+    // distingue una conversión ya ejecutada de una cotización vencida.
     setSwapBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_confirm_demo', {
@@ -351,10 +349,17 @@ export default function App() {
       if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
       setSwapQuote(null);
       setSwapAmount('');
-      const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
-      if (walletResponse.error) throw walletResponse.error;
-      setSwapWallet(walletResponse.data);
       message('Conversión ficticia', 'Operación registrada correctamente.');
+      // Un error de actualización posterior no convierte una operación confirmada
+      // en una operación incierta ni invita a ejecutarla de nuevo.
+      try {
+        const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
+        if (walletResponse.error) throw walletResponse.error;
+        setSwapWallet(walletResponse.data);
+      } catch (syncError) {
+        message('Saldo pendiente de actualizar',
+          'La conversión se confirmó. Pulsa Consultar saldos para actualizar la pantalla.');
+      }
     } catch (error) {
       message('Conversión no confirmada', (error.message || 'Error desconocido') +
         '\nConsulta los saldos antes de intentar otra conversión.');
