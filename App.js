@@ -109,7 +109,10 @@ export default function App() {
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
   const pickupPendingRef = useRef(null);
+  const currentUserRef = useRef(null);
   const userId = session?.user?.id;
+  // Actualizar durante render para invalidar respuestas de red de cuentas anteriores.
+  currentUserRef.current = userId;
 
   useEffect(() => {
     let active = true;
@@ -172,16 +175,18 @@ export default function App() {
       if (w.error) throw w.error;
       if (h.error) throw h.error;
       if (a.error) throw a.error;
-      if (supabase.auth.getUser && supabase.auth && id !== (await supabase.auth.getSession()).data.session?.user?.id) return;
+      if (id !== currentUserRef.current) return;
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
       setSyncNotice('Saldo e historial actualizados correctamente.');
     } catch (error) {
-      setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
-      message('Sincronización', error.message || 'No se pudo consultar Supabase.');
+      if (id === currentUserRef.current) {
+        setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
+        message('Sincronización', error.message || 'No se pudo consultar Supabase.');
+      }
     } finally {
-      setSyncing(false);
+      if (id === currentUserRef.current) setSyncing(false);
     }
   }
 
