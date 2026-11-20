@@ -131,6 +131,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // No reutilizar identificadores de operaciones entre cuentas diferentes.
+    pendingRef.current = null;
+    pickupPendingRef.current = null;
     if (!userId) {
       setWallet(null);
       setOperations([]);
