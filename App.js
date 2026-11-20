@@ -405,9 +405,8 @@ export default function App() {
     setScreen(to);
     if (to === 'Convertir') loadSwapWallet();
     if (to === 'MisRetiros') loadPickupOrders();
-    setAmount('');
-    setRecipientCode('');
-    // No descartar una clave de operación incierta solo por navegar.
+    // Conservar datos y clave de una operación incierta al cambiar de pantalla.
+    // Los campos se limpian tras éxito o al cambiar de cuenta.
     // Se invalida cuando el usuario cambia los datos o al cerrar sesión.
   }
 
