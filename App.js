@@ -135,6 +135,17 @@ export default function App() {
     // No reutilizar identificadores de operaciones entre cuentas diferentes.
     pendingRef.current = null;
     pickupPendingRef.current = null;
+    // Ocultar inmediatamente información de la cuenta anterior durante un cambio de usuario.
+    setWallet(null);
+    setOperations([]);
+    setAdminRole(null);
+    setSwapWallet(null);
+    setSwapQuote(null);
+    setPickupOrders([]);
+    setPickupResult(null);
+    setAmount('');
+    setRecipientCode('');
+    setPickupAmount('');
     if (!userId) {
       setWallet(null);
       setOperations([]);
