@@ -94,7 +94,7 @@ for (const [index, pattern] of prohibited.entries()) {
 }
 
 // Regression: conversion input must accept positive decimals and reject malformed text.
-const quoteBody = app.split('async function requestSwapQuote() {')[1]?.split('async function confirmSwap() {')[0];
+const quoteBody = app.split('async function requestSwapQuote() {')[1]?.split('async function confirmSwap(expectedQuoteId) {')[0];
 assert.ok(quoteBody, 'Falta función de cotización');
 const quoteLine = quoteBody.split('\n').find(line => line.includes("if (!/") && line.includes(".test(normalized)"));
 assert.ok(quoteLine, 'Falta validación de cotización');
@@ -152,7 +152,7 @@ assert.ok(transferBody, 'Falta ejecutor de transferencias');
 assert.match(transferBody, /pendingRef\.current = null/, 'Falta limpieza de solicitud confirmada');
 assert.match(app, /executeOperation\(type, cents, type === 'transfer' \? code : ''\)/,
   'Las aportaciones no deben heredar destinatarios de transferencias');
-const swapConfirmBody = app.split('async function confirmSwap() {')[1]?.split('async function createDemoPickup() {')[0];
+const swapConfirmBody = app.split('async function confirmSwap(expectedQuoteId) {')[1]?.split('async function createDemoPickup() {')[0];
 assert.ok(swapConfirmBody, 'Falta confirmación de conversiones');
 assert.ok(!swapConfirmBody.includes("return message('Cotización vencida'"),
   'No bloquear reintentos de conversiones que podrían haberse confirmado');
