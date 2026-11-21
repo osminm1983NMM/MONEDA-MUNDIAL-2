@@ -20,8 +20,8 @@ jobs:
           node-version: '22'
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-      - name: Run demo safety tests
-        run: npm run test:demo
+      - name: Run no-cost local preflight
+        run: node scripts/preflight-release-local.js
       - name: Validate Expo config
         run: npx expo config --type public
       - name: Confirm EAS token is configured
