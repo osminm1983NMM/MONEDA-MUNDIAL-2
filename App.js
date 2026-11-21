@@ -234,6 +234,7 @@ export default function App() {
     const storageKey = pendingOperationStorageKey(id);
     try {
       const saved = await AsyncStorage.getItem(storageKey);
+      if (id !== currentUserRef.current) return;
       if (!saved) return;
       const pending = JSON.parse(saved);
       if (pending.userId !== id || !/^[0-9a-f-]{36}$/i.test(pending.id || '') ||
@@ -254,9 +255,11 @@ export default function App() {
           throw new Error('La referencia local no coincide con la operación confirmada.');
         }
         await AsyncStorage.removeItem(storageKey);
+        if (id !== currentUserRef.current) return;
         pendingRef.current = null;
         setPendingOperation(null);
         await refreshAccount(id);
+        if (id !== currentUserRef.current) return;
         setSyncNotice('La operación pendiente ya estaba confirmada. Se actualizó tu saldo.');
         return;
       }
