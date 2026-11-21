@@ -290,7 +290,7 @@ export default function App() {
 
   async function requestPasswordReset() {
     const cleanEmail = email.trim().toLowerCase();
-    if (!/^\\S+@\\S+\\.\\S+$/.test(cleanEmail)) {
+    if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) {
       return message('Correo', 'Introduce un correo válido primero.');
     }
     if (authBusy) return;
