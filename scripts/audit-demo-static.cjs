@@ -239,9 +239,13 @@ assert.ok(persistPickup >= 0 && sendPickup > persistPickup,
   'La referencia de retiro debe persistirse antes de llamar la RPC');
 assert.ok(pickupCreate.includes('p_request_id: pending.id'),
   'El retiro debe reusar la referencia persistida');
+assert.match(pickupCreate, /isDefinitiveRpcRejection\(error\)[\s\S]*?AsyncStorage\.removeItem\(storageKey\)[\s\S]*?throw error;/,
+  'El retiro debe liberar el pendiente ante un rechazo SQL definitivo y mantenerlo ante errores inciertos');
 assert.ok(pickupCreate.indexOf("!['created', 'already_created'].includes(data?.status)") <
-  pickupCreate.indexOf('await AsyncStorage.removeItem(storageKey)'),
-  'La referencia solo se limpia después de una respuesta confirmada');
+  pickupCreate.lastIndexOf('await AsyncStorage.removeItem(storageKey)'),
+  'La referencia de éxito solo se limpia después de una respuesta confirmada');
+assert.match(app, /function isDefinitiveRpcRejection\(error\) \{[\s\S]*?Number\(error\?\.status\) === 400[\s\S]*?test\(error\?\.code/,
+  'La app debe distinguir rechazos SQL definitivos de fallos de red');
 assert.ok(app.includes('resumePendingPickup'), 'La pantalla inicial debe permitir reanudar un retiro pendiente');
 assert.ok(app.includes('onPress={() => recoverPendingPickup(userId)}'),
   'La pantalla inicial debe permitir reintentar la verificación de un retiro pendiente');
