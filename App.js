@@ -51,8 +51,10 @@ function parsePendingPickup(saved, userId) {
 }
 
 function isDefinitiveRpcRejection(error) {
-  // HTTP 400 with a SQLSTATE is a completed DB rejection; timeouts/network errors stay pending.
-  return Number(error?.status) === 400 && /^[0-9A-Z]{5}$/.test(error?.code || '');
+  // Keep idempotency conflicts and reconciliation cases for review; network errors stay pending.
+  const messageText = String(error?.message || '');
+  const requiresReview = /identificador\\s+(?:ya usado|reutilizado)|solicitud duplicada inconsistente|reconciliaci[oó]n/i.test(messageText);
+  return Number(error?.status) === 400 && /^[0-9A-Z]{5}$/.test(error?.code || '') && !requiresReview;
 }
 
 function amountToCents(value) {
@@ -669,7 +671,17 @@ export default function App() {
         p_quote_id: quote.quoteId,
       });
       if (!isCurrentUser(actorId)) return;
-      if (error) throw error;
+      if (error) {
+        if (isDefinitiveRpcRejection(error)) {
+          swapQuoteRef.current = null;
+          setSwapQuote(null);
+          message('Cotización rechazada',
+            (error.message || 'La cotización ya no se puede usar.') +
+            '\\nLa conversión no se registró. Solicita una cotización nueva.');
+          return;
+        }
+        throw error;
+      }
       if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
       swapQuoteRef.current = null;
       setSwapQuote(null);
