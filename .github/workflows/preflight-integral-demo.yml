@@ -14,12 +14,16 @@ permissions:
 jobs:
   preflight:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Instalar dependencias Expo
+        run: npm install --no-audit --no-fund --package-lock=false
+      - name: Validar bundle JavaScript Android
+        run: npx expo export --platform android --output-dir /tmp/mwd-demo-bundle
       - name: Auditoría estática de demostración
         run: node scripts/audit-demo-static.cjs
       - name: Regresiones de seguridad
