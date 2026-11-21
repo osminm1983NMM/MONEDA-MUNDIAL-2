@@ -78,8 +78,24 @@ assert.ok(app.includes('updateUser({ password: newPassword })'), 'Falta guardar 
 assert.ok(app.includes("screen === 'CambiarContraseña'"), 'Falta la pantalla para guardar la nueva contraseña');
 const savePasswordBody = app.split('async function saveNewPassword() {')[1]?.split('async function recoverPendingOperation(')[0];
 assert.ok(savePasswordBody, 'Falta guardar la contraseña nueva');
-assert.match(savePasswordBody, /finally \{[\s\S]*?setAuthBusy\(false\);/,
-  'El formulario de contraseña debe liberar su estado ocupado aunque cambie la sesión');
+assert.match(savePasswordBody, /finally \{[\s\S]*?endAuthBusy\(\);/,
+  'El formulario de contraseña debe liberar su bloqueo aunque cambie la sesión');
+assert.match(app, /function beginAuthBusy\(\) \{\s*if \(authBusyRef\.current\) return false/,
+  'La autenticación necesita un bloqueo sincrónico contra dobles toques');
+assert.match(app, /function endAuthBusy\(\) \{\s*authBusyRef\.current = false;\s*setAuthBusy\(false\);/,
+  'El bloqueo de autenticación debe liberarse en un solo lugar');
+for (const [start, end] of [
+  ['async function authenticate(action) {', 'async function requestPasswordReset() {'],
+  ['async function requestPasswordReset() {', 'async function saveNewPassword() {'],
+  ['async function saveNewPassword() {', 'async function recoverPendingOperation('],
+]) {
+  const body = app.split(start)[1]?.split(end)[0];
+  assert.ok(body, 'Falta una acción de autenticación');
+  assert.ok(body.includes('if (!beginAuthBusy()) return;'),
+    'La acción de autenticación debe bloquear dobles toques antes de la solicitud');
+  assert.match(body, /finally \{[\s\S]*?endAuthBusy\(\);/,
+    'La acción de autenticación debe liberar su bloqueo en finally');
+}
 
 assert.ok(config.expo?.extra?.eas?.projectId, 'Falta EAS projectId');
 assert.match(app, /créditos ficticios|creditos ficticios/i, 'Falta aviso de créditos ficticios');
