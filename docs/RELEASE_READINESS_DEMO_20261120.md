@@ -9,6 +9,9 @@ Estado: **NO APROBADO para dinero real**. Esta lista no equivale a resultados de
 - [x] Revisar aislamiento por usuario y descarte de respuestas tardías al cambiar de cuenta.
 - [x] Comprobar que la app no incluye una clave service-role ni una clave privada.
 - [ ] Validar que la APK proviene del commit auditado y que se instala y abre en Android.
+- [ ] Agregar `com.monedamundial.app://auth/reset-password` a Redirect URLs en Supabase Auth.
+- [ ] Probar el enlace de restablecimiento con la app abierta y cerrada y luego iniciar sesión con la contraseña nueva.
+- [ ] Confirmar que el enlace de un solo uso rechaza enlaces vencidos o ya consumidos.
 
 ## Avance técnico (2026-11-21)
 
@@ -41,6 +44,7 @@ Ejecuciones: [Preflight integral DEMO — bundle Android y auditorías](https://
 ## Requisitos antes de cualquier lanzamiento real
 
 - [ ] Habilitar la protección contra contraseñas filtradas en Supabase Auth.
+- [ ] Completar la [configuración y prueba de recuperación de contraseña](AUTH_PASSWORD_RESET_SETUP.md).
 - [ ] Probar permisos y rechazos de cada RPC privilegiada con usuarios de prueba.
 - [ ] Revalidar privilegios de esquemas privados después de cada cambio de backend.
 - [ ] Consultar la [revisión de seguridad de Supabase (solo lectura)](SUPABASE_SECURITY_REVIEW_20261121.md).
