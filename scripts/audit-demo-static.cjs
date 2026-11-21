@@ -101,5 +101,26 @@ assert.match(refreshBody, /if \(id !== currentUserRef\.current\) return/,
 assert.match(refreshBody, /if \(id === currentUserRef\.current\) setSyncing\(false\)/,
   'Una solicitud antigua no debe alterar la sincronización de otra cuenta');
 
+const pickupRecovery = app.split('async function recoverPendingPickup(id = userId) {')[1]?.split('async function createDemoPickup() {')[0];
+assert.ok(pickupRecovery, 'Falta recuperación de retiros al iniciar sesión');
+assert.match(app, /recoverPendingPickup\\(userId\\)/, 'Falta recuperar un retiro guardado al iniciar sesión');
+assert.match(app, /mwd_pending_pickup:/, 'Falta una clave persistente de retiro por usuario');
+assert.match(pickupRecovery, /await AsyncStorage\\.getItem\\(pendingPickupStorageKey\\(id\\)\\)/,
+  'La recuperación de retiro debe leer AsyncStorage');
+const pickupCreate = app.split('async function createDemoPickup() {')[1]?.split('async function loadPickupOrders() {')[0];
+assert.ok(pickupCreate, 'Falta crear/reintentar retiro');
+const persistPickup = pickupCreate.indexOf('await AsyncStorage.setItem(storageKey, JSON.stringify(pending));');
+const sendPickup = pickupCreate.indexOf("supabase.rpc('mwd_pickup_create_demo'");
+assert.ok(persistPickup >= 0 && sendPickup > persistPickup,
+  'La referencia de retiro debe persistirse antes de llamar la RPC');
+assert.match(pickupCreate, /p_request_id:\\s*pending\\.id/,
+  'El retiro debe reusar la referencia persistida');
+assert.ok(pickupCreate.indexOf("!['created', 'already_created'].includes(data?.status)") <
+  pickupCreate.indexOf('await AsyncStorage.removeItem(storageKey)'),
+  'La referencia solo se limpia después de una respuesta confirmada');
+assert.match(app, /pendingPickup && <View style=\\{styles\\.card\\}>[\\s\\S]*?resumePendingPickup/,
+  'La pantalla inicial debe permitir reanudar un retiro pendiente');
+assert.match(app, /editable=\\{!pickupBusy && !pendingPickup && !pickupPendingError\\}/,
+  'No debe permitir cambiar el importe de un retiro pendiente');
 console.log('PASS: estructura, configuración Android, advertencia DEMO y comprobación básica de secretos.');
 console.log('NOTA: no valida RLS, RPC, transferencias, contabilidad, conexión ni instalación APK.');
