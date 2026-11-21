@@ -14,7 +14,7 @@ Estado: **NO APROBADO para dinero real**. Esta lista no equivale a resultados de
 
 La rama `feature/transfer-recovery-20261121` conserva en AsyncStorage la operación pendiente por usuario. Al iniciar sesión o reintentar, consulta el estado con la misma referencia idempotente, verifica tipo/importe/destinatario y bloquea operaciones nuevas hasta resolverla. Transferencias, conversiones y retiros descartan respuestas de red si el usuario cambió durante la solicitud. La recuperación de operaciones vuelve a comprobar la sesión después de cada espera asíncrona que puede preceder una actualización visible. Los retiros ficticios guardan la misma clave idempotente antes del RPC y la recuperan desde AsyncStorage; si el servidor ya creó la orden, el código de retiro no se vuelve a mostrar. Un bloqueo síncrono impide envíos dobles por toques rápidos. Si falla la lectura de AsyncStorage, la pantalla principal ofrece reintentar la verificación sin cerrar sesión.
 
-Pasaron localmente y en GitHub Actions estas comprobaciones:
+Pasaron en GitHub Actions estas comprobaciones:
 
 - `node scripts/audit-demo-static.cjs`
 - `node scripts/audit-regression-safety.cjs`
@@ -39,6 +39,11 @@ Ejecuciones: [Preflight integral DEMO — bundle Android y auditorías](https://
 | Android | Instalar APK verificada y abrirla | Sin cierre inesperado; navegación y sincronización funcional |
 
 ## Requisitos antes de cualquier lanzamiento real
+
+- [ ] Habilitar la protección contra contraseñas filtradas en Supabase Auth.
+- [ ] Probar permisos y rechazos de cada RPC privilegiada con usuarios de prueba.
+- [ ] Revalidar privilegios de esquemas privados después de cada cambio de backend.
+- [ ] Consultar la [revisión de seguridad de Supabase (solo lectura)](SUPABASE_SECURITY_REVIEW_20261121.md).
 
 - [ ] Revisión jurídica de licencias, modelo de socio regulado, BSA/AML, KYC, sanciones y protección al consumidor para EE. UU. → Honduras.
 - [ ] Conciliación bancaria y contabilidad de doble partida con pruebas independientes.
