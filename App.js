@@ -519,7 +519,8 @@ export default function App() {
     }
   }
   async function recoverPendingPickup(id = userId) {
-    if (!id) return;
+    if (!isCurrentUser(id)) return;
+    setPickupPendingError('');
     try {
       const saved = await AsyncStorage.getItem(pendingPickupStorageKey(id));
       if (!isCurrentUser(id) || !saved) return;
@@ -710,6 +711,8 @@ export default function App() {
               {!!pickupPendingError && <View style={styles.card}>
                 <Text style={styles.heading}>No se pudo verificar el retiro</Text>
                 <Text style={styles.muted}>{pickupPendingError}</Text>
+                <Btn title="Reintentar verificación" secondary
+                  onPress={() => recoverPendingPickup(userId)} disabled={pickupBusy} />
               </View>}
               <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet || !!pendingOperation} />
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet || !!pendingOperation} />
