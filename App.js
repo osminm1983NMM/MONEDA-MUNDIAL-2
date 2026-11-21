@@ -231,6 +231,11 @@ export default function App() {
       if (id !== userId) return;
 
       if (statusResponse.data?.status === 'processed') {
+        const result = statusResponse.data;
+        if (result.kind !== pending.type || Number(result.amountCents) !== pending.cents ||
+            (pending.type === 'transfer' && result.recipientCode !== pending.code)) {
+          throw new Error('La referencia local no coincide con la operación confirmada.');
+        }
         await AsyncStorage.removeItem(storageKey);
         pendingRef.current = null;
         setPendingOperation(null);
@@ -268,6 +273,11 @@ export default function App() {
       if (!pending) {
         const saved = await AsyncStorage.getItem(storageKey);
         if (saved) pending = JSON.parse(saved);
+      }
+
+      if (pending) {
+        pendingRef.current = pending;
+        setPendingOperation(pending);
       }
 
       if (pending && (pending.userId !== userId || pending.type !== type ||
