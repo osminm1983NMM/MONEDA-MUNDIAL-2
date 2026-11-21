@@ -23,19 +23,37 @@ jobs:
           java-version: '17'
       - run: npm install --no-audit --no-fund
       - run: node scripts/preflight-release-local.js
+      - name: Configurar aplicación independiente para Samsung
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const config = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+          config.expo.name = 'Moneda Mundial LAB';
+          config.expo.android.package = 'com.monedamundial.lab.samsung';
+          config.expo.scheme = 'com.monedamundial.lab.samsung';
+          fs.writeFileSync('app.json', JSON.stringify(config, null, 2));
+          const app = fs.readFileSync('App.js', 'utf8');
+          fs.writeFileSync('App.js', app.replaceAll('com.monedamundial.app:', 'com.monedamundial.lab.samsung:'));
+          NODE
       - run: npx expo prebuild --platform android --no-install
       - name: Compilar con JavaScript incluido y firma de desarrollo
         working-directory: android
-        run: bash gradlew :app:assembleRelease --max-workers=2
+        run: bash gradlew :app:assembleRelease --max-workers=2 -PreactNativeArchitectures=arm64-v8a
       - name: Preparar descarga
         run: |
+          apk=android/app/build/outputs/apk/release/app-release.apk
+          sdk_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          "$sdk_tools/apksigner" verify --verbose "$apk"
+          "$sdk_tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/apk-info"
+          grep -F "package: name='com.monedamundial.lab.samsung'" "$RUNNER_TEMP/apk-info"
+          grep -F "native-code: 'arm64-v8a'" "$RUNNER_TEMP/apk-info"
           mkdir entrega
-          cp android/app/build/outputs/apk/release/app-release.apk entrega/MonedaMundial-demo.apk
+          cp android/app/build/outputs/apk/release/app-release.apk entrega/MonedaMundial-LAB.apk
           cd entrega
-          sha256sum MonedaMundial-demo.apk > SHA256.txt
+          sha256sum MonedaMundial-LAB.apk > SHA256.txt
           echo "$GITHUB_SHA" > COMMIT.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: MonedaMundial-demo-Samsung
+          name: MonedaMundial-LAB-Samsung
           path: entrega/
           retention-days: 7
