@@ -136,6 +136,7 @@ export default function App() {
   const pickupPendingRef = useRef(null);
   const pickupBusyRef = useRef(false);
   const currentUserRef = useRef(null);
+  const recoveryCodeStateRef = useRef({ inFlight: new Set(), processed: new Set() });
   const userId = session?.user?.id;
   // Actualizar durante render para invalidar respuestas de red de cuentas anteriores.
   currentUserRef.current = userId;
@@ -146,6 +147,7 @@ export default function App() {
     let authEventReceived = false;
     const handleAuthUrl = async url => {
       if (!url) return;
+      let claimedCode = null;
       try {
         const parsed = new URL(url);
         if (parsed.protocol !== 'com.monedamundial.app:' ||
@@ -155,11 +157,21 @@ export default function App() {
         if (errorDescription) throw new Error(errorDescription);
         const code = parsed.searchParams.get('code');
         if (!code) return;
+        const codeState = recoveryCodeStateRef.current;
+        if (codeState.processed.has(code) || codeState.inFlight.has(code)) return;
+        codeState.inFlight.add(code);
+        claimedCode = code;
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) throw error;
+        codeState.processed.add(code);
+        if (codeState.processed.size > 5) {
+          codeState.processed.delete(codeState.processed.values().next().value);
+        }
         if (active) setScreen('CambiarContraseña');
       } catch (error) {
         if (active) message('Enlace de acceso', error.message || 'El enlace no pudo verificarse.');
+      } finally {
+        if (claimedCode) recoveryCodeStateRef.current.inFlight.delete(claimedCode);
       }
     };
 
