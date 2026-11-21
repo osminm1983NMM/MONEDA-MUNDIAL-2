@@ -12,7 +12,7 @@ Estado: **NO APROBADO para dinero real**. Esta lista no equivale a resultados de
 
 ## Avance técnico (2026-11-21)
 
-La rama `feature/transfer-recovery-20261121` conserva en AsyncStorage la operación pendiente por usuario. Al iniciar sesión o reintentar, consulta el estado con la misma referencia idempotente, verifica tipo/importe/destinatario y bloquea operaciones nuevas hasta resolverla. Transferencias, conversiones y retiros descartan respuestas de red si el usuario cambió durante la solicitud. La recuperación de una operación pendiente vuelve a comprobar la sesión después de cada espera asíncrona que puede preceder una actualización visible.
+La rama `feature/transfer-recovery-20261121` conserva en AsyncStorage la operación pendiente por usuario. Al iniciar sesión o reintentar, consulta el estado con la misma referencia idempotente, verifica tipo/importe/destinatario y bloquea operaciones nuevas hasta resolverla. Transferencias, conversiones y retiros descartan respuestas de red si el usuario cambió durante la solicitud. La recuperación de operaciones vuelve a comprobar la sesión después de cada espera asíncrona que puede preceder una actualización visible. Los retiros ficticios guardan la misma clave idempotente antes del RPC y la recuperan desde AsyncStorage; si el servidor ya creó la orden, el código de retiro no se vuelve a mostrar.
 
 Pasaron localmente y en GitHub Actions estas comprobaciones:
 
@@ -21,7 +21,7 @@ Pasaron localmente y en GitHub Actions estas comprobaciones:
 - `node scripts/preflight-release-local.js`
 - Exportación del bundle JavaScript para Android con Expo en CI.
 
-Ejecuciones: [Preflight integral DEMO — bundle Android y auditorías](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44851053987), [Auditoría estática DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44850789493) y [Preflight anterior](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44850789595). La exportación de Expo comprueba el bundle JavaScript; no construye ni instala una APK. La prueba integrada de pérdida de conexión y las pruebas Android siguen pendientes.
+Ejecuciones: [Preflight integral DEMO — bundle Android y auditorías](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44852407021), [Auditoría estática DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44852407027) y [Preflight anterior](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44850789595). La exportación de Expo comprueba el bundle JavaScript; no construye ni instala una APK. La prueba integrada de pérdida de conexión y las pruebas Android siguen pendientes.
 
 ## Pruebas integradas pendientes — solo entorno de demostración
 
@@ -35,7 +35,7 @@ Ejecuciones: [Preflight integral DEMO — bundle Android y auditorías](https://
 | Cambio de sesión | Salir de A y entrar a B con actualización pendiente | Nunca mostrar datos de A en B |
 | Fallo al refrescar | Confirmar operación y simular fallo de lectura posterior | Mostrar operación confirmada; no invitar a reenviar |
 | Conversión Coin/Digital | Cotizar y confirmar, luego repetir confirmación | Una conversión, importes exactos y sin duplicación |
-| Retiro ficticio | Crear retiro, perder conexión y reintentar | Una orden por ID; historial coherente |
+| Retiro ficticio | Crear retiro, perder conexión o reiniciar y reintentar | Una orden por ID; la orden existente no vuelve a exponer el código y no se duplica |
 | Android | Instalar APK verificada y abrirla | Sin cierre inesperado; navegación y sincronización funcional |
 
 ## Requisitos antes de cualquier lanzamiento real
