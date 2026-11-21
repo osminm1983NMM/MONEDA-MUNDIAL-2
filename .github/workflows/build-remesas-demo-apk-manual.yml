@@ -13,9 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      # Use the exact ref selected when this workflow is manually dispatched.
       - uses: actions/checkout@v4
-        with:
-          ref: pruebas-concurrencia-remesas
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
