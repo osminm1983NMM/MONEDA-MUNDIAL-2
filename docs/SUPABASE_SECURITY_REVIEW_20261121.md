@@ -19,6 +19,10 @@ Lectura de los asesores de seguridad, rendimiento y salud; catálogos PostgreSQL
 - **Decisión para esta rama:** mantener el almacenamiento actual hasta implementar y validar una capa cifrada compatible con Android y web. La migración debe leer sesiones anteriores, escribir y verificar la sesión cifrada antes de borrar el valor anterior, y conservar el inicio de sesión si la migración falla. No guardar datos pendientes de operación como credenciales.
 - **Validación requerida antes de adoptarlo:** probar inicio y cierre de sesión, renovación de token, recuperación PKCE, actualización de sesión grande, migración de instalación existente y recuperación tras fallo de lectura/escritura en un Android instalado. La exportación JavaScript por sí sola no valida el almacén nativo.
 
+## Revalidación de asesores
+
+Lectura de solo consulta el 2026-11-21: salud sin avisos; seguridad mantiene 30 tablas con RLS sin políticas en esquemas privados, 56 funciones `SECURITY DEFINER` ejecutables por `authenticated` y la protección contra contraseñas filtradas desactivada; rendimiento mantiene 24 claves foráneas sin índice y 17 índices no usados. Los avisos de funciones se contrastaron con controles de propietario/actor y `search_path` vacío en la revisión de catálogo; los permisos no se modificaron. Los avisos de rendimiento son informativos y requieren mediciones antes de tocar índices.
+
 ## Pendiente antes de cualquier uso real
 
 - [ ] Habilitar protección contra contraseñas filtradas en Supabase Auth.
