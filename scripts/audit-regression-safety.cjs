@@ -58,6 +58,15 @@ assert.ok(pickupRead >= 0 &&
   pickupRecovery.indexOf('if (!isCurrentUser(id) || !saved) return;', pickupRead) > pickupRead,
   'La recuperación de retiro debe validar la sesión tras leer almacenamiento');
 const pickupCreate = section('async function createDemoPickup() {', 'async function loadPickupOrders() {');
+assert.match(app, /const pickupBusyRef = useRef\\(false\\)/,
+  'El retiro necesita un bloqueo síncrono contra dobles toques');
+assert.ok(pickupCreate, 'Falta función de creación de retiro');
+const pickupLock = pickupCreate.indexOf('pickupBusyRef.current = true;');
+const pickupFirstAwait = pickupCreate.indexOf('await ');
+assert.ok(pickupLock >= 0 && pickupFirstAwait > pickupLock,
+  'El bloqueo de retiro debe activarse antes de cualquier espera asíncrona');
+assert.ok(pickupCreate.includes('if (pickupBusyRef.current || pickupPendingError) return;'),
+  'El segundo toque debe detenerse usando la referencia síncrona');
 const persistPickup = pickupCreate.indexOf('await AsyncStorage.setItem(storageKey, JSON.stringify(pending));');
 const sendPickup = pickupCreate.indexOf("supabase.rpc('mwd_pickup_create_demo'");
 assert.ok(persistPickup >= 0 && sendPickup > persistPickup,
