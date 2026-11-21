@@ -168,10 +168,10 @@ assert.match(app, /if \(active && !authEventReceived\) setSession\(data\.session
 const refreshBody = app.split('async function refreshAccount(id = userId) {')[1]?.split('async function authenticate(action) {')[0];
 assert.ok(refreshBody, 'Falta actualización de cuenta');
 assert.match(app, /currentUserRef\.current = userId/, 'Falta identidad actual para descartar respuestas antiguas');
-assert.match(refreshBody, /if \(id !== currentUserRef\.current\) return/,
-  'No se deben mostrar datos de una cuenta anterior');
-assert.match(refreshBody, /if \(id === currentUserRef\.current\) setSyncing\(false\)/,
-  'Una solicitud antigua no debe alterar la sincronización de otra cuenta');
+assert.match(refreshBody, /if \(id !== currentUserRef\.current \|\| requestVersion !== refreshAccountVersionRef\.current\) return/,
+  'Una respuesta de otra cuenta o de una actualización vieja no debe reemplazar los datos');
+assert.match(refreshBody, /if \(id === currentUserRef\.current && requestVersion === refreshAccountVersionRef\.current\) \{\s*setSyncing\(false\)/,
+  'Una solicitud antigua no debe alterar la sincronización de otra cuenta ni de otra actualización');
 assert.match(app, /const requestVersion = \+\+refreshAccountVersionRef\.current/,
   'Cada actualización de cuenta debe tener una versión propia');
 assert.match(refreshBody, /requestVersion !== refreshAccountVersionRef\.current/,
