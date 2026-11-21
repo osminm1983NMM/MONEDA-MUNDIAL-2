@@ -2,6 +2,7 @@
   "expo": {
     "name": "Moneda Mundial 2.0",
     "slug": "moneda-mundial-20",
+    "scheme": "com.monedamundial.app",
     "version": "2.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
