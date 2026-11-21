@@ -58,7 +58,7 @@ assert.ok(pickupRead >= 0 &&
   pickupRecovery.indexOf('if (!isCurrentUser(id) || !saved) return;', pickupRead) > pickupRead,
   'La recuperación de retiro debe validar la sesión tras leer almacenamiento');
 const pickupCreate = section('async function createDemoPickup() {', 'async function loadPickupOrders() {');
-assert.match(app, /const pickupBusyRef = useRef\\(false\\)/,
+assert.ok(app.includes('const pickupBusyRef = useRef(false);'),
   'El retiro necesita un bloqueo síncrono contra dobles toques');
 assert.ok(pickupCreate, 'Falta función de creación de retiro');
 const pickupLock = pickupCreate.indexOf('pickupBusyRef.current = true;');
