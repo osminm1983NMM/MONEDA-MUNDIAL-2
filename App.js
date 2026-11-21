@@ -130,6 +130,7 @@ export default function App() {
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
   const pickupPendingRef = useRef(null);
+  const pickupBusyRef = useRef(false);
   const currentUserRef = useRef(null);
   const userId = session?.user?.id;
   // Actualizar durante render para invalidar respuestas de red de cuentas anteriores.
@@ -163,6 +164,7 @@ export default function App() {
     // No reutilizar identificadores de operaciones entre cuentas diferentes.
     pendingRef.current = null;
     pickupPendingRef.current = null;
+    pickupBusyRef.current = false;
     busyRef.current = false;
     setBusy(false);
     setSwapBusy(false);
@@ -533,15 +535,16 @@ export default function App() {
   }
 
   async function createDemoPickup() {
-    if (pickupBusy || pickupPendingError) return;
+    if (pickupBusyRef.current || pickupPendingError) return;
     const cents = amountToCents(pickupAmount);
     if (cents === null || cents < 100 || cents > 100000) {
       return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
     }
     const actorId = userId;
     if (!isCurrentUser(actorId)) return;
-    const storageKey = pendingPickupStorageKey(actorId);
+    pickupBusyRef.current = true;
     setPickupBusy(true);
+    const storageKey = pendingPickupStorageKey(actorId);
     setPickupResult(null);
     try {
       let pending = pickupPendingRef.current || pendingPickup;
@@ -595,7 +598,10 @@ export default function App() {
           (error.message || 'No se pudo verificar la orden.') + '\nLa app conservará la misma referencia para reintentar sin duplicar la orden.');
       }
     } finally {
-      if (isCurrentUser(actorId)) setPickupBusy(false);
+      if (isCurrentUser(actorId)) {
+        pickupBusyRef.current = false;
+        setPickupBusy(false);
+      }
     }
   }
   async function loadPickupOrders() {
