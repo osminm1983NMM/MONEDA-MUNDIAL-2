@@ -49,6 +49,19 @@ const statusLookup = recovery.indexOf("supabase.rpc('mwd_operation_status_demo'"
 assert.ok(pendingVisible >= 0 && statusLookup > pendingVisible &&
   recovery.indexOf('setPendingOperation(pending);', pendingVisible) < statusLookup,
   'La referencia pendiente debe quedar visible antes de consultar el servidor');
+assert.match(recovery, /pendingValidated = true;[\\s\\S]*?pendingRef\\.current = pending;/,
+  'Una referencia válida debe seguir visible durante la consulta de estado');
+assert.match(recovery, /if \\(!pendingValidated\\) \\{[\\s\\S]*?setPendingOperationRecoveryError/,
+  'Un error leyendo la referencia local debe bloquear nuevas operaciones');
+assert.ok(app.includes('No se pudo revisar la operación anterior') &&
+  app.includes('onPress={() => recoverPendingOperation(userId)}'),
+  'La pantalla debe ofrecer reintentar la lectura de una referencia local');
+const prepareOperation = section('function prepareOperation(type) {', 'async function logout()');
+assert.ok(prepareOperation.includes('if (pendingOperationRecoveryError)'),
+  'La preparación debe impedir nuevas operaciones con una referencia local dudosa');
+assert.ok(app.includes('!!pendingOperationRecoveryError}'),
+  'Los accesos a transferencia y aportación deben bloquearse si la referencia no se pudo leer');
+
 const storageRead = recovery.indexOf('await AsyncStorage.getItem(storageKey);');
 assert.ok(storageRead >= 0 && recovery.indexOf(sessionGuard, storageRead) > storageRead,
   'La recuperación debe validar la sesión después de leer el almacenamiento');
