@@ -311,10 +311,12 @@ export default function App() {
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
       setSyncNotice('Saldo e historial actualizados correctamente.');
+      return true;
     } catch (error) {
       if (id === currentUserRef.current && requestVersion === refreshAccountVersionRef.current) {
         setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
         message('Sincronización', error.message || 'No se pudo consultar Supabase.');
+        return false;
       }
     } finally {
       if (id === currentUserRef.current && requestVersion === refreshAccountVersionRef.current) {
@@ -391,7 +393,9 @@ export default function App() {
   }
 
   async function recoverPendingOperation(id = userId) {
-    if (!id) return;
+    if (!isCurrentUser(id) || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
     const storageKey = pendingOperationStorageKey(id);
     let saved = null;
     let pendingValidated = false;
@@ -430,9 +434,13 @@ export default function App() {
         if (id !== currentUserRef.current) return;
         pendingRef.current = null;
         setPendingOperation(null);
-        await refreshAccount(id);
+        const refreshed = await refreshAccount(id);
         if (id !== currentUserRef.current) return;
-        setSyncNotice('La operación pendiente ya estaba confirmada. Se actualizó tu saldo.');
+        if (refreshed === true) {
+          setSyncNotice('La operación pendiente ya estaba confirmada. Se actualizó tu saldo.');
+        } else if (refreshed === false) {
+          setSyncNotice('Operación confirmada. Saldo e historial pendientes de actualizar.');
+        }
         return;
       }
       if (statusResponse.data?.status !== 'unconfirmed') {
@@ -448,6 +456,11 @@ export default function App() {
           );
         }
         setSyncNotice('No se pudo verificar la operación pendiente. Conservamos su referencia para reintentar.');
+      }
+    } finally {
+      if (isCurrentUser(id)) {
+        busyRef.current = false;
+        setBusy(false);
       }
     }
   }
@@ -502,7 +515,7 @@ export default function App() {
           setScreen('Inicio');
           await refreshAccount(actorId);
           if (!isCurrentUser(actorId)) return;
-          message('Operación ya confirmada', 'Supabase confirmó la solicitud anterior. El saldo e historial se actualizaron sin enviar otra operación.');
+          message('Operación ya confirmada', 'La solicitud anterior ya quedó registrada. Puedes consultar el estado de la actualización en Inicio.');
           return;
         }
         if (statusResponse.data?.status !== 'unconfirmed') {

@@ -1,0 +1,123 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const test = require('node:test');
+
+const app = fs.readFileSync(require.resolve('../App.js'), 'utf8');
+function section(start, end) {
+  const from = app.indexOf(start);
+  const to = app.indexOf(end, from + start.length);
+  assert.ok(from >= 0 && to > from);
+  return app.slice(from, to);
+}
+const handlers = [
+  section('function pendingOperationStorageKey', 'function pendingPickupStorageKey'),
+  section('function isDefinitiveRpcRejection', 'function amountToCents'),
+  section('async function recoverPendingOperation', 'function changeAmount'),
+  section('async function executeOperation', 'function prepareOperation'),
+].join('\n');
+const recipient = 'MWD-0123456789ABCDEF';
+const requestId = '469bea32-c0b9-43bd-b2e4-cadcaf0a3883';
+
+function device(storage, rpc) {
+  const noop = () => {};
+  const ctx = vm.createContext({
+    userId: 'sender', currentUserRef: { current: 'sender' }, busyRef: { current: false },
+    pendingRef: { current: null }, isCurrentUser: id => id === 'sender',
+    AsyncStorage: {
+      getItem: async key => storage.get(key),
+      setItem: async (key, value) => storage.set(key, value),
+      removeItem: async key => storage.delete(key),
+    },
+    supabase: { rpc }, uniqueRequestId: () => requestId, refreshAccount: noop,
+    setBusy: noop, setPendingOperation: noop, setPendingOperationRecoveryError: noop,
+    setSyncNotice: noop, setAmount: noop, setRecipientCode: noop, setScreen: noop, message: noop,
+  });
+  vm.runInContext(handlers, ctx);
+  return ctx;
+}
+
+for (const committed of [true, false]) {
+  test('restart after connection loss, server committed = ' + committed, async () => {
+    const storage = new Map();
+    const attempts = [];
+    const first = device(storage, async (name, args) => {
+      attempts.push([name, args.p_request_id]);
+      throw new Error('Connection lost');
+    });
+    await first.executeOperation('transfer', 100, recipient);
+    assert.equal(JSON.parse(storage.get('mwd_pending_operation:sender')).id, requestId);
+
+    let statusQueries = 0;
+    let resumeLookup;
+    const gate = new Promise(resolve => { resumeLookup = resolve; });
+    const restarted = device(storage, async (name, args) => {
+      if (name === 'mwd_operation_status_demo') {
+        statusQueries++;
+        if (statusQueries === 1) await gate;
+        return { data: committed
+          ? { status: 'processed', kind: 'transfer', amountCents: 100, recipientCode: recipient }
+          : { status: 'unconfirmed' } };
+      }
+      attempts.push([name, args.p_request_id]);
+      return { data: { status: 'ok' } };
+    });
+    restarted.uniqueRequestId = () => assert.fail('A retry must reuse the stored reference');
+    const recovery = restarted.recoverPendingOperation();
+    await new Promise(resolve => setImmediate(resolve));
+    await restarted.executeOperation('transfer', 100, recipient);
+    assert.equal(statusQueries, 1);
+    assert.equal(attempts.length, 1);
+    resumeLookup();
+    await recovery;
+    if (!committed) await restarted.executeOperation('transfer', 100, recipient);
+    assert.equal(attempts.length, committed ? 1 : 2);
+    for (const attempt of attempts) assert.deepEqual(attempt, ['mwd_transfer_demo', requestId]);
+    assert.equal(storage.size, 0);
+    assert.equal(restarted.busyRef.current, false);
+  });
+}
+
+function storedTransfer() {
+  return new Map([['mwd_pending_operation:sender', JSON.stringify({
+    userId: 'sender', id: requestId, type: 'transfer', code: recipient, cents: 100,
+  })]]);
+}
+
+test('continued outage on restart retains the reference through repeated retries', async () => {
+  const storage = storedTransfer();
+  const calls = [];
+  const app = device(storage, async (name, args) => {
+    calls.push([name, args.p_request_id]);
+    return { error: { message: 'Network request failed' } };
+  });
+  await app.recoverPendingOperation();
+  for (let i = 0; i < 2; i++) await app.executeOperation('transfer', 100, recipient);
+  assert.deepEqual(calls, Array(3).fill(['mwd_operation_status_demo', requestId]));
+  assert.equal(storage.get('mwd_pending_operation:sender'), storedTransfer().get('mwd_pending_operation:sender'));
+  assert.equal(app.pendingRef.current.id, requestId);
+  assert.equal(app.busyRef.current, false);
+});
+
+test('confirmed transfer followed by a failed refresh stays confirmed with balance pending', async () => {
+  const storage = storedTransfer();
+  const appContext = device(storage, async (name) => {
+    assert.equal(name, 'mwd_operation_status_demo');
+    return { data: { status: 'processed', kind: 'transfer', recipientCode: recipient, amountCents: 100 } };
+  });
+  let notice;
+  const failedRead = Promise.resolve({ error: { message: 'Disconnected' } });
+  const table = {
+    select() { return this; }, eq() { return this; }, or() { return this; }, order() { return this; },
+    single() { return failedRead; }, maybeSingle() { return failedRead; }, limit() { return failedRead; },
+  };
+  appContext.supabase.from = () => table;
+  appContext.setSyncNotice = value => { notice = value; };
+  appContext.setSyncing = () => {};
+  appContext.refreshAccountVersionRef = { current: 0 };
+  vm.runInContext(section('async function refreshAccount', 'async function authenticate'), appContext);
+  await appContext.recoverPendingOperation();
+  assert.equal(notice, 'Operación confirmada. Saldo e historial pendientes de actualizar.');
+  assert.equal(storage.size, 0);
+  assert.equal(appContext.pendingRef.current, null);
+});
