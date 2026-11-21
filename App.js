@@ -137,11 +137,24 @@ export default function App() {
   const pickupBusyRef = useRef(false);
   const currentUserRef = useRef(null);
   const refreshAccountVersionRef = useRef(0);
+  const swapBusyTokenRef = useRef(null);
   const recoveryCodeStateRef = useRef({ inFlight: new Set(), processed: new Set() });
   const userId = session?.user?.id;
   // Actualizar durante render para invalidar respuestas de red de cuentas anteriores.
   currentUserRef.current = userId;
   const isCurrentUser = id => !!id && id === currentUserRef.current;
+  function beginSwapBusy() {
+    if (swapBusyTokenRef.current) return null;
+    const token = {};
+    swapBusyTokenRef.current = token;
+    setSwapBusy(true);
+    return token;
+  }
+  function endSwapBusy(token, actorId) {
+    if (swapBusyTokenRef.current !== token) return;
+    swapBusyTokenRef.current = null;
+    if (isCurrentUser(actorId)) setSwapBusy(false);
+  }
 
   useEffect(() => {
     let active = true;
@@ -220,6 +233,7 @@ export default function App() {
     pickupBusyRef.current = false;
     busyRef.current = false;
     setBusy(false);
+    swapBusyTokenRef.current = null;
     setSwapBusy(false);
     setPickupBusy(false);
     setPickupOrdersBusy(false);
@@ -545,7 +559,8 @@ export default function App() {
   async function loadSwapWallet() {
     const actorId = userId;
     if (!isCurrentUser(actorId)) return;
-    setSwapBusy(true);
+    const busyToken = beginSwapBusy();
+    if (!busyToken) return;
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_wallet_demo');
       if (!isCurrentUser(actorId)) return;
@@ -554,7 +569,7 @@ export default function App() {
     } catch (error) {
       if (isCurrentUser(actorId)) message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
     } finally {
-      if (isCurrentUser(actorId)) setSwapBusy(false);
+      endSwapBusy(busyToken, actorId);
     }
   }
   async function requestSwapQuote() {
@@ -569,7 +584,8 @@ export default function App() {
     }
     const actorId = userId;
     if (!isCurrentUser(actorId)) return;
-    setSwapBusy(true);
+    const busyToken = beginSwapBusy();
+    if (!busyToken) return;
     setSwapQuote(null);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_quote_demo', {
@@ -581,7 +597,7 @@ export default function App() {
     } catch (error) {
       if (isCurrentUser(actorId)) message('Cotización', error.message || 'No se pudo cotizar.');
     } finally {
-      if (isCurrentUser(actorId)) setSwapBusy(false);
+      endSwapBusy(busyToken, actorId);
     }
   }
   async function confirmSwap() {
@@ -589,7 +605,8 @@ export default function App() {
     const actorId = userId;
     if (!isCurrentUser(actorId)) return;
     const quote = swapQuote;
-    setSwapBusy(true);
+    const busyToken = beginSwapBusy();
+    if (!busyToken) return;
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_confirm_demo', {
         p_quote_id: quote.quoteId,
@@ -617,7 +634,7 @@ export default function App() {
           '\nConsulta los saldos antes de intentar otra conversión.');
       }
     } finally {
-      if (isCurrentUser(actorId)) setSwapBusy(false);
+      endSwapBusy(busyToken, actorId);
     }
   }
   async function recoverPendingPickup(id = userId) {
