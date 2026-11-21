@@ -108,6 +108,7 @@ export default function App() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
+  const authBusyRef = useRef(false);
   const [screen, setScreen] = useState('Inicio');
   const [wallet, setWallet] = useState(null);
   const [operations, setOperations] = useState([]);
@@ -147,6 +148,16 @@ export default function App() {
   currentUserRef.current = userId;
   swapQuoteRef.current = swapQuote;
   const isCurrentUser = id => !!id && id === currentUserRef.current;
+  function beginAuthBusy() {
+    if (authBusyRef.current) return false;
+    authBusyRef.current = true;
+    setAuthBusy(true);
+    return true;
+  }
+  function endAuthBusy() {
+    authBusyRef.current = false;
+    setAuthBusy(false);
+  }
   function beginSwapBusy() {
     if (swapBusyTokenRef.current) return null;
     const token = {};
@@ -306,8 +317,7 @@ export default function App() {
     const cleanEmail = email.trim().toLowerCase();
     if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) return message('Correo', 'Introduce un correo válido.');
     if (password.length < 8) return message('Contraseña', 'Debe tener por lo menos 8 caracteres.');
-    if (authBusy) return;
-    setAuthBusy(true);
+    if (!beginAuthBusy()) return;
     try {
       if (action === 'register') {
         const { data, error } = await supabase.auth.signUp({ email: cleanEmail, password });
@@ -323,7 +333,7 @@ export default function App() {
     } catch (error) {
       message('Acceso', error.message || 'No se pudo completar la operación.');
     } finally {
-      setAuthBusy(false);
+      endAuthBusy();
     }
   }
 
@@ -332,8 +342,7 @@ export default function App() {
     if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) {
       return message('Correo', 'Introduce un correo válido primero.');
     }
-    if (authBusy) return;
-    setAuthBusy(true);
+    if (!beginAuthBusy()) return;
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: PASSWORD_RESET_REDIRECT,
@@ -344,7 +353,7 @@ export default function App() {
     } catch (error) {
       message('Recuperar contraseña', error.message || 'No se pudo enviar el enlace.');
     } finally {
-      setAuthBusy(false);
+      endAuthBusy();
     }
   }
 
@@ -353,8 +362,7 @@ export default function App() {
     if (newPassword !== confirmNewPassword) return message('Contraseña', 'Las contraseñas no coinciden.');
     const actorId = userId;
     if (!isCurrentUser(actorId)) return message('Sesión', 'El enlace de recuperación no tiene una sesión válida.');
-    if (authBusy) return;
-    setAuthBusy(true);
+    if (!beginAuthBusy()) return;
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (!isCurrentUser(actorId)) return;
@@ -369,7 +377,7 @@ export default function App() {
       }
     } finally {
       // Liberar el formulario aunque la cuenta haya cambiado mientras esperaba la RPC.
-      setAuthBusy(false);
+      endAuthBusy();
     }
   }
 
