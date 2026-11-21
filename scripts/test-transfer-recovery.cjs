@@ -77,3 +77,47 @@ for (const committed of [true, false]) {
     assert.equal(restarted.busyRef.current, false);
   });
 }
+
+function storedTransfer() {
+  return new Map([['mwd_pending_operation:sender', JSON.stringify({
+    userId: 'sender', id: requestId, type: 'transfer', code: recipient, cents: 100,
+  })]]);
+}
+
+test('continued outage on restart retains the reference through repeated retries', async () => {
+  const storage = storedTransfer();
+  const calls = [];
+  const app = device(storage, async (name, args) => {
+    calls.push([name, args.p_request_id]);
+    return { error: { message: 'Network request failed' } };
+  });
+  await app.recoverPendingOperation();
+  for (let i = 0; i < 2; i++) await app.executeOperation('transfer', 100, recipient);
+  assert.deepEqual(calls, Array(3).fill(['mwd_operation_status_demo', requestId]));
+  assert.equal(storage.get('mwd_pending_operation:sender'), storedTransfer().get('mwd_pending_operation:sender'));
+  assert.equal(app.pendingRef.current.id, requestId);
+  assert.equal(app.busyRef.current, false);
+});
+
+test('confirmed transfer followed by a failed refresh stays confirmed with balance pending', async () => {
+  const storage = storedTransfer();
+  const appContext = device(storage, async (name) => {
+    assert.equal(name, 'mwd_operation_status_demo');
+    return { data: { status: 'processed', kind: 'transfer', recipientCode: recipient, amountCents: 100 } };
+  });
+  let notice;
+  const failedRead = Promise.resolve({ error: { message: 'Disconnected' } });
+  const table = {
+    select() { return this; }, eq() { return this; }, or() { return this; }, order() { return this; },
+    single() { return failedRead; }, maybeSingle() { return failedRead; }, limit() { return failedRead; },
+  };
+  appContext.supabase.from = () => table;
+  appContext.setSyncNotice = value => { notice = value; };
+  appContext.setSyncing = () => {};
+  appContext.refreshAccountVersionRef = { current: 0 };
+  vm.runInContext(section('async function refreshAccount', 'async function authenticate'), appContext);
+  await appContext.recoverPendingOperation();
+  assert.equal(notice, 'Operación confirmada. Saldo e historial pendientes de actualizar.');
+  assert.equal(storage.size, 0);
+  assert.equal(appContext.pendingRef.current, null);
+});
