@@ -12,6 +12,13 @@ Lectura de los asesores de seguridad, rendimiento y salud; catálogos PostgreSQL
 - **Protección de credenciales:** Supabase informa que la protección contra contraseñas filtradas está desactivada. Habilitarla y documentar los parámetros de autenticación antes de invitar usuarios externos.
 - **Rendimiento:** el asesor reporta claves foráneas sin índice y varios índices no usados. Son avisos informativos en una base de demostración; no se añadieron ni quitaron índices sin mediciones de carga.
 
+## Almacenamiento local de sesión
+
+- **Estado actual:** Supabase Auth persiste la sesión en `AsyncStorage`; las referencias de reintento de operaciones también usan almacenamiento local, separadas de la sesión.
+- **Evaluación:** no conviene guardar la sesión completa directamente en `SecureStore` sin medir y manejar errores por tamaño. La guía de Expo advierte que algunas cargas grandes pueden ser rechazadas; la guía oficial de Supabase para Expo plantea cifrar la sesión en `AsyncStorage` y guardar la clave de cifrado en `SecureStore`.
+- **Decisión para esta rama:** mantener el almacenamiento actual hasta implementar y validar una capa cifrada compatible con Android y web. La migración debe leer sesiones anteriores, escribir y verificar la sesión cifrada antes de borrar el valor anterior, y conservar el inicio de sesión si la migración falla. No guardar datos pendientes de operación como credenciales.
+- **Validación requerida antes de adoptarlo:** probar inicio y cierre de sesión, renovación de token, recuperación PKCE, actualización de sesión grande, migración de instalación existente y recuperación tras fallo de lectura/escritura en un Android instalado. La exportación JavaScript por sí sola no valida el almacén nativo.
+
 ## Pendiente antes de cualquier uso real
 
 - [ ] Habilitar protección contra contraseñas filtradas en Supabase Auth.
