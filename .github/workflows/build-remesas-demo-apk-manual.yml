@@ -67,10 +67,24 @@ jobs:
           fs.mkdirSync('artifacts', { recursive: true });
           fs.copyFileSync(result.path, path.join('artifacts', 'MonedaMundial-demo.apk'));
           NODE
-      - name: Upload APK for download
+      - name: Record APK provenance
+        env:
+          BUILD_ID: ${{ steps.eas-build.outputs.build_id }}
+        run: |
+          APK_SHA256=$(sha256sum artifacts/MonedaMundial-demo.apk | cut -d ' ' -f 1)
+          {
+            echo "repository=$GITHUB_REPOSITORY"
+            echo "ref=$GITHUB_REF"
+            echo "commit=$GITHUB_SHA"
+            echo "eas_build_id=$BUILD_ID"
+            echo "apk_sha256=$APK_SHA256"
+          } > artifacts/BUILD-INFO.txt
+      - name: Upload APK and build information
         uses: actions/upload-artifact@v4
         with:
           name: MonedaMundial-demo-apk
-          path: artifacts/MonedaMundial-demo.apk
+          path: |
+            artifacts/MonedaMundial-demo.apk
+            artifacts/BUILD-INFO.txt
           if-no-files-found: error
           retention-days: 7
