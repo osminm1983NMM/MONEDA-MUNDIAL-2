@@ -53,7 +53,7 @@ function parsePendingPickup(saved, userId) {
 function isDefinitiveRpcRejection(error) {
   // Keep idempotency conflicts and reconciliation cases for review; network errors stay pending.
   const messageText = String(error?.message || '');
-  const requiresReview = /identificador\\s+(?:ya usado|reutilizado)|solicitud duplicada inconsistente|reconciliaci[oó]n/i.test(messageText);
+  const requiresReview = /identificador\s+(?:ya usado|reutilizado)|solicitud duplicada inconsistente|reconciliaci[oó]n/i.test(messageText);
   return Number(error?.status) === 400 && /^[0-9A-Z]{5}$/.test(error?.code || '') && !requiresReview;
 }
 
@@ -677,7 +677,7 @@ export default function App() {
           setSwapQuote(null);
           message('Cotización rechazada',
             (error.message || 'La cotización ya no se puede usar.') +
-            '\\nLa conversión no se registró. Solicita una cotización nueva.');
+            '\nLa conversión no se registró. Solicita una cotización nueva.');
           return;
         }
         throw error;
