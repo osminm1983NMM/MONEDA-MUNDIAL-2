@@ -19,8 +19,9 @@ Pasaron localmente y en GitHub Actions estas comprobaciones:
 - `node scripts/audit-demo-static.cjs`
 - `node scripts/audit-regression-safety.cjs`
 - `node scripts/preflight-release-local.js`
+- Exportación del bundle JavaScript para Android con Expo en CI.
 
-Ejecuciones: [Preflight integral DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44850789595) y [Auditoría estática DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44850789493). No sustituyen pruebas de red ni de dispositivo; la prueba integrada de pérdida de conexión y las pruebas Android siguen pendientes.
+Ejecuciones: [Preflight integral DEMO — bundle Android y auditorías](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44851053987), [Auditoría estática DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44850789493) y [Preflight anterior](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44850789595). La exportación de Expo comprueba el bundle JavaScript; no construye ni instala una APK. La prueba integrada de pérdida de conexión y las pruebas Android siguen pendientes.
 
 ## Pruebas integradas pendientes — solo entorno de demostración
 
