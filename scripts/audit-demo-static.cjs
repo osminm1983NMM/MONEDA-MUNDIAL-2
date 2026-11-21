@@ -63,9 +63,15 @@ assert.match(app, /cents > wallet\.balance_cents && !samePending/,
 assert.match(app, /setPickupResult\(data\)/, 'Falta resultado de retiro');
 const operationBody = app.split('function prepareOperation(type) {')[1]?.split('async function logout()')[0];
 assert.ok(operationBody, 'Falta preparación de operaciones');
-assert.match(operationBody, /pendingRef\.current\?\.type === type/, 'El reintento debe conservar tipo de operación');
-assert.match(operationBody, /pendingRef\.current\?\.cents === cents/, 'El reintento debe conservar cantidad');
-assert.match(operationBody, /pendingRef\.current\?\.code ===/, 'El reintento debe conservar destinatario');
+assert.match(operationBody, /existingPending\?\.type === type/, 'El reintento debe conservar tipo de operación');
+assert.match(operationBody, /existingPending\?\.cents === cents/, 'El reintento debe conservar cantidad');
+assert.match(operationBody, /existingPending\?\.code ===/, 'El reintento debe conservar destinatario');
+assert.match(operationBody, /pendingOperation/, 'La referencia recuperada debe bloquear otra operación');
+assert.match(app, /AsyncStorage\.setItem\(storageKey, JSON\.stringify\(pending\)\)/,
+  'La referencia debe guardarse antes de llamar la RPC');
+assert.match(app, /recoverPendingOperation\(userId\)/, 'Falta recuperar solicitudes al iniciar sesión');
+assert.match(app, /mwd_operation_status_demo/, 'Falta consultar el estado de solicitudes inciertas');
+assert.match(app, /result\.kind !== pending\.type/, 'El resultado recuperado debe coincidir con la referencia guardada');
 
 
 
