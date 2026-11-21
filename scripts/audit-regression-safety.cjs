@@ -77,7 +77,9 @@ const removePickup = pickupCreate.indexOf('await AsyncStorage.removeItem(storage
 assert.ok(removePickup >= 0 &&
   pickupCreate.indexOf('if (!isCurrentUser(actorId)) return;', removePickup) > removePickup,
   'La limpieza del retiro debe comprobar que la sesión no cambió');
-assert.ok(pickupCreate.includes('if (isCurrentUser(actorId)) setPickupBusy(false);'),
+assert.ok(pickupCreate.includes('if (isCurrentUser(actorId)) {') &&
+  pickupCreate.includes('pickupBusyRef.current = false;') &&
+  pickupCreate.includes('setPickupBusy(false);'),
   'Una respuesta tardía de retiro no debe cambiar el estado de carga de otra cuenta');
 
 const asyncAccountSections = [
