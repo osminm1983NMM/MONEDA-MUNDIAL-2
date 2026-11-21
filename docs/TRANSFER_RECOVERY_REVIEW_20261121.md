@@ -9,6 +9,7 @@ En esta rama, `App.js` guarda antes del RPC la operación pendiente en AsyncStor
 - Mientras exista una operación sin resolver, bloquea transferencias y aportaciones nuevas.
 - Los retiros DEMO también guardan el ID idempotente y los datos por usuario en AsyncStorage antes de llamar al RPC; tras reiniciar se puede reintentar sin crear otra orden.
 - Un bloqueo síncrono impide que dos toques rápidos inicien solicitudes distintas antes del siguiente render de React.
+- Si falla la lectura local de una referencia pendiente, la pantalla principal permite volver a verificarla sin cerrar sesión.
 - Si el RPC informa que la orden ya existía, no devuelve otra vez el código de retiro. La interfaz dirige a “Mis retiros” y advierte que no se cree otra orden para recuperarlo.
 - Las respuestas tardías de transferencias, conversiones y retiros se descartan si la sesión cambió; los indicadores de carga también quedan aislados por usuario.
 - La recuperación valida de nuevo la sesión después de leer o borrar la referencia local y después de actualizar el saldo, para no cambiar el estado visible de otra cuenta.
@@ -23,8 +24,8 @@ Pasaron localmente y en GitHub Actions las auditorías estáticas y de regresió
 - `npx expo export --platform android --output-dir /tmp/mwd-demo-bundle` (ejecutado en CI)
 
 Ejecuciones de CI:
-- [Preflight integral DEMO — bundle Android y auditorías](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44852837992)
-- [Auditoría estática DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44852837983)
+- [Preflight integral DEMO — bundle Android y auditorías](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44853151888)
+- [Auditoría estática DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44853151332)
 
 La ejecución del preflight terminó correctamente, incluyendo el paso de bundle de Expo. Esto valida el empaquetado JavaScript; no genera ni prueba una APK.
 
