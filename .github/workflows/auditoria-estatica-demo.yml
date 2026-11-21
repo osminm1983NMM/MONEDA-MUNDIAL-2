@@ -8,6 +8,7 @@ on:
       - 'app.json'
       - 'scripts/audit-demo-static.cjs'
       - 'scripts/audit-regression-safety.cjs'
+      - 'scripts/test-transfer-recovery.cjs'
       - '.github/workflows/auditoria-estatica-demo.yml'
 permissions:
   contents: read
@@ -24,3 +25,4 @@ jobs:
         run: |
           node scripts/audit-demo-static.cjs
           node scripts/audit-regression-safety.cjs
+          node --test scripts/test-transfer-recovery.cjs

@@ -391,7 +391,9 @@ export default function App() {
   }
 
   async function recoverPendingOperation(id = userId) {
-    if (!id) return;
+    if (!isCurrentUser(id) || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
     const storageKey = pendingOperationStorageKey(id);
     let saved = null;
     let pendingValidated = false;
@@ -448,6 +450,11 @@ export default function App() {
           );
         }
         setSyncNotice('No se pudo verificar la operación pendiente. Conservamos su referencia para reintentar.');
+      }
+    } finally {
+      if (isCurrentUser(id)) {
+        busyRef.current = false;
+        setBusy(false);
       }
     }
   }
