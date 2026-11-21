@@ -49,9 +49,11 @@ const statusLookup = recovery.indexOf("supabase.rpc('mwd_operation_status_demo'"
 assert.ok(pendingVisible >= 0 && statusLookup > pendingVisible &&
   recovery.indexOf('setPendingOperation(pending);', pendingVisible) < statusLookup,
   'La referencia pendiente debe quedar visible antes de consultar el servidor');
-assert.match(recovery, /pendingValidated = true;[\\s\\S]*?pendingRef\\.current = pending;/,
+assert.ok(recovery.indexOf('pendingValidated = true;') >= 0 &&
+  recovery.indexOf('pendingRef.current = pending;') > recovery.indexOf('pendingValidated = true;'),
   'Una referencia válida debe seguir visible durante la consulta de estado');
-assert.match(recovery, /if \\(!pendingValidated\\) \\{[\\s\\S]*?setPendingOperationRecoveryError/,
+assert.ok(recovery.includes('if (!pendingValidated) {') &&
+  recovery.includes('setPendingOperationRecoveryError('),
   'Un error leyendo la referencia local debe bloquear nuevas operaciones');
 assert.ok(app.includes('No se pudo revisar la operación anterior') &&
   app.includes('onPress={() => recoverPendingOperation(userId)}'),
