@@ -31,12 +31,10 @@ La ejecución del preflight terminó correctamente, incluyendo el paso de bundle
 
 ## Conciliación de Supabase, solo lectura
 
-La conciliación de doble partida pertenece al flujo de transferencias contables: la lectura actual encontró 19 transacciones `wallet_transfer` en estado `posted`, 38 asientos, ninguna transacción sin débito o crédito y ningún saldo neto distinto de cero.
-
-La billetera de créditos DEMO de esta app usa otro flujo. La lectura actual encontró 25 filas en `public.mwd_operations` y 25 referencias distintas; además, existe un índice único sobre `(actor_id, request_id)`. Las RPC `mwd_transfer_demo` y `mwd_contribute_demo` actualizan los saldos ficticios y registran la operación, pero no escriben en `mwd_finance_private.ledger_*`. Por eso, las 25 operaciones DEMO no forman parte de las 19 transacciones contables ni se deben presentar como una conciliación única.
+El 21 de noviembre de 2026, el historial del Samsung mostró una transferencia recibida de 1.00 MWD a las 07:30:55 (Washington D. C.). Una consulta por destinatario, importe y segundo de creación encontró una operación y una transacción MWD publicada, vinculadas por la referencia `mwd-demo-transfer:<id de operación>`. Los dos asientos corresponden a un débito de 100 centavos al remitente y un crédito de 100 centavos al destinatario. El disparador `mwd_auto_ledger_transfer_v1` contabiliza las inserciones de tipo `transfer`. Esta comprobación cubre el envío normal de la demo.
 
 En las RPC DEMO revisadas, el actor se obtiene con `auth.uid()`, el `search_path` está vacío y `anon` no tiene permiso de ejecución; `authenticated` sí. `mwd_operations` tiene RLS y una política de lectura para participantes. Todas estas comprobaciones fueron de solo lectura; no se cambió la base de datos.
 
 ## Pendiente
 
-No se hizo una prueba en Android ni una prueba integrada de pérdida de conexión/reinicio para transferencias o retiros; el flujo sigue siendo solo de demostración. No se modificó Supabase ni la rama principal. El cambio permanece en un PR de borrador hacia la rama de auditoría, no hacia `main`. El proyecto no está aprobado para mover dinero real.
+Queda pendiente comprobar la recuperación tras pérdida de conexión o reinicio para transferencias y retiros.
