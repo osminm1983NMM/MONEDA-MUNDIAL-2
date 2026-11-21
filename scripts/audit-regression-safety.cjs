@@ -35,5 +35,26 @@ const pickup = section('async function createDemoPickup() {', 'async function lo
 assert.match(pickup, /p_request_id:\s*requestId/, 'Retiro sin ID idempotente');
 assert.match(pickup, /pickupPendingRef\.current\.id/, 'Retiro no conserva ID');
 assert.ok(sql.length > 100, 'SQL de registro de socios vacío');
+
+assert.match(app, /const isCurrentUser = id => !!id && id === currentUserRef\.current/,
+  'Debe existir una guarda de identidad para respuestas asíncronas');
+const asyncAccountSections = [
+  ['async function executeOperation(type, cents, code = \'\') {', 'function prepareOperation(type) {'],
+  ['async function loadSwapWallet() {', 'async function requestSwapQuote() {'],
+  ['async function requestSwapQuote() {', 'async function confirmSwap() {'],
+  ['async function confirmSwap() {', 'async function createDemoPickup() {'],
+  ['async function createDemoPickup() {', 'async function loadPickupOrders() {'],
+  ['async function loadPickupOrders() {', 'async function cancelDemoPickup(orderId) {'],
+  ['async function cancelDemoPickup(orderId) {', 'function navigate(to) {'],
+];
+for (const [start, end] of asyncAccountSections) {
+  const body = section(start, end);
+  assert.match(body, /const actorId = userId/, 'Falta capturar el usuario de la solicitud: ' + start);
+  assert.match(body, /if \(!isCurrentUser\(actorId\)\) return/,
+    'Una respuesta tardía puede actualizar otra cuenta: ' + start);
+  assert.match(body, /finally \{\s*if \(isCurrentUser\(actorId\)\)/,
+    'El estado de carga de otra cuenta puede cambiar: ' + start);
+}
+
 console.log('PASS: barreras estáticas de reintentos, sesiones, lectura y RPC DEMO');
 console.log('NO CERTIFICA: concurrencia, RLS real, contabilidad, APK ni pagos reales');
