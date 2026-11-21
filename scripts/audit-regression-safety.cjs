@@ -40,6 +40,11 @@ assert.match(app, /const isCurrentUser = id => !!id && id === currentUserRef\.cu
   'Debe existir una guarda de identidad para respuestas asíncronas');
 const recovery = section('async function recoverPendingOperation(id = userId) {', 'function changeAmount(value) {');
 const sessionGuard = 'if (id !== currentUserRef.current) return;';
+const pendingVisible = recovery.indexOf('pendingRef.current = pending;');
+const statusLookup = recovery.indexOf("supabase.rpc('mwd_operation_status_demo'");
+assert.ok(pendingVisible >= 0 && statusLookup > pendingVisible &&
+  recovery.indexOf('setPendingOperation(pending);', pendingVisible) < statusLookup,
+  'La referencia pendiente debe quedar visible antes de consultar el servidor');
 const storageRead = recovery.indexOf('await AsyncStorage.getItem(storageKey);');
 assert.ok(storageRead >= 0 && recovery.indexOf(sessionGuard, storageRead) > storageRead,
   'La recuperación debe validar la sesión después de leer el almacenamiento');
