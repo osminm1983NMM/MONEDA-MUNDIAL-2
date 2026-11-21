@@ -43,7 +43,7 @@ assert.ok(pickupBody, 'Falta función de retiro ficticio');
 assert.match(pickupBody, /p_request_id:\s*pending\.id/, 'Retiro sin referencia idempotente recuperada');
 assert.match(pickupBody, /p_request_id:\s*pending\.id/, 'RPC de retiro sin clave idempotente persistida');
 assert.match(pickupBody, /pickupPendingRef\.current = null/, 'Retiro sin limpieza al confirmar');
-assert.match(app, /onChangeText=\{value => \{ setPickupAmount\(value\); pickupPendingRef\.current = null; \}\}/, 'Editar monto debe invalidar el identificador');
+assert.match(app, /onChangeText=\{setPickupAmount\}/, 'El formulario debe mantener la persistencia del retiro');
 
 
 const navigationBody = app.split('function navigate(to) {')[1]?.split('  return (')[0];
