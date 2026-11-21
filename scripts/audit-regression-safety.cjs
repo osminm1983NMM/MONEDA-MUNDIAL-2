@@ -53,16 +53,22 @@ assert.ok(refreshAfterRecovery >= 0 &&
   'La recuperación no debe mostrar avisos tardíos en otra cuenta');
 
 const pickupRecovery = section('async function recoverPendingPickup(id = userId) {', 'async function createDemoPickup() {');
-assert.match(pickupRecovery, /await AsyncStorage\\.getItem\\(pendingPickupStorageKey\\(id\\)\\)[\\s\\S]*?if \(!isCurrentUser\\(id\\)\\) return/,
+const pickupRead = pickupRecovery.indexOf('await AsyncStorage.getItem(pendingPickupStorageKey(id));');
+assert.ok(pickupRead >= 0 &&
+  pickupRecovery.indexOf('if (!isCurrentUser(id)) return;', pickupRead) > pickupRead,
   'La recuperación de retiro debe validar la sesión tras leer almacenamiento');
 const pickupCreate = section('async function createDemoPickup() {', 'async function loadPickupOrders() {');
-assert.match(pickupCreate, /await AsyncStorage\\.setItem\\(storageKey, JSON\\.stringify\\(pending\\)\\)[\\s\\S]*?supabase\\.rpc\\('mwd_pickup_create_demo'/,
+const persistPickup = pickupCreate.indexOf('await AsyncStorage.setItem(storageKey, JSON.stringify(pending));');
+const sendPickup = pickupCreate.indexOf("supabase.rpc('mwd_pickup_create_demo'");
+assert.ok(persistPickup >= 0 && sendPickup > persistPickup,
   'La referencia de retiro debe persistirse antes de la RPC');
-assert.match(pickupCreate, /p_request_id:\\s*pending\\.id/,
+assert.ok(pickupCreate.includes('p_request_id: pending.id'),
   'La RPC de retiro debe usar la misma referencia recuperada');
-assert.match(pickupCreate, /await AsyncStorage\\.removeItem\\(storageKey\\)[\\s\\S]*?if \(!isCurrentUser\\(actorId\\)\\) return/,
+const removePickup = pickupCreate.indexOf('await AsyncStorage.removeItem(storageKey);');
+assert.ok(removePickup >= 0 &&
+  pickupCreate.indexOf('if (!isCurrentUser(actorId)) return;', removePickup) > removePickup,
   'La limpieza del retiro debe comprobar que la sesión no cambió');
-assert.match(pickupCreate, /if \(isCurrentUser\\(actorId\\)\\) setPickupBusy\\(false\\)/,
+assert.ok(pickupCreate.includes('if (isCurrentUser(actorId)) setPickupBusy(false);'),
   'Una respuesta tardía de retiro no debe cambiar el estado de carga de otra cuenta');
 
 const asyncAccountSections = [
