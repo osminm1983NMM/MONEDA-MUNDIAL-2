@@ -1,14 +1,34 @@
 // Validación local, sin red ni acceso a Supabase. No modifica datos.
 const fs = require('node:fs');
 const assert = require('node:assert/strict');
-const files = ['package.json', 'app.json', 'App.js'];
+const files = ['package.json', 'app.json', 'App.js', 'PartnerRegistryScreen.js'];
 for (const file of files) assert.ok(fs.existsSync(file), 'Falta ' + file);
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const config = JSON.parse(fs.readFileSync('app.json', 'utf8'));
 const app = fs.readFileSync('App.js', 'utf8');
+const partnerScreen = fs.readFileSync('PartnerRegistryScreen.js', 'utf8');
 assert.ok(pkg.dependencies?.expo, 'Falta Expo');
 assert.ok(pkg.dependencies?.['@supabase/supabase-js'], 'Falta cliente Supabase');
 assert.ok(config.expo?.android?.package, 'Falta identificador Android');
+assert.match(partnerScreen, /function beginBusy\(\) \{\s*if \(busyRef\.current\) return false;\s*busyRef\.current = true;/,
+  'El registro de socios debe bloquear dos acciones antes del siguiente render');
+assert.match(partnerScreen, /function endBusy\(\) \{\s*busyRef\.current = false;/,
+  'El registro de socios debe liberar el bloqueo síncrono');
+assert.match(partnerScreen, /requestVersion === partnersLoadVersionRef\.current/,
+  'Un listado nuevo no debe ser sobrescrito por una respuesta antigua');
+assert.match(partnerScreen, /requestVersion !== partnersLoadVersionRef\.current/,
+  'La carga inicial debe descartar respuestas de versiones anteriores');
+for (const [start, end] of [
+  ['async function savePartner() {', 'async function choosePartner(id) {'],
+  ['async function choosePartner(id) {', 'async function setStatus(status) {'],
+  ['async function setStatus(status) {', 'async function saveLocation() {'],
+  ['async function saveLocation() {', '\\n  return <View>'],
+]) {
+  const block = partnerScreen.split(start)[1]?.split(end)[0];
+  assert.ok(block, 'Falta el bloque de una acción del registro de socios');
+  assert.ok(block.includes('beginBusy()'), 'Una acción del registro de socios no bloquea doble toque');
+  assert.ok(block.includes('endBusy()'), 'Una acción del registro de socios no libera el bloqueo');
+}
 assert.ok(config.expo?.scheme === 'com.monedamundial.app',
   'Falta el esquema registrado para enlaces de recuperación');
 assert.ok(app.includes("flowType: 'pkce'"), 'La recuperación requiere flujo PKCE');
