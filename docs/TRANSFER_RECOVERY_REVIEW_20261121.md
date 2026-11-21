@@ -11,17 +11,18 @@ En esta rama, `App.js` guarda antes del RPC la operación pendiente en AsyncStor
 
 ## Comprobaciones ejecutadas
 
-Pasaron localmente y en GitHub Actions las auditorías estáticas y de regresión, incluyendo las nuevas comprobaciones de cambio de cuenta:
+Pasaron localmente y en GitHub Actions las auditorías estáticas y de regresión, incluyendo las nuevas comprobaciones de cambio de cuenta. CI también instaló dependencias y exportó correctamente el bundle JavaScript de Android mediante Expo:
 
 - `node scripts/audit-demo-static.cjs`
 - `node scripts/audit-regression-safety.cjs`
 - `node scripts/preflight-release-local.js`
+- `npx expo export --platform android --output-dir /tmp/mwd-demo-bundle` (ejecutado en CI)
 
 Ejecuciones de CI:
-- [Preflight integral DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44850789595)
+- [Preflight integral DEMO — bundle Android y auditorías](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44851053987)
 - [Auditoría estática DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44850789493)
 
-Ambas terminaron correctamente. También se corrigió una comprobación que interpretaba una mención literal a `service_role` en un comentario como una clave incrustada.
+La ejecución del preflight terminó correctamente, incluyendo el paso de bundle de Expo. Esto valida el empaquetado JavaScript; no genera ni prueba una APK.
 
 ## Conciliación de Supabase, solo lectura
 
