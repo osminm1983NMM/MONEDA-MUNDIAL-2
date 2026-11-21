@@ -28,18 +28,15 @@ Consulta de solo lectura al estado actual de la base, el 2026-11-21:
 
 Esto comprueba los registros existentes, no sustituye pruebas de concurrencia ni de fallos de red.
 
-## Hallazgo que requiere corrección en la app
+## Cambio técnico preparado en esta rama
 
-En `App.js`, la clave de reintento se guarda solo en `pendingRef` (memoria del proceso). El RPC `mwd_operation_status_demo` existe en la base, pero la app no lo consulta. Si Android cierra el proceso, el usuario sale de la pantalla o cambia los datos tras un tiempo de espera ambiguo, se pierde la referencia local. El siguiente envío podría generar una clave nueva aunque el primer envío ya se hubiera confirmado.
+En `App.js` la solicitud pendiente ahora se guarda en AsyncStorage con una clave por usuario antes de llamar al RPC. Al reabrir la app o reintentar, se consulta `mwd_operation_status_demo` con la misma referencia:
 
-### Corrección propuesta
+- Si ya está procesada, se comprueban tipo, importe y destinatario, se actualizan saldo e historial y se limpia la referencia.
+- Si no está confirmada, la app conserva los datos y reintenta con el mismo `request_id`.
+- Una referencia pendiente queda visible en Inicio; la app impide iniciar otra transferencia o aportación hasta resolverla.
+- La referencia se conserva al cambiar de pantalla o cerrar sesión y queda aislada por ID de usuario. Si la consulta de estado falla, no se borra.
 
-1. Persistir la solicitud pendiente en almacenamiento local por usuario antes del RPC: tipo, importe, destino y `request_id`.
-2. Al reabrir la app o reintentar, consultar `mwd_operation_status_demo` con ese `request_id`.
-3. Si está procesada, actualizar saldo e historial y limpiar la solicitud guardada.
-4. Si sigue sin confirmar, permitir reintentar con el mismo `request_id`; no generar uno nuevo hasta resolver la solicitud anterior.
-5. Limpiar el registro local al cerrar sesión y comprobar que una solicitud guardada nunca se muestre a otra cuenta.
+## Estado y límite de verificación
 
-## Estado
-
-La lógica de transferencia y el asiento contable observado están bien conectados para la demostración. La recuperación de una respuesta ambigua al cerrar la app sigue pendiente en el cliente. Estos hallazgos no autorizan mover dinero real; las transferencias actuales son créditos ficticios.
+El cambio está en `audit/transfer-recovery-findings-20261121`. No se ejecutaron pruebas en un dispositivo ni se modificó Supabase; la verificación dinámica del flujo queda pendiente. Los créditos siguen siendo ficticios y este cambio no habilita operaciones con dinero real.
