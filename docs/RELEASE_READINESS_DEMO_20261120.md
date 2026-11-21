@@ -12,7 +12,7 @@ Estado: **NO APROBADO para dinero real**. Esta lista no equivale a resultados de
 
 ## Avance técnico (2026-11-21)
 
-La rama `feature/transfer-recovery-20261121` conserva en AsyncStorage la operación pendiente por usuario. Al iniciar sesión o reintentar, consulta el estado con la misma referencia idempotente, verifica tipo/importe/destinatario y bloquea operaciones nuevas hasta resolverla. Transferencias, conversiones y retiros descartan respuestas de red si el usuario cambió durante la solicitud.
+La rama `feature/transfer-recovery-20261121` conserva en AsyncStorage la operación pendiente por usuario. Al iniciar sesión o reintentar, consulta el estado con la misma referencia idempotente, verifica tipo/importe/destinatario y bloquea operaciones nuevas hasta resolverla. Transferencias, conversiones y retiros descartan respuestas de red si el usuario cambió durante la solicitud. La recuperación de una operación pendiente vuelve a comprobar la sesión después de cada espera asíncrona que puede preceder una actualización visible.
 
 Pasaron localmente y en GitHub Actions estas comprobaciones:
 
