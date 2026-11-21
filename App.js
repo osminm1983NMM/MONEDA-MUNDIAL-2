@@ -137,6 +137,7 @@ export default function App() {
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const [pendingOperation, setPendingOperation] = useState(null);
+  const [pendingOperationRecoveryError, setPendingOperationRecoveryError] = useState('');
   const busyRef = useRef(false);
   const pendingRef = useRef(null);
   const pickupPendingRef = useRef(null);
@@ -273,6 +274,7 @@ export default function App() {
     setRecipientCode('');
     setPickupAmount('');
     setPendingOperation(null);
+    setPendingOperationRecoveryError('');
     setPendingPickup(null);
     setPickupPendingError('');
     if (!userId) {
@@ -389,10 +391,17 @@ export default function App() {
   async function recoverPendingOperation(id = userId) {
     if (!id) return;
     const storageKey = pendingOperationStorageKey(id);
+    let saved = null;
+    let pendingValidated = false;
+    setPendingOperationRecoveryError('');
     try {
-      const saved = await AsyncStorage.getItem(storageKey);
+      saved = await AsyncStorage.getItem(storageKey);
       if (id !== currentUserRef.current) return;
-      if (!saved) return;
+      if (!saved) {
+        pendingRef.current = null;
+        setPendingOperation(null);
+        return;
+      }
       const pending = JSON.parse(saved);
       if (pending.userId !== id || !/^[0-9a-f-]{36}$/i.test(pending.id || '') ||
           !['transfer', 'contribution'].includes(pending.type) ||
@@ -400,6 +409,7 @@ export default function App() {
           (pending.type === 'transfer' && !/^MWD-[A-F0-9]{16}$/.test(pending.code || ''))) {
         throw new Error('La solicitud guardada no tiene un formato válido.');
       }
+      pendingValidated = true;
       // Mostrar y bloquear la referencia local incluso si la consulta de estado pierde conexión.
       pendingRef.current = pending;
       setPendingOperation(pending);
@@ -430,6 +440,11 @@ export default function App() {
       setPendingOperation(pending);
     } catch (error) {
       if (id === currentUserRef.current) {
+        if (!pendingValidated) {
+          setPendingOperationRecoveryError(
+            'No pudimos leer o validar la referencia local. Por seguridad, no iniciaremos otra operación hasta revisarla.'
+          );
+        }
         setSyncNotice('No se pudo verificar la operación pendiente. Conservamos su referencia para reintentar.');
       }
     }
@@ -554,6 +569,9 @@ export default function App() {
     }
   }
   function prepareOperation(type) {
+    if (pendingOperationRecoveryError) {
+      return message('Referencia pendiente', 'Primero revisa la referencia local de la operación anterior.');
+    }
     if (busyRef.current) return;
     const cents = amountToCents(amount);
     if (cents === null) {
@@ -890,6 +908,12 @@ export default function App() {
                 <Text style={styles.muted}>Saldo ficticio en Supabase</Text>
                 <Text selectable style={styles.code}>{wallet?.account_code || 'Cargando identificador...'}</Text>
               </View>
+              {!!pendingOperationRecoveryError && <View style={styles.card}>
+                <Text style={styles.heading}>No se pudo revisar la operación anterior</Text>
+                <Text style={styles.muted}>{pendingOperationRecoveryError}</Text>
+                <Btn title="Reintentar revisión" secondary
+                  onPress={() => recoverPendingOperation(userId)} disabled={busy} />
+              </View>}
               {!!pendingOperation && <View style={styles.card}>
                 <Text style={styles.heading}>Operación pendiente por verificar</Text>
                 <Text style={styles.muted}>{pendingOperation.type === 'transfer' ? 'Transferencia' : 'Aportación'} de {formatMWD(pendingOperation.cents)} MWD. La app conservará la misma referencia al reintentar.</Text>
@@ -906,8 +930,8 @@ export default function App() {
                 <Btn title="Reintentar verificación" secondary
                   onPress={() => recoverPendingPickup(userId)} disabled={pickupBusy} />
               </View>}
-              <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet || !!pendingOperation} />
-              <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet || !!pendingOperation} />
+              <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet || !!pendingOperation || !!pendingOperationRecoveryError} />
+              <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet || !!pendingOperation || !!pendingOperationRecoveryError} />
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
               <Btn title="Remesas y retiros ficticios" secondary onPress={() => navigate("Retiros")} />
               <Btn title="Mis retiros ficticios" secondary onPress={() => navigate("MisRetiros")} />
