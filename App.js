@@ -395,6 +395,9 @@ export default function App() {
           (pending.type === 'transfer' && !/^MWD-[A-F0-9]{16}$/.test(pending.code || ''))) {
         throw new Error('La solicitud guardada no tiene un formato válido.');
       }
+      // Mostrar y bloquear la referencia local incluso si la consulta de estado pierde conexión.
+      pendingRef.current = pending;
+      setPendingOperation(pending);
       const statusResponse = await supabase.rpc('mwd_operation_status_demo', {
         p_request_id: pending.id,
       });
