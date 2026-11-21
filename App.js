@@ -136,6 +136,7 @@ export default function App() {
   const pickupPendingRef = useRef(null);
   const pickupBusyRef = useRef(false);
   const currentUserRef = useRef(null);
+  const refreshAccountVersionRef = useRef(0);
   const recoveryCodeStateRef = useRef({ inFlight: new Set(), processed: new Set() });
   const userId = session?.user?.id;
   // Actualizar durante render para invalidar respuestas de red de cuentas anteriores.
@@ -247,6 +248,7 @@ export default function App() {
 
   async function refreshAccount(id = userId) {
     if (!isCurrentUser(id)) return;
+    const requestVersion = ++refreshAccountVersionRef.current;
     setSyncing(true);
     setSyncNotice('Actualizando...');
     try {
@@ -259,24 +261,25 @@ export default function App() {
           .order('created_at', { ascending: false }).limit(50),
         supabase.from('mwd_admin_roles').select('role').eq('user_id', id).maybeSingle(),
       ]);
+      if (id !== currentUserRef.current || requestVersion !== refreshAccountVersionRef.current) return;
       if (w.error) throw w.error;
       if (h.error) throw h.error;
       if (a.error) throw a.error;
-      if (id !== currentUserRef.current) return;
       setWallet(w.data);
       setOperations(h.data || []);
       setAdminRole(a.data?.role || null);
       setSyncNotice('Saldo e historial actualizados correctamente.');
     } catch (error) {
-      if (id === currentUserRef.current) {
+      if (id === currentUserRef.current && requestVersion === refreshAccountVersionRef.current) {
         setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
         message('Sincronización', error.message || 'No se pudo consultar Supabase.');
       }
     } finally {
-      if (id === currentUserRef.current) setSyncing(false);
+      if (id === currentUserRef.current && requestVersion === refreshAccountVersionRef.current) {
+        setSyncing(false);
+      }
     }
   }
-
   async function authenticate(action) {
     const cleanEmail = email.trim().toLowerCase();
     if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) return message('Correo', 'Introduce un correo válido.');
