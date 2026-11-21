@@ -38,6 +38,20 @@ assert.ok(sql.length > 100, 'SQL de registro de socios vacío');
 
 assert.match(app, /const isCurrentUser = id => !!id && id === currentUserRef\.current/,
   'Debe existir una guarda de identidad para respuestas asíncronas');
+const recovery = section('async function recoverPendingOperation(id = userId) {', 'function changeAmount(value) {');
+const sessionGuard = 'if (id !== currentUserRef.current) return;';
+const storageRead = recovery.indexOf('await AsyncStorage.getItem(storageKey);');
+assert.ok(storageRead >= 0 && recovery.indexOf(sessionGuard, storageRead) > storageRead,
+  'La recuperación debe validar la sesión después de leer el almacenamiento');
+const storageDelete = recovery.indexOf('await AsyncStorage.removeItem(storageKey);');
+assert.ok(storageDelete >= 0 && recovery.indexOf(sessionGuard, storageDelete) > storageDelete,
+  'La recuperación debe validar la sesión después de borrar la referencia confirmada');
+const refreshAfterRecovery = recovery.indexOf('await refreshAccount(id);');
+assert.ok(refreshAfterRecovery >= 0 &&
+  recovery.indexOf(sessionGuard, refreshAfterRecovery) > refreshAfterRecovery &&
+  recovery.indexOf('setSyncNotice', refreshAfterRecovery) > recovery.indexOf(sessionGuard, refreshAfterRecovery),
+  'La recuperación no debe mostrar avisos tardíos en otra cuenta');
+
 const asyncAccountSections = [
   ['async function executeOperation(type, cents, code = \'\') {', 'function prepareOperation(type) {'],
   ['async function loadSwapWallet() {', 'async function requestSwapQuote() {'],
