@@ -185,6 +185,18 @@ assert.match(app, /function beginSwapBusy\(\) \{[\s\S]*?if \(swapBusyTokenRef\.c
   'Las acciones de conversión deben tener un bloqueo síncrono');
 assert.match(app, /function endSwapBusy\(token, actorId\) \{[\s\S]*?swapBusyTokenRef\.current !== token/,
   'Una conversión vieja no debe liberar el bloqueo de otra cuenta');
+assert.ok(app.includes('const swapQuoteRef = useRef(null);'),
+  'La cotización debe tener una referencia sincrónica para invalidar alertas obsoletas');
+const confirmSwapBody = app.split('async function confirmSwap(expectedQuoteId) {')[1]?.split('async function recoverPendingPickup(')[0];
+assert.ok(confirmSwapBody && confirmSwapBody.includes('quote.quoteId !== expectedQuoteId'),
+  'La confirmación debe rechazar una cotización que ya no esté vigente');
+assert.ok(app.includes('() => confirmSwap(swapQuote.quoteId)'),
+  'La alerta debe confirmar exactamente la cotización que mostró');
+assert.match(app, /onChangeText=\\{value => \\{[\\s\\S]*?swapQuoteRef\\.current = null;[\\s\\S]*?setSwapQuote\\(null\\);/,
+  'Editar la cantidad debe invalidar sincrónicamente la cotización');
+assert.match(app, /setSwapFrom\\(swapFrom === 'COIN' \\? 'STABLE' : 'COIN'\\);\\s*swapQuoteRef\\.current = null;/,
+  'Cambiar el activo de origen debe invalidar sincrónicamente la cotización');
+
 assert.match(app, /swapBusyTokenRef\.current = null;\s*setSwapBusy\(false\)/,
   'El bloqueo de conversión debe reiniciarse al cambiar de cuenta');
 for (const [start, end] of [
