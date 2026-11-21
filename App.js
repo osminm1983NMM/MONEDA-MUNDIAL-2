@@ -138,10 +138,12 @@ export default function App() {
   const currentUserRef = useRef(null);
   const refreshAccountVersionRef = useRef(0);
   const swapBusyTokenRef = useRef(null);
+  const swapQuoteRef = useRef(null);
   const recoveryCodeStateRef = useRef({ inFlight: new Set(), processed: new Set() });
   const userId = session?.user?.id;
   // Actualizar durante render para invalidar respuestas de red de cuentas anteriores.
   currentUserRef.current = userId;
+  swapQuoteRef.current = swapQuote;
   const isCurrentUser = id => !!id && id === currentUserRef.current;
   function beginSwapBusy() {
     if (swapBusyTokenRef.current) return null;
@@ -243,6 +245,7 @@ export default function App() {
     setOperations([]);
     setAdminRole(null);
     setSwapWallet(null);
+    swapQuoteRef.current = null;
     setSwapQuote(null);
     setPickupOrders([]);
     setPickupResult(null);
@@ -586,6 +589,7 @@ export default function App() {
     if (!isCurrentUser(actorId)) return;
     const busyToken = beginSwapBusy();
     if (!busyToken) return;
+    swapQuoteRef.current = null;
     setSwapQuote(null);
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_quote_demo', {
@@ -593,6 +597,7 @@ export default function App() {
       });
       if (!isCurrentUser(actorId)) return;
       if (error) throw error;
+      swapQuoteRef.current = data;
       setSwapQuote(data);
     } catch (error) {
       if (isCurrentUser(actorId)) message('Cotización', error.message || 'No se pudo cotizar.');
@@ -600,11 +605,13 @@ export default function App() {
       endSwapBusy(busyToken, actorId);
     }
   }
-  async function confirmSwap() {
-    if (!swapQuote?.quoteId || swapBusy) return;
+  async function confirmSwap(expectedQuoteId) {
+    const quote = swapQuoteRef.current;
+    if (!quote?.quoteId || quote.quoteId !== expectedQuoteId || swapBusy) {
+      return message('Cotización vencida', 'La cotización cambió o ya no está disponible. Solicita una cotización nueva.');
+    }
     const actorId = userId;
     if (!isCurrentUser(actorId)) return;
-    const quote = swapQuote;
     const busyToken = beginSwapBusy();
     if (!busyToken) return;
     try {
@@ -614,6 +621,7 @@ export default function App() {
       if (!isCurrentUser(actorId)) return;
       if (error) throw error;
       if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
+      swapQuoteRef.current = null;
       setSwapQuote(null);
       setSwapAmount('');
       message('Conversión ficticia', 'Operación registrada correctamente.');
@@ -955,11 +963,16 @@ export default function App() {
               <Btn title={swapFrom === 'COIN' ? 'Origen: COIN (cambiar)' : 'Origen: DIGITAL (cambiar)'}
                 secondary disabled={swapBusy} onPress={() => {
                   setSwapFrom(swapFrom === 'COIN' ? 'STABLE' : 'COIN');
+                  swapQuoteRef.current = null;
                   setSwapQuote(null);
                 }} />
               <TextInput style={styles.input} placeholder="Cantidad (mínimo 1)"
                 keyboardType="decimal-pad" placeholderTextColor="#9fb1c8"
-                value={swapAmount} onChangeText={value => { setSwapAmount(value); setSwapQuote(null); }} />
+                value={swapAmount} onChangeText={value => {
+                  setSwapAmount(value);
+                  swapQuoteRef.current = null;
+                  setSwapQuote(null);
+                }} />
               <Btn title={swapBusy ? 'Procesando...' : 'Solicitar cotización ficticia'}
                 disabled={swapBusy || !swapWallet} onPress={requestSwapQuote} />
               {swapQuote && <View>
@@ -968,7 +981,8 @@ export default function App() {
                 <Text style={styles.muted}>Cotización válida hasta: {new Date(swapQuote.expiresAt).toLocaleTimeString()}</Text>
                 <Btn title="Confirmar conversión ficticia" disabled={swapBusy}
                   onPress={() => confirmAction('Confirmar conversión ficticia',
-                    'Esta operación modificará únicamente los saldos de prueba.', confirmSwap)} />
+                    'Esta operación modificará únicamente los saldos de prueba.',
+                    () => confirmSwap(swapQuote.quoteId))} />
               </View>}
             </View>}
 
