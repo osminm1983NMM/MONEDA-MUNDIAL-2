@@ -8,7 +8,7 @@ import 'react-native-url-polyfill/auto';
 import 'react-native-get-random-values';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView,
+  View, Text, TextInput, TouchableOpacity, ScrollView, Linking,
   StyleSheet, Alert, Platform, StatusBar, ActivityIndicator
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,12 +18,14 @@ import PartnerRegistryScreen from './PartnerRegistryScreen';
 // CLAVE PUBLICABLE de Supabase. Nunca coloques claves secret/service_role en App.js.
 const SUPABASE_URL = 'https://egrsdrlpavrtbgxoyxvg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_sKotmweOAug6XqTR16U9Wg_ugxAx3vm';
+const PASSWORD_RESET_REDIRECT = 'com.monedamundial.app://auth/reset-password';
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    flowType: 'pkce',
   },
 });
 
@@ -103,6 +105,8 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
   const [screen, setScreen] = useState('Inicio');
   const [wallet, setWallet] = useState(null);
@@ -140,6 +144,23 @@ export default function App() {
   useEffect(() => {
     let active = true;
     let authEventReceived = false;
+    const handleAuthUrl = async url => {
+      if (!url) return;
+      try {
+        const parsed = new URL(url);
+        const errorDescription = parsed.searchParams.get('error_description') ||
+          parsed.searchParams.get('error');
+        if (errorDescription) throw new Error(errorDescription);
+        const code = parsed.searchParams.get('code');
+        if (!code) return;
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) throw error;
+        if (active && parsed.pathname === '/reset-password') setScreen('CambiarContraseña');
+      } catch (error) {
+        if (active) message('Enlace de acceso', error.message || 'El enlace no pudo verificarse.');
+      }
+    };
+
     supabase.auth.getSession()
       .then(({ data, error }) => {
         if (error) throw error;
@@ -154,10 +175,27 @@ export default function App() {
       authEventReceived = true;
       setSession(nextSession);
       setAuthLoading(false);
-      // TOKEN_REFRESHED no debe expulsar al usuario de una pantalla activa.
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') setScreen('Inicio');
+      if (event === 'PASSWORD_RECOVERY') {
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setScreen('CambiarContraseña');
+      } else if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        setScreen('Inicio');
+      }
     });
-    return () => { active = false; subscription.unsubscribe(); };
+    const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
+      void handleAuthUrl(url);
+    });
+    Linking.getInitialURL().then(url => {
+      if (active) void handleAuthUrl(url);
+    }).catch(error => {
+      if (active) message('Enlace de acceso', error.message || 'No se pudo abrir el enlace.');
+    });
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+      linkingSubscription.remove();
+    };
   }, []);
 
   useEffect(() => {
@@ -247,6 +285,51 @@ export default function App() {
       message('Acceso', error.message || 'No se pudo completar la operación.');
     } finally {
       setAuthBusy(false);
+    }
+  }
+
+  async function requestPasswordReset() {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!/^\\S+@\\S+\\.\\S+$/.test(cleanEmail)) {
+      return message('Correo', 'Introduce un correo válido primero.');
+    }
+    if (authBusy) return;
+    setAuthBusy(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: PASSWORD_RESET_REDIRECT,
+      });
+      if (error) throw error;
+      message('Revisa tu correo',
+        'Si existe una cuenta para ese correo, recibirás un enlace para crear una contraseña nueva.');
+    } catch (error) {
+      message('Recuperar contraseña', error.message || 'No se pudo enviar el enlace.');
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function saveNewPassword() {
+    if (newPassword.length < 8) return message('Contraseña', 'Usa por lo menos 8 caracteres.');
+    if (newPassword !== confirmNewPassword) return message('Contraseña', 'Las contraseñas no coinciden.');
+    const actorId = userId;
+    if (!isCurrentUser(actorId)) return message('Sesión', 'El enlace de recuperación no tiene una sesión válida.');
+    if (authBusy) return;
+    setAuthBusy(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (!isCurrentUser(actorId)) return;
+      if (error) throw error;
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setScreen('Inicio');
+      message('Contraseña actualizada', 'Ya puedes iniciar sesión con tu nueva contraseña.');
+    } catch (error) {
+      if (isCurrentUser(actorId)) {
+        message('Contraseña', error.message || 'No se pudo actualizar la contraseña.');
+      }
+    } finally {
+      if (isCurrentUser(actorId)) setAuthBusy(false);
     }
   }
 
@@ -684,12 +767,25 @@ export default function App() {
               placeholderTextColor="#9fb1c8" autoCapitalize="none"
               secureTextEntry value={password} onChangeText={setPassword} />
             <Btn title={authBusy ? 'Espera...' : 'Iniciar sesión'} onPress={() => authenticate('login')} disabled={authBusy} />
+            <Btn title="Olvidé mi contraseña" secondary onPress={requestPasswordReset} disabled={authBusy} />
             <Btn title="Crear cuenta de prueba" secondary onPress={() => authenticate('register')} disabled={authBusy} />
             <Text style={styles.muted}>Cada cuenta nueva recibe 10,000 MWD ficticios. Si Supabase solicita confirmar el correo, revisa tu bandeja de entrada.</Text>
           </View>
         ) : (
           <>
-            {screen !== 'Inicio' && <Btn title="← Volver al inicio" secondary onPress={() => navigate('Inicio')} disabled={busy} />}
+            {screen !== 'Inicio' && screen !== 'CambiarContraseña' && <Btn title="← Volver al inicio" secondary onPress={() => navigate('Inicio')} disabled={busy} />}
+            {screen === 'CambiarContraseña' && <View style={styles.card}>
+              <Text style={styles.heading}>Crear una contraseña nueva</Text>
+              <Text style={styles.muted}>Elige una contraseña de al menos 8 caracteres.</Text>
+              <TextInput style={styles.input} placeholder="Nueva contraseña"
+                placeholderTextColor="#9fb1c8" secureTextEntry autoCapitalize="none"
+                autoComplete="new-password" value={newPassword} onChangeText={setNewPassword} />
+              <TextInput style={styles.input} placeholder="Confirma la contraseña"
+                placeholderTextColor="#9fb1c8" secureTextEntry autoCapitalize="none"
+                autoComplete="new-password" value={confirmNewPassword} onChangeText={setConfirmNewPassword} />
+              <Btn title={authBusy ? 'Actualizando...' : 'Guardar contraseña'}
+                onPress={saveNewPassword} disabled={authBusy} />
+            </View>}
             {screen === 'Inicio' && <>
               <View style={styles.card}>
                 <Text style={styles.muted}>TU CUENTA PERSONAL DE PRUEBA</Text>
