@@ -6,6 +6,7 @@
 - Solicitud por email mediante Supabase Auth, con respuesta genérica para no confirmar si un correo está registrado.
 - Enlace profundo `com.monedamundial.app://auth/reset-password`.
 - Intercambio PKCE del código por una sesión y formulario con confirmación de la nueva contraseña.
+- PKCE requiere abrir el enlace en el mismo dispositivo donde se solicitó el restablecimiento, porque el verificador temporal se guarda localmente.
 - Validación de enlace de recuperación, sesión, longitud mínima y coincidencia de contraseñas.
 
 ## Configuración pendiente en Supabase
@@ -22,7 +23,7 @@ El enlace ya está registrado como esquema en `app.json`. No uses un comodín pa
 
 Después de permitir la URL y generar una compilación Android con el esquema nuevo:
 
-1. Solicita recuperación desde la pantalla de acceso.
+1. En el mismo teléfono Android donde se usará el enlace, solicita recuperación desde la pantalla de acceso.
 2. Abre el correo y toca el enlace con la app cerrada; repite con la app abierta.
 3. Verifica que la app muestre el formulario de nueva contraseña, no la billetera.
 4. Envía una contraseña corta, contraseñas distintas y un enlace vencido; cada caso debe rechazarse con un mensaje claro.
