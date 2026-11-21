@@ -9,6 +9,11 @@ Estado: **NO APROBADO para dinero real**. Esta lista no equivale a resultados de
 - [x] Revisar aislamiento por usuario y descarte de respuestas tardías al cambiar de cuenta.
 - [x] Comprobar que la app no incluye una clave service-role ni una clave privada.
 - [x] Corregir y cubrir el estado ocupado del formulario de contraseña si cambia la sesión durante la solicitud.
+- [x] Bloquear dobles toques en autenticación, conversiones y consulta/cancelación de retiros.
+- [x] Invalidar cotizaciones obsoletas antes de confirmar una conversión.
+- [x] Mantener visible la referencia pendiente antes de verificarla y bloquear nuevas operaciones si no se puede leer el almacenamiento local.
+- [x] Liberar una referencia solo ante rechazo SQL definitivo; conservarla ante fallos de red o estados inciertos.
+- [x] Bloquear los campos de autenticación mientras se envían solicitudes para evitar perder cambios del usuario.
 - [x] Revisar de solo lectura las RPC de transferencia DEMO: actor desde `auth.uid()`, `search_path` vacío, sin ejecución de `anon`, y referencia idempotente única por actor.
 - [ ] Validar que la APK proviene del commit auditado y que se instala y abre en Android.
 - [ ] Agregar `com.monedamundial.app://auth/reset-password` a Redirect URLs en Supabase Auth.
@@ -17,16 +22,16 @@ Estado: **NO APROBADO para dinero real**. Esta lista no equivale a resultados de
 
 ## Avance técnico (2026-11-21)
 
-La rama `feature/transfer-recovery-20261121` conserva en AsyncStorage la operación pendiente por usuario. Al iniciar sesión o reintentar, consulta el estado con la misma referencia idempotente, verifica tipo/importe/destinatario y bloquea operaciones nuevas hasta resolverla. Transferencias, conversiones y retiros descartan respuestas de red si el usuario cambió durante la solicitud. La recuperación de operaciones vuelve a comprobar la sesión después de cada espera asíncrona que puede preceder una actualización visible. Los retiros ficticios guardan la misma clave idempotente antes del RPC y la recuperan desde AsyncStorage; si el servidor ya creó la orden, el código de retiro no se vuelve a mostrar. Un bloqueo síncrono impide envíos dobles por toques rápidos. Si falla la lectura de AsyncStorage, la pantalla principal ofrece reintentar la verificación sin cerrar sesión.
+La rama `feature/transfer-recovery-20261121` conserva en AsyncStorage las referencias idempotentes de transferencias, aportaciones y retiros por usuario. Al iniciar sesión o reintentar, consulta el estado con la misma referencia, verifica tipo/importe/destinatario y deja visible la operación pendiente aun cuando falle la consulta remota. Si no se puede leer o validar la referencia local, bloquea nuevas transferencias y aportaciones y ofrece reintentar la revisión sin borrar datos. Un rechazo HTTP 400 con SQLSTATE libera la referencia porque Supabase confirmó el rechazo; fallos de red, tiempo de espera o respuestas no reconocidas la conservan. Las transferencias, conversiones y retiros descartan respuestas tardías al cambiar de cuenta. Hay bloqueos síncronos contra dobles toques en acceso, conversiones, creación/cancelación/consulta de retiros; las cotizaciones se invalidan al cambiar el importe o activo, y la alerta verifica la cotización vigente antes de confirmarla. Los campos de contraseña quedan bloqueados mientras se envía una solicitud.
 
-Pasaron en GitHub Actions estas comprobaciones en el commit `979ab8ae42b4c8bc5b36b288ae9ee35595642359`:
+Pasaron en GitHub Actions estas comprobaciones en el commit `353435fab8f1e93993a5f4d312c55af073e2362b`:
 
 - `node scripts/audit-demo-static.cjs`
 - `node scripts/audit-regression-safety.cjs`
 - `node scripts/preflight-release-local.js`
 - Exportación del bundle JavaScript para Android con Expo en CI.
 
-Ejecuciones: [Preflight integral DEMO — bundle Android y auditorías](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44856383942) y [Auditoría estática DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44856383971). El bundle no es una APK: no instala la app ni valida enlaces de email o almacenamiento nativo.
+Ejecuciones: [Preflight integral DEMO — bundle Android y auditorías](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44865976608) y [Auditoría estática DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44865976576). El bundle no es una APK: no instala la app ni valida enlaces de email o almacenamiento nativo.
 
 ## Estado actual de contabilidad y permisos
 
@@ -45,6 +50,8 @@ El ledger financiero, que es un flujo separado, tenía 19 transacciones `wallet_
 | Acceso entre cuentas | A intenta leer saldo/operaciones privadas de B | RLS/RPC impiden lectura no autorizada |
 | Cambio de sesión | Salir de A y entrar a B con actualización pendiente | Nunca mostrar datos de A en B |
 | Fallo al refrescar | Confirmar operación y simular fallo de lectura posterior | Mostrar operación confirmada; no invitar a reenviar |
+| Referencia local ilegible | Forzar error de lectura de AsyncStorage al iniciar sesión | Bloquear nuevas operaciones y permitir reintentar la lectura |
+| Rechazo SQL o error de red | Responder con SQLSTATE 400; luego simular desconexión sin respuesta | Rechazo definitivo permite corregir; desconexión conserva la misma referencia |
 | Conversión Coin/Digital | Cotizar y confirmar, luego repetir confirmación | Una conversión, importes exactos y sin duplicación |
 | Retiro ficticio | Crear retiro, doble toque, perder conexión o reiniciar y reintentar | Una orden por ID; la orden existente no vuelve a exponer el código y no se duplica |
 | Android | Instalar APK verificada y abrirla | Sin cierre inesperado; navegación y sincronización funcional |
