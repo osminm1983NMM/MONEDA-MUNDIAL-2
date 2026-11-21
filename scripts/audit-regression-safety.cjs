@@ -25,6 +25,16 @@ assert.match(transfer, /if \(!\['ok', 'already_processed'\]\.includes\(response\
 assert.match(transfer, /AsyncStorage\.setItem\(storageKey, JSON\.stringify\(pending\)\)/,
   'La referencia debe persistirse antes de la transferencia');
 assert.match(transfer, /p_request_id:\s*requestId/, 'La misma clave persistida debe llegar a la RPC');
+assert.ok(app.includes('&& !requiresReview') && app.includes('reconciliaci[oó]n'),
+  'Los conflictos idempotentes y de conciliación deben conservar la referencia para revisión');
+const swapConfirm = section('async function confirmSwap(expectedQuoteId) {', 'async function recoverPendingPickup(');
+const definitiveQuoteError = swapConfirm.indexOf('if (isDefinitiveRpcRejection(error))');
+const uncertainQuoteError = swapConfirm.indexOf('throw error;', definitiveQuoteError);
+assert.ok(definitiveQuoteError >= 0 && uncertainQuoteError > definitiveQuoteError &&
+  swapConfirm.slice(definitiveQuoteError, uncertainQuoteError).includes('swapQuoteRef.current = null;') &&
+  swapConfirm.slice(definitiveQuoteError, uncertainQuoteError).includes('Cotización rechazada'),
+  'Solo un rechazo SQL definitivo debe invalidar la cotización; los errores inciertos deben conservarla');
+
 const prepare = section('function prepareOperation(type) {', 'async function logout()');
 assert.match(prepare, /samePending/, 'Falta tratamiento de solicitud incierta');
 assert.match(prepare, /wallet\.balance_cents && !samePending/, 'Reintento bloqueado por saldo local');
