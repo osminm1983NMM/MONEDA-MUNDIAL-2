@@ -135,6 +135,8 @@ export default function App() {
   const pendingRef = useRef(null);
   const pickupPendingRef = useRef(null);
   const pickupBusyRef = useRef(false);
+  const pickupOrdersBusyRef = useRef(false);
+  const pickupCancelBusyRef = useRef(false);
   const currentUserRef = useRef(null);
   const refreshAccountVersionRef = useRef(0);
   const swapBusyTokenRef = useRef(null);
@@ -233,6 +235,8 @@ export default function App() {
     pendingRef.current = null;
     pickupPendingRef.current = null;
     pickupBusyRef.current = false;
+    pickupOrdersBusyRef.current = false;
+    pickupCancelBusyRef.current = false;
     busyRef.current = false;
     setBusy(false);
     swapBusyTokenRef.current = null;
@@ -734,7 +738,8 @@ export default function App() {
   }
   async function loadPickupOrders() {
     const actorId = userId;
-    if (!isCurrentUser(actorId)) return;
+    if (!isCurrentUser(actorId) || pickupOrdersBusyRef.current) return;
+    pickupOrdersBusyRef.current = true;
     setPickupOrdersBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_my_orders_demo');
@@ -747,13 +752,16 @@ export default function App() {
         message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
       }
     } finally {
-      if (isCurrentUser(actorId)) setPickupOrdersBusy(false);
+      if (isCurrentUser(actorId)) {
+        pickupOrdersBusyRef.current = false;
+        setPickupOrdersBusy(false);
+      }
     }
   }
   async function cancelDemoPickup(orderId) {
-    if (pickupCancelBusy) return;
     const actorId = userId;
-    if (!isCurrentUser(actorId)) return;
+    if (!isCurrentUser(actorId) || pickupCancelBusyRef.current) return;
+    pickupCancelBusyRef.current = true;
     setPickupCancelBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_cancel_demo', { p_order_id: orderId });
@@ -765,7 +773,10 @@ export default function App() {
     } catch (error) {
       if (isCurrentUser(actorId)) message('No se pudo cancelar', error.message || 'Error desconocido');
     } finally {
-      if (isCurrentUser(actorId)) setPickupCancelBusy(false);
+      if (isCurrentUser(actorId)) {
+        pickupCancelBusyRef.current = false;
+        setPickupCancelBusy(false);
+      }
     }
   }
   function navigate(to) {
