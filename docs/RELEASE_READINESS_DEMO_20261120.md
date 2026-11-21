@@ -12,7 +12,7 @@ Estado: **NO APROBADO para dinero real**. Esta lista no equivale a resultados de
 
 ## Avance técnico (2026-11-21)
 
-La rama `feature/transfer-recovery-20261121` conserva en AsyncStorage la operación pendiente por usuario. Al iniciar sesión o reintentar, consulta el estado con la misma referencia idempotente, verifica tipo/importe/destinatario y bloquea operaciones nuevas hasta resolverla. Transferencias, conversiones y retiros descartan respuestas de red si el usuario cambió durante la solicitud. La recuperación de operaciones vuelve a comprobar la sesión después de cada espera asíncrona que puede preceder una actualización visible. Los retiros ficticios guardan la misma clave idempotente antes del RPC y la recuperan desde AsyncStorage; si el servidor ya creó la orden, el código de retiro no se vuelve a mostrar. Un bloqueo síncrono impide envíos dobles por toques rápidos.
+La rama `feature/transfer-recovery-20261121` conserva en AsyncStorage la operación pendiente por usuario. Al iniciar sesión o reintentar, consulta el estado con la misma referencia idempotente, verifica tipo/importe/destinatario y bloquea operaciones nuevas hasta resolverla. Transferencias, conversiones y retiros descartan respuestas de red si el usuario cambió durante la solicitud. La recuperación de operaciones vuelve a comprobar la sesión después de cada espera asíncrona que puede preceder una actualización visible. Los retiros ficticios guardan la misma clave idempotente antes del RPC y la recuperan desde AsyncStorage; si el servidor ya creó la orden, el código de retiro no se vuelve a mostrar. Un bloqueo síncrono impide envíos dobles por toques rápidos. Si falla la lectura de AsyncStorage, la pantalla principal ofrece reintentar la verificación sin cerrar sesión.
 
 Pasaron localmente y en GitHub Actions estas comprobaciones:
 
@@ -21,7 +21,7 @@ Pasaron localmente y en GitHub Actions estas comprobaciones:
 - `node scripts/preflight-release-local.js`
 - Exportación del bundle JavaScript para Android con Expo en CI.
 
-Ejecuciones: [Preflight integral DEMO — bundle Android y auditorías](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44852837992), [Auditoría estática DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44852837983) y [Preflight anterior](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44850789595). La exportación de Expo comprueba el bundle JavaScript; no construye ni instala una APK. La prueba integrada de pérdida de conexión y las pruebas Android siguen pendientes.
+Ejecuciones: [Preflight integral DEMO — bundle Android y auditorías](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44853151888), [Auditoría estática DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44853151332) y [Preflight anterior](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44850789595). La exportación de Expo comprueba el bundle JavaScript; no construye ni instala una APK. La prueba integrada de pérdida de conexión y las pruebas Android siguen pendientes.
 
 ## Pruebas integradas pendientes — solo entorno de demostración
 
