@@ -55,7 +55,7 @@ assert.ok(refreshAfterRecovery >= 0 &&
 const pickupRecovery = section('async function recoverPendingPickup(id = userId) {', 'async function createDemoPickup() {');
 const pickupRead = pickupRecovery.indexOf('await AsyncStorage.getItem(pendingPickupStorageKey(id));');
 assert.ok(pickupRead >= 0 &&
-  pickupRecovery.indexOf('if (!isCurrentUser(id)) return;', pickupRead) > pickupRead,
+  pickupRecovery.indexOf('if (!isCurrentUser(id) || !saved) return;', pickupRead) > pickupRead,
   'La recuperación de retiro debe validar la sesión tras leer almacenamiento');
 const pickupCreate = section('async function createDemoPickup() {', 'async function loadPickupOrders() {');
 const persistPickup = pickupCreate.indexOf('await AsyncStorage.setItem(storageKey, JSON.stringify(pending));');
