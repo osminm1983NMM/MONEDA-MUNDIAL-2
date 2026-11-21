@@ -34,6 +34,10 @@ assert.ok(app.includes("parsed.host !== 'auth' || parsed.pathname !== '/reset-pa
 assert.ok(app.includes("event === 'PASSWORD_RECOVERY'"), 'Falta detectar el evento de recuperación');
 assert.ok(app.includes('updateUser({ password: newPassword })'), 'Falta guardar la nueva contraseña');
 assert.ok(app.includes("screen === 'CambiarContraseña'"), 'Falta la pantalla para guardar la nueva contraseña');
+const savePasswordBody = app.split('async function saveNewPassword() {')[1]?.split('async function recoverPendingOperation(')[0];
+assert.ok(savePasswordBody, 'Falta guardar la contraseña nueva');
+assert.match(savePasswordBody, /finally \{[\s\S]*?setAuthBusy\(false\);/,
+  'El formulario de contraseña debe liberar su estado ocupado aunque cambie la sesión');
 
 assert.ok(config.expo?.extra?.eas?.projectId, 'Falta EAS projectId');
 assert.match(app, /créditos ficticios|creditos ficticios/i, 'Falta aviso de créditos ficticios');
