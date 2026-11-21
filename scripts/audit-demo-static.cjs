@@ -29,6 +29,12 @@ for (const value of ['no-email', 'user@', '@example.com', '']) {
 }
 
 assert.ok(app.includes('exchangeCodeForSession(code)'), 'Falta intercambiar el código del enlace profundo');
+assert.match(app, /codeState\.processed\.has\(code\) \|\| codeState\.inFlight\.has\(code\)/,
+  'Un mismo enlace de recuperación no debe intercambiarse dos veces en paralelo');
+assert.match(app, /codeState\.inFlight\.add\(code\)/,
+  'El código debe bloquear intercambios simultáneos antes de llamar a Supabase');
+assert.match(app, /codeState\.processed\.add\(code\)/,
+  'El código de recuperación consumido debe quedar registrado durante la sesión');
 assert.ok(app.includes("parsed.host !== 'auth' || parsed.pathname !== '/reset-password'"),
   'El receptor debe limitarse al enlace de recuperación esperado');
 assert.ok(app.includes("event === 'PASSWORD_RECOVERY'"), 'Falta detectar el evento de recuperación');
