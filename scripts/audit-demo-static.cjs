@@ -167,6 +167,8 @@ assert.match(app, /if \(active && !authEventReceived\) setSession\(data\.session
 
 const refreshBody = app.split('async function refreshAccount(id = userId) {')[1]?.split('async function authenticate(action) {')[0];
 assert.ok(refreshBody, 'Falta actualización de cuenta');
+assert.ok(refreshBody.includes(".or(`source_user_id.eq.${id},destination_user_id.eq.${id}`)"),
+  'El historial debe pedir solo operaciones donde la cuenta participa, además de RLS');
 assert.match(app, /currentUserRef\.current = userId/, 'Falta identidad actual para descartar respuestas antiguas');
 assert.match(refreshBody, /if \(id !== currentUserRef\.current \|\| requestVersion !== refreshAccountVersionRef\.current\) return/,
   'Una respuesta de otra cuenta o de una actualización vieja no debe reemplazar los datos');
