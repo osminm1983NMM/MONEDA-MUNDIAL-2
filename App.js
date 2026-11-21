@@ -148,6 +148,8 @@ export default function App() {
       if (!url) return;
       try {
         const parsed = new URL(url);
+        if (parsed.protocol !== 'com.monedamundial.app:' ||
+            parsed.host !== 'auth' || parsed.pathname !== '/reset-password') return;
         const errorDescription = parsed.searchParams.get('error_description') ||
           parsed.searchParams.get('error');
         if (errorDescription) throw new Error(errorDescription);
@@ -155,7 +157,7 @@ export default function App() {
         if (!code) return;
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) throw error;
-        if (active && parsed.pathname === '/reset-password') setScreen('CambiarContraseña');
+        if (active) setScreen('CambiarContraseña');
       } catch (error) {
         if (active) message('Enlace de acceso', error.message || 'El enlace no pudo verificarse.');
       }
