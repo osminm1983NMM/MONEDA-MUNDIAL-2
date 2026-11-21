@@ -41,7 +41,7 @@ assert.match(partnerScreen, /function Field\(\{[^}]*editable = true/,
   'El campo de socio debe aceptar un estado editable');
 assert.match(partnerScreen, /editable=\{editable\}/,
   'El componente Field debe pasar el bloqueo a TextInput');
-const partnerFormFields = partnerScreen.match(/<Field\\b[^>]*>/g) || [];
+const partnerFormFields = partnerScreen.match(/<Field[^>]*>/g) || [];
 assert.equal(partnerFormFields.length, 6, 'Cambió la cantidad de campos del registro de socios');
 assert.ok(partnerFormFields.every(field => field.includes('editable={!busy}')),
   'Todos los campos deben bloquearse mientras hay una solicitud pendiente');
