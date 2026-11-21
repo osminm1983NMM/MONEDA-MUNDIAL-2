@@ -22,16 +22,16 @@ Estado: **NO APROBADO para dinero real**. Esta lista no equivale a resultados de
 
 ## Avance técnico (2026-11-21)
 
-La rama `feature/transfer-recovery-20261121` conserva en AsyncStorage las referencias idempotentes de transferencias, aportaciones y retiros por usuario. Al iniciar sesión o reintentar, consulta el estado con la misma referencia, verifica tipo/importe/destinatario y deja visible la operación pendiente aun cuando falle la consulta remota. Si no se puede leer o validar la referencia local, bloquea nuevas transferencias y aportaciones y ofrece reintentar la revisión sin borrar datos. Un rechazo HTTP 400 con SQLSTATE libera la referencia porque Supabase confirmó el rechazo; fallos de red, tiempo de espera o respuestas no reconocidas la conservan. Las transferencias, conversiones y retiros descartan respuestas tardías al cambiar de cuenta. Hay bloqueos síncronos contra dobles toques en acceso, conversiones, creación/cancelación/consulta de retiros; las cotizaciones se invalidan al cambiar el importe o activo, y la alerta verifica la cotización vigente antes de confirmarla. Los campos de contraseña quedan bloqueados mientras se envía una solicitud.
+La rama `feature/transfer-recovery-20261121` conserva en AsyncStorage las referencias idempotentes de transferencias, aportaciones y retiros por usuario. Al iniciar sesión o reintentar, consulta el estado con la misma referencia, verifica tipo/importe/destinatario y deja visible la operación pendiente aun cuando falle la consulta remota. Si no se puede leer o validar la referencia local, bloquea nuevas transferencias y aportaciones y permite reintentar la revisión sin borrar datos. Los rechazos SQL definitivos liberan la referencia; los conflictos de idempotencia, errores de conciliación y fallos de red conservan el estado para revisión o reintento seguro. Las transferencias, conversiones y retiros descartan respuestas tardías al cambiar de cuenta. Hay bloqueos síncronos contra dobles toques en acceso, conversiones y retiros; las cotizaciones se invalidan al cambiar el importe o activo, y la alerta verifica la cotización vigente antes de confirmarla. Una cotización vencida o un rechazo SQL definitivo la invalida; los errores de conciliación o respuesta incierta la conservan. Los campos de contraseña quedan bloqueados mientras se envía una solicitud.
 
-Pasaron en GitHub Actions estas comprobaciones en el commit `353435fab8f1e93993a5f4d312c55af073e2362b`:
+Pasaron en GitHub Actions estas comprobaciones en el commit `fcfee30ddbc5a3ebf7344623f4e6410e0468afbd`:
 
 - `node scripts/audit-demo-static.cjs`
 - `node scripts/audit-regression-safety.cjs`
 - `node scripts/preflight-release-local.js`
 - Exportación del bundle JavaScript para Android con Expo en CI.
 
-Ejecuciones: [Preflight integral DEMO — bundle Android y auditorías](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44865976608) y [Auditoría estática DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44865976576). El bundle no es una APK: no instala la app ni valida enlaces de email o almacenamiento nativo.
+Ejecuciones: [Preflight integral DEMO — bundle Android y auditorías](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44869734679) y [Auditoría estática DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44869734684). El bundle no es una APK: no instala la app ni valida enlaces de email o almacenamiento nativo.
 
 ## Estado actual de contabilidad y permisos
 
@@ -53,6 +53,8 @@ El ledger financiero, que es un flujo separado, tenía 19 transacciones `wallet_
 | Referencia local ilegible | Forzar error de lectura de AsyncStorage al iniciar sesión | Bloquear nuevas operaciones y permitir reintentar la lectura |
 | Rechazo SQL o error de red | Responder con SQLSTATE 400; luego simular desconexión sin respuesta | Rechazo definitivo permite corregir; desconexión conserva la misma referencia |
 | Conversión Coin/Digital | Cotizar y confirmar, luego repetir confirmación | Una conversión, importes exactos y sin duplicación |
+| Cotización vencida | Esperar vencimiento y confirmar | Rechazo visible, cotización invalidada y ningún cambio de saldo |
+| Error de conciliación o timeout | Simular respuesta incierta durante confirmación | Conservar referencia y no ocultar posible estado pendiente |
 | Retiro ficticio | Crear retiro, doble toque, perder conexión o reiniciar y reintentar | Una orden por ID; la orden existente no vuelve a exponer el código y no se duplica |
 | Android | Instalar APK verificada y abrirla | Sin cierre inesperado; navegación y sincronización funcional |
 
