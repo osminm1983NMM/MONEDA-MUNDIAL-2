@@ -876,10 +876,10 @@ export default function App() {
             <Text style={styles.muted}>Crea una cuenta de prueba o inicia sesión.</Text>
             <TextInput style={styles.input} placeholder="Correo electrónico"
               placeholderTextColor="#9fb1c8" keyboardType="email-address"
-              autoCapitalize="none" autoCorrect={false} value={email} onChangeText={setEmail} />
+              autoCapitalize="none" autoCorrect={false} value={email} onChangeText={setEmail} editable={!authBusy} />
             <TextInput style={styles.input} placeholder="Contraseña (8 caracteres mínimo)"
               placeholderTextColor="#9fb1c8" autoCapitalize="none"
-              secureTextEntry value={password} onChangeText={setPassword} />
+              secureTextEntry value={password} onChangeText={setPassword} editable={!authBusy} />
             <Btn title={authBusy ? 'Espera...' : 'Iniciar sesión'} onPress={() => authenticate('login')} disabled={authBusy} />
             <Btn title="Olvidé mi contraseña" secondary onPress={requestPasswordReset} disabled={authBusy} />
             <Btn title="Crear cuenta de prueba" secondary onPress={() => authenticate('register')} disabled={authBusy} />
@@ -893,10 +893,10 @@ export default function App() {
               <Text style={styles.muted}>Elige una contraseña de al menos 8 caracteres.</Text>
               <TextInput style={styles.input} placeholder="Nueva contraseña"
                 placeholderTextColor="#9fb1c8" secureTextEntry autoCapitalize="none"
-                autoComplete="new-password" value={newPassword} onChangeText={setNewPassword} />
+                autoComplete="new-password" value={newPassword} onChangeText={setNewPassword} editable={!authBusy} />
               <TextInput style={styles.input} placeholder="Confirma la contraseña"
                 placeholderTextColor="#9fb1c8" secureTextEntry autoCapitalize="none"
-                autoComplete="new-password" value={confirmNewPassword} onChangeText={setConfirmNewPassword} />
+                autoComplete="new-password" value={confirmNewPassword} onChangeText={setConfirmNewPassword} editable={!authBusy} />
               <Btn title={authBusy ? 'Actualizando...' : 'Guardar contraseña'}
                 onPress={saveNewPassword} disabled={authBusy} />
             </View>}
