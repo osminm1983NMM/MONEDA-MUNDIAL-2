@@ -172,6 +172,12 @@ assert.match(refreshBody, /if \(id !== currentUserRef\.current\) return/,
   'No se deben mostrar datos de una cuenta anterior');
 assert.match(refreshBody, /if \(id === currentUserRef\.current\) setSyncing\(false\)/,
   'Una solicitud antigua no debe alterar la sincronización de otra cuenta');
+assert.match(app, /const requestVersion = \+\+refreshAccountVersionRef\.current/,
+  'Cada actualización de cuenta debe tener una versión propia');
+assert.match(refreshBody, /requestVersion !== refreshAccountVersionRef\.current/,
+  'Una respuesta antigua no debe reemplazar saldo ni historial recientes');
+assert.match(refreshBody, /requestVersion === refreshAccountVersionRef\.current\) \{\s*setSyncing\(false\)/,
+  'Una respuesta antigua no debe apagar el indicador de una actualización nueva');
 
 const pickupRecovery = app.split('async function recoverPendingPickup(id = userId) {')[1]?.split('async function createDemoPickup() {')[0];
 assert.ok(pickupRecovery, 'Falta recuperación de retiros al iniciar sesión');
