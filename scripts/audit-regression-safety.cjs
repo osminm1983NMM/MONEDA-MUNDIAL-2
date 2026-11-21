@@ -14,8 +14,13 @@ const transfer = section('async function executeOperation(type, cents, code = \'
 assert.match(transfer, /p_request_id:\s*requestId/, 'Transferencia sin ID idempotente');
 assert.match(transfer, /already_processed/, 'No se reconoce reintento procesado');
 assert.match(transfer, /if \(response\.error\) throw response\.error/, 'No se verifica el error de RPC');
-assert.match(transfer, /pendingRef\.current = null/, 'No se limpia el pendiente tras confirmación');
-assert.ok(transfer.indexOf('pendingRef.current = null') > transfer.indexOf('already_processed'), 'Se borra el pendiente antes de confirmar');
+assert.match(transfer, /statusResponse\.data\?\.status === 'processed'[\s\S]*?pendingRef\.current = null/,
+  'Solo se limpia un reintento después de confirmar su estado en el servidor');
+assert.match(transfer, /if \(!\['ok', 'already_processed'\]\.includes\(response\.data\?\.status\)\)[\s\S]*?AsyncStorage\.removeItem\(storageKey\)[\s\S]*?pendingRef\.current = null/,
+  'Solo se limpia la referencia tras una respuesta RPC confirmada');
+assert.match(transfer, /AsyncStorage\.setItem\(storageKey, JSON\.stringify\(pending\)\)/,
+  'La referencia debe persistirse antes de la transferencia');
+assert.match(transfer, /p_request_id:\s*requestId/, 'La misma clave persistida debe llegar a la RPC');
 const prepare = section('function prepareOperation(type) {', 'async function logout()');
 assert.match(prepare, /samePending/, 'Falta tratamiento de solicitud incierta');
 assert.match(prepare, /wallet\.balance_cents && !samePending/, 'Reintento bloqueado por saldo local');
