@@ -4,11 +4,23 @@ Estado: **NO APROBADO para dinero real**. Esta lista no equivale a resultados de
 
 ## Comprobaciones automatizables sin infraestructura de pago
 
-- [ ] Ejecutar `node scripts/audit-demo-static.cjs` y guardar resultado de CI.
-- [ ] Revisar que los flujos de transferencia y aportación usan `p_request_id` y que la RPC devuelve `ok` o `already_processed`.
-- [ ] Revisar que el saldo e historial pertenecen al usuario autenticado y que los datos de una sesión anterior no se muestran al cambiar de cuenta.
-- [ ] Verificar que ninguna clave de servicio Supabase ni secreto privado se entrega a Android.
-- [ ] Validar que la APK proviene del commit auditado y que se instala y abre en dispositivo/emulador Android.
+- [ ] Ejecutar las comprobaciones estáticas en CI y guardar el resultado.
+- [x] Revisar que transferencia y aportación usan `p_request_id` y reconocen `ok` o `already_processed`.
+- [x] Revisar aislamiento por usuario en saldo/historial y descarte de respuestas de sesiones anteriores.
+- [x] Comprobar que la app no incluye una clave service-role ni una clave privada.
+- [ ] Validar que la APK proviene del commit auditado y que se instala y abre en Android.
+
+## Avance técnico (2026-11-21)
+
+La rama `feature/transfer-recovery-20261121` conserva en AsyncStorage la operación pendiente por usuario. Al iniciar sesión o reintentar, consulta el estado con la misma referencia idempotente, verifica tipo/importe/destinatario y bloquea operaciones nuevas hasta resolverla.
+
+Pasaron localmente estas comprobaciones estáticas:
+
+- `node scripts/audit-demo-static.cjs`
+- `node scripts/audit-regression-safety.cjs`
+- `node scripts/preflight-release-local.js`
+
+Esto valida condiciones de código/configuración, pero no sustituye pruebas de red ni de dispositivo. La integración en GitHub Actions y las pruebas Android todavía están pendientes.
 
 ## Pruebas integradas pendientes — solo entorno de demostración
 
