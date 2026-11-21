@@ -154,8 +154,8 @@ assert.match(app, /executeOperation\(type, cents, type === 'transfer' \? code : 
   'Las aportaciones no deben heredar destinatarios de transferencias');
 const swapConfirmBody = app.split('async function confirmSwap(expectedQuoteId) {')[1]?.split('async function createDemoPickup() {')[0];
 assert.ok(swapConfirmBody, 'Falta confirmación de conversiones');
-assert.ok(!swapConfirmBody.includes("return message('Cotización vencida'"),
-  'No bloquear reintentos de conversiones que podrían haberse confirmado');
+assert.ok(swapConfirmBody.includes('quote.quoteId !== expectedQuoteId'),
+  'La confirmación debe bloquear solo cotizaciones obsoletas y dejar reintentar la misma cotización');
 assert.match(swapConfirmBody, /message\('Conversión ficticia'/,
   'Falta aviso de confirmación de conversión');
 assert.match(swapConfirmBody, /catch \(syncError\)/,
