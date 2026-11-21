@@ -103,5 +103,24 @@ for (const [start, end] of asyncAccountSections) {
   );
 }
 
+assert.ok(app.includes('const pickupOrdersBusyRef = useRef(false);') &&
+  app.includes('const pickupCancelBusyRef = useRef(false);'),
+  'Las lecturas y cancelaciones de retiros necesitan bloqueos síncronos');
+assert.match(app, /pickupOrdersBusyRef\.current = false;\s*pickupCancelBusyRef\.current = false;/,
+  'Los bloqueos de retiro deben reiniciarse al cambiar de cuenta');
+const pickupOrders = section('async function loadPickupOrders() {', 'async function cancelDemoPickup(orderId) {');
+assert.ok(pickupOrders.indexOf('pickupOrdersBusyRef.current = true;') >= 0 &&
+  pickupOrders.indexOf('pickupOrdersBusyRef.current = true;') < pickupOrders.indexOf("supabase.rpc('mwd_pickup_my_orders_demo'"),
+  'La consulta de retiros debe bloquear dobles toques antes de llamar al servidor');
+assert.match(pickupOrders, /finally \{\s*if \(isCurrentUser\(actorId\)\) \{\s*pickupOrdersBusyRef\.current = false;/,
+  'Una consulta antigua no debe liberar el bloqueo de otra cuenta');
+const cancelPickup = section('async function cancelDemoPickup(orderId) {', 'function navigate(to) {');
+assert.ok(cancelPickup.includes('pickupCancelBusyRef.current) return') &&
+  cancelPickup.indexOf('pickupCancelBusyRef.current = true;') >= 0 &&
+  cancelPickup.indexOf('pickupCancelBusyRef.current = true;') < cancelPickup.indexOf("supabase.rpc('mwd_pickup_cancel_demo'"),
+  'La cancelación de retiro debe bloquear dobles toques antes de la RPC');
+assert.match(cancelPickup, /finally \{\s*if \(isCurrentUser\(actorId\)\) \{\s*pickupCancelBusyRef\.current = false;/,
+  'Una cancelación antigua no debe liberar el bloqueo de otra cuenta');
+
 console.log('PASS: barreras estáticas de reintentos, sesiones, lectura y RPC DEMO');
 console.log('NO CERTIFICA: concurrencia, RLS real, contabilidad, APK ni pagos reales');
