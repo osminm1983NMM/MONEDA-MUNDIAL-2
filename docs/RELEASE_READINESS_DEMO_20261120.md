@@ -4,7 +4,7 @@ Estado: **NO APROBADO para dinero real**. Esta lista no equivale a resultados de
 
 ## Comprobaciones automatizables sin infraestructura de pago
 
-- [ ] Ejecutar las comprobaciones estáticas en CI y guardar el resultado.
+- [x] Ejecutar las comprobaciones estáticas en CI y guardar el resultado.
 - [x] Revisar que transferencia y aportación usan `p_request_id` y reconocen `ok` o `already_processed`.
 - [x] Revisar aislamiento por usuario en saldo/historial y descarte de respuestas de sesiones anteriores.
 - [x] Comprobar que la app no incluye una clave service-role ni una clave privada.
@@ -14,13 +14,13 @@ Estado: **NO APROBADO para dinero real**. Esta lista no equivale a resultados de
 
 La rama `feature/transfer-recovery-20261121` conserva en AsyncStorage la operación pendiente por usuario. Al iniciar sesión o reintentar, consulta el estado con la misma referencia idempotente, verifica tipo/importe/destinatario y bloquea operaciones nuevas hasta resolverla.
 
-Pasaron localmente estas comprobaciones estáticas:
+Pasaron localmente y en GitHub Actions estas comprobaciones:
 
 - `node scripts/audit-demo-static.cjs`
 - `node scripts/audit-regression-safety.cjs`
 - `node scripts/preflight-release-local.js`
 
-Esto valida condiciones de código/configuración, pero no sustituye pruebas de red ni de dispositivo. La integración en GitHub Actions y las pruebas Android todavía están pendientes.
+Ejecución: [Preflight integral DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44850018266). Esto valida condiciones de código/configuración, pero no sustituye pruebas de red ni de dispositivo. La prueba integrada de pérdida de conexión y las pruebas Android siguen pendientes.
 
 ## Pruebas integradas pendientes — solo entorno de demostración
 
