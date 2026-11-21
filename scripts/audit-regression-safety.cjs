@@ -96,8 +96,11 @@ for (const [start, end] of asyncAccountSections) {
   assert.match(body, /const actorId = userId/, 'Falta capturar el usuario de la solicitud: ' + start);
   assert.match(body, /if \(!isCurrentUser\(actorId\)\) return/,
     'Una respuesta tardía puede actualizar otra cuenta: ' + start);
-  assert.match(body, /finally \{\s*if \(isCurrentUser\(actorId\)\)/,
-    'El estado de carga de otra cuenta puede cambiar: ' + start);
+  assert.ok(
+    /finally \{\s*if \(isCurrentUser\(actorId\)\)/.test(body) ||
+      /finally \{\s*endSwapBusy\(busyToken, actorId\);/.test(body),
+    'El estado de carga de otra cuenta puede cambiar: ' + start
+  );
 }
 
 console.log('PASS: barreras estáticas de reintentos, sesiones, lectura y RPC DEMO');
