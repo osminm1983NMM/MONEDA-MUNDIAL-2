@@ -18,6 +18,14 @@ assert.match(partnerScreen, /requestVersion === partnersLoadVersionRef\.current/
   'Un listado nuevo no debe ser sobrescrito por una respuesta antigua');
 assert.match(partnerScreen, /requestVersion !== partnersLoadVersionRef\.current/,
   'La carga inicial debe descartar respuestas de versiones anteriores');
+const detailsReloadBody = partnerScreen.split('async function reloadDetails(id) {')[1]?.split('useEffect(() => {')[0];
+assert.ok(detailsReloadBody, 'Falta cargar detalles de socio');
+assert.ok(detailsReloadBody.indexOf('setLocations([])') >= 0 &&
+  detailsReloadBody.indexOf('setLocations([])') < detailsReloadBody.indexOf('await Promise.all'),
+  'Al cambiar de socio, limpiar sucursales anteriores antes de cargar');
+assert.ok(detailsReloadBody.indexOf('setAudit([])') >= 0 &&
+  detailsReloadBody.indexOf('setAudit([])') < detailsReloadBody.indexOf('await Promise.all'),
+  'Al cambiar de socio, limpiar auditoría anterior antes de cargar');
 for (const [start, end] of [
   ['async function savePartner() {', 'async function choosePartner(id) {'],
   ['async function choosePartner(id) {', 'async function setStatus(status) {'],
