@@ -37,6 +37,14 @@ for (const [start, end] of [
   assert.ok(block.includes('beginBusy()'), 'Una acción del registro de socios no bloquea doble toque');
   assert.ok(block.includes('endBusy()'), 'Una acción del registro de socios no libera el bloqueo');
 }
+assert.match(partnerScreen, /function Field\(\{[^}]*editable = true/,
+  'El campo de socio debe aceptar un estado editable');
+assert.match(partnerScreen, /editable=\{editable\}/,
+  'El componente Field debe pasar el bloqueo a TextInput');
+const partnerFormFields = partnerScreen.match(/<Field\\b[^>]*>/g) || [];
+assert.equal(partnerFormFields.length, 6, 'Cambió la cantidad de campos del registro de socios');
+assert.ok(partnerFormFields.every(field => field.includes('editable={!busy}')),
+  'Todos los campos deben bloquearse mientras hay una solicitud pendiente');
 assert.ok(config.expo?.scheme === 'com.monedamundial.app',
   'Falta el esquema registrado para enlaces de recuperación');
 assert.ok(app.includes("flowType: 'pkce'"), 'La recuperación requiere flujo PKCE');
