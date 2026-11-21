@@ -331,7 +331,8 @@ export default function App() {
         message('Contraseña', error.message || 'No se pudo actualizar la contraseña.');
       }
     } finally {
-      if (isCurrentUser(actorId)) setAuthBusy(false);
+      // Liberar el formulario aunque la cuenta haya cambiado mientras esperaba la RPC.
+      setAuthBusy(false);
     }
   }
 
