@@ -31,7 +31,11 @@ La ejecución del preflight terminó correctamente, incluyendo el paso de bundle
 
 ## Conciliación de Supabase, solo lectura
 
-Revisión agregada del 2026-11-21: 19 transferencias; 0 sin asiento contable; 0 asientos desequilibrados o con estructura incorrecta; 0 claves idempotentes duplicadas.
+La conciliación de doble partida pertenece al flujo de transferencias contables: la lectura actual encontró 19 transacciones `wallet_transfer` en estado `posted`, 38 asientos, ninguna transacción sin débito o crédito y ningún saldo neto distinto de cero.
+
+La billetera de créditos DEMO de esta app usa otro flujo. La lectura actual encontró 25 filas en `public.mwd_operations` y 25 referencias distintas; además, existe un índice único sobre `(actor_id, request_id)`. Las RPC `mwd_transfer_demo` y `mwd_contribute_demo` actualizan los saldos ficticios y registran la operación, pero no escriben en `mwd_finance_private.ledger_*`. Por eso, las 25 operaciones DEMO no forman parte de las 19 transacciones contables ni se deben presentar como una conciliación única.
+
+En las RPC DEMO revisadas, el actor se obtiene con `auth.uid()`, el `search_path` está vacío y `anon` no tiene permiso de ejecución; `authenticated` sí. `mwd_operations` tiene RLS y una política de lectura para participantes. Todas estas comprobaciones fueron de solo lectura; no se cambió la base de datos.
 
 ## Pendiente
 
