@@ -28,7 +28,7 @@ const refresh = section('async function refreshAccount(id = userId) {', 'async f
 assert.match(refresh, /id !== currentUserRef\.current/, 'Posible mezcla de cuentas');
 assert.match(refresh, /if \(w\.error\) throw w\.error/, 'Error de billetera ignorado');
 assert.match(refresh, /if \(h\.error\) throw h\.error/, 'Error de historial ignorado');
-const swap = section('async function confirmSwap() {', 'async function createDemoPickup() {');
+const swap = section('async function confirmSwap(expectedQuoteId) {', 'async function createDemoPickup() {');
 assert.match(swap, /already_processed/, 'Conversión no reconoce reintentos');
 assert.match(swap, /catch \(syncError\)/, 'Fallo de lectura puede confundirse con fallo de conversión');
 const pickup = section('async function createDemoPickup() {', 'async function loadPickupOrders() {');
@@ -85,8 +85,8 @@ assert.ok(pickupCreate.includes('if (isCurrentUser(actorId)) {') &&
 const asyncAccountSections = [
   ['async function executeOperation(type, cents, code = \'\') {', 'function prepareOperation(type) {'],
   ['async function loadSwapWallet() {', 'async function requestSwapQuote() {'],
-  ['async function requestSwapQuote() {', 'async function confirmSwap() {'],
-  ['async function confirmSwap() {', 'async function createDemoPickup() {'],
+  ['async function requestSwapQuote() {', 'async function confirmSwap(expectedQuoteId) {'],
+  ['async function confirmSwap(expectedQuoteId) {', 'async function createDemoPickup() {'],
   ['async function createDemoPickup() {', 'async function loadPickupOrders() {'],
   ['async function loadPickupOrders() {', 'async function cancelDemoPickup(orderId) {'],
   ['async function cancelDemoPickup(orderId) {', 'function navigate(to) {'],
