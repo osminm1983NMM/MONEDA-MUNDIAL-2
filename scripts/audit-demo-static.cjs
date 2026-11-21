@@ -192,17 +192,17 @@ assert.ok(confirmSwapBody && confirmSwapBody.includes('quote.quoteId !== expecte
   'La confirmación debe rechazar una cotización que ya no esté vigente');
 assert.ok(app.includes('() => confirmSwap(swapQuote.quoteId)'),
   'La alerta debe confirmar exactamente la cotización que mostró');
-assert.match(app, /onChangeText=\\{value => \\{[\\s\\S]*?swapQuoteRef\\.current = null;[\\s\\S]*?setSwapQuote\\(null\\);/,
+assert.match(app, /onChangeText=\{value => \{[\s\S]*?swapQuoteRef\.current = null;[\s\S]*?setSwapQuote\(null\);/,
   'Editar la cantidad debe invalidar sincrónicamente la cotización');
-assert.match(app, /setSwapFrom\\(swapFrom === 'COIN' \\? 'STABLE' : 'COIN'\\);\\s*swapQuoteRef\\.current = null;/,
+assert.match(app, /setSwapFrom\(swapFrom === 'COIN' \? 'STABLE' : 'COIN'\);\s*swapQuoteRef\.current = null;/,
   'Cambiar el activo de origen debe invalidar sincrónicamente la cotización');
 
 assert.match(app, /swapBusyTokenRef\.current = null;\s*setSwapBusy\(false\)/,
   'El bloqueo de conversión debe reiniciarse al cambiar de cuenta');
 for (const [start, end] of [
   ['async function loadSwapWallet() {', 'async function requestSwapQuote() {'],
-  ['async function requestSwapQuote() {', 'async function confirmSwap() {'],
-  ['async function confirmSwap() {', 'async function createDemoPickup() {'],
+  ['async function requestSwapQuote() {', 'async function confirmSwap(expectedQuoteId) {'],
+  ['async function confirmSwap(expectedQuoteId) {', 'async function createDemoPickup() {'],
 ]) {
   const block = app.split(start)[1]?.split(end)[0];
   assert.ok(block, 'Falta una acción de conversión');
