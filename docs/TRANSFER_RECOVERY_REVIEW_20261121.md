@@ -8,13 +8,14 @@ En esta rama, `App.js` guarda antes del RPC la operación pendiente en AsyncStor
 - Si no aparece procesada, conserva los datos y reintenta con el mismo ID.
 - Mientras exista una operación sin resolver, bloquea transferencias y aportaciones nuevas.
 - Las respuestas tardías de transferencias, conversiones y retiros se descartan si la sesión cambió; los indicadores de carga también quedan aislados por usuario.
+- La recuperación valida de nuevo la sesión después de leer o borrar la referencia local y después de actualizar el saldo, para no cambiar el estado visible de otra cuenta.
 
 ## Comprobaciones ejecutadas
 
 Pasaron localmente y en GitHub Actions las auditorías estáticas y de regresión, incluyendo las nuevas comprobaciones de cambio de cuenta. CI también instaló dependencias y exportó correctamente el bundle JavaScript de Android mediante Expo:
 
 - `node scripts/audit-demo-static.cjs`
-- `node scripts/audit-regression-safety.cjs`
+- `node scripts/audit-regression-safety.cjs` (incluye guardas de sesión de recuperación)
 - `node scripts/preflight-release-local.js`
 - `npx expo export --platform android --output-dir /tmp/mwd-demo-bundle` (ejecutado en CI)
 
