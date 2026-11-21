@@ -13,6 +13,21 @@ assert.ok(config.expo?.scheme === 'com.monedamundial.app',
   'Falta el esquema registrado para enlaces de recuperación');
 assert.ok(app.includes("flowType: 'pkce'"), 'La recuperación requiere flujo PKCE');
 assert.ok(app.includes('resetPasswordForEmail(cleanEmail'), 'Falta solicitar correo de recuperación');
+const passwordResetBody = app.split('async function requestPasswordReset() {')[1]?.split('async function saveNewPassword() {')[0];
+assert.ok(passwordResetBody, 'Falta flujo de recuperación de contraseña');
+const resetEmailLine = passwordResetBody.split('\\n').find(line => line.includes('.test(cleanEmail)'));
+assert.ok(resetEmailLine, 'Falta validar correo antes de pedir recuperación');
+const resetPatternStart = resetEmailLine.indexOf('if (!/') + 'if (!/'.length;
+const resetPatternEnd = resetEmailLine.indexOf('/.test(cleanEmail)', resetPatternStart);
+assert.ok(resetPatternEnd > resetPatternStart, 'No se pudo leer la validación del correo de recuperación');
+const resetEmailPattern = new RegExp(resetEmailLine.slice(resetPatternStart, resetPatternEnd));
+for (const value of ['osmin@example.com', 'user.name+test@example.co']) {
+  assert.ok(resetEmailPattern.test(value), 'Recuperación rechaza correo válido: ' + value);
+}
+for (const value of ['no-email', 'user@', '@example.com', '']) {
+  assert.ok(!resetEmailPattern.test(value), 'Recuperación acepta correo inválido: ' + value);
+}
+
 assert.ok(app.includes('exchangeCodeForSession(code)'), 'Falta intercambiar el código del enlace profundo');
 assert.ok(app.includes("event === 'PASSWORD_RECOVERY'"), 'Falta detectar el evento de recuperación');
 assert.ok(app.includes('updateUser({ password: newPassword })'), 'Falta guardar la nueva contraseña');
