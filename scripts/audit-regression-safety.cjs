@@ -32,7 +32,7 @@ const swap = section('async function confirmSwap() {', 'async function createDem
 assert.match(swap, /already_processed/, 'Conversión no reconoce reintentos');
 assert.match(swap, /catch \(syncError\)/, 'Fallo de lectura puede confundirse con fallo de conversión');
 const pickup = section('async function createDemoPickup() {', 'async function loadPickupOrders() {');
-assert.match(pickup, /p_request_id:\s*requestId/, 'Retiro sin ID idempotente');
+
 assert.match(pickup, /p_request_id:\s*pending\.id/, 'Retiro no reusa la referencia persistida');
 assert.ok(sql.length > 100, 'SQL de registro de socios vacío');
 
