@@ -50,6 +50,11 @@ function parsePendingPickup(saved, userId) {
   return pending;
 }
 
+function isDefinitiveRpcRejection(error) {
+  // A PostgREST SQL error with SQLSTATE 400 is a completed rejection; timeouts/network errors stay pending.
+  return Number(error?.status) === 400 && /^[0-9A-Z]{5}$/.test(error?.code || '');
+}
+
 function amountToCents(value) {
   const normalized = value.trim().replace(',', '.');
   if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return null;
@@ -509,7 +514,19 @@ export default function App() {
         : await supabase.rpc('mwd_contribute_demo', {
           p_amount_cents: cents, p_request_id: requestId,
         });
-      if (response.error) throw response.error;
+      if (response.error) {
+        if (isDefinitiveRpcRejection(response.error)) {
+          await AsyncStorage.removeItem(storageKey);
+          if (!isCurrentUser(actorId)) return;
+          pendingRef.current = null;
+          setPendingOperation(null);
+          message('Operación rechazada',
+            (response.error.message || 'La solicitud fue rechazada.') +
+            '\\nLa base de datos confirmó que no se registró. Corrige los datos o el saldo e inténtalo de nuevo.');
+          return;
+        }
+        throw response.error;
+      }
       if (!['ok', 'already_processed'].includes(response.data?.status)) {
         throw new Error('La operación no pudo ser confirmada.');
       }
@@ -722,7 +739,20 @@ export default function App() {
         p_request_id: pending.id,
       });
       if (!isCurrentUser(actorId)) return;
-      if (error) throw error;
+      if (error) {
+        if (isDefinitiveRpcRejection(error)) {
+          await AsyncStorage.removeItem(storageKey);
+          if (!isCurrentUser(actorId)) return;
+          pickupPendingRef.current = null;
+          setPendingPickup(null);
+          setPickupPendingError('');
+          message('Retiro no creado',
+            (error.message || 'La solicitud fue rechazada.') +
+            '\\nLa base de datos confirmó que no se creó una orden. Puedes corregirlo o intentarlo más tarde.');
+          return;
+        }
+        throw error;
+      }
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
       await AsyncStorage.removeItem(storageKey);
       if (!isCurrentUser(actorId)) return;
