@@ -38,4 +38,39 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
       - name: Build internal Android APK
-        run: eas build --platform android --profile preview --non-interactive --wait
+        id: eas-build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          eas build --platform android --profile preview --non-interactive --wait --json > "$RUNNER_TEMP/eas-build.json"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const result = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/eas-build.json', 'utf8'));
+          const builds = Array.isArray(result) ? result : (result.builds || [result]);
+          const build = builds.find(item => item && item.id);
+          if (!build) throw new Error('EAS did not return a build ID.');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'build_id=' + build.id + '\n');
+          NODE
+      - name: Download APK from EAS
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          BUILD_ID: ${{ steps.eas-build.outputs.build_id }}
+        run: |
+          eas build:download --build-id "$BUILD_ID" --json > "$RUNNER_TEMP/eas-download.json"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const result = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/eas-download.json', 'utf8'));
+          if (!result.path || !fs.existsSync(result.path)) {
+            throw new Error('EAS did not return a downloadable APK path.');
+          }
+          fs.mkdirSync('artifacts', { recursive: true });
+          fs.copyFileSync(result.path, path.join('artifacts', 'MonedaMundial-demo.apk'));
+          NODE
+      - name: Upload APK for download
+        uses: actions/upload-artifact@v4
+        with:
+          name: MonedaMundial-demo-apk
+          path: artifacts/MonedaMundial-demo.apk
+          if-no-files-found: error
+          retention-days: 7
