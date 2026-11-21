@@ -15,7 +15,7 @@ assert.ok(app.includes("flowType: 'pkce'"), 'La recuperación requiere flujo PKC
 assert.ok(app.includes('resetPasswordForEmail(cleanEmail'), 'Falta solicitar correo de recuperación');
 const passwordResetBody = app.split('async function requestPasswordReset() {')[1]?.split('async function saveNewPassword() {')[0];
 assert.ok(passwordResetBody, 'Falta flujo de recuperación de contraseña');
-const resetEmailLine = passwordResetBody.split('\\n').find(line => line.includes('.test(cleanEmail)'));
+const resetEmailLine = passwordResetBody.split(String.fromCharCode(10)).find(line => line.includes('.test(cleanEmail)'));
 assert.ok(resetEmailLine, 'Falta validar correo antes de pedir recuperación');
 const resetPatternStart = resetEmailLine.indexOf('if (!/') + 'if (!/'.length;
 const resetPatternEnd = resetEmailLine.indexOf('/.test(cleanEmail)', resetPatternStart);
