@@ -51,7 +51,7 @@ function parsePendingPickup(saved, userId) {
 }
 
 function isDefinitiveRpcRejection(error) {
-  // A PostgREST SQL error with SQLSTATE 400 is a completed rejection; timeouts/network errors stay pending.
+  // HTTP 400 with a SQLSTATE is a completed DB rejection; timeouts/network errors stay pending.
   return Number(error?.status) === 400 && /^[0-9A-Z]{5}$/.test(error?.code || '');
 }
 
@@ -522,7 +522,7 @@ export default function App() {
           setPendingOperation(null);
           message('Operación rechazada',
             (response.error.message || 'La solicitud fue rechazada.') +
-            '\\nLa base de datos confirmó que no se registró. Corrige los datos o el saldo e inténtalo de nuevo.');
+            '\nLa base de datos confirmó que no se registró. Corrige los datos o el saldo e inténtalo de nuevo.');
           return;
         }
         throw response.error;
@@ -748,7 +748,7 @@ export default function App() {
           setPickupPendingError('');
           message('Retiro no creado',
             (error.message || 'La solicitud fue rechazada.') +
-            '\\nLa base de datos confirmó que no se creó una orden. Puedes corregirlo o intentarlo más tarde.');
+            '\nLa base de datos confirmó que no se creó una orden. Puedes corregirlo o intentarlo más tarde.');
           return;
         }
         throw error;
