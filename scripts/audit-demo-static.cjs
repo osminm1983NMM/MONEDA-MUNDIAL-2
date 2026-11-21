@@ -9,6 +9,15 @@ const app = fs.readFileSync('App.js', 'utf8');
 assert.ok(pkg.dependencies?.expo, 'Falta Expo');
 assert.ok(pkg.dependencies?.['@supabase/supabase-js'], 'Falta cliente Supabase');
 assert.ok(config.expo?.android?.package, 'Falta identificador Android');
+assert.ok(config.expo?.scheme === 'com.monedamundial.app',
+  'Falta el esquema registrado para enlaces de recuperación');
+assert.ok(app.includes("flowType: 'pkce'"), 'La recuperación requiere flujo PKCE');
+assert.ok(app.includes('resetPasswordForEmail(cleanEmail'), 'Falta solicitar correo de recuperación');
+assert.ok(app.includes('exchangeCodeForSession(code)'), 'Falta intercambiar el código del enlace profundo');
+assert.ok(app.includes("event === 'PASSWORD_RECOVERY'"), 'Falta detectar el evento de recuperación');
+assert.ok(app.includes('updateUser({ password: newPassword })'), 'Falta guardar la nueva contraseña');
+assert.ok(app.includes("screen === 'CambiarContraseña'"), 'Falta la pantalla para guardar la nueva contraseña');
+
 assert.ok(config.expo?.extra?.eas?.projectId, 'Falta EAS projectId');
 assert.match(app, /créditos ficticios|creditos ficticios/i, 'Falta aviso de créditos ficticios');
 assert.match(app, /NO mueve dinero real/i, 'Falta aviso de que no mueve dinero real');
