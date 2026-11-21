@@ -35,9 +35,7 @@ Ejecuciones: [Preflight integral DEMO — bundle Android y auditorías](https://
 
 ## Estado actual de contabilidad y permisos
 
-La lectura de Supabase encontró 25 operaciones de billetera DEMO con 25 referencias distintas y un índice único sobre `(actor_id, request_id)`. Las RPC de esta billetera actualizan saldos ficticios y guardan `mwd_operations`; no generan asientos en el ledger financiero.
-
-El ledger financiero, que es un flujo separado, tenía 19 transacciones `wallet_transfer` publicadas y balanceadas: 38 asientos, sin faltantes de débito/crédito ni diferencias. No presentar ambos conjuntos como una conciliación única. Las comprobaciones fueron de solo lectura y no modificaron la base de datos.
+El 21 de noviembre de 2026, el historial del Samsung mostró una transferencia recibida de 1.00 MWD a las 07:30:55 (Washington D. C.). Una consulta por destinatario, importe y segundo de creación encontró una operación y una transacción MWD publicada, vinculadas por la referencia `mwd-demo-transfer:<id de operación>`. Los dos asientos corresponden a un débito de 100 centavos al remitente y un crédito de 100 centavos al destinatario. El disparador `mwd_auto_ledger_transfer_v1` contabiliza las inserciones de tipo `transfer`. Esta comprobación cubre el envío normal de la demo.
 
 ## Pruebas integradas pendientes — solo entorno de demostración
 
