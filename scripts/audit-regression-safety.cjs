@@ -13,7 +13,10 @@ function section(start, end) {
 const transfer = section('async function executeOperation(type, cents, code = \'\') {', 'function prepareOperation(type) {');
 assert.match(transfer, /p_request_id:\s*requestId/, 'Transferencia sin ID idempotente');
 assert.match(transfer, /already_processed/, 'No se reconoce reintento procesado');
-assert.match(transfer, /if \(response\.error\) throw response\.error/, 'No se verifica el error de RPC');
+assert.match(app, /function isDefinitiveRpcRejection\(error\) \{\s*return Number\(error\?\.status\) === 400 && \/\^\[0-9A-Z\]\{5\}\$\/\.test\(error\?\.code \|\| ''\);/,
+  'Solo una respuesta HTTP 400 con SQLSTATE puede liberar la referencia local');
+assert.match(transfer, /if \(response\.error\) \{[\s\S]*?isDefinitiveRpcRejection\(response\.error\)[\s\S]*?AsyncStorage\.removeItem\(storageKey\)[\s\S]*?throw response\.error;/,
+  'Los rechazos SQL liberan la referencia; los errores inciertos la conservan');
 assert.match(transfer, /statusResponse\.data\?\.status === 'processed'[\s\S]*?pendingRef\.current = null/,
   'Solo se limpia un reintento después de confirmar su estado en el servidor');
 assert.match(transfer, /if \(!\['ok', 'already_processed'\]\.includes\(response\.data\?\.status\)\)[\s\S]*?AsyncStorage\.removeItem\(storageKey\)[\s\S]*?pendingRef\.current = null/,
