@@ -245,6 +245,8 @@ assert.ok(pickupCreate.indexOf("!['created', 'already_created'].includes(data?.s
   pickupCreate.lastIndexOf('await AsyncStorage.removeItem(storageKey)'),
   'La referencia de éxito solo se limpia después de una respuesta confirmada');
 assert.match(app, /function isDefinitiveRpcRejection\(error\) \{[\s\S]*?Number\(error\?\.status\) === 400[\s\S]*?test\(error\?\.code/,
+assert.ok(app.includes('Number(error?.status) === 400') &&
+  app.includes("/^[0-9A-Z]{5}$/.test(error?.code || '')"),
   'La app debe distinguir rechazos SQL definitivos de fallos de red');
 assert.ok(app.includes('resumePendingPickup'), 'La pantalla inicial debe permitir reanudar un retiro pendiente');
 assert.ok(app.includes('onPress={() => recoverPendingPickup(userId)}'),
