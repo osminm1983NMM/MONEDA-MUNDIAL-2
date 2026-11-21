@@ -10,7 +10,7 @@ Estado: **NO APROBADO para dinero real**. Esta lista no equivale a resultados de
 - [x] Comprobar que la app no incluye una clave service-role ni una clave privada.
 - [ ] Validar que la APK proviene del commit auditado y que se instala y abre en Android.
 - [ ] Agregar `com.monedamundial.app://auth/reset-password` a Redirect URLs en Supabase Auth.
-- [ ] Probar el enlace de restablecimiento con la app abierta y cerrada y luego iniciar sesión con la contraseña nueva.
+- [ ] Probar el enlace de restablecimiento en el mismo teléfono, con la app abierta y cerrada, y luego iniciar sesión con la contraseña nueva.
 - [ ] Confirmar que el enlace de un solo uso rechaza enlaces vencidos o ya consumidos.
 
 ## Avance técnico (2026-11-21)
