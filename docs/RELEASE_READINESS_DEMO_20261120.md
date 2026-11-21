@@ -8,6 +8,8 @@ Estado: **NO APROBADO para dinero real**. Esta lista no equivale a resultados de
 - [x] Revisar que transferencia y aportación usan `p_request_id` y reconocen `ok` o `already_processed`.
 - [x] Revisar aislamiento por usuario y descarte de respuestas tardías al cambiar de cuenta.
 - [x] Comprobar que la app no incluye una clave service-role ni una clave privada.
+- [x] Corregir y cubrir el estado ocupado del formulario de contraseña si cambia la sesión durante la solicitud.
+- [x] Revisar de solo lectura las RPC de transferencia DEMO: actor desde `auth.uid()`, `search_path` vacío, sin ejecución de `anon`, y referencia idempotente única por actor.
 - [ ] Validar que la APK proviene del commit auditado y que se instala y abre en Android.
 - [ ] Agregar `com.monedamundial.app://auth/reset-password` a Redirect URLs en Supabase Auth.
 - [ ] Probar el enlace de restablecimiento en el mismo teléfono, con la app abierta y cerrada, y luego iniciar sesión con la contraseña nueva.
@@ -17,14 +19,20 @@ Estado: **NO APROBADO para dinero real**. Esta lista no equivale a resultados de
 
 La rama `feature/transfer-recovery-20261121` conserva en AsyncStorage la operación pendiente por usuario. Al iniciar sesión o reintentar, consulta el estado con la misma referencia idempotente, verifica tipo/importe/destinatario y bloquea operaciones nuevas hasta resolverla. Transferencias, conversiones y retiros descartan respuestas de red si el usuario cambió durante la solicitud. La recuperación de operaciones vuelve a comprobar la sesión después de cada espera asíncrona que puede preceder una actualización visible. Los retiros ficticios guardan la misma clave idempotente antes del RPC y la recuperan desde AsyncStorage; si el servidor ya creó la orden, el código de retiro no se vuelve a mostrar. Un bloqueo síncrono impide envíos dobles por toques rápidos. Si falla la lectura de AsyncStorage, la pantalla principal ofrece reintentar la verificación sin cerrar sesión.
 
-Pasaron en GitHub Actions estas comprobaciones:
+Pasaron en GitHub Actions estas comprobaciones en el commit `979ab8ae42b4c8bc5b36b288ae9ee35595642359`:
 
 - `node scripts/audit-demo-static.cjs`
 - `node scripts/audit-regression-safety.cjs`
 - `node scripts/preflight-release-local.js`
 - Exportación del bundle JavaScript para Android con Expo en CI.
 
-Ejecuciones: [Preflight integral DEMO — bundle Android y auditorías](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44853151888), [Auditoría estática DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44853151332) y [Preflight anterior](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44850789595). La exportación de Expo comprueba el bundle JavaScript; no construye ni instala una APK. La prueba integrada de pérdida de conexión y las pruebas Android siguen pendientes.
+Ejecuciones: [Preflight integral DEMO — bundle Android y auditorías](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44856383942) y [Auditoría estática DEMO](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/44856383971). El bundle no es una APK: no instala la app ni valida enlaces de email o almacenamiento nativo.
+
+## Estado actual de contabilidad y permisos
+
+La lectura de Supabase encontró 25 operaciones de billetera DEMO con 25 referencias distintas y un índice único sobre `(actor_id, request_id)`. Las RPC de esta billetera actualizan saldos ficticios y guardan `mwd_operations`; no generan asientos en el ledger financiero.
+
+El ledger financiero, que es un flujo separado, tenía 19 transacciones `wallet_transfer` publicadas y balanceadas: 38 asientos, sin faltantes de débito/crédito ni diferencias. No presentar ambos conjuntos como una conciliación única. Las comprobaciones fueron de solo lectura y no modificaron la base de datos.
 
 ## Pruebas integradas pendientes — solo entorno de demostración
 
