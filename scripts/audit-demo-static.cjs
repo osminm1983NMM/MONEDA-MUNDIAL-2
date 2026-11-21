@@ -75,6 +75,14 @@ assert.ok(app.includes("parsed.host !== 'auth' || parsed.pathname !== '/reset-pa
   'El receptor debe limitarse al enlace de recuperación esperado');
 assert.ok(app.includes("event === 'PASSWORD_RECOVERY'"), 'Falta detectar el evento de recuperación');
 assert.ok(app.includes('updateUser({ password: newPassword })'), 'Falta guardar la nueva contraseña');
+for (const input of [
+  'value={email} onChangeText={setEmail} editable={!authBusy}',
+  'value={password} onChangeText={setPassword} editable={!authBusy}',
+  'value={newPassword} onChangeText={setNewPassword} editable={!authBusy}',
+  'value={confirmNewPassword} onChangeText={setConfirmNewPassword} editable={!authBusy}',
+]) {
+  assert.ok(app.includes(input), 'No se debe editar un campo de autenticación mientras la solicitud está en curso');
+}
 assert.ok(app.includes("screen === 'CambiarContraseña'"), 'Falta la pantalla para guardar la nueva contraseña');
 const savePasswordBody = app.split('async function saveNewPassword() {')[1]?.split('async function recoverPendingOperation(')[0];
 assert.ok(savePasswordBody, 'Falta guardar la contraseña nueva');
