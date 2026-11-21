@@ -34,6 +34,20 @@ function pendingOperationStorageKey(userId) {
   return 'mwd_pending_operation:' + userId;
 }
 
+function pendingPickupStorageKey(userId) {
+  return 'mwd_pending_pickup:' + userId;
+}
+
+function parsePendingPickup(saved, userId) {
+  const pending = JSON.parse(saved);
+  if (pending.userId !== userId || !/^[0-9a-f-]{36}$/i.test(pending.id || '') ||
+      pending.destinationCountry !== 'HN' || !Number.isSafeInteger(pending.cents) ||
+      pending.cents < 100 || pending.cents > 100000) {
+    throw new Error('La solicitud de retiro guardada no tiene un formato válido.');
+  }
+  return pending;
+}
+
 function amountToCents(value) {
   const normalized = value.trim().replace(',', '.');
   if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return null;
@@ -103,6 +117,8 @@ export default function App() {
   const [swapBusy, setSwapBusy] = useState(false);
   const [pickupAmount, setPickupAmount] = useState('');
   const [pickupBusy, setPickupBusy] = useState(false);
+  const [pendingPickup, setPendingPickup] = useState(null);
+  const [pickupPendingError, setPickupPendingError] = useState('');
   const [pickupResult, setPickupResult] = useState(null);
   const [pickupOrders, setPickupOrders] = useState([]);
   const [pickupOrdersBusy, setPickupOrdersBusy] = useState(false);
@@ -165,11 +181,14 @@ export default function App() {
     setRecipientCode('');
     setPickupAmount('');
     setPendingOperation(null);
+    setPendingPickup(null);
+    setPickupPendingError('');
     if (!userId) {
       return;
     }
     refreshAccount(userId);
     recoverPendingOperation(userId);
+    recoverPendingPickup(userId);
   }, [userId]);
 
   async function refreshAccount(id = userId) {
@@ -497,29 +516,73 @@ export default function App() {
       if (isCurrentUser(actorId)) setSwapBusy(false);
     }
   }
+  async function recoverPendingPickup(id = userId) {
+    if (!id) return;
+    try {
+      const saved = await AsyncStorage.getItem(pendingPickupStorageKey(id));
+      if (!isCurrentUser(id) || !saved) return;
+      const pending = parsePendingPickup(saved, id);
+      pickupPendingRef.current = pending;
+      setPendingPickup(pending);
+      setPickupAmount(formatMWD(pending.cents));
+    } catch (error) {
+      if (isCurrentUser(id)) {
+        setPickupPendingError('Hay una referencia de retiro guardada que no se puede verificar. No crearemos otra orden automáticamente.');
+      }
+    }
+  }
+
   async function createDemoPickup() {
-    if (pickupBusy) return;
+    if (pickupBusy || pickupPendingError) return;
     const cents = amountToCents(pickupAmount);
     if (cents === null || cents < 100 || cents > 100000) {
       return message('Monto inválido', 'Usa entre 1.00 y 1000.00 MWD ficticios.');
     }
     const actorId = userId;
     if (!isCurrentUser(actorId)) return;
-    const pendingPickup = pickupPendingRef.current;
-    if (!pendingPickup || pendingPickup.cents !== cents) {
-      pickupPendingRef.current = { cents, id: uniqueRequestId() };
-    }
-    const requestId = pickupPendingRef.current.id;
+    const storageKey = pendingPickupStorageKey(actorId);
     setPickupBusy(true);
     setPickupResult(null);
     try {
+      let pending = pickupPendingRef.current || pendingPickup;
+      if (!pending) {
+        const saved = await AsyncStorage.getItem(storageKey);
+        if (!isCurrentUser(actorId)) return;
+        if (saved) pending = parsePendingPickup(saved, actorId);
+      }
+      if (pending && (pending.userId !== actorId || pending.cents !== cents ||
+          pending.destinationCountry !== 'HN')) {
+        pickupPendingRef.current = pending;
+        setPendingPickup(pending);
+        setPickupAmount(formatMWD(pending.cents));
+        throw new Error('Hay una orden pendiente. Reintenta primero con el mismo importe.');
+      }
+      if (!pending) {
+        pending = {
+          userId: actorId,
+          cents,
+          destinationCountry: 'HN',
+          id: uniqueRequestId(),
+          createdAt: new Date().toISOString(),
+        };
+        await AsyncStorage.setItem(storageKey, JSON.stringify(pending));
+        if (!isCurrentUser(actorId)) return;
+      }
+      pickupPendingRef.current = pending;
+      setPendingPickup(pending);
       const { data, error } = await supabase.rpc('mwd_pickup_create_demo', {
-        p_destination_country: 'HN', p_amount_cents: cents, p_request_id: requestId,
+        p_destination_country: pending.destinationCountry,
+        p_amount_cents: pending.cents,
+        p_request_id: pending.id,
       });
       if (!isCurrentUser(actorId)) return;
       if (error) throw error;
       if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
-      if (pickupPendingRef.current?.id === requestId) pickupPendingRef.current = null;
+      await AsyncStorage.removeItem(storageKey);
+      if (!isCurrentUser(actorId)) return;
+      pickupPendingRef.current = null;
+      setPendingPickup(null);
+      setPickupPendingError('');
       setPickupResult(data);
       setPickupAmount('');
       if (data.status === 'already_created' && !data.pickupCode) {
@@ -527,7 +590,10 @@ export default function App() {
           'La orden ya existe, pero por seguridad el código de retiro no se vuelve a mostrar. Consulta Mis retiros; no crees otra orden para recuperar el código.');
       }
     } catch (error) {
-      if (isCurrentUser(actorId)) message('Orden ficticia no creada', error.message || 'Error desconocido');
+      if (isCurrentUser(actorId)) {
+        message('Retiro pendiente de confirmar',
+          (error.message || 'No se pudo verificar la orden.') + '\nLa app conservará la misma referencia para reintentar sin duplicar la orden.');
+      }
     } finally {
       if (isCurrentUser(actorId)) setPickupBusy(false);
     }
@@ -585,6 +651,13 @@ export default function App() {
     setScreen(pending.type === 'transfer' ? 'Transferir' : 'Aportar');
   }
 
+  function resumePendingPickup() {
+    const pending = pickupPendingRef.current || pendingPickup;
+    if (!pending) return;
+    setPickupAmount(formatMWD(pending.cents));
+    setScreen('Retiros');
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#07111f" />
@@ -622,6 +695,15 @@ export default function App() {
                 <Text style={styles.heading}>Operación pendiente por verificar</Text>
                 <Text style={styles.muted}>{pendingOperation.type === 'transfer' ? 'Transferencia' : 'Aportación'} de {formatMWD(pendingOperation.cents)} MWD. La app conservará la misma referencia al reintentar.</Text>
                 <Btn title="Revisar / reintentar operación" onPress={resumePendingOperation} disabled={busy} />
+              </View>}
+              {!!pendingPickup && <View style={styles.card}>
+                <Text style={styles.heading}>Retiro pendiente por verificar</Text>
+                <Text style={styles.muted}>{formatMWD(pendingPickup.cents)} MWD ficticios a Honduras. Al reintentar se usará la misma referencia para no crear otra orden.</Text>
+                <Btn title="Revisar / reintentar retiro" onPress={resumePendingPickup} disabled={pickupBusy} />
+              </View>}
+              {!!pickupPendingError && <View style={styles.card}>
+                <Text style={styles.heading}>No se pudo verificar el retiro</Text>
+                <Text style={styles.muted}>{pickupPendingError}</Text>
               </View>}
               <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet || !!pendingOperation} />
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet || !!pendingOperation} />
@@ -665,10 +747,10 @@ export default function App() {
               <Text style={styles.muted}>Monto de prueba: 1.00 a 1000.00 MWD</Text>
               <TextInput style={styles.input} placeholder="Ejemplo: 10.00"
                 placeholderTextColor="#9fb1c8" keyboardType="decimal-pad"
-                value={pickupAmount} onChangeText={value => { setPickupAmount(value); pickupPendingRef.current = null; }} editable={!pickupBusy} />
+                value={pickupAmount} onChangeText={setPickupAmount} editable={!pickupBusy && !pendingPickup && !pickupPendingError} />
               <Text style={styles.muted}>Máximo 5 órdenes nuevas por hora por cuenta. Vigencia: 24 horas.</Text>
-              <Btn title={pickupBusy ? 'Creando...' : 'Crear orden ficticia'}
-                onPress={createDemoPickup} disabled={pickupBusy} />
+              <Btn title={pickupBusy ? 'Verificando...' : pendingPickup ? 'Reintentar orden pendiente' : 'Crear orden ficticia'}
+                onPress={createDemoPickup} disabled={pickupBusy || !!pickupPendingError} />
               {!!pickupResult && <View>
                 <Text style={styles.heading}>{pickupResult.status === 'created' ? 'Orden creada' : 'Orden existente'}</Text>
                 <Text selectable style={styles.small}>Orden: {pickupResult.orderId}</Text>
