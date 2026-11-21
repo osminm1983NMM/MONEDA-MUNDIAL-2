@@ -29,6 +29,8 @@ for (const value of ['no-email', 'user@', '@example.com', '']) {
 }
 
 assert.ok(app.includes('exchangeCodeForSession(code)'), 'Falta intercambiar el código del enlace profundo');
+assert.ok(app.includes("parsed.host !== 'auth' || parsed.pathname !== '/reset-password'"),
+  'El receptor debe limitarse al enlace de recuperación esperado');
 assert.ok(app.includes("event === 'PASSWORD_RECOVERY'"), 'Falta detectar el evento de recuperación');
 assert.ok(app.includes('updateUser({ password: newPassword })'), 'Falta guardar la nueva contraseña');
 assert.ok(app.includes("screen === 'CambiarContraseña'"), 'Falta la pantalla para guardar la nueva contraseña');
