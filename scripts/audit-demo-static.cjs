@@ -41,7 +41,7 @@ for (const value of ['1x25', '1,2', '-1', '0.1234567', '1..2', '']) {
 const pickupBody = app.split('async function createDemoPickup() {')[1]?.split('async function loadPickupOrders() {')[0];
 assert.ok(pickupBody, 'Falta función de retiro ficticio');
 assert.match(pickupBody, /p_request_id:\s*pending\.id/, 'Retiro sin referencia idempotente recuperada');
-assert.match(pickupBody, /p_request_id:\s*requestId/, 'RPC de retiro sin clave idempotente');
+assert.match(pickupBody, /p_request_id:\s*pending\.id/, 'RPC de retiro sin clave idempotente persistida');
 assert.match(pickupBody, /pickupPendingRef\.current = null/, 'Retiro sin limpieza al confirmar');
 assert.match(app, /onChangeText=\{value => \{ setPickupAmount\(value\); pickupPendingRef\.current = null; \}\}/, 'Editar monto debe invalidar el identificador');
 
