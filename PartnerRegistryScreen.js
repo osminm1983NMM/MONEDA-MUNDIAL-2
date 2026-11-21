@@ -42,10 +42,10 @@ function Btn({ title, onPress, secondary, disabled }) {
     onPress={onPress}><Text style={s.buttonText}>{title}</Text></TouchableOpacity>;
 }
 
-function Field({ label, value, onChangeText, placeholder }) {
+function Field({ label, value, onChangeText, placeholder, editable = true }) {
   return <View><Text style={s.text}>{label}</Text><TextInput
     accessibilityLabel={label} style={s.input} value={value} onChangeText={onChangeText}
-    autoCorrect={false} placeholder={placeholder} placeholderTextColor="#b3c5d9" /></View>;
+    autoCorrect={false} editable={editable} placeholder={placeholder} placeholderTextColor="#b3c5d9" /></View>;
 }
 
 export default function PartnerRegistryScreen({ supabase }) {
@@ -179,8 +179,8 @@ export default function PartnerRegistryScreen({ supabase }) {
 
     <View style={s.card}>
       <Text style={s.title}>Registrar futuro socio</Text>
-      <Field label="Nombre de la entidad" value={name} onChangeText={setName} placeholder="Nombre legal de ejemplo o candidato" />
-      <Field label="País (código de 2 letras)" value={country} onChangeText={setCountry} placeholder="NI, CR, HN..." />
+      <Field label="Nombre de la entidad" value={name} onChangeText={setName} placeholder="Nombre legal de ejemplo o candidato" editable={!busy} />
+      <Field label="País (código de 2 letras)" value={country} onChangeText={setCountry} placeholder="NI, CR, HN..." editable={!busy} />
       <Text style={s.text}>Tipo de entidad</Text>
       {KIND.map(([value, label]) => <Btn key={value}
         title={kind === value ? '✓ ' + label : label}
@@ -213,10 +213,10 @@ export default function PartnerRegistryScreen({ supabase }) {
       {locations.map(l => <Text key={l.id} style={s.text}>
         {l.display_name} — {l.city} — {l.currency_code} · Borrador
       </Text>)}
-      <Field label="Nombre de sucursal" value={branchName} onChangeText={setBranchName} />
-      <Field label="Ciudad" value={city} onChangeText={setCity} />
-      <Field label="Moneda de referencia (3 letras)" value={currency} onChangeText={setCurrency} />
-      <Field label="Horario orientativo (opcional)" value={hours} onChangeText={setHours} />
+      <Field label="Nombre de sucursal" value={branchName} onChangeText={setBranchName} editable={!busy} />
+      <Field label="Ciudad" value={city} onChangeText={setCity} editable={!busy} />
+      <Field label="Moneda de referencia (3 letras)" value={currency} onChangeText={setCurrency} editable={!busy} />
+      <Field label="Horario orientativo (opcional)" value={hours} onChangeText={setHours} editable={!busy} />
       <Btn title="Guardar sucursal candidata" disabled={busy || !branchName.trim() || !city.trim()}
         onPress={saveLocation} />
 
