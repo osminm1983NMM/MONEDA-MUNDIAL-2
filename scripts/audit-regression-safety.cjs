@@ -14,6 +14,8 @@ const transfer = section('async function executeOperation(type, cents, code = \'
 assert.match(transfer, /p_request_id:\s*requestId/, 'Transferencia sin ID idempotente');
 assert.match(transfer, /already_processed/, 'No se reconoce reintento procesado');
 assert.match(app, /function isDefinitiveRpcRejection\(error\) \{\s*return Number\(error\?\.status\) === 400 && \/\^\[0-9A-Z\]\{5\}\$\/\.test\(error\?\.code \|\| ''\);/,
+assert.ok(app.includes('Number(error?.status) === 400') &&
+  app.includes("/^[0-9A-Z]{5}$/.test(error?.code || '')"),
   'Solo una respuesta HTTP 400 con SQLSTATE puede liberar la referencia local');
 assert.match(transfer, /if \(response\.error\) \{[\s\S]*?isDefinitiveRpcRejection\(response\.error\)[\s\S]*?AsyncStorage\.removeItem\(storageKey\)[\s\S]*?throw response\.error;/,
   'Los rechazos SQL liberan la referencia; los errores inciertos la conservan');
