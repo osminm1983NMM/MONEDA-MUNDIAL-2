@@ -323,7 +323,7 @@ export default function App() {
       setNewPassword('');
       setConfirmNewPassword('');
       setScreen('Inicio');
-      message('Contraseña actualizada', 'Ya puedes iniciar sesión con tu nueva contraseña.');
+      message('Contraseña actualizada', 'La contraseña se actualizó. Tu sesión actual sigue activa.');
     } catch (error) {
       if (isCurrentUser(actorId)) {
         message('Contraseña', error.message || 'No se pudo actualizar la contraseña.');
