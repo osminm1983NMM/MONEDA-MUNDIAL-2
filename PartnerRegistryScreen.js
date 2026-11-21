@@ -92,7 +92,9 @@ export default function PartnerRegistryScreen({ supabase }) {
     if (requestVersion === partnersLoadVersionRef.current) setPartners(rows || []);
   }
   async function reloadDetails(id) {
-    if (!id) { setLocations([]); setAudit([]); return; }
+    setLocations([]);
+    setAudit([]);
+    if (!id) return;
     const [loc, hist] = await Promise.all([
       request('mwd_owner_partner_locations_demo', { p_partner_id: id }),
       request('mwd_owner_partner_audit_demo', { p_partner_id: id }),
