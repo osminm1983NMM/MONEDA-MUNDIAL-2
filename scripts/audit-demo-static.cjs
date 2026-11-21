@@ -119,6 +119,8 @@ assert.ok(pickupCreate.indexOf("!['created', 'already_created'].includes(data?.s
   pickupCreate.indexOf('await AsyncStorage.removeItem(storageKey)'),
   'La referencia solo se limpia después de una respuesta confirmada');
 assert.ok(app.includes('resumePendingPickup'), 'La pantalla inicial debe permitir reanudar un retiro pendiente');
+assert.ok(app.includes('onPress={() => recoverPendingPickup(userId)}'),
+  'La pantalla inicial debe permitir reintentar la verificación de un retiro pendiente');
 assert.ok(app.includes('editable={!pickupBusy && !pendingPickup && !pickupPendingError}'),
   'No debe permitir cambiar el importe de un retiro pendiente');
 console.log('PASS: estructura, configuración Android, advertencia DEMO y comprobación básica de secretos.');
