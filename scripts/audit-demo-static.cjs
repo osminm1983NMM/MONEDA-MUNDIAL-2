@@ -181,6 +181,22 @@ assert.match(refreshBody, /requestVersion !== refreshAccountVersionRef\.current/
 assert.match(refreshBody, /requestVersion === refreshAccountVersionRef\.current\) \{\s*setSyncing\(false\)/,
   'Una respuesta antigua no debe apagar el indicador de una actualización nueva');
 
+assert.match(app, /function beginSwapBusy\(\) \{[\s\S]*?if \(swapBusyTokenRef\.current\) return null/,
+  'Las acciones de conversión deben tener un bloqueo síncrono');
+assert.match(app, /function endSwapBusy\(token, actorId\) \{[\s\S]*?swapBusyTokenRef\.current !== token/,
+  'Una conversión vieja no debe liberar el bloqueo de otra cuenta');
+assert.match(app, /swapBusyTokenRef\.current = null;\s*setSwapBusy\(false\)/,
+  'El bloqueo de conversión debe reiniciarse al cambiar de cuenta');
+for (const [start, end] of [
+  ['async function loadSwapWallet() {', 'async function requestSwapQuote() {'],
+  ['async function requestSwapQuote() {', 'async function confirmSwap() {'],
+  ['async function confirmSwap() {', 'async function createDemoPickup() {'],
+]) {
+  const block = app.split(start)[1]?.split(end)[0];
+  assert.ok(block, 'Falta una acción de conversión');
+  assert.ok(block.includes('beginSwapBusy()'), 'La conversión debe bloquear dobles toques');
+  assert.ok(block.includes('endSwapBusy(busyToken, actorId)'), 'La conversión debe liberar su propio bloqueo');
+}
 const pickupRecovery = app.split('async function recoverPendingPickup(id = userId) {')[1]?.split('async function createDemoPickup() {')[0];
 assert.ok(pickupRecovery, 'Falta recuperación de retiros al iniciar sesión');
 assert.ok(app.includes('recoverPendingPickup(userId);'), 'Falta recuperar un retiro guardado al iniciar sesión');
