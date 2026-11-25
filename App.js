@@ -67,7 +67,7 @@ function isDefinitiveRpcRejection(error, status) {
   // Keep idempotency conflicts and reconciliation cases for review; network errors stay pending.
   const messageText = String(error?.message || '');
   const requiresReview = /identificador\s+(?:ya usado|reutilizado)|solicitud duplicada inconsistente|reconciliaci[oó]n/i.test(messageText);
-  return status === 400 && /^[0-9A-Z]{5}$/.test(error?.code || '') && !requiresReview;
+  return status === 400 && ['22023', 'P0001', '42501'].includes(error?.code) && !requiresReview;
 }
 
 function amountToCents(value) {
