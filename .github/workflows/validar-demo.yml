@@ -1,29 +1,24 @@
 name: Validar Moneda Mundial DEMO
-
-# Ejecución manual únicamente. No se activa con cada commit.
 on:
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   validacion:
-    name: Sintaxis y controles DEMO
+    name: Configuración y exportación Android DEMO
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
-      - name: Obtener rama
-        uses: actions/checkout@v4
-      - name: Preparar Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Instalar dependencias
-        run: npm install --no-audit --no-fund
-            
-      - name: Verificar sintaxis de package.json
         run: |
-          node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))"
-  
-  
+          if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+      - name: Validar configuración
+        run: |
+          node -e "const a=require('./app.json').expo,e=require('./eas.json'),p=require('./package.json'); if(!a.android.package || !a.extra.eas.projectId || e.build.preview.android.buildType!=='apk' || !p.dependencies.expo) process.exit(1)"
+          npx expo install --check
+      - name: Exportar JavaScript Android
+        run: npx expo export --platform android --output-dir dist-validation
