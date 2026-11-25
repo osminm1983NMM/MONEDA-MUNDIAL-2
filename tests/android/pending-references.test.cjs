@@ -20,3 +20,16 @@ for(const [name,fn,valid] of [['transfer',ctx.parsePendingOperation,transfer],['
 test('transfer rejects invalid destination and excessive amount',()=>{
  for(const value of [{...transfer,code:'invalid'},{...transfer,cents:100000001}]) assert.throws(()=>ctx.parsePendingOperation(JSON.stringify(value),'a'));
 });
+
+test('contribution accepts only empty recipient code',()=>{
+ const valid={...transfer,type:'contribution',code:''};
+ assert.equal(ctx.parsePendingOperation(JSON.stringify(valid),'a').type,'contribution');
+ assert.throws(()=>ctx.parsePendingOperation(JSON.stringify({...valid,code:transfer.code}),'a'));
+});
+test('pickup enforces corridor and inclusive limits',()=>{
+ for(const cents of [100,100000]) assert.equal(ctx.parsePendingPickup(JSON.stringify({...pickup,cents}),'a').cents,cents);
+ for(const value of [{...pickup,cents:99},{...pickup,cents:100001},{...pickup,destinationCountry:'US'}]) assert.throws(()=>ctx.parsePendingPickup(JSON.stringify(value),'a'));
+});
+test('malformed JSON is rejected',()=>{
+ for(const fn of [ctx.parsePendingOperation,ctx.parsePendingPickup]) assert.throws(()=>fn('{','a'));
+});
