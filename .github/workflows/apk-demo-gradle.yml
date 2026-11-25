@@ -1,7 +1,7 @@
 name: APK Android de demostración (Gradle)
 on:
   push:
-    branches: [fix/eas-build-current-ref-20261121]
+    branches: [fix/eas-build-current-ref-20261121, dev/cierre-android-20261125]
     paths: ['.github/workflows/apk-demo-gradle.yml', 'App.js', 'PartnerRegistryScreen.js', 'app.json', 'package.json']
   workflow_dispatch:
 permissions:

@@ -50,11 +50,11 @@ function parsePendingPickup(saved, userId) {
   return pending;
 }
 
-function isDefinitiveRpcRejection(error) {
+function isDefinitiveRpcRejection(error, status) {
   // Keep idempotency conflicts and reconciliation cases for review; network errors stay pending.
   const messageText = String(error?.message || '');
   const requiresReview = /identificador\s+(?:ya usado|reutilizado)|solicitud duplicada inconsistente|reconciliaci[oó]n/i.test(messageText);
-  return Number(error?.status) === 400 && /^[0-9A-Z]{5}$/.test(error?.code || '') && !requiresReview;
+  return status === 400 && /^[0-9A-Z]{5}$/.test(error?.code || '') && !requiresReview;
 }
 
 function amountToCents(value) {
@@ -292,16 +292,18 @@ export default function App() {
     const requestVersion = ++refreshAccountVersionRef.current;
     setSyncing(true);
     setSyncNotice('Actualizando...');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
     try {
       const [w, h, a] = await Promise.all([
         supabase.from('mwd_wallets')
           .select('user_id,account_code,balance_cents')
-          .eq('user_id', id).single(),
+          .eq('user_id', id).abortSignal(controller.signal).single(),
         supabase.from('mwd_operations')
           .select('id,kind,source_user_id,destination_user_id,amount_cents,created_at')
           .or(`source_user_id.eq.${id},destination_user_id.eq.${id}`)
-          .order('created_at', { ascending: false }).limit(50),
-        supabase.from('mwd_admin_roles').select('role').eq('user_id', id).maybeSingle(),
+          .order('created_at', { ascending: false }).limit(50).abortSignal(controller.signal),
+        supabase.from('mwd_admin_roles').select('role').eq('user_id', id).abortSignal(controller.signal).maybeSingle(),
       ]);
       if (id !== currentUserRef.current || requestVersion !== refreshAccountVersionRef.current) return;
       if (w.error) throw w.error;
@@ -315,10 +317,13 @@ export default function App() {
     } catch (error) {
       if (id === currentUserRef.current && requestVersion === refreshAccountVersionRef.current) {
         setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
-        message('Sincronización', error.message || 'No se pudo consultar Supabase.');
+        message('Sincronización', controller.signal.aborted
+          ? 'La consulta tardó demasiado. Vuelve a pulsar Actualizar saldo e historial.'
+          : error.message || 'No se pudo consultar Supabase.');
         return false;
       }
     } finally {
+      clearTimeout(timeout);
       if (id === currentUserRef.current && requestVersion === refreshAccountVersionRef.current) {
         setSyncing(false);
       }
@@ -545,7 +550,7 @@ export default function App() {
           p_amount_cents: cents, p_request_id: requestId,
         });
       if (response.error) {
-        if (isDefinitiveRpcRejection(response.error)) {
+        if (isDefinitiveRpcRejection(response.error, response.status)) {
           await AsyncStorage.removeItem(storageKey);
           if (!isCurrentUser(actorId)) return;
           pendingRef.current = null;
@@ -680,12 +685,12 @@ export default function App() {
     const busyToken = beginSwapBusy();
     if (!busyToken) return;
     try {
-      const { data, error } = await supabase.rpc('mwd_conversion_confirm_demo', {
+      const { data, error, status } = await supabase.rpc('mwd_conversion_confirm_demo', {
         p_quote_id: quote.quoteId,
       });
       if (!isCurrentUser(actorId)) return;
       if (error) {
-        if (isDefinitiveRpcRejection(error)) {
+        if (isDefinitiveRpcRejection(error, status)) {
           swapQuoteRef.current = null;
           setSwapQuote(null);
           message('Cotización rechazada',
@@ -776,14 +781,14 @@ export default function App() {
       }
       pickupPendingRef.current = pending;
       setPendingPickup(pending);
-      const { data, error } = await supabase.rpc('mwd_pickup_create_demo', {
+      const { data, error, status } = await supabase.rpc('mwd_pickup_create_demo', {
         p_destination_country: pending.destinationCountry,
         p_amount_cents: pending.cents,
         p_request_id: pending.id,
       });
       if (!isCurrentUser(actorId)) return;
       if (error) {
-        if (isDefinitiveRpcRejection(error)) {
+        if (isDefinitiveRpcRejection(error, status)) {
           await AsyncStorage.removeItem(storageKey);
           if (!isCurrentUser(actorId)) return;
           pickupPendingRef.current = null;

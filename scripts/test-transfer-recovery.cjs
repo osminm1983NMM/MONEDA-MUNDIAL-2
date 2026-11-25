@@ -22,6 +22,7 @@ const requestId = '469bea32-c0b9-43bd-b2e4-cadcaf0a3883';
 function device(storage, rpc) {
   const noop = () => {};
   const ctx = vm.createContext({
+    AbortController, setTimeout, clearTimeout,
     userId: 'sender', currentUserRef: { current: 'sender' }, busyRef: { current: false },
     pendingRef: { current: null }, isCurrentUser: id => id === 'sender',
     AsyncStorage: {
@@ -109,7 +110,8 @@ test('confirmed transfer followed by a failed refresh stays confirmed with balan
   const failedRead = Promise.resolve({ error: { message: 'Disconnected' } });
   const table = {
     select() { return this; }, eq() { return this; }, or() { return this; }, order() { return this; },
-    single() { return failedRead; }, maybeSingle() { return failedRead; }, limit() { return failedRead; },
+    abortSignal() { return this; }, single() { return failedRead; }, maybeSingle() { return failedRead; },
+    limit() { return this; }, then(resolve) { return failedRead.then(resolve); },
   };
   appContext.supabase.from = () => table;
   appContext.setSyncNotice = value => { notice = value; };
@@ -120,4 +122,64 @@ test('confirmed transfer followed by a failed refresh stays confirmed with balan
   assert.equal(notice, 'Operación confirmada. Saldo e historial pendientes de actualizar.');
   assert.equal(storage.size, 0);
   assert.equal(appContext.pendingRef.current, null);
+});
+
+for (const [status, code, reason, keepReference] of [
+  [400, 'P0001', 'Saldo insuficiente', false],
+  [400, 'P0001', 'Identificador reutilizado', true],
+  [503, 'P0001', 'Servicio temporalmente no disponible', true],
+  [0, '', 'Network request failed', true],
+]) {
+  test('transferencia ante ' + reason, async () => {
+    const storage = new Map();
+    const app = device(storage, async () => ({ status, error: { code, message: reason } }));
+    const notices = [];
+    app.message = title => notices.push(title);
+    await app.executeOperation('transfer', 100, recipient);
+    assert.equal(storage.has('mwd_pending_operation:sender'), keepReference);
+    assert.deepEqual(notices, [keepReference ? 'Operación no confirmada' : 'Operación rechazada']);
+    assert.equal(app.busyRef.current, false);
+  });
+}
+
+test('una consulta sin respuesta libera el botón y permite actualizar la cuenta siguiente', async () => {
+  let expire;
+  let syncing;
+  let wallet;
+  let hanging = true;
+  const signals = [];
+  const query = {
+    select() { return this; }, eq() { return this; }, or() { return this; },
+    order() { return this; }, limit() { return this; }, single() { return this; },
+    maybeSingle() { return this; },
+    abortSignal(signal) { signals.push(signal); this.signal = signal; return this; },
+    then(resolve) {
+      if (hanging) this.signal.addEventListener('abort', () => resolve({ error: Error('Abort') }));
+      else resolve({ data: { user_id: 'B' } });
+    },
+  };
+  const noop = () => {};
+  const ctx = vm.createContext({
+    AbortController, currentUserRef: { current: 'A' }, refreshAccountVersionRef: { current: 0 },
+    isCurrentUser: id => id === ctx.currentUserRef.current,
+    setSyncing: value => { syncing = value; }, setWallet: value => { wallet = value; },
+    setSyncNotice: noop, setOperations: noop, setAdminRole: noop, message: noop,
+    setTimeout: callback => { expire = callback; }, clearTimeout: noop,
+    supabase: { from: () => Object.create(query) },
+  });
+  vm.runInContext(section('async function refreshAccount', 'async function authenticate'), ctx);
+  const first = ctx.refreshAccount('A');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(syncing, true);
+  expire();
+  assert.equal(await first, false);
+  assert.equal(syncing, false);
+  assert.equal(signals.length, 3);
+  assert.ok(signals.every(signal => signal.aborted));
+  assert.equal(wallet, undefined);
+  hanging = false;
+  ctx.currentUserRef.current = 'B';
+  assert.equal(await ctx.refreshAccount('B'), true);
+  assert.equal(wallet.user_id, 'B');
+  assert.equal(syncing, false);
 });

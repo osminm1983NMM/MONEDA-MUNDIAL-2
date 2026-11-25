@@ -13,10 +13,10 @@ function section(start, end) {
 const transfer = section('async function executeOperation(type, cents, code = \'\') {', 'function prepareOperation(type) {');
 assert.match(transfer, /p_request_id:\s*requestId/, 'Transferencia sin ID idempotente');
 assert.match(transfer, /already_processed/, 'No se reconoce reintento procesado');
-assert.ok(app.includes('Number(error?.status) === 400') &&
+assert.ok(app.includes('status === 400') &&
   app.includes("/^[0-9A-Z]{5}$/.test(error?.code || '')"),
   'Solo una respuesta HTTP 400 con SQLSTATE puede liberar la referencia local');
-assert.match(transfer, /if \(response\.error\) \{[\s\S]*?isDefinitiveRpcRejection\(response\.error\)[\s\S]*?AsyncStorage\.removeItem\(storageKey\)[\s\S]*?throw response\.error;/,
+assert.match(transfer, /if \(response\.error\) \{[\s\S]*?isDefinitiveRpcRejection\(response\.error, response\.status\)[\s\S]*?AsyncStorage\.removeItem\(storageKey\)[\s\S]*?throw response\.error;/,
   'Los rechazos SQL liberan la referencia; los errores inciertos la conservan');
 assert.match(transfer, /statusResponse\.data\?\.status === 'processed'[\s\S]*?pendingRef\.current = null/,
   'Solo se limpia un reintento después de confirmar su estado en el servidor');
@@ -28,7 +28,7 @@ assert.match(transfer, /p_request_id:\s*requestId/, 'La misma clave persistida d
 assert.ok(app.includes('&& !requiresReview') && app.includes('reconciliaci[oó]n'),
   'Los conflictos idempotentes y de conciliación deben conservar la referencia para revisión');
 const swapConfirm = section('async function confirmSwap(expectedQuoteId) {', 'async function recoverPendingPickup(');
-const definitiveQuoteError = swapConfirm.indexOf('if (isDefinitiveRpcRejection(error))');
+const definitiveQuoteError = swapConfirm.indexOf('if (isDefinitiveRpcRejection(error, status))');
 const uncertainQuoteError = swapConfirm.indexOf('throw error;', definitiveQuoteError);
 assert.ok(definitiveQuoteError >= 0 && uncertainQuoteError > definitiveQuoteError &&
   swapConfirm.slice(definitiveQuoteError, uncertainQuoteError).includes('swapQuoteRef.current = null;') &&
