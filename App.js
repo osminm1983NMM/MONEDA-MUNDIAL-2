@@ -54,7 +54,8 @@ function parsePendingOperation(saved, userId) {
 
 function parsePendingPickup(saved, userId) {
   const pending = JSON.parse(saved);
-  if (pending.userId !== userId || !/^[0-9a-f-]{36}$/i.test(pending.id || '') ||
+  if (!pending || pending.userId !== userId ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pending.id || '') ||
       pending.destinationCountry !== 'HN' || !Number.isSafeInteger(pending.cents) ||
       pending.cents < 100 || pending.cents > 100000) {
     throw new Error('La solicitud de retiro guardada no tiene un formato válido.');
