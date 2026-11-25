@@ -14,7 +14,7 @@ const pickup={userId:'a',id,destinationCountry:'HN',cents:100};
 for(const [name,fn,valid] of [['transfer',ctx.parsePendingOperation,transfer],['pickup',ctx.parsePendingPickup,pickup]]){
  test(name+' accepts valid reference',()=>assert.equal(fn(JSON.stringify(valid),'a').id,id));
  test(name+' rejects invalid references',()=>{
- for(const value of [null,{...valid,id:'-'.repeat(36)},{...valid,userId:'b'},{...valid,cents:0},{...valid,cents:1.5}]) assert.throws(()=>fn(JSON.stringify(value),'a'));
+ for(const value of [null,{...valid,id:'-'.repeat(36)},{...valid,userId:'b'},{...valid,cents:-1},{...valid,cents:0},{...valid,cents:1.5}]) assert.throws(()=>fn(JSON.stringify(value),'a'));
  });
 }
 test('transfer rejects invalid destination and excessive amount',()=>{
