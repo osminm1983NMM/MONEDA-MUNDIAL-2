@@ -560,6 +560,7 @@ export default function App() {
         : await supabase.rpc('mwd_contribute_demo', {
           p_amount_cents: cents, p_request_id: requestId,
         });
+      if (!isCurrentUser(actorId)) return;
       if (response.error) {
         if (isDefinitiveRpcRejection(response.error, response.status)) {
           await AsyncStorage.removeItem(storageKey);
@@ -573,7 +574,8 @@ export default function App() {
         }
         throw response.error;
       }
-      if (!['ok', 'already_processed'].includes(response.data?.status)) {
+      if (!['ok', 'already_processed'].includes(response.data?.status) ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(response.data.operation_id || '')) {
         throw new Error('La operación no pudo ser confirmada.');
       }
       await AsyncStorage.removeItem(storageKey);
