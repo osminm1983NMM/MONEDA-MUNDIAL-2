@@ -812,7 +812,13 @@ export default function App() {
         }
         throw error;
       }
-      if (!['created', 'already_created'].includes(data?.status)) throw new Error('Respuesta inesperada.');
+      if (!['created', 'already_created'].includes(data?.status) ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.orderId || '') ||
+          data.realPaymentsEnabled !== false ||
+          (data.status === 'created' && (data.isFunded !== false || data.canPayOut !== false ||
+            data.amountCents !== pending.cents || data.destinationCountry !== pending.destinationCountry))) {
+        throw new Error('Respuesta de retiro no verificable. Conservamos la referencia.');
+      }
       await AsyncStorage.removeItem(storageKey);
       if (!isCurrentUser(actorId)) return;
       pickupPendingRef.current = null;
@@ -867,7 +873,7 @@ export default function App() {
       const { data, error } = await supabase.rpc('mwd_pickup_cancel_demo', { p_order_id: orderId });
       if (!isCurrentUser(actorId)) return;
       if (error) throw error;
-      if (!['cancelled', 'already_cancelled'].includes(data?.status)) throw new Error('Respuesta de cancelación no reconocida.');
+      if (!['cancelled', 'already_cancelled'].includes(data?.status) || data.orderId !== orderId) throw new Error('Respuesta de cancelación no reconocida.');
       message('Orden ficticia', data.status === 'cancelled' ? 'Orden cancelada correctamente.' : 'La orden ya estaba cancelada.');
       await loadPickupOrders();
     } catch (error) {
