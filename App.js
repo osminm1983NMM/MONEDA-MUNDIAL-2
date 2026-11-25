@@ -71,9 +71,11 @@ function isDefinitiveRpcRejection(error, status) {
 }
 
 function amountToCents(value) {
+  if (typeof value !== 'string') return null;
   const normalized = value.trim().replace(',', '.');
   if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return null;
-  const cents = Math.round(Number(normalized) * 100);
+  const [whole, fraction = ''] = normalized.split('.');
+  const cents = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
   if (!Number.isSafeInteger(cents) || cents < 1 || cents > LIMIT_CENTS) return null;
   return cents;
 }
