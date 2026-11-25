@@ -258,6 +258,10 @@ export default function App() {
     pickupCancelBusyRef.current = false;
     busyRef.current = false;
     setBusy(false);
+    // Invalidate in-flight refreshes and clear synchronization state on account changes.
+    refreshAccountVersionRef.current += 1;
+    setSyncing(false);
+    setSyncNotice('');
     swapBusyTokenRef.current = null;
     setSwapBusy(false);
     setPickupBusy(false);
