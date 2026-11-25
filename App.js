@@ -40,6 +40,18 @@ function pendingPickupStorageKey(userId) {
   return 'mwd_pending_pickup:' + userId;
 }
 
+function parsePendingOperation(saved, userId) {
+  const pending = JSON.parse(saved);
+  if (!pending || pending.userId !== userId ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pending.id || '') ||
+      !['transfer', 'contribution'].includes(pending.type) ||
+      !Number.isSafeInteger(pending.cents) || pending.cents < 1 || pending.cents > LIMIT_CENTS ||
+      (pending.type === 'transfer' ? !/^MWD-[A-F0-9]{16}$/.test(pending.code || '') : pending.code !== '')) {
+    throw new Error('La solicitud guardada no tiene un formato válido.');
+  }
+  return pending;
+}
+
 function parsePendingPickup(saved, userId) {
   const pending = JSON.parse(saved);
   if (pending.userId !== userId || !/^[0-9a-f-]{36}$/i.test(pending.id || '') ||
@@ -417,13 +429,7 @@ export default function App() {
         setPendingOperation(null);
         return;
       }
-      const pending = JSON.parse(saved);
-      if (pending.userId !== id || !/^[0-9a-f-]{36}$/i.test(pending.id || '') ||
-          !['transfer', 'contribution'].includes(pending.type) ||
-          !Number.isSafeInteger(pending.cents) || pending.cents < 1 ||
-          (pending.type === 'transfer' && !/^MWD-[A-F0-9]{16}$/.test(pending.code || ''))) {
-        throw new Error('La solicitud guardada no tiene un formato válido.');
-      }
+      const pending = parsePendingOperation(saved, id);
       pendingValidated = true;
       // Mostrar y bloquear la referencia local incluso si la consulta de estado pierde conexión.
       pendingRef.current = pending;
@@ -493,7 +499,7 @@ export default function App() {
       if (!pending) {
         const saved = await AsyncStorage.getItem(storageKey);
         if (!isCurrentUser(actorId)) return;
-        if (saved) pending = JSON.parse(saved);
+        if (saved) pending = parsePendingOperation(saved, actorId);
       }
       if (pending && (pending.userId !== actorId || pending.type !== type ||
           pending.cents !== cents || pending.code !== code)) {
