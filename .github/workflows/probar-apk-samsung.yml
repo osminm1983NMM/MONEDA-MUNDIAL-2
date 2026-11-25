@@ -30,12 +30,13 @@ jobs:
           git -C "$GITHUB_WORKSPACE" diff --exit-code "$commit" HEAD -- App.js PartnerRegistryScreen.js package.json app.json .github/workflows/apk-demo-gradle.yml
       - name: Instalar y arrancar Android 35
         run: |
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
           sudo chmod 666 /dev/kvm
           image='system-images;android-35;google_apis;x86_64'
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install 'emulator' 'platform-tools' "$image"
           echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n mwd -k "$image" --force
           "$ANDROID_HOME/emulator/emulator" -avd mwd -no-window -no-audio -no-snapshot -gpu swiftshader_indirect -no-boot-anim >"$RUNNER_TEMP/emulator.log" 2>&1 &
-          bash scripts/probar-apk-samsung.sh "$RUNNER_TEMP/apk/MonedaMundial-LAB.apk"
+          bash scripts/probar-apk-samsung.sh "$RUNNER_TEMP/apk/MonedaMundial-LAB.apk" || { status=$?; tail -50 "$RUNNER_TEMP/emulator.log"; exit "$status"; }
       - uses: actions/upload-artifact@v4
         if: success()
         with:
