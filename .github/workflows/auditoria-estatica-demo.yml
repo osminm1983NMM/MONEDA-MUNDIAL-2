@@ -1,5 +1,8 @@
 name: Auditoría estática DEMO (manual)
 on:
+  push:
+    branches: [dev/cierre-android-20261125]
+    paths: ['App.js', 'scripts/*.cjs', '.github/workflows/auditoria-estatica-demo.yml']
   workflow_dispatch:
   pull_request:
     paths:
@@ -8,7 +11,7 @@ on:
       - 'app.json'
       - 'scripts/audit-demo-static.cjs'
       - 'scripts/audit-regression-safety.cjs'
-      - 'scripts/test-transfer-recovery.cjs'
+      - 'scripts/test-*.cjs'
       - '.github/workflows/auditoria-estatica-demo.yml'
 permissions:
   contents: read
@@ -25,4 +28,4 @@ jobs:
         run: |
           node scripts/audit-demo-static.cjs
           node scripts/audit-regression-safety.cjs
-          node --test scripts/test-transfer-recovery.cjs
+          node --test scripts/test-*.cjs
