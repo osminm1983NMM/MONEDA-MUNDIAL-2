@@ -100,6 +100,7 @@ DO $$ BEGIN
  IF EXISTS(SELECT FROM ledger_integrity_summary WHERE orders_with_anomalies<>0)
  OR EXISTS(SELECT FROM lifecycle_integrity_summary WHERE orders_with_anomalies<>0)
  OR EXISTS(SELECT FROM integrity_hold_summary)
+ OR EXISTS(SELECT FROM multi_transfer_summary WHERE terminal_state_mismatches<>0 OR event_discrepancies<>0)
  THEN RAISE EXCEPTION 'final integrity gate failed'; END IF;
  IF (SELECT halted FROM dispatch_control_summary) THEN RAISE EXCEPTION 'unexpected halt after recovery'; END IF;
 END $$;

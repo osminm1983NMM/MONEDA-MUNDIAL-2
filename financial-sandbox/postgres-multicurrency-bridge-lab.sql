@@ -38,6 +38,30 @@ BEGIN
   CASE WHEN e.outcome='confirmed' AND e.currency='USD' THEN e.amount_minor END,
   CASE WHEN e.outcome='confirmed' AND e.currency='HNL' THEN e.amount_minor END,NULL);
 END $$;
+-- The direct fixture endpoint must not bypass accepted-event evidence for a linked order.
+-- multi_apply locks the multi order before inserting; attachment uses the same order lock.
+CREATE FUNCTION require_multi_source_event() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,mwd_financial_lab,pg_temp AS $
+BEGIN
+ IF NEW.kind NOT IN ('fx_acquired','fx_unwound') AND EXISTS(
+  SELECT FROM multi_transfer_links WHERE multi_id=NEW.order_id
+ ) AND NOT EXISTS(
+  SELECT FROM multi_transfer_links l JOIN outbox x ON x.order_id=l.transfer_id
+  JOIN inbox i ON i.reference=x.reference
+  WHERE l.multi_id=NEW.order_id AND i.provider='mock-remittance' AND i.event_id=NEW.id
+  AND (i.currency,i.amount_minor) IS NOT DISTINCT FROM (x.currency,x.amount_minor)
+  AND (NEW.kind,NEW.usd,NEW.hnl,NEW.cost) IS NOT DISTINCT FROM (
+   x.kind||'_'||i.outcome,
+   CASE WHEN i.outcome='confirmed' AND i.currency='USD' THEN i.amount_minor END,
+   CASE WHEN i.outcome='confirmed' AND i.currency='HNL' THEN i.amount_minor END,
+   NULL::bigint
+  )
+ ) THEN RAISE EXCEPTION 'ACCEPTED_EVENT_REQUIRED'; END IF;
+ RETURN NEW;
+END $;
+CREATE TRIGGER multi_linked_event_evidence BEFORE INSERT ON multi_events
+ FOR EACH ROW EXECUTE FUNCTION require_multi_source_event();
+REVOKE ALL ON FUNCTION require_multi_source_event() FROM PUBLIC;
 -- A read-only comparison checks accepted event identity and payload in both directions.
 -- FX events have no source equivalent and are deliberately excluded.
 CREATE VIEW multi_transfer_summary AS

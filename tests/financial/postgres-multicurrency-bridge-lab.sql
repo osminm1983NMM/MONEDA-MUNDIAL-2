@@ -18,13 +18,19 @@ DO $$ DECLARE p uuid:=current_setting('mwd.test_paid')::uuid; r uuid:=current_se
  BEGIN PERFORM multi_mirror_accepted(p,'worker-fund-1'); RAISE EXCEPTION 'EXPECTED_REJECTION'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $$;
 RESET ROLE;
+DO $ BEGIN
+ IF NOT EXISTS(SELECT FROM multi_transfer_summary WHERE linked_transfers=2 AND terminal_state_mismatches=2 AND event_discrepancies>0) THEN RAISE EXCEPTION 'MISSING_HISTORY_NOT_DETECTED'; END IF;
+END $;
 SET LOCAL ROLE mwd_lab_multi_event;
 DO $$ DECLARE p uuid:=current_setting('mwd.test_paid')::uuid; r uuid:=current_setting('mwd.test_refund')::uuid; BEGIN
  BEGIN PERFORM multi_mirror_accepted(p,'worker-fund-2'); RAISE EXCEPTION 'EXPECTED_REJECTION'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'ACCEPTED_EVENT_UNAVAILABLE' THEN RAISE; END IF; END;
+ BEGIN PERFORM multi_apply(p::text,'fabricated-funding','funding_confirmed',10150,NULL,NULL); RAISE EXCEPTION 'EXPECTED_REJECTION'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'ACCEPTED_EVENT_REQUIRED' THEN RAISE; END IF; END;
+ BEGIN PERFORM multi_apply(p::text,'worker-fund-1','funding_confirmed',10149,NULL,NULL); RAISE EXCEPTION 'EXPECTED_REJECTION'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'ACCEPTED_EVENT_REQUIRED' THEN RAISE; END IF; END;
  IF multi_mirror_accepted(p,'worker-fund-1')<>'funded' THEN RAISE EXCEPTION 'FUNDING_MIRROR'; END IF;
  BEGIN PERFORM multi_mirror_accepted(p,'worker-pay-1'); RAISE EXCEPTION 'EXPECTED_REJECTION'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'INVALID_TRANSITION' THEN RAISE; END IF; END;
  -- Explicit synthetic FX fixture; never inferred from payout.
  PERFORM multi_apply(p::text,'bridge-fixture-fx','fx_acquired',10000,250000,0);
+ BEGIN PERFORM multi_apply(p::text,'fabricated-payout','payout_confirmed',NULL,250000,NULL); RAISE EXCEPTION 'EXPECTED_REJECTION'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'ACCEPTED_EVENT_REQUIRED' THEN RAISE; END IF; END;
  IF multi_mirror_accepted(p,'worker-pay-1')<>'paid' OR multi_mirror_accepted(p,'worker-pay-1')<>'duplicate' THEN RAISE EXCEPTION 'PAYOUT_MIRROR'; END IF;
  PERFORM multi_mirror_accepted(r,'worker-fund-2');
 END $$;
