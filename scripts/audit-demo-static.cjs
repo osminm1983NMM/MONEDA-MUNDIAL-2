@@ -152,8 +152,16 @@ assert.ok(!navigationBody.includes("setRecipientCode('')"), 'Navegar no debe bor
 // Navigation must remain stable during automatic session refresh.
 const authBody = app.split('supabase.auth.onAuthStateChange(')[1]?.split('subscription.unsubscribe()')[0];
 assert.ok(authBody, 'Falta observador de autenticación');
-assert.match(authBody, /event === 'SIGNED_IN' \|\| event === 'SIGNED_OUT'/,
-  'No reiniciar navegación por TOKEN_REFRESHED');
+assert.match(authBody, /event === 'SIGNED_OUT' \|\| !nextUser/,
+  'Al cerrar sesión se debe invalidar la recuperación');
+assert.match(authBody, /event === 'SIGNED_IN' && recoveryActorRef\.current !== nextUser/,
+  'No reiniciar la recuperación al recibir SIGNED_IN de la misma cuenta');
+assert.match(authBody, /recoveryActorRef\.current && recoveryActorRef\.current !== nextUser/,
+  'Cambiar de cuenta invalida la recuperación anterior');
+assert.match(authBody, /authEventUserRef\.current = nextUser/,
+  'La identidad de los eventos debe actualizarse antes de renderizar');
+assert.match(app, /recoveryActorRef\.current !== actorId \|\| authEventUserRef\.current !== actorId/,
+  'No cambiar contraseñas para una identidad diferente de la recuperación');
 assert.match(app, /cents > wallet\.balance_cents && !samePending/,
   'El reintento incierto debe poder consultar al servidor aunque el saldo local sea antiguo');
 assert.match(app, /setPickupResult\(data\)/, 'Falta resultado de retiro');
