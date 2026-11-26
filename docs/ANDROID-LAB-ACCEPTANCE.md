@@ -1,6 +1,6 @@
 # Aceptación Android LAB — Moneda Mundial
 
-Estado: CI aprobado; validación física parcial, identidad exacta del APK pendiente. Exclusivamente créditos ficticios.
+Estado: CI anterior aprobado; validación física parcial; nueva compilación en curso. Identidad exacta del APK instalado pendiente. Exclusivamente créditos ficticios.
 
 ## Evidencia de compilación
 - Registrar URL de ejecución, commit y conclusión de los trabajos apk y smoke-test.
@@ -57,3 +57,9 @@ Captura Samsung 20:53 EST: cuenta B con código destinatario correcto y saldo 9,
 ## Conversión física COIN → DIGITAL
 
 Capturas Samsung 20:55–20:57 EST: saldo inicial 124.920000 COIN y 996.872809 DIGITAL; cotización de 10 COIN, neto 1.246875 DIGITAL, comisión 0.003125 DIGITAL (0.25% del bruto). Diálogo de confirmación visible. Saldo final 114.920000 COIN y 998.119684 DIGITAL, coincide con cálculo exacto. Aprobada evidencia visual de conversión normal; pendiente conciliación independiente SQL y conversión inversa física.
+
+## Candidata de cierre — 26 de noviembre de 2026
+
+- [CI Android actualizado, ejecución 45809213055](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45809213055), revisión borrador 132. Dependencias, pruebas Android, auditoría integral, compatibilidad Expo, configuración LAB, recuperación simulada con esquema LAB y prebuild aprobados. Compilación Gradle pendiente de conclusión al registrar. No instalar un artefacto hasta aprobar procedencia y emulador.
+- [CI PostgreSQL 45809212853](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45809212853) completada con éxito, segunda ejecución: tres puertas funcionales, cuatro escenarios simultáneos con bloqueo observado y diez puertas de auditoría. Contenedor eliminado. No certifica correo real ni dispositivo físico.
+- Priorizar una sola sesión de aceptación del APK nuevo: identidad del artefacto y apertura; recuperación de contraseña con redirect LAB exacto; pérdida de red y reintento con la misma referencia; conversión inversa DIGITAL→COIN; aportación y retiro ficticios. No repetir transferencias normales ya conciliadas salvo prueba de regresión necesaria. No enviar contraseñas, códigos privados ni enlaces de recuperación en capturas. No desinstalar la versión instalada ni borrar datos ante error de firma: conservar y diagnosticar.
