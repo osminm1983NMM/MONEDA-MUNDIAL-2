@@ -21,3 +21,18 @@ test('invalid provider clock cannot pass a signed event into the worker inbox',a
 test('worker rejects non-boolean lease authorization without submitting or acknowledging',async()=>{for(const invalid of ['false',1,{},[],null,undefined]){const f=fixture();f.store.checkLease=()=>invalid;a.equal((await f.worker().tick()).status,'held');a.deepEqual(f.counts(),{acks:0,records:0,submissions:0});}});
 test('worker rejects overlong references before any provider lookup',async()=>{const f=fixture();f.intent.orderId='x'.repeat(121);f.intent.reference=f.intent.orderId+'-funding';let calls=0;f.provider.lookup=async()=>{calls++;return {status:'absent'};};await a.rejects(f.worker().tick(),/INVALID_LEASE/);a.equal(calls,0);a.deepEqual(f.counts(),{acks:0,records:0,submissions:0});});
 test('worker rejects signed non-string event type and overlong reference',async()=>{const f=fixture();await f.worker().tick();for(const patch of [{type:['funding_confirmed']},{orderId:'x'.repeat(121),reference:'x'.repeat(121)+'-funding'}]){const e=f.provider.event(f.intent.reference,'funding_confirmed','malformed-event',patch);await a.rejects(f.worker().receive(e.raw,e.signature),/INVALID_EVENT/);}a.equal(f.counts().records,0);});
+
+test('worker preserves the canonical claimed payload across asynchronous checks',async()=>{
+ const f=fixture(),original={...f.intent},lookup=f.provider.lookup.bind(f.provider);
+ f.provider.lookup=async reference=>{const result=await lookup(reference);f.intent.amountMinor=999;f.intent.reference='altered-funding';return result;};
+ f.store.checkLease=(reference,token)=>{a.equal(reference,original.reference);a.equal(token,'test-token');f.intent.currency='HNL';return true;};
+ const submit=f.provider.submit.bind(f.provider);
+ f.provider.submit=async input=>{a.equal(Object.isFrozen(input),true);a.deepEqual(input,original);return submit(input);};
+ f.store.ack=(reference,token)=>{a.equal(reference,original.reference);a.equal(token,'test-token');};
+ a.deepEqual(await f.worker().tick(),{status:'transport_acknowledged',reference:original.reference});
+ a.deepEqual(f.provider.submissions(),[original]);
+});
+test('worker sends only canonical intent fields, excluding untrusted extra metadata',async()=>{
+ const f=fixture();f.intent.untrusted='ignore-me';await f.worker().tick();
+ a.deepEqual(f.provider.submissions(),[{mode:'sandbox',orderId:'order1',reference:'order1-funding',kind:'funding',currency:'USD',amountMinor:10150}]);
+});
