@@ -62,6 +62,8 @@ jobs:
           psql -X -w -h 127.0.0.1 -p 54322 -U postgres -d mwd_demo_isolated -v ON_ERROR_STOP=1 -f tests/sql/prepare-disposable-concurrency-fixtures.sql
       - name: Execute three transactional functional gates
         run: node scripts/run-demo-sql-gates.cjs functional
+      - name: Verify merchant payment and cancellation in disposable database
+        run: psql -X -w -h 127.0.0.1 -p 54322 -U postgres -d mwd_demo_isolated -v ON_ERROR_STOP=1 -f tests/sql/demo-merchant-functional-gate.sql
       - name: Execute four simultaneous retry scenarios
         run: node scripts/test-demo-concurrency-local.cjs
       - name: Verify accounting and security after concurrent operations
