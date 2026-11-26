@@ -23,7 +23,8 @@ jobs:
         with:
           node-version: '22'
       - name: Instalar dependencias Expo
-        run: npm install --no-audit --no-fund --package-lock=false
+        run: |
+          if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund --package-lock=false; fi
       - name: Validar bundle JavaScript Android
         run: npx expo export --platform android --output-dir /tmp/mwd-demo-bundle
       - name: Auditoría estática de demostración

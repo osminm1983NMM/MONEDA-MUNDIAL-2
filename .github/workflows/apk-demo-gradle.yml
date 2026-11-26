@@ -6,7 +6,8 @@ on:
   workflow_dispatch:
 concurrency:
   group: mwd-lab-apk-${{ github.ref }}
-  cancel-in-progress: true
+  # Finish the running candidate; queue the integrated one instead of discarding it.
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
