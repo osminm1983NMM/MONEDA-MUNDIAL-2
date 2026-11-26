@@ -967,23 +967,25 @@ export default function App() {
       }
     }
   }
-  async function loadPickupOrders() {
+  async function loadPickupOrders(force = false) {
     const actorId = userId;
-    if (!isCurrentUser(actorId) || pickupOrdersBusyRef.current) return;
-    pickupOrdersBusyRef.current = true;
+    if (!isCurrentUser(actorId) || (pickupOrdersBusyRef.current && force !== true)) return;
+    const token = {};
+    pickupOrdersBusyRef.current = token;
+    const isLatest = () => isCurrentUser(actorId) && pickupOrdersBusyRef.current === token;
     setPickupOrdersBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_my_orders_demo');
-      if (!isCurrentUser(actorId)) return;
+      if (!isLatest()) return;
       if (error) throw error;
       if (!Array.isArray(data)) throw new Error('Respuesta de órdenes no reconocida.');
       setPickupOrders(data);
     } catch (error) {
-      if (isCurrentUser(actorId)) {
+      if (isLatest()) {
         message('No se pudieron consultar las órdenes', error.message || 'Error desconocido');
       }
     } finally {
-      if (isCurrentUser(actorId)) {
+      if (isLatest()) {
         pickupOrdersBusyRef.current = false;
         setPickupOrdersBusy(false);
       }
@@ -1000,7 +1002,8 @@ export default function App() {
       if (error) throw error;
       if (!['cancelled', 'already_cancelled'].includes(data?.status) || data.orderId !== orderId) throw new Error('Respuesta de cancelación no reconocida.');
       message('Orden ficticia', data.status === 'cancelled' ? 'Orden cancelada correctamente.' : 'La orden ya estaba cancelada.');
-      await loadPickupOrders();
+      // Invalidar una consulta iniciada antes de confirmar la cancelación.
+      await loadPickupOrders(true);
     } catch (error) {
       if (isCurrentUser(actorId)) message('No se pudo cancelar', error.message || 'Error desconocido');
     } finally {
