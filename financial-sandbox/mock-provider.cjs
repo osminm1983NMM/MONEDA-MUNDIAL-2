@@ -15,6 +15,10 @@ function createMockProvider({secret,clock=Date.now}){
    if(loseNext){loseNext=false;throw Error('SIMULATED_RESPONSE_LOSS');}
    return {accepted:true,reference:input.reference};
   },
+  async lookup(reference){
+   const input=submissions.get(reference);
+   return input?{status:'accepted',intent:structuredClone(input)}:{status:'absent'};
+  },
   loseNextResponse(){loseNext=true;},
   submissions(){return [...submissions.values()].map(x=>structuredClone(x));},
   event(reference,type,eventId,patch={}){
