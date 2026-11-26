@@ -236,3 +236,8 @@ jobs:
         env:
           RECOVERY_CONTAINER: ${{ job.services.recovery.id }}
         run: bash tests/financial/postgres-policy-concurrency.sh
+
+      - name: Verify concurrent multicurrency events after recovery
+        env:
+          RECOVERY_CONTAINER: ${{ job.services.recovery.id }}
+        run: bash tests/financial/postgres-multicurrency-concurrency.sh
