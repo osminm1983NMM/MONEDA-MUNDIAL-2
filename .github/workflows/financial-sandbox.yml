@@ -35,6 +35,16 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
+      recovery:
+        image: postgres:17
+        env:
+          POSTGRES_USER: recovery_admin
+          POSTGRES_PASSWORD: disposable-recovery-ci-only
+        options: >-
+          --health-cmd "pg_isready -U recovery_admin -d postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -199,7 +209,8 @@ jobs:
           [[ "$(sql -c "SELECT count(*) FROM mwd_financial_lab.statement_batches b JOIN mwd_financial_lab.statement_cut_metadata m ON m.batch_id=b.id WHERE b.external_id='concurrent-cut-replay'")" == 1 ]]
           echo 'Concurrent cut writer exclusion and replay verified in disposable database'
 
-      - name: Verify logical backup and restore of the disposable lab
+      - name: Restore financial backup in a separate disposable cluster
         env:
           LAB_CONTAINER: ${{ job.services.postgres.id }}
+          RECOVERY_CONTAINER: ${{ job.services.recovery.id }}
         run: bash tests/financial/postgres-backup-restore.sh

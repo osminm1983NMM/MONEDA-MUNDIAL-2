@@ -2,24 +2,22 @@
 set -euo pipefail
 
 db=mwd_financial_sandbox_test
-source_db=mwd_financial_sandbox_backup_source
-pg() { docker exec -i "${LAB_CONTAINER:?missing disposable PostgreSQL container}" "$@"; }
-sql() { pg psql -X -qAt -v ON_ERROR_STOP=1 -U lab "$@"; }
+source_container=${LAB_CONTAINER:?missing disposable source cluster}
+target_container=${RECOVERY_CONTAINER:?missing disposable recovery cluster}
+[[ "$source_container" != "$target_container" ]]
 
-# This is the last CI step. Retain the original database for comparison and
-# restore to a fresh database under the original name, including database ACLs.
-[[ "$(sql -d "$db" -c 'SELECT current_database()')" == "$db" ]]
-[[ "$(sql -d "$db" -c 'SELECT count(*) FROM mwd_financial_lab.journal')" -gt 0 ]]
-[[ "$(sql -d "$db" -c 'SELECT count(*) FROM mwd_financial_lab.statement_cut_metadata')" -gt 0 ]]
+pg() { docker exec -i "$@"; }
+sql() {
+  local container=$1 user=$2
+  shift 2
+  pg "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U "$user" "$@"
+}
+
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-pg pg_dump -U lab --format=custom "$db" > "$tmp/lab.dump"
-sql -d postgres -c "ALTER DATABASE $db RENAME TO $source_db"
-pg pg_restore --exit-on-error --create -U lab -d postgres < "$tmp/lab.dump"
-
 snapshot() {
-  sql -d "$1" <<'SQL'
+  sql "$1" lab -d "$db" <<'SQL'
 SELECT format(
   'SELECT %L, count(*), md5(coalesce(string_agg(to_jsonb(t)::text, E''\n'' ORDER BY to_jsonb(t)::text COLLATE "C"), '''')) FROM %I.%I t',
   tablename, schemaname, tablename
@@ -34,8 +32,33 @@ ORDER BY sequencename
 SQL
 }
 
-snapshot "$source_db" > "$tmp/source"
-snapshot "$db" > "$tmp/restored"
+[[ "$(sql "$source_container" lab -d "$db" -c 'SELECT count(*) FROM mwd_financial_lab.journal')" -gt 0 ]]
+[[ "$(sql "$source_container" lab -d "$db" -c 'SELECT count(*) FROM mwd_financial_lab.statement_cut_metadata')" -gt 0 ]]
+[[ "$(sql "$target_container" recovery_admin -d postgres -c "SELECT count(*) FROM pg_database WHERE datname = '$db'")" == 0 ]]
+[[ "$(sql "$target_container" recovery_admin -d postgres -c "SELECT count(*) FROM pg_roles WHERE rolname = 'lab' OR left(rolname, 8) = 'mwd_lab_'")" == 0 ]]
+
+snapshot "$source_container" > "$tmp/source"
+pg "$source_container" pg_dumpall -U lab --roles-only --no-role-passwords > "$tmp/roles.sql"
+pg "$source_container" pg_dump -U lab --format=custom "$db" > "$tmp/lab.dump"
+
+# No source database is available during recovery.
+docker stop "$source_container" > /dev/null
+sql "$target_container" recovery_admin -d postgres < "$tmp/roles.sql"
+pg "$target_container" pg_restore --exit-on-error --create -U recovery_admin -d postgres < "$tmp/lab.dump"
+
+sql "$target_container" lab -d "$db" < tests/financial/postgres-final-security-lab.sql
+[[ "$(sql "$target_container" lab -d "$db" <<'SQL'
+SELECT provider, event_id, reference, outcome, currency, amount_minor
+FROM mwd_financial_lab.inbox
+WHERE event_id = 'worker-refund-2'
+\gset event_
+SET ROLE mwd_lab_event_service;
+SELECT mwd_financial_lab.record_verified_event(
+  :'event_provider', :'event_event_id', :'event_reference',
+  :'event_outcome', :'event_currency', :'event_amount_minor'
+);
+SQL
+)" == duplicate ]]
+snapshot "$target_container" > "$tmp/restored"
 diff -u "$tmp/source" "$tmp/restored"
-sql -d "$db" < tests/financial/postgres-final-security-lab.sql
-echo 'Restored financial records, sequence state, permissions and integrity verified'
+echo 'Independent restore verified: roles, permissions, financial records, sequences and refund replay'
