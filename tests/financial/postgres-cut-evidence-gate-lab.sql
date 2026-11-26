@@ -309,3 +309,13 @@ BEGIN
  IF statement_cut_is_eligible(valid,clock_timestamp()+interval '1 second') THEN RAISE EXCEPTION 'pre-event cut eligible'; END IF;
 END $$;
 ROLLBACK;
+
+-- The evidence decisions cannot use an old REPEATABLE READ transaction snapshot.
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+SET LOCAL search_path=mwd_financial_lab,pg_catalog;
+DO $$
+BEGIN
+ BEGIN PERFORM check_statement_evidence(0,gen_random_uuid()); RAISE EXCEPTION 'review accepted stale isolation'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'EVIDENCE_ISOLATION_REQUIRED' THEN RAISE; END IF; END;
+ BEGIN PERFORM check_refund_recovery(gen_random_uuid(),0,gen_random_uuid()); RAISE EXCEPTION 'refund accepted stale isolation'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'EVIDENCE_ISOLATION_REQUIRED' THEN RAISE; END IF; END;
+END $$;
+ROLLBACK;
