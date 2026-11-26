@@ -546,6 +546,7 @@ export default function App() {
     if (!isCurrentUser(actorId)) return message('Sesión', 'Inicia sesión para continuar.');
     busyRef.current = true;
     setBusy(true);
+    let referenceSaved = false;
     try {
       const storageKey = pendingOperationStorageKey(actorId);
       let pending = pendingRef.current;
@@ -554,6 +555,7 @@ export default function App() {
         if (!isCurrentUser(actorId)) return;
         if (saved) pending = parsePendingOperation(saved, actorId);
       }
+      referenceSaved = !!pending;
       if (pending && (pending.userId !== actorId || pending.type !== type ||
           pending.cents !== cents || pending.code !== code)) {
         pendingRef.current = pending;
@@ -599,6 +601,7 @@ export default function App() {
           createdAt: new Date().toISOString(),
         };
         await AsyncStorage.setItem(storageKey, JSON.stringify(pending));
+        referenceSaved = true;
         if (!isCurrentUser(actorId)) return;
         pendingRef.current = pending;
         setPendingOperation(pending);
@@ -643,6 +646,11 @@ export default function App() {
       await refreshAccount(actorId);
     } catch (error) {
       if (isCurrentUser(actorId)) {
+        if (!referenceSaved) {
+          setPendingOperationRecoveryError('No se pudo verificar o guardar la referencia local. Reintenta la revisión antes de enviar otra operación.');
+          message('Referencia no verificada', 'No se envió la operación. No pudimos confirmar el almacenamiento local. Reintenta la revisión.');
+          return;
+        }
         message('Operación no confirmada',
           (error.message || 'Error desconocido') + '\nLa referencia queda guardada. Reintenta con los mismos datos.');
       }
@@ -847,6 +855,7 @@ export default function App() {
     setPickupBusy(true);
     const storageKey = pendingPickupStorageKey(actorId);
     setPickupResult(null);
+    let referenceSaved = false;
     try {
       let pending = pickupPendingRef.current || pendingPickup;
       if (!pending) {
@@ -854,6 +863,7 @@ export default function App() {
         if (!isCurrentUser(actorId)) return;
         if (saved) pending = parsePendingPickup(saved, actorId);
       }
+      referenceSaved = !!pending;
       if (pending && (pending.userId !== actorId || pending.cents !== cents ||
           pending.destinationCountry !== 'HN')) {
         pickupPendingRef.current = pending;
@@ -870,6 +880,7 @@ export default function App() {
           createdAt: new Date().toISOString(),
         };
         await AsyncStorage.setItem(storageKey, JSON.stringify(pending));
+        referenceSaved = true;
         if (!isCurrentUser(actorId)) return;
       }
       pickupPendingRef.current = pending;
@@ -914,6 +925,11 @@ export default function App() {
       }
     } catch (error) {
       if (isCurrentUser(actorId)) {
+        if (!referenceSaved) {
+          setPickupPendingError('No se pudo verificar o guardar la referencia local. Reintenta la verificación antes de crear otra orden.');
+          message('Referencia de retiro no verificada', 'No se envió la orden. Reintenta la verificación del almacenamiento local.');
+          return;
+        }
         message('Retiro pendiente de confirmar',
           (error.message || 'No se pudo verificar la orden.') + '\nLa app conservará la misma referencia para reintentar sin duplicar la orden.');
       }
