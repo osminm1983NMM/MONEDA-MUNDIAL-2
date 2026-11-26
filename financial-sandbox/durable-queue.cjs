@@ -7,7 +7,7 @@ const id=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(v);
 const hash=v=>createHash('sha256').update(v).digest('hex');
 const kinds=new Set(['funding','payout','refund']);
 function validate(i){
- if(!i||i.mode!=='sandbox'||!id(i.reference)||!id(i.orderId)||!kinds.has(i.kind)||
+ if(!i||i.mode!=='sandbox'||!id(i.reference)||!id(i.orderId)||!kinds.has(i.kind)||i.reference!==i.orderId+'-'+i.kind||
  i.currency!==(i.kind==='payout'?'HNL':'USD')||!Number.isSafeInteger(i.amountMinor)||i.amountMinor<=0)fail('INVALID_INTENT');
  return JSON.stringify([i.orderId,i.kind,i.currency,i.amountMinor]);
 }
@@ -56,16 +56,20 @@ class DurableSandboxQueue{
  }
  acknowledge(reference,token){
   if(!id(reference)||!id(token))fail('INVALID_LEASE');
-  const result=this.#db.prepare("UPDATE sandbox_outbox SET state='acknowledged',lease_token=NULL,lease_until=NULL WHERE reference=? AND state='leased' AND lease_token=? AND lease_until>?").run(reference,token,this.#now());
-  if(result.changes!==1)fail('STALE_LEASE');
-  // Transport accepted only. Never marks funding or payout settled.
-  return {reference,state:'acknowledged'};
+  return this.#tx(()=>{
+   // Evaluate expiry only after acquiring the write lock; waiting on another writer must not extend a lease.
+   const result=this.#db.prepare("UPDATE sandbox_outbox SET state='acknowledged',lease_token=NULL,lease_until=NULL WHERE reference=? AND state='leased' AND lease_token=? AND lease_until>?").run(reference,token,this.#now());
+   if(result.changes!==1)fail('STALE_LEASE');
+   return {reference,state:'acknowledged'};
+  });
  }
  // Verifier must be trusted and synchronous; only authenticated synthetic events enter inbox.
  ingest({raw,signature,provider}){
   if(provider?.mode!=='sandbox'||!id(provider.id)||typeof provider.verifyEvent!=='function'||typeof raw!=='string'||Buffer.byteLength(raw)>16384||typeof signature!=='string'||!/^[0-9a-f]{64}$/.test(signature))fail('INVALID_EVENT');
   const e=provider.verifyEvent(raw,signature);
   if(!e||e.mode!=='sandbox'||e.provider!==provider.id||!id(e.eventId)||!id(e.reference)||!id(e.orderId))fail('INVALID_EVENT');
+  const m=typeof e.type==='string'&&/^(funding|payout|refund)_(confirmed|failed)$/.exec(e.type);
+  if(!m||e.reference!==e.orderId+'-'+m[1]||e.currency!==(m[1]==='payout'?'HNL':'USD')||!Number.isSafeInteger(e.amountMinor)||e.amountMinor<=0)fail('INVALID_EVENT');
   const fp=hash(raw);
   return this.#tx(()=>{
    const old=this.#db.prepare('SELECT fingerprint FROM sandbox_inbox WHERE provider=? AND event_id=?').get(e.provider,e.eventId);
