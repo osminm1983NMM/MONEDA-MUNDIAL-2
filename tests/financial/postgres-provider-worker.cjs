@@ -116,8 +116,29 @@ async function main(){
  assert.equal((await worker.tick()).status,'idle');
  assert.equal(p.submissions().filter(i=>i.reference===refund+'-funding').length,1);
  assert.equal(sql('SELECT count(*) FROM '+schema+'.journal WHERE order_id='+lit(refund)+'::uuid'),'1');
- prepare('workerRefund',refund,'payout');await worker.tick();
- const fail=p.event(refund+'-payout','payout_failed','worker-pay-2');
+ prepare('workerRefund',refund,'payout');
+ const uncertainRef=refund+'-payout';
+ // The provider committed confirmation, but lookup stays unavailable until
+ // the whole lease budget expires. No second submission or inference is safe.
+ const uncertainIntent={mode:'sandbox',reference:uncertainRef,orderId:refund,kind:'payout',currency:'HNL',amountMinor:250000};
+ await p.submit(uncertainIntent);
+ await p.confirmPayout(uncertainIntent);
+ const uncertainWorker=createWorker({environment:'sandbox',store:store(),provider:{
+  ...p,
+  async lookup(ref){assert.equal(ref,uncertainRef);return {status:'unknown'};},
+  async submit(){assert.fail('unknown provider status must not be submitted');},
+  async confirmPayout(){assert.fail('unknown provider status must not be confirmed again');}
+ }});
+ for(let attempt=1;attempt<=3;attempt++){
+  assert.equal((await uncertainWorker.tick()).status,'provider_uncertain');
+  assert.equal(state(refund),'payout_pending');
+  assert.equal(sql('SELECT attempts FROM '+schema+'.dispatch WHERE reference='+lit(uncertainRef)),String(attempt));
+  sql("UPDATE "+schema+".dispatch SET lease_until=clock_timestamp()-interval '1 second' WHERE reference="+lit(uncertainRef));
+ }
+ assert.equal((await worker.tick()).status,'idle');
+ assert.equal(sql('SELECT operations FROM '+schema+".dispatch_attention WHERE kind='payout' AND reason='retry_budget_exhausted'","audit"),'1');
+ assert.equal(sql('SELECT count(*) FROM '+schema+'.journal WHERE order_id='+lit(refund)+'::uuid'),'1');
+ const fail=p.event(uncertainRef,'payout_failed','worker-pay-2');
  assert.equal(await worker.receive(fail.raw,fail.signature),'payout_failed');
  prepare('workerRefund',refund,'refund');await worker.tick();
  const r=p.event(refund+'-refund','refund_confirmed','worker-refund-2');

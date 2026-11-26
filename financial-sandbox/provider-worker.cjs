@@ -17,13 +17,15 @@ function createWorker({environment,store,provider}){
    if(!intentOk(intent))fail('INVALID_LEASE');
    // Lookup before every send. Unknown or conflicting status never triggers submission.
    const known=await provider.lookup(intent.reference);
-   if(!known||!['absent','accepted','unknown','awaiting_confirmation'].includes(known.status))fail('INVALID_LOOKUP');
-   if(known.status==='unknown')return {status:'provider_uncertain'};
-   if(known.status!=='absent'&&!same(intent,known.intent))fail('PROVIDER_REFERENCE_CONFLICT');
-   let needsConfirmation=known.status==='awaiting_confirmation';
+   // The adapter may reuse its result object while the lease check is pending.
+   const status=known?.status;
+   if(!['absent','accepted','unknown','awaiting_confirmation'].includes(status))fail('INVALID_LOOKUP');
+   if(status==='unknown')return {status:'provider_uncertain'};
+   if(status!=='absent'&&!same(intent,known.intent))fail('PROVIDER_REFERENCE_CONFLICT');
+   let needsConfirmation=status==='awaiting_confirmation';
    if(needsConfirmation&&(intent.kind!=='payout'||typeof provider.confirmPayout!=='function'))fail('INVALID_LOOKUP');
    if((await store.checkLease(intent.reference,token))!==true)return {status:'held'};
-   if(known.status==='absent'){
+   if(status==='absent'){
     const response=await provider.submit(intent);
     if(response?.reference!==intent.reference)fail('AMBIGUOUS_ACK');
     needsConfirmation=response.status==='awaiting_confirmation';

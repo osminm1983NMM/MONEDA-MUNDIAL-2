@@ -63,3 +63,17 @@ test('worker rejects a mismatched unconfirmed payout and an ambiguous confirmati
  a.equal(confirms,1);
  a.equal(f.counts().acks,0);
 });
+
+test('worker does not resubmit when an accepted lookup result changes during lease checking', async () => {
+ const f=fixture();
+ const result={status:'accepted',intent:{...f.intent}};
+ f.provider.lookup=async()=>result;
+ f.store.checkLease=async()=>{
+  await Promise.resolve();
+  result.status='absent';
+  return true;
+ };
+ f.provider.submit=async()=>a.fail('accepted provider intent must not be submitted again');
+ a.equal((await f.worker().tick()).status,'transport_acknowledged');
+ a.deepEqual(f.counts(),{acks:1,records:0,submissions:0});
+});
