@@ -25,14 +25,37 @@ UPDATE dispatch SET acknowledged_at=clock_timestamp() WHERE state='acknowledged'
 ALTER TABLE dispatch ADD CONSTRAINT dispatch_ack_timestamp CHECK(
  (state='acknowledged')=(acknowledged_at IS NOT NULL));
 CREATE OR REPLACE FUNCTION acknowledge_dispatch(p_ref text,p_token uuid) RETURNS void
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=mwd_financial_lab,pg_catalog AS $
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=mwd_financial_lab,pg_catalog AS $$
 BEGIN
  UPDATE dispatch SET state='acknowledged',token=NULL,lease_until=NULL,acknowledged_at=clock_timestamp()
  WHERE reference=p_ref AND state='leased' AND token=p_token AND lease_until>clock_timestamp();
  IF NOT FOUND THEN RAISE EXCEPTION 'STALE_LEASE'; END IF;
-END $;
+END $$;
 -- Read-only monitoring of reserved pending orders. Never dispatches, refunds or writes ledger.
 -- Five minutes is a synthetic alert threshold, NOT a real provider SLA.
+CREATE OR REPLACE FUNCTION claim_dispatch(p_lease_seconds integer)
+RETURNS TABLE(reference text,order_id uuid,kind text,currency text,amount_minor bigint,token uuid,lease_until timestamptz,attempts bigint)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=mwd_financial_lab,pg_catalog AS $$
+DECLARE v_ref text; v_now timestamptz:=clock_timestamp();
+BEGIN
+ IF p_lease_seconds IS NULL OR p_lease_seconds NOT BETWEEN 1 AND 300 THEN RAISE EXCEPTION 'INVALID_LEASE'; END IF;
+ SELECT d.reference INTO v_ref FROM dispatch d
+ JOIN outbox x ON x.reference=d.reference
+ JOIN orders o ON o.id=x.order_id
+ JOIN reservations z ON z.order_id=o.id AND z.actor=o.actor
+ JOIN actor_policy pol ON pol.actor=o.actor
+ JOIN beneficiaries b ON b.actor=o.actor AND b.reference=o.beneficiary_ref
+ WHERE d.attempts<3 AND (d.state='queued' OR (d.state='leased' AND d.lease_until<=v_now))
+ AND (x.kind='refund' OR (pol.identity='verified' AND pol.sanctions='clear' AND pol.risk='allow' AND b.status='verified'))
+ AND NOT EXISTS(SELECT FROM event_incidents i LEFT JOIN outbox prior ON prior.reference=i.prior_reference LEFT JOIN outbox incoming ON incoming.reference=i.reference WHERE (prior.order_id=o.id OR incoming.order_id=o.id) AND NOT EXISTS(SELECT FROM review_approvals ra WHERE ra.incident_id=i.id))
+ AND o.state=CASE x.kind WHEN 'funding' THEN 'funding_pending' WHEN 'payout' THEN 'payout_pending' WHEN 'refund' THEN 'refund_pending' END
+ ORDER BY d.reference LIMIT 1 FOR UPDATE OF d SKIP LOCKED;
+ IF NOT FOUND THEN RETURN; END IF;
+ UPDATE dispatch d SET state='leased',token=gen_random_uuid(),lease_until=v_now+make_interval(secs=>p_lease_seconds),attempts=d.attempts+1 WHERE d.reference=v_ref;
+ RETURN QUERY SELECT x.reference,x.order_id,x.kind,x.currency,x.amount_minor,d.token,d.lease_until,d.attempts
+ FROM dispatch d JOIN outbox x ON x.reference=d.reference WHERE d.reference=v_ref;
+END $$;
+-- At most three automatic leases per reference in this synthetic lab.
 CREATE VIEW dispatch_attention AS
  WITH pending AS (
  SELECT x.kind,x.currency,x.amount_minor,
@@ -48,6 +71,7 @@ CREATE VIEW dispatch_attention AS
   ELSE 'awaiting_provider' END
  WHEN x.kind<>'refund' AND (pol.identity IS DISTINCT FROM 'verified' OR pol.sanctions IS DISTINCT FROM 'clear'
  OR pol.risk IS DISTINCT FROM 'allow' OR b.status IS DISTINCT FROM 'verified') THEN 'policy_hold'
+ WHEN d.attempts>=3 AND (d.state='queued' OR d.lease_until<=statement_timestamp()) THEN 'retry_budget_exhausted'
  WHEN d.state='leased' THEN CASE WHEN d.lease_until<=statement_timestamp() THEN 'lease_expired' ELSE 'leased' END
  WHEN d.queued_at<=statement_timestamp()-interval '5 minutes' THEN 'queued_overdue'
  ELSE 'queued' END AS reason
