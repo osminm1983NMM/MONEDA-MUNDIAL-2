@@ -36,3 +36,30 @@ test('worker sends only canonical intent fields, excluding untrusted extra metad
  const f=fixture();f.intent.untrusted='ignore-me';await f.worker().tick();
  a.deepEqual(f.provider.submissions(),[{mode:'sandbox',orderId:'order1',reference:'order1-funding',kind:'funding',currency:'USD',amountMinor:10150}]);
 });
+
+test('worker rechecks the lease between creating and confirming a payout',async()=>{
+ const f=fixture();
+ Object.assign(f.intent,{kind:'payout',currency:'HNL',reference:'order1-payout'});
+ let checks=0,confirms=0;
+ f.store.checkLease=()=>++checks===1;
+ f.provider.submit=async input=>({accepted:false,reference:input.reference,status:'awaiting_confirmation'});
+ f.provider.confirmPayout=async input=>{confirms++;return {accepted:true,reference:input.reference};};
+ a.equal((await f.worker().tick()).status,'held');
+ a.equal(checks,2);
+ a.equal(confirms,0);
+ a.equal(f.counts().acks,0);
+});
+
+test('worker rejects a mismatched unconfirmed payout and an ambiguous confirmation',async()=>{
+ const f=fixture();
+ Object.assign(f.intent,{kind:'payout',currency:'HNL',reference:'order1-payout'});
+ let confirms=0;
+ f.provider.confirmPayout=async()=>{confirms++;return {accepted:true,reference:'some-other-payout'};};
+ f.provider.lookup=async()=>({status:'awaiting_confirmation',intent:{...f.intent,amountMinor:1}});
+ await a.rejects(f.worker().tick(),/PROVIDER_REFERENCE_CONFLICT/);
+ a.equal(confirms,0);
+ f.provider.lookup=async()=>({status:'awaiting_confirmation',intent:f.intent});
+ await a.rejects(f.worker().tick(),/AMBIGUOUS_ACK/);
+ a.equal(confirms,1);
+ a.equal(f.counts().acks,0);
+});

@@ -22,6 +22,10 @@ function openDurableProvider({environment,path,initialize=false,secret,clock=Dat
  // A changed fixture key cannot silently authorize a different signing identity.
  if(initialize)db.prepare("INSERT INTO metadata VALUES('key_check',?)").run(sign('sandbox-provider-key-check-v1'));
  if(db.prepare("SELECT value FROM metadata WHERE key='key_check'").get()?.value!==sign('sandbox-provider-key-check-v1'))fail('PROVIDER_KEY_MISMATCH');
+ // Existing submissions predate staging and retain their accepted status.
+ if(!db.prepare("SELECT 1 FROM sqlite_schema WHERE name='unconfirmed_payouts' AND type='table'").get()){
+  db.exec('CREATE TABLE IF NOT EXISTS unconfirmed_payouts(reference TEXT PRIMARY KEY REFERENCES submissions(reference)) STRICT;');
+ }
  }catch(e){db.close();throw e;}
  let lose=false;
  function tx(fn){db.exec('BEGIN IMMEDIATE');try{const v=fn();db.exec('COMMIT');return v;}catch(e){db.exec('ROLLBACK');throw e;}}
@@ -29,20 +33,46 @@ function openDurableProvider({environment,path,initialize=false,secret,clock=Dat
  id:'mock-remittance',mode:'sandbox',
  async submit(input){
   const i=normalize(input),payload=JSON.stringify(i);
-  tx(()=>{const old=db.prepare('SELECT payload FROM submissions WHERE reference=?').get(i.reference);
+  const pending=tx(()=>{
+   const old=db.prepare('SELECT payload FROM submissions WHERE reference=?').get(i.reference);
    if(old&&old.payload!==payload)fail('PROVIDER_IDEMPOTENCY_CONFLICT');
-   if(!old)db.prepare('INSERT INTO submissions VALUES(?,?)').run(i.reference,payload);
+   if(!old){
+    db.prepare('INSERT INTO submissions VALUES(?,?)').run(i.reference,payload);
+    if(i.kind==='payout')db.prepare('INSERT INTO unconfirmed_payouts VALUES(?)').run(i.reference);
+   }
+   return Boolean(db.prepare('SELECT 1 FROM unconfirmed_payouts WHERE reference=?').get(i.reference));
+  });
+  if(lose){lose=false;fail('SIMULATED_RESPONSE_LOSS');}
+  if(pending)return {accepted:false,reference:i.reference,status:'awaiting_confirmation'};
+  return {accepted:true,reference:i.reference};
+ },
+ async confirmPayout(input){
+  const i=normalize(input);
+  if(i.kind!=='payout')fail('INVALID_INTENT');
+  tx(()=>{
+   const old=db.prepare('SELECT payload FROM submissions WHERE reference=?').get(i.reference);
+   if(!old)fail('UNKNOWN_REFERENCE');
+   if(old.payload!==JSON.stringify(i))fail('PROVIDER_IDEMPOTENCY_CONFLICT');
+   db.prepare('DELETE FROM unconfirmed_payouts WHERE reference=?').run(i.reference);
   });
   if(lose){lose=false;fail('SIMULATED_RESPONSE_LOSS');}
   return {accepted:true,reference:i.reference};
  },
- async lookup(reference){if(!id(reference))fail('INVALID_REFERENCE');const row=db.prepare('SELECT payload FROM submissions WHERE reference=?').get(reference);return row?{status:'accepted',intent:normalize(JSON.parse(row.payload))}:{status:'absent'};},
+ async lookup(reference){
+  if(!id(reference))fail('INVALID_REFERENCE');
+  const row=db.prepare(
+   'SELECT s.payload, p.reference IS NOT NULL AS pending FROM submissions s LEFT JOIN unconfirmed_payouts p USING(reference) WHERE s.reference=?'
+  ).get(reference);
+  if(!row)return {status:'absent'};
+  return {status:row.pending?'awaiting_confirmation':'accepted',intent:normalize(JSON.parse(row.payload))};
+ },
  loseNextResponse(){lose=true;},
  submissions(){return db.prepare('SELECT payload FROM submissions ORDER BY reference').all().map(r=>normalize(JSON.parse(r.payload)));},
  event(reference,type,eventId){
   if(!id(eventId))fail('INVALID_EVENT');
   return tx(()=>{
    const s=db.prepare('SELECT payload FROM submissions WHERE reference=?').get(reference);if(!s)fail('UNKNOWN_REFERENCE');
+   if(db.prepare('SELECT 1 FROM unconfirmed_payouts WHERE reference=?').get(reference))fail('PAYOUT_NOT_CONFIRMED');
    const i=normalize(JSON.parse(s.payload));
    if(![i.kind+'_confirmed',i.kind+'_failed'].includes(type))fail('INVALID_EVENT');
    const prior=db.prepare('SELECT raw FROM events WHERE event_id=?').get(eventId);

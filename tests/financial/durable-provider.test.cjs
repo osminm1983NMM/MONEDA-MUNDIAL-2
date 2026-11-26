@@ -14,3 +14,47 @@ test('expired events are not accepted merely because they were persisted',async 
 test('durable provider rejects invalid verification clock and enforces both freshness boundaries',async t=>{let now=1000000;const f={...setup(t),clock:()=>now};const p=openDurableProvider({...f,initialize:true});try{await p.submit(intent);const e=p.event(intent.reference,'funding_confirmed','clock-test');for(const bad of [NaN,Infinity,-1,1000000.5,'1000000',undefined,null,Number.MAX_SAFE_INTEGER+1]){now=bad;a.throws(()=>p.verifyEvent(e.raw,e.signature),/CLOCK/);a.throws(()=>p.event(intent.reference,'funding_confirmed','new-event'),/CLOCK/);}for(const delta of [-300000,300000]){now=1000000+delta;a.equal(p.verifyEvent(e.raw,e.signature).eventId,'clock-test');}for(const delta of [-300001,300001]){now=1000000+delta;a.throws(()=>p.verifyEvent(e.raw,e.signature),/EVENT_EXPIRED/);}}finally{p.close();}});
 
 test('durable provider validates reference length before persistence, matching lookup and queue',async t=>{const p=openDurableProvider({...setup(t),initialize:true});try{const orderId='x'.repeat(120),valid={...intent,orderId,reference:orderId+'-funding'};await p.submit(valid);a.equal((await p.lookup(valid.reference)).status,'accepted');const long=orderId+'x';await a.rejects(p.submit({...intent,orderId:long,reference:long+'-funding'}),/INVALID_INTENT/);a.equal(p.submissions().length,1);}finally{p.close();}});
+
+test('worker recovers both payout response losses across provider restarts', async t => {
+ const {createWorker}=require('../../financial-sandbox/provider-worker.cjs');
+ const config=setup(t);
+ const payout={...intent,kind:'payout',currency:'HNL',reference:intent.orderId+'-payout'};
+ let provider=openDurableProvider({...config,initialize:true});
+ let acks=0, confirms=0, creates=0, records=0;
+ const store={
+  claim:()=>({intent:payout,token:'test-token',attempt:1}),
+  checkLease:()=>true,
+  ack:()=>{acks++;},
+  record:()=>{records++;}
+ };
+ const worker=()=>createWorker({environment:'sandbox',store,provider:{
+  ...provider,
+  submit:async input=>{creates++;return provider.submit(input);},
+  confirmPayout:async input=>{confirms++;return provider.confirmPayout(input);}
+ }});
+ try {
+  provider.loseNextResponse();
+  await a.rejects(worker().tick(),/SIMULATED_RESPONSE_LOSS/);
+  a.equal((await provider.lookup(payout.reference)).status,'awaiting_confirmation');
+  a.throws(()=>provider.event(payout.reference,'payout_confirmed','event1'),/PAYOUT_NOT_CONFIRMED/);
+  a.equal(acks,0);
+  provider.close();
+  provider=openDurableProvider(config);
+
+  provider.loseNextResponse();
+  await a.rejects(worker().tick(),/SIMULATED_RESPONSE_LOSS/);
+  a.equal((await provider.lookup(payout.reference)).status,'accepted');
+  a.equal(acks,0);
+  provider.close();
+  provider=openDurableProvider(config);
+
+  a.equal((await worker().tick()).status,'transport_acknowledged');
+  a.deepEqual(provider.submissions(),[payout]);
+  a.deepEqual({creates,confirms,acks,records},{creates:1,confirms:1,acks:1,records:0});
+  const event=provider.event(payout.reference,'payout_confirmed','event1');
+  await worker().receive(event.raw,event.signature);
+  a.equal(records,1);
+ } finally {
+  provider.close();
+ }
+});
