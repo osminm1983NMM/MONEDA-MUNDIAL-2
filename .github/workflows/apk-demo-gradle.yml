@@ -2,7 +2,7 @@ name: APK Android de demostración (Gradle)
 on:
   push:
     branches: [fix/eas-build-current-ref-20261121, dev/cierre-android-20261125]
-    paths: ['.github/workflows/apk-demo-gradle.yml', 'App.js', 'PartnerRegistryScreen.js', 'app.json', 'package.json', 'scripts/probar-apk-samsung.sh', 'tests/android/**']
+    paths: ['.github/workflows/apk-demo-gradle.yml', 'App.js', 'PartnerRegistryScreen.js', 'app.json', 'package.json', 'scripts/probar-apk-samsung.sh', 'scripts/test-*.cjs', 'scripts/audit-*.cjs', 'scripts/preflight-release-local.js', 'tests/android/**']
   workflow_dispatch:
 concurrency:
   group: mwd-lab-apk-${{ github.ref }}
@@ -44,7 +44,11 @@ jobs:
           config.expo.scheme = 'com.monedamundial.lab.samsung';
           fs.writeFileSync('app.json', JSON.stringify(config, null, 2));
           const app = fs.readFileSync('App.js', 'utf8');
-          fs.writeFileSync('App.js', app.replaceAll('com.monedamundial.app:', 'com.monedamundial.lab.samsung:'));
+          const commit = process.env.GITHUB_SHA;
+          if (!/^[0-9a-f]{40}$/.test(commit || '')) throw new Error('Commit de compilación inválido');
+          const marker = "const BUILD_COMMIT = 'sin verificar';";
+          if (app.split(marker).length !== 2) throw new Error('Marcador de compilación ausente o duplicado');
+          fs.writeFileSync('App.js', app.replaceAll('com.monedamundial.app:', 'com.monedamundial.lab.samsung:').replace(marker, "const BUILD_COMMIT = '" + commit + "';"));
           NODE
       - name: Validar recuperación con el esquema LAB efectivo
         run: node scripts/test-password-recovery.cjs --lab
@@ -100,6 +104,7 @@ jobs:
           "$ANDROID_HOME/emulator/emulator" -list-avds | grep -Fx mwd
           "$ANDROID_HOME/emulator/emulator" -avd mwd -no-window -no-audio -no-snapshot -gpu swiftshader_indirect -no-boot-anim >"$RUNNER_TEMP/emulator.log" 2>&1 &
           bash scripts/probar-apk-samsung.sh "$RUNNER_TEMP/apk/MonedaMundial-LAB.apk" || { status=$?; tail -50 "$RUNNER_TEMP/emulator.log"; exit "$status"; }
+          grep -F "$GITHUB_SHA" "$RUNNER_TEMP/mwd-ui.xml" >/dev/null || { echo "La pantalla no identifica el commit del APK"; exit 1; }
       - uses: actions/upload-artifact@v4
         if: success()
         with:
