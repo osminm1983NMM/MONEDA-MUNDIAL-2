@@ -31,3 +31,7 @@ Después de permitir la URL y generar una compilación Android con el esquema nu
 6. Confirma que el enlace de recuperación no permite volver a cambiarla después de consumido.
 
 La compilación CI confirma el bundle JavaScript, pero no comprueba la lista de redirecciones del proyecto ni el comportamiento del enlace en un teléfono. No se modificaron los ajustes de Supabase desde este cambio.
+
+## Variante Android LAB Samsung — 2026-11-25
+
+La compilación LAB usa un esquema distinto al de producción. Agregar también la URL exacta `com.monedamundial.lab.samsung://auth/reset-password` en Redirect URLs del proyecto de demostración. No sustituir la URL de producción ni usar comodines. La APK del run [45736122605](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45736122605) pasó instalación y apertura en emulador, pero no recuperación por correo. No se requiere recompilar únicamente por agregar la URL permitida del esquema LAB ya incorporado. Verificar primero que la APK instalada corresponde al artefacto auditado. Ejecutar los casos anteriores con una cuenta de prueba cuyo correo sea accesible; no registrar contraseñas, enlaces de recuperación ni tokens en capturas o documentos. La configuración del dashboard y la prueba física permanecen pendientes.
