@@ -34,7 +34,7 @@ Los archivos históricos con bloqueo de filas requieren transacción de escritur
 - `tests/sql/demo-route-simulation-only-gate.sql`: ejecutado en Supabase, 19 rutas DEMO y cero rutas de pago real.
 - `scripts/run-demo-sql-gates.cjs`: requiere PostgreSQL local desechable en 127.0.0.1:54322, base mwd_demo_isolated, rol postgres, datos exclusivamente ficticios y sin túneles ni integraciones externas. Requiere Node y psql.
 - Configurar MWD_CONFIRM_ISOLATED=YES_LOCAL_DISPOSABLE y MWD_LOCAL_DB_PASSWORD en el entorno del operador, sin guardar contraseñas en Git. Ejecutar `node scripts/run-demo-sql-gates.cjs historical` (13 archivos) y, por separado, `node scripts/run-demo-sql-gates.cjs functional` (3 archivos). No restaura datos ni crea bases.
-- Comprobaciones del ejecutor aprobadas con psql simulado: sintaxis, rechazo sin confirmación, selección de 13 archivos, parada ante fallo, detección de archivo ausente y no herencia de parámetros remotos. Pendiente ejecución integrada con PostgreSQL aislado; no se han validado concurrencia ni operaciones nuevas.
+- `node --test scripts/test-demo-sql-runner.cjs`: siete pruebas offline ejecutadas y aprobadas con Node 22, usando psql simulado; modos de 13 y 3 archivos, rechazo de modo inválido y credenciales faltantes, archivo ausente, parada ante fallo y destino local fijo. No prueba conexiones reales ni túneles locales. Pendiente ejecución integrada con PostgreSQL aislado; no se han validado concurrencia ni operaciones nuevas.
 
 ## Validación Android
 
