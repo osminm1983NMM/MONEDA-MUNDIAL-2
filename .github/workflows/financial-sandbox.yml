@@ -140,9 +140,6 @@ jobs:
             [[ "$(sql -c "SELECT count(*) FROM mwd_financial_lab.dispatch_resume_approvals WHERE halt_id=$halt AND batch_id='$new'")" == 1 ]]
             echo 'Concurrent superseding cutoff and safe resume verified'
           )
-          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-reconciliation-volume.sql
-          node tests/financial/postgres-provider-worker.cjs
-          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-final-security-lab.sql
 
       - name: Concurrent statement cut exclusion and idempotent replay
         env:
@@ -209,6 +206,17 @@ jobs:
           [[ "$first" == "$second" ]]
           [[ "$(sql -c "SELECT count(*) FROM mwd_financial_lab.statement_batches b JOIN mwd_financial_lab.statement_cut_metadata m ON m.batch_id=b.id WHERE b.external_id='concurrent-cut-replay'")" == 1 ]]
           echo 'Concurrent cut writer exclusion and replay verified in disposable database'
+
+      - name: Verify full-size reconciliation and provider recovery
+        env:
+          LAB_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          # Run volume fixtures after the NOWAIT contention tests so cleanup
+          # of rolled-back bulk data cannot interfere with their table locks.
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-reconciliation-volume.sql
+          node tests/financial/postgres-provider-worker.cjs
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-final-security-lab.sql
 
       - name: Restore financial backup in a separate disposable cluster
         env:
