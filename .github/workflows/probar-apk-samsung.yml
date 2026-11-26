@@ -32,9 +32,12 @@ jobs:
           gh run download "$run" -n MonedaMundial-LAB-Samsung -D "$RUNNER_TEMP/apk"
           cd "$RUNNER_TEMP/apk"
           sha256sum -c SHA256.txt
+          sha256sum -c DEPENDENCIES-SHA256.txt
           commit=$(cat COMMIT.txt)
           test "$commit" = "$(gh run view "$run" -R "$GITHUB_REPOSITORY" --json headSha --jq .headSha)"
-          git -C "$GITHUB_WORKSPACE" diff --exit-code "$commit" HEAD -- App.js PartnerRegistryScreen.js package.json app.json .github/workflows/apk-demo-gradle.yml
+          # Documentation may differ; any executable, dependency or configuration change requires a new APK.
+          git -C "$GITHUB_WORKSPACE" diff --exit-code "$commit" HEAD -- . ':(exclude)docs/**'
+          echo "MWD_EXPECTED_COMMIT=$commit" >> "$GITHUB_ENV"
       - name: Instalar y arrancar Android 35
         run: |
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
@@ -46,7 +49,7 @@ jobs:
           printf 'no\n' | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n mwd -k "$image" --force
           "$ANDROID_HOME/emulator/emulator" -list-avds | grep -Fx mwd
           "$ANDROID_HOME/emulator/emulator" -avd mwd -no-window -no-audio -no-snapshot -gpu swiftshader_indirect -no-boot-anim >"$RUNNER_TEMP/emulator.log" 2>&1 &
-          bash scripts/probar-apk-samsung.sh "$RUNNER_TEMP/apk/MonedaMundial-LAB.apk" || { status=$?; tail -50 "$RUNNER_TEMP/emulator.log"; exit "$status"; }
+          GITHUB_SHA="$MWD_EXPECTED_COMMIT" bash scripts/probar-apk-samsung.sh "$RUNNER_TEMP/apk/MonedaMundial-LAB.apk" || { status=$?; tail -50 "$RUNNER_TEMP/emulator.log"; exit "$status"; }
       - uses: actions/upload-artifact@v4
         if: success()
         with:

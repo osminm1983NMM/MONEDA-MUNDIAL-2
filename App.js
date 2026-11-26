@@ -17,6 +17,7 @@ import * as SecureStore from 'expo-secure-store';
 import { createAuthStorage, createMemoryAuthStorage } from './auth-storage';
 import { createClient } from '@supabase/supabase-js';
 import PartnerRegistryScreen from './PartnerRegistryScreen';
+import RemittanceQuoteScreen from './RemittanceQuoteScreen';
 
 // Solo referencias de operaciones DEMO: orden FIFO por clave, incluso si cambia la sesión.
 // Las claves de autenticación de Supabase conservan su almacenamiento original.
@@ -1172,6 +1173,7 @@ export default function App() {
               <Btn title="Transferir MWD entre usuarios" onPress={() => navigate('Transferir')} disabled={!wallet || !!pendingOperation || !!pendingOperationRecoveryError} />
               <Btn title="Registrar aportación ficticia" onPress={() => navigate('Aportar')} disabled={!wallet || !!pendingOperation || !!pendingOperationRecoveryError} />
               <Btn title="Mis movimientos" secondary onPress={() => navigate('Historial')} />
+              <Btn title="Cotizar remesa internacional (DEMO)" secondary onPress={() => navigate("CotizarRemesa")} />
               <Btn title="Remesas y retiros ficticios" secondary onPress={() => navigate("Retiros")} />
               <Btn title="Mis retiros ficticios" secondary onPress={() => navigate("MisRetiros")} />
               <Btn title="Coin / Digital (simulador)" secondary onPress={() => navigate('Convertir')} />
@@ -1205,6 +1207,9 @@ export default function App() {
               ))}
             </View>}
 
+            {screen === 'CotizarRemesa' && <RemittanceQuoteScreen key={userId} supabase={supabase}
+              isActive={() => isCurrentUser(userId) && authEventUserRef.current === userId} />}
+            
             {screen === 'Retiros' && <View style={styles.card}>
               <Text style={styles.heading}>Retiro ficticio a Honduras</Text>
               <Text style={styles.warning}>Solo simulación. No se entrega dinero real.</Text>
