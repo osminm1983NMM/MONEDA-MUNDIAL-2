@@ -11,6 +11,7 @@ import {
   View, Text, TextInput, TouchableOpacity, ScrollView, Linking,
   StyleSheet, Alert, Platform, StatusBar, ActivityIndicator
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
 import NativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import PartnerRegistryScreen from './PartnerRegistryScreen';
@@ -1091,9 +1092,10 @@ export default function App() {
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#07111f" />
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+    <SafeAreaProvider initialMetrics={initialWindowMetrics} style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      <SafeAreaView style={styles.container} edges={['top', 'right', 'bottom', 'left']}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <Text style={styles.logo}>🌐 MONEDA MUNDIAL</Text>
         <Text style={styles.sub}>MWD • Versión 2.0 • Supabase</Text>
         <Text selectable style={styles.buildIdentity}>Compilación: {BUILD_COMMIT}</Text>
@@ -1307,13 +1309,15 @@ export default function App() {
         )}
         <Text style={styles.footer}>Moneda Mundial • Prototipo conectado a Supabase • No es un servicio financiero</Text>
       </ScrollView>
-    </View>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#07111f' },
-  body: { padding: 22, paddingTop: 40, paddingBottom: 60 },
+  scroll: { flex: 1 },
+  body: { padding: 22, paddingTop: 16, paddingBottom: 24 },
   logo: { color: '#ffffff', fontSize: 25, fontWeight: '800', textAlign: 'center' },
   sub: { color: '#9ab0cf', textAlign: 'center', marginTop: 6 },
   buildIdentity: { color: '#9ab0cf', textAlign: 'center', marginTop: 4, fontSize: 10 },
