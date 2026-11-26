@@ -1,0 +1,70 @@
+'use strict';
+// Integration harness: Docker CI only. No URLs, secrets, production connections.
+const {execFileSync}=require('node:child_process');
+const assert=require('node:assert/strict');
+const {createWorker}=require('../../financial-sandbox/provider-worker.cjs');
+const {createMockProvider}=require('../../financial-sandbox/mock-provider.cjs');
+const container=process.env.LAB_CONTAINER;
+if(!/^[a-f0-9]{12,64}$/.test(container||''))throw Error('CI_LAB_REQUIRED');
+const schema='mwd_financial_lab';
+const lit=s=>"convert_from(decode('"+Buffer.from(String(s),'utf8').toString('hex')+"','hex'),'UTF8')";
+const roleNames=new Set(['order','dispatch','event','audit']);
+function sql(q,role){
+ if(role&&!roleNames.has(role))throw Error('INVALID_ROLE');
+ return execFileSync('docker',['exec','-i',container,'psql','-X','-qAt','-v','ON_ERROR_STOP=1','-U','lab','-d','mwd_financial_sandbox_test'],{input:(role?'SET ROLE mwd_lab_'+role+'_service;\n':'')+q+';\n',encoding:'utf8'}).trim();
+}
+function store(){
+ return {
+  claim(){const r=sql('SELECT row_to_json(t) FROM '+schema+'.claim_dispatch(30) t','dispatch');if(!r)return null;const x=JSON.parse(r);return {intent:{mode:'sandbox',orderId:x.order_id,reference:x.reference,kind:x.kind,currency:x.currency,amountMinor:Number(x.amount_minor)},token:x.token,attempt:Number(x.attempts)};},
+  checkLease(ref,token){return sql('SELECT '+schema+'.check_dispatch_lease('+lit(ref)+','+lit(token)+'::uuid)','dispatch')==='t';},
+  ack(ref,token){sql('SELECT '+schema+'.acknowledge_dispatch('+lit(ref)+','+lit(token)+'::uuid)','dispatch');},
+  record(e){return sql('SELECT '+schema+'.record_verified_event('+[e.provider,e.eventId,e.reference,e.outcome,e.currency].map(lit).join(',')+','+e.amountMinor+')','event');}
+ };
+}
+function state(order){return sql('SELECT state FROM '+schema+'.orders WHERE id='+lit(order)+'::uuid');}
+function openOrder(actor){
+ sql("INSERT INTO "+schema+".actor_policy VALUES ("+lit(actor)+",'verified','clear','allow',50000)");
+ sql("INSERT INTO "+schema+".beneficiaries VALUES ("+lit(actor)+",'synthetic-beneficiary','verified')");
+ const q=sql('SELECT quote_id FROM '+schema+'.issue_quote('+lit(actor)+",'synthetic-beneficiary',10000)",'order');
+ return sql('SELECT '+schema+'.accept_quote('+lit(actor)+",'request',"+lit(q)+"::uuid,'sandbox-disclosure-v1')",'order');
+}
+function prepare(actor,order,kind){return sql('SELECT '+schema+'.prepare_authorized('+lit(actor)+','+lit(order)+'::uuid,'+lit(kind)+')','order');}
+async function main(){
+ assert.equal(sql('SELECT current_database()'),'mwd_financial_sandbox_test');
+ const p=createMockProvider({secret:'synthetic-ci-only-worker-secret-no-real-credentials'});
+ let worker=createWorker({environment:'sandbox',store:store(),provider:p});
+ const order=openOrder('workerPaid');
+ p.loseNextResponse();
+ await assert.rejects(worker.tick(),/SIMULATED_RESPONSE_LOSS/);
+ assert.equal(p.submissions().length,1);assert.equal(state(order),'funding_pending');
+ // Simulate expired worker lease and restart process-local worker instance.
+ sql("UPDATE "+schema+".dispatch SET lease_until=clock_timestamp()-interval '1 second' WHERE reference="+lit(order+'-funding'));
+ worker=createWorker({environment:'sandbox',store:store(),provider:p});
+ assert.equal((await worker.tick()).status,'transport_acknowledged');
+ assert.equal(p.submissions().length,1);assert.equal(state(order),'funding_pending');
+ const f=p.event(order+'-funding','funding_confirmed','worker-fund-1');
+ await assert.rejects(worker.receive(f.raw,'0'.repeat(64)),/INVALID_SIGNATURE/);
+ assert.equal(await worker.receive(f.raw,f.signature),'funded');
+ assert.equal(await worker.receive(f.raw,f.signature),'duplicate');
+ prepare('workerPaid',order,'payout');
+ assert.equal((await worker.tick()).status,'transport_acknowledged');
+ const pay=p.event(order+'-payout','payout_confirmed','worker-pay-1');
+ assert.equal(await worker.receive(pay.raw,pay.signature),'paid');assert.equal(state(order),'paid');
+ const refund=openOrder('workerRefund');
+ await worker.tick();
+ const f2=p.event(refund+'-funding','funding_confirmed','worker-fund-2');
+ await worker.receive(f2.raw,f2.signature);
+ prepare('workerRefund',refund,'payout');await worker.tick();
+ const fail=p.event(refund+'-payout','payout_failed','worker-pay-2');
+ assert.equal(await worker.receive(fail.raw,fail.signature),'payout_failed');
+ prepare('workerRefund',refund,'refund');await worker.tick();
+ const r=p.event(refund+'-refund','refund_confirmed','worker-refund-2');
+ assert.equal(await worker.receive(r.raw,r.signature),'refunded');
+ assert.equal(state(refund),'refunded');
+ assert.equal(p.submissions().length,5);
+ assert.equal((await worker.tick()).status,'idle');
+ assert.equal(sql('SELECT sum(payable) FROM '+schema+'.journal WHERE order_id IN ('+lit(order)+'::uuid,'+lit(refund)+'::uuid)'),'0');
+ assert.equal(sql('SELECT sum(revenue) FROM '+schema+'.journal WHERE order_id IN ('+lit(order)+'::uuid,'+lit(refund)+'::uuid)'),'-150');
+ console.log('Sandbox worker: signed funding, payout, refund and lost-response recovery verified');
+}
+main().catch(e=>{console.error(e);process.exitCode=1;});
