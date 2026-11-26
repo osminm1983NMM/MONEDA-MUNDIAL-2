@@ -15,6 +15,7 @@ CREATE FUNCTION check_statement_evidence(p_incident bigint,p_batch uuid) RETURNS
 LANGUAGE plpgsql SET search_path=mwd_financial_lab,pg_catalog AS $$
 DECLARE i event_incidents%ROWTYPE; b statement_batches%ROWTYPE;
 BEGIN
+ PERFORM pg_advisory_xact_lock(60261126,17);
  PERFORM check_reviewable(p_incident);
  SELECT * INTO STRICT i FROM event_incidents WHERE id=p_incident;
  SELECT * INTO b FROM statement_batches WHERE id=p_batch;
@@ -29,8 +30,7 @@ BEGIN
  THEN RAISE EXCEPTION 'EVIDENCE_NOT_MATCHED'; END IF;
  -- Confirm all other terminal references of the affected order also match.
  IF EXISTS(SELECT FROM outbox x JOIN outbox target ON target.order_id=x.order_id AND target.reference=i.reference
- JOIN statement_internal s ON s.batch_id=b.id AND s.reference=x.reference
- WHERE s.status IN ('confirmed','failed') AND NOT EXISTS(
+ WHERE EXISTS(SELECT FROM inbox e WHERE e.reference=x.reference AND e.outcome IN ('confirmed','failed')) AND NOT EXISTS(
  SELECT FROM reconciliation_details d WHERE d.batch_id=b.id AND d.reference=x.reference
  AND d.result IN ('MATCHED_CONFIRMED','MATCHED_FAILED')))
  THEN RAISE EXCEPTION 'ORDER_EVIDENCE_CONFLICT'; END IF;
