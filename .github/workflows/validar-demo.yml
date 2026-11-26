@@ -21,6 +21,7 @@ jobs:
           node scripts/audit-regression-safety.cjs
           node scripts/preflight-release-local.js
           node --test scripts/test-transfer-recovery.cjs scripts/test-conversion-retiro.cjs scripts/test-demo-sql-runner.cjs
+          node scripts/test-password-recovery.cjs
       - name: Instalar dependencias
         run: |
           if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
