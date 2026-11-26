@@ -45,3 +45,7 @@ Consulta de solo lectura en Supabase: saldo de la billetera observada en Samsung
 ## Transferencia física A→B — 25 de noviembre de 2026
 
 Usuario confirma dos envíos voluntarios de 10 MWD. Supabase registra dos transferencias con referencias distintas a las 20:48:32 y 20:49:26 EST. Saldo A inicial 10,104.00 y final 10,084.00 MWD; diferencia esperada cero. Saldo B observado 9,913.00 MWD; pendiente verificar visualmente en sesión B y saldo previo independiente. Total 28 operaciones, cero referencias duplicadas. Transferencia normal física y débito aprobados; no implica prueba física de reintento idempotente. Sin modificación de saldos por el asistente.
+
+## Historial físico del destinatario
+
+Captura Samsung 20:52 EST: dos transferencias recibidas de +10.00 MWD, a las 20:49:26 y 20:48:32 del 25/11/2026, coincidentes con los registros SQL. Recepción e historial visual aprobados. Pendiente captura de saldo B (esperado 9,913.00 MWD según consulta anterior) y prueba de recuperación de red. No se alteraron saldos.
