@@ -144,6 +144,27 @@ BEGIN
  OR (SELECT balance_cents FROM public.mwd_wallets WHERE user_id=a) IS DISTINCT FROM before_a-amount
  OR (SELECT balance_cents FROM public.mwd_wallets WHERE user_id=b) IS DISTINCT FROM before_b+amount
  THEN RAISE EXCEPTION 'Rejected payment changed balances or ledger'; END IF;
- RAISE NOTICE 'PASS merchant functional: anonymous access, RLS, direct mutation denial, currency, self-pay, ownership, payment retry, balances and cancellation';
+ -- Verify the actual commercial posting before rollback: the later global
+ -- accounting gates cannot see an operation rolled back by this test.
+ IF NOT EXISTS (
+   SELECT o.id
+   FROM public.mwd_operations o
+   LEFT JOIN mwd_finance_private.ledger_transactions t
+     ON t.external_reference='mwd-demo-transfer:'||o.id::text
+   LEFT JOIN mwd_finance_private.ledger_entries e ON e.transaction_id=t.id
+   LEFT JOIN mwd_finance_private.ledger_accounts la ON la.id=e.account_id
+   WHERE o.actor_id=a AND o.source_user_id=a AND o.destination_user_id=b
+     AND o.request_id=paid_id AND o.kind='transfer' AND o.amount_cents=amount
+   GROUP BY o.id
+   HAVING count(DISTINCT t.id)=1 AND count(e.id)=2
+     AND bool_and(t.status='posted' AND t.currency_code='MWD' AND t.transaction_kind='wallet_transfer')
+     AND count(*) FILTER (WHERE e.entry_side='debit' AND e.amount_minor=amount
+       AND la.owner_user_id=a AND la.currency_code='MWD' AND la.account_type='customer_liability'
+       AND la.account_code='MWD-DEMO-USER-'||a::text)=1
+     AND count(*) FILTER (WHERE e.entry_side='credit' AND e.amount_minor=amount
+       AND la.owner_user_id=b AND la.currency_code='MWD' AND la.account_type='customer_liability'
+       AND la.account_code='MWD-DEMO-USER-'||b::text)=1
+ ) THEN RAISE EXCEPTION 'Merchant payment posting missing or incorrect'; END IF;
+ RAISE NOTICE 'PASS merchant functional: anonymous access, RLS, direct mutation denial, currency, self-pay, ownership, payment retry, exact ledger accounts, balances and cancellation';
 END $gate$;
 ROLLBACK;

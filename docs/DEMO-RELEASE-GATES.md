@@ -19,6 +19,22 @@ Esta sección prevalece sobre los estados históricos conservados más abajo. [R
 
 **Evidencia actual:** [PR 133](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/pull/133), base probada `fc5caa753f6c03f9afd47257a45dec54f4daf698`, head `852c8b21af501212f0153321ac7d4f0b087d793d`. [PostgreSQL aprobado](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45840521789); [Android aprobado](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45840521938). Candidata LAB: [artefacto 15128571164](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45840521938/artifacts/15128571164), vence 2026-12-03 14:41:45 UTC. Checkout temporal de PR 133: `62cd2a5fd80fe54813b0a01e6f61a4b05930b620`; 97 pruebas Android, 27 regresiones adicionales y 24 escenarios de recuperación aprobados, dos aperturas verificadas en emulador. Ver registro de aceptación para huellas SHA-256. Las nuevas pruebas comerciales no forman parte de esta candidata. El APK anterior 45809213055 no certifica la revisión actual.
 
+### Actualización consolidada posterior — 26 de noviembre de 2026
+
+Esta actualización sustituye los estados de la tabla anterior cuando difieren:
+
+| Puerta | Evidencia actual |
+| --- | --- |
+| Samsung, candidata 62cd2a5 | Identidad visible, transferencia normal de 10 MWD A→B, débito, recepción, historial y cambio de cuenta aprobados; conciliación independiente con Supabase sin diferencias. |
+| Contabilidad DEMO compartida | 32 operaciones, 64 asientos MWD, cinco billeteras y 20 conversiones verificadas; cero anomalías en las consultas ejecutadas. |
+| PostgreSQL aislado y seguridad ampliada | CI [45851139786](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45851139786) aprobado, incluyendo pruebas comerciales de RLS, mutaciones directas y cancelaciones. |
+| Contabilidad de un pago comercial | Nuevo control de identidad exacta del asiento dentro de la transacción de prueba, antes del rollback; pendiente CI. |
+| Android con áreas seguras | Run 45849862040 compiló, verificó procedencia e instaló, pero falló la aceptación visual del emulador. No distribuir. |
+| Android con diagnóstico y desplazamiento | Run [45853329867](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45853329867), commit 46adc7bd3602a40073ec364a2f9ea2ad1a9d95dd, en curso al comprobar. Requiere éxito de APK y smoke-test, y aceptación física posterior. |
+| Producción | No autorizada. Protección contra contraseñas filtradas y revisión de RPC privilegiadas pendientes; no se desplegó auditoría V2 ni se modificó main. |
+
+El APK 62cd2a5 instalado sigue siendo la candidata física de referencia; no certifica la corrección visual nueva. No desinstalar, borrar datos ni utilizar artefactos de ejecuciones fallidas.
+
 ### Protocolo mínimo de aceptación física de la nueva candidata
 
 1. Antes de instalar: exigir éxito del APK y del emulador, verificar SHA256.txt, COMMIT.txt, DEPENDENCIES-SHA256.txt y compatibilidad de firma con el LAB anterior. No utilizar una descarga anterior para certificar código nuevo.
