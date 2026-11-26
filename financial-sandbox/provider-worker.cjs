@@ -10,8 +10,11 @@ function createWorker({environment,store,provider}){
  return {
   async tick(){
    const lease=await store.claim();if(!lease)return {status:'idle'};
-   const {intent,token}=lease;
-   if(!intentOk(intent)||!id(token)||!Number.isSafeInteger(lease.attempt)||lease.attempt<1)fail('INVALID_LEASE');
+   const {intent:claimed,token}=lease;
+   if(!intentOk(claimed)||!id(token)||!Number.isSafeInteger(lease.attempt)||lease.attempt<1)fail('INVALID_LEASE');
+   // Preserve the exact authorized payload across asynchronous provider and lease checks.
+   const intent=Object.freeze({mode:claimed.mode,orderId:claimed.orderId,reference:claimed.reference,kind:claimed.kind,currency:claimed.currency,amountMinor:claimed.amountMinor});
+   if(!intentOk(intent))fail('INVALID_LEASE');
    // Lookup before every send. Unknown or conflicting status never triggers submission.
    const known=await provider.lookup(intent.reference);
    if(!known||!['absent','accepted','unknown'].includes(known.status))fail('INVALID_LOOKUP');
