@@ -145,6 +145,7 @@ function Btn({ title, onPress, secondary = false, disabled = false }) {
 export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [session, setSession] = useState(null);
+  const [preparedUserId, setPreparedUserId] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -191,7 +192,7 @@ export default function App() {
   const userId = session?.user?.id;
   // Actualizar durante render para invalidar respuestas de red de cuentas anteriores.
   currentUserRef.current = userId;
-  swapQuoteRef.current = swapQuote;
+  swapQuoteRef.current = userId === preparedUserId ? swapQuote : null;
   const isCurrentUser = id => !!id && id === currentUserRef.current;
   function beginAuthBusy() {
     if (authBusyRef.current) return false;
@@ -347,6 +348,8 @@ export default function App() {
     setPendingOperationRecoveryError('');
     setPendingPickup(null);
     setPickupPendingError('');
+    // Habilitar las pantallas privadas solo tras limpiar los datos de la cuenta anterior.
+    setPreparedUserId(userId || null);
     if (!userId) {
       return;
     }
@@ -1031,7 +1034,7 @@ export default function App() {
         <Text selectable style={styles.buildIdentity}>Compilación: {BUILD_COMMIT}</Text>
         <Text style={styles.warning}>SOLO DEMOSTRACIÓN • SIN DINERO REAL</Text>
 
-        {authLoading ? <ActivityIndicator color="#4a8dff" size="large" /> : !session ? (
+        {authLoading || (session && userId !== preparedUserId) ? <ActivityIndicator color="#4a8dff" size="large" /> : !session ? (
           <View style={styles.card}>
             <Text style={styles.heading}>Accede a Moneda Mundial</Text>
             <Text style={styles.muted}>Crea una cuenta de prueba o inicia sesión.</Text>
