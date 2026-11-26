@@ -198,3 +198,8 @@ jobs:
           [[ "$first" == "$second" ]]
           [[ "$(sql -c "SELECT count(*) FROM mwd_financial_lab.statement_batches b JOIN mwd_financial_lab.statement_cut_metadata m ON m.batch_id=b.id WHERE b.external_id='concurrent-cut-replay'")" == 1 ]]
           echo 'Concurrent cut writer exclusion and replay verified in disposable database'
+
+      - name: Verify logical backup and restore of the disposable lab
+        env:
+          LAB_CONTAINER: ${{ job.services.postgres.id }}
+        run: bash tests/financial/postgres-backup-restore.sh
