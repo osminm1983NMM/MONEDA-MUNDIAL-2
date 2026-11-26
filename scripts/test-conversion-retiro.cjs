@@ -88,14 +88,14 @@ test('retiro a Honduras conserva la referencia al reiniciar y resiste dos toques
   assert.equal(storage.size,1);
   const restarted = device(async (name,args) => {
     attempts.push(args.p_request_id);
-    return {data:{status:'already_created'}};
+    return {data:{status:'already_created',orderId:'469bea32-c0b9-43bd-b2e4-cadcaf0a3883',realPaymentsEnabled:false,pickupCode:null}};
   }, storage);
   restarted.uniqueRequestId = () => assert.fail('El reintento debe usar el identificador guardado');
   await restarted.recoverPendingPickup();
   assert.equal(restarted.pickupAmount,'10.00');
   await restarted.createDemoPickup();
   assert.deepEqual(attempts,[attempts[0],attempts[0]]);
-  assert.equal(restarted.pickupResult.pickupCode,undefined);
+  assert.equal(restarted.pickupResult.pickupCode,null);
   assert.equal(restarted.notices.at(-1)[0],'Orden ficticia recuperada');
   assert.equal(storage.size,0);
 });
@@ -104,9 +104,20 @@ test('la confirmación de A que llega tras cambiar a B no modifica la pantalla d
   let finish;
   const ctx = device(() => new Promise(resolve => { finish = resolve; }));
   const pending = ctx.confirmSwap('quote-A');
+  await new Promise(resolve => setImmediate(resolve));
   ctx.userId = 'B';
   finish({data:{status:'ok'}});
   await pending;
   assert.deepEqual(ctx.notices,[]);
   assert.equal(ctx.swapWallet,undefined);
+});
+
+
+test('retiro con respuesta incompleta conserva la referencia', async () => {
+  const storage = new Map();
+  const ctx = device(async () => ({data:{status:'created'}}), storage);
+  await ctx.createDemoPickup();
+  assert.equal(storage.size,1);
+  assert.equal(ctx.pickupResult,null);
+  assert.equal(ctx.notices.at(-1)[0],'Retiro pendiente de confirmar');
 });
