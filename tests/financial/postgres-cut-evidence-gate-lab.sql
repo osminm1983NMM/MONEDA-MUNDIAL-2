@@ -213,7 +213,19 @@ BEGIN
  IF (SELECT count(*) FROM journal WHERE order_id=o)<>2 THEN RAISE EXCEPTION 'resume changed accounting'; END IF;
 END $$;
 SET LOCAL ROLE mwd_lab_audit_service;
-DO $$ BEGIN IF (SELECT completed FROM refund_recovery_summary)<>1 OR (SELECT orders FROM refund_attention)<>0 THEN RAISE EXCEPTION 'audit mismatch'; END IF; END $$;
+DO $$ BEGIN
+ IF (SELECT completed FROM refund_recovery_summary)<>1 OR (SELECT orders FROM refund_attention)<>0
+ THEN RAISE EXCEPTION 'refund recovery audit mismatch'; END IF;
+ IF (SELECT sum(recovered_refund_incidents) FROM review_summary) IS DISTINCT FROM 2::numeric
+ OR (SELECT sum(open_incidents) FROM review_summary) IS DISTINCT FROM 1::numeric
+ OR (SELECT sum(approved_incidents) FROM review_summary) IS DISTINCT FROM 0::numeric
+ OR (SELECT sum(incidents) FROM incident_summary) IS DISTINCT FROM 3::numeric
+ THEN RAISE EXCEPTION 'incident disposition audit mismatch'; END IF;
+ BEGIN
+  PERFORM count(*) FROM incident_resolution;
+  RAISE EXCEPTION 'private incident resolution exposed';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $$;
 RESET ROLE;
 ROLLBACK;
 

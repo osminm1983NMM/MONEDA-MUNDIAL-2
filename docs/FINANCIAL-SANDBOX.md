@@ -124,3 +124,5 @@ El reconocimiento de transporte adquiere el bloqueo de la fila antes de medir el
 La asignación de un arrendamiento empieza a contar su plazo al actualizar la fila de despacho. Una prueba con dos sesiones mantiene el control global bloqueado durante más tiempo que el arrendamiento solicitado y verifica que la concesión resultante sigue vigente.
 
 La cola asigna primero la intención elegible que lleva más tiempo en espera y usa la referencia para desempatar. Una prueba con fechas y referencias en orden inverso comprueba prioridad por antigüedad, exclusión de arrendamientos activos y desempate determinista al vencer dos arrendamientos.
+
+El resumen de revisión distingue los incidentes abiertos, las revisiones aprobadas y los incidentes resueltos por recuperación de reembolso. La auditoría y el control de reanudación consultan la misma clasificación. El historial conserva todos los incidentes, incluido cualquier conflicto posterior al reembolso. La regresión comprueba los conteos y que el rol auditor solo reciba agregados.

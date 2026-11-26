@@ -93,6 +93,41 @@ BEGIN
  OR NOT EXISTS(SELECT FROM statement_internal s WHERE s.batch_id=b.id AND s.reference=ref AND s.status='pending')
  THEN RAISE EXCEPTION 'REFUND_EVIDENCE_MISMATCH'; END IF;
 END $$;
+-- Use one disposition for the reactivation check and the audit counts.
+-- The detail view remains private, including incident identifiers.
+CREATE VIEW incident_resolution AS
+SELECT i.id, i.reason,
+ CASE
+ WHEN EXISTS(SELECT FROM review_approvals a WHERE a.incident_id=i.id) THEN 'review_approved'
+ WHEN EXISTS(
+  SELECT FROM refund_recovery_proposals p
+  JOIN refund_recovery_approvals a ON a.order_id=p.order_id
+  JOIN orders o ON o.id=p.order_id
+  JOIN event_incidents c ON c.id=p.incident_id
+  JOIN outbox x ON x.order_id=o.id AND x.kind='refund' AND x.reference=c.reference
+  JOIN inbox e ON (e.provider,e.event_id)=(c.provider,c.event_id)
+  JOIN journal j ON (j.provider,j.event_id,j.order_id)=(e.provider,e.event_id,o.id)
+  WHERE o.state='refunded' AND a.reviewer<>p.reviewer
+   AND c.provider='mock-remittance' AND c.reason='UNEXPECTED_EVENT_STATE'
+   AND c.outcome='confirmed' AND c.prior_reference IS NULL
+   AND c.currency='USD' AND c.amount_minor=o.amount_cents+o.fee_cents
+   AND (e.reference,e.outcome,e.currency,e.amount_minor)=(c.reference,c.outcome,c.currency,c.amount_minor)
+   AND (i.id=c.id OR (i.provider=c.provider AND i.reference=c.reference
+    AND i.prior_reference IS NULL AND i.outcome='failed' AND i.reason='UNEXPECTED_EVENT_STATE'
+    AND i.currency=c.currency AND i.amount_minor=c.amount_minor AND i.recorded_at<=c.recorded_at))
+ ) THEN 'refund_recovered'
+ ELSE 'open'
+ END AS disposition
+FROM event_incidents i;
+REVOKE ALL ON incident_resolution FROM PUBLIC;
+
+CREATE OR REPLACE VIEW review_summary AS
+SELECT reason,
+ count(*) FILTER (WHERE disposition='open') AS open_incidents,
+ count(*) FILTER (WHERE disposition='review_approved') AS approved_incidents,
+ count(*) FILTER (WHERE disposition='refund_recovered') AS recovered_refund_incidents
+FROM incident_resolution GROUP BY reason;
+
 CREATE OR REPLACE FUNCTION check_resume_evidence(p_halt bigint,p_batch uuid) RETURNS void
 LANGUAGE plpgsql SET search_path=mwd_financial_lab,pg_catalog AS $$
 DECLARE h dispatch_halt_events%ROWTYPE; b statement_batches%ROWTYPE;
@@ -120,27 +155,8 @@ BEGIN
  IF NOT statement_cut_is_eligible(p_batch,h.recorded_at) THEN RAISE EXCEPTION 'RESUME_EVIDENCE_UNAVAILABLE'; END IF;
  IF EXISTS(SELECT FROM orders o JOIN reservations z ON z.order_id=o.id WHERE NOT order_integrity_ok(o.id))
  THEN RAISE EXCEPTION 'INTEGRITY_HOLD'; END IF;
- -- A completed two-person refund recovery resolves only its exact confirmation
- -- and the eligible failure history preceding it; unrelated/new incidents stay open.
- IF EXISTS(SELECT FROM event_incidents i
- WHERE NOT EXISTS(SELECT FROM review_approvals a WHERE a.incident_id=i.id)
- AND NOT EXISTS(
-  SELECT FROM refund_recovery_proposals p
-  JOIN refund_recovery_approvals a ON a.order_id=p.order_id
-  JOIN orders o ON o.id=p.order_id
-  JOIN event_incidents c ON c.id=p.incident_id
-  JOIN outbox x ON x.order_id=o.id AND x.kind='refund' AND x.reference=c.reference
-  JOIN inbox e ON (e.provider,e.event_id)=(c.provider,c.event_id)
-  JOIN journal j ON (j.provider,j.event_id,j.order_id)=(e.provider,e.event_id,o.id)
-  WHERE o.state='refunded' AND a.reviewer<>p.reviewer
-   AND c.provider='mock-remittance' AND c.reason='UNEXPECTED_EVENT_STATE'
-   AND c.outcome='confirmed' AND c.prior_reference IS NULL
-   AND c.currency='USD' AND c.amount_minor=o.amount_cents+o.fee_cents
-   AND (e.reference,e.outcome,e.currency,e.amount_minor)=(c.reference,c.outcome,c.currency,c.amount_minor)
-   AND (i.id=c.id OR (i.provider=c.provider AND i.reference=c.reference
-    AND i.prior_reference IS NULL AND i.outcome='failed' AND i.reason='UNEXPECTED_EVENT_STATE'
-    AND i.currency=c.currency AND i.amount_minor=c.amount_minor AND i.recorded_at<=c.recorded_at))
- )) THEN RAISE EXCEPTION 'INCIDENTS_OPEN'; END IF;
+ IF EXISTS(SELECT FROM incident_resolution WHERE disposition='open')
+ THEN RAISE EXCEPTION 'INCIDENTS_OPEN'; END IF;
  -- Require the exact current reserved reference universe, amounts and accepted event status.
  IF EXISTS(
  WITH live AS (
