@@ -19,3 +19,14 @@ Estado: pendiente de evidencia del APK actualizado. Exclusivamente créditos fic
 
 ## Criterio de salida
 APK verificable, instalación y pruebas físicas aprobadas, sin errores críticos abiertos. No autoriza dinero real. No crear infraestructura de pago ni modificar main para completar esta lista.
+
+
+## Evidencia CI — 25/26 de noviembre de 2026
+
+- Commit auditado: `822f2fa15e9ebd1100fb84a6f983c6bb7582bf4a`.
+- [Ejecución 45736122605](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45736122605): completada con éxito; jobs `apk` y `smoke-test` aprobados.
+- [APK y archivos SHA256/COMMIT](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45736122605/artifacts/15078693162).
+- [Captura del emulador](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45736122605/artifacts/15079287815).
+- Artefactos temporales: vencen el 3 de diciembre de 2026 (UTC).
+- Pendiente: instalación y pruebas funcionales en Samsung físico. No aprobado para dinero real.
+- Recuperación LAB: autorizar exactamente `com.monedamundial.lab.samsung://auth/reset-password` en Supabase Auth y probar enlace abierto/cerrado, vencido y consumido. No se ha cambiado esa configuración.
