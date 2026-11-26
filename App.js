@@ -698,8 +698,21 @@ export default function App() {
   }
 
   async function logout() {
-    const { error } = await supabase.auth.signOut();
-    if (error) message('Salida', error.message);
+    const actorId = userId;
+    if (!isCurrentUser(actorId) || !beginAuthBusy()) return;
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      // La sesión se actualiza mediante onAuthStateChange, no por una suposición local.
+      // No borrar referencias de operaciones pendientes al salir.
+      setPassword('');
+    } catch (error) {
+      if (isCurrentUser(actorId)) {
+        message('Salida no confirmada', 'No pudimos confirmar el cierre de sesión. Revisa tu conexión e inténtalo de nuevo.');
+      }
+    } finally {
+      endAuthBusy();
+    }
   }
 
   const microDisplay = value => (Number(value || 0) / 1000000).toFixed(6);
@@ -1047,6 +1060,7 @@ export default function App() {
                 autoComplete="new-password" value={confirmNewPassword} onChangeText={setConfirmNewPassword} editable={!authBusy} />
               <Btn title={authBusy ? 'Actualizando...' : 'Guardar contraseña'}
                 onPress={saveNewPassword} disabled={authBusy} />
+              <Btn title="Cancelar recuperación y cerrar sesión" secondary onPress={logout} disabled={authBusy} />
             </View>}
             {screen === 'Inicio' && <>
               <View style={styles.card}>
@@ -1088,7 +1102,7 @@ export default function App() {
               <Btn title={syncing ? "Actualizando..." : "Actualizar saldo e historial"} secondary onPress={() => refreshAccount()} disabled={syncing} />
               {!!syncNotice && <Text style={styles.muted}>{syncNotice}</Text>}
               <Btn title="Administración" secondary onPress={() => navigate('Admin')} />
-              <Btn title="Cerrar sesión" secondary onPress={logout} />
+              <Btn title={authBusy ? 'Espera...' : 'Cerrar sesión'} secondary onPress={logout} disabled={authBusy} />
             </>}
 
             {screen === 'MisRetiros' && <View style={styles.card}>
