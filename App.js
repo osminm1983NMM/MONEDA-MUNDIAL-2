@@ -848,22 +848,24 @@ export default function App() {
   }
   async function recoverPendingPickup(id = userId) {
     if (!isCurrentUser(id) || pickupBusyRef.current) return;
-    pickupBusyRef.current = true;
+    const token = {};
+    pickupBusyRef.current = token;
+    const isActive = () => isCurrentUser(id) && pickupBusyRef.current === token;
     setPickupBusy(true);
     setPickupPendingError('');
     try {
       const saved = await AsyncStorage.getItem(pendingPickupStorageKey(id));
-      if (!isCurrentUser(id) || !saved) return;
+      if (!isActive() || !saved) return;
       const pending = parsePendingPickup(saved, id);
       pickupPendingRef.current = pending;
       setPendingPickup(pending);
       setPickupAmount(formatMWD(pending.cents));
     } catch (error) {
-      if (isCurrentUser(id)) {
+      if (isActive()) {
         setPickupPendingError('Hay una referencia de retiro guardada que no se puede verificar. No crearemos otra orden automáticamente.');
       }
     } finally {
-      if (isCurrentUser(id)) {
+      if (isActive()) {
         pickupBusyRef.current = false;
         setPickupBusy(false);
       }
@@ -878,7 +880,9 @@ export default function App() {
     }
     const actorId = userId;
     if (!isCurrentUser(actorId)) return;
-    pickupBusyRef.current = true;
+    const token = {};
+    pickupBusyRef.current = token;
+    const isActive = () => isCurrentUser(actorId) && pickupBusyRef.current === token;
     setPickupBusy(true);
     const storageKey = pendingPickupStorageKey(actorId);
     setPickupResult(null);
@@ -887,7 +891,7 @@ export default function App() {
       let pending = pickupPendingRef.current || pendingPickup;
       if (!pending) {
         const saved = await AsyncStorage.getItem(storageKey);
-        if (!isCurrentUser(actorId)) return;
+        if (!isActive()) return;
         if (saved) pending = parsePendingPickup(saved, actorId);
       }
       referenceSaved = !!pending;
@@ -908,7 +912,7 @@ export default function App() {
         };
         await AsyncStorage.setItem(storageKey, JSON.stringify(pending));
         referenceSaved = true;
-        if (!isCurrentUser(actorId)) return;
+        if (!isActive()) return;
       }
       pickupPendingRef.current = pending;
       setPendingPickup(pending);
@@ -917,11 +921,11 @@ export default function App() {
         p_amount_cents: pending.cents,
         p_request_id: pending.id,
       });
-      if (!isCurrentUser(actorId)) return;
+      if (!isActive()) return;
       if (error) {
         if (isDefinitiveRpcRejection(error, status)) {
           await AsyncStorage.removeItem(storageKey);
-          if (!isCurrentUser(actorId)) return;
+          if (!isActive()) return;
           pickupPendingRef.current = null;
           setPendingPickup(null);
           setPickupPendingError('');
@@ -940,7 +944,7 @@ export default function App() {
         throw new Error('Respuesta de retiro no verificable. Conservamos la referencia.');
       }
       await AsyncStorage.removeItem(storageKey);
-      if (!isCurrentUser(actorId)) return;
+      if (!isActive()) return;
       pickupPendingRef.current = null;
       setPendingPickup(null);
       setPickupPendingError('');
@@ -951,7 +955,7 @@ export default function App() {
           'La orden ya existe, pero por seguridad el código de retiro no se vuelve a mostrar. Consulta Mis retiros; no crees otra orden para recuperar el código.');
       }
     } catch (error) {
-      if (isCurrentUser(actorId)) {
+      if (isActive()) {
         if (!referenceSaved) {
           setPickupPendingError('No se pudo verificar o guardar la referencia local. Reintenta la verificación antes de crear otra orden.');
           message('Referencia de retiro no verificada', 'No se envió la orden. Reintenta la verificación del almacenamiento local.');
@@ -961,7 +965,7 @@ export default function App() {
           (error.message || 'No se pudo verificar la orden.') + '\nLa app conservará la misma referencia para reintentar sin duplicar la orden.');
       }
     } finally {
-      if (isCurrentUser(actorId)) {
+      if (isActive()) {
         pickupBusyRef.current = false;
         setPickupBusy(false);
       }
@@ -994,20 +998,22 @@ export default function App() {
   async function cancelDemoPickup(orderId) {
     const actorId = userId;
     if (!isCurrentUser(actorId) || pickupCancelBusyRef.current) return;
-    pickupCancelBusyRef.current = true;
+    const token = {};
+    pickupCancelBusyRef.current = token;
+    const isActive = () => isCurrentUser(actorId) && pickupCancelBusyRef.current === token;
     setPickupCancelBusy(true);
     try {
       const { data, error } = await supabase.rpc('mwd_pickup_cancel_demo', { p_order_id: orderId });
-      if (!isCurrentUser(actorId)) return;
+      if (!isActive()) return;
       if (error) throw error;
       if (!['cancelled', 'already_cancelled'].includes(data?.status) || data.orderId !== orderId) throw new Error('Respuesta de cancelación no reconocida.');
       message('Orden ficticia', data.status === 'cancelled' ? 'Orden cancelada correctamente.' : 'La orden ya estaba cancelada.');
       // Invalidar una consulta iniciada antes de confirmar la cancelación.
       await loadPickupOrders(true);
     } catch (error) {
-      if (isCurrentUser(actorId)) message('No se pudo cancelar', error.message || 'Error desconocido');
+      if (isActive()) message('No se pudo cancelar', error.message || 'Error desconocido');
     } finally {
-      if (isCurrentUser(actorId)) {
+      if (isActive()) {
         pickupCancelBusyRef.current = false;
         setPickupCancelBusy(false);
       }
