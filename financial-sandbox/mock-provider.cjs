@@ -23,14 +23,15 @@ function createMockProvider({secret,clock=Date.now}){
   submissions(){return [...submissions.values()].map(x=>structuredClone(x));},
   event(reference,type,eventId,patch={}){
    const s=submissions.get(reference);if(!s)throw Error('UNKNOWN_REFERENCE');
-   const raw=JSON.stringify({mode:'sandbox',provider:'mock-remittance',eventId,orderId:s.orderId,reference,type,currency:s.currency,amountMinor:s.amountMinor,timestamp:clock(),...patch});
+   const timestamp=clock();if(!Number.isSafeInteger(timestamp)||timestamp<0)throw Error('CLOCK');
+   const raw=JSON.stringify({mode:'sandbox',provider:'mock-remittance',eventId,orderId:s.orderId,reference,type,currency:s.currency,amountMinor:s.amountMinor,timestamp,...patch});
    return {raw,signature:sign(raw)};
   },
   verifyEvent(raw,signature){
    if(typeof raw!=='string'||Buffer.byteLength(raw)>16384||typeof signature!=='string'||!/^[0-9a-f]{64}$/.test(signature))throw Error('INVALID_SIGNATURE');
    if(!timingSafeEqual(Buffer.from(sign(raw),'hex'),Buffer.from(signature,'hex')))throw Error('INVALID_SIGNATURE');
    const e=JSON.parse(raw);
-   if(!Number.isSafeInteger(e.timestamp)||Math.abs(clock()-e.timestamp)>300000)throw Error('EVENT_EXPIRED');
+   const now=clock();if(!Number.isSafeInteger(now)||now<0)throw Error('CLOCK');if(!Number.isSafeInteger(e?.timestamp)||e.timestamp<0||Math.abs(now-e.timestamp)>300000)throw Error('EVENT_EXPIRED');
    return e;
   }
  };

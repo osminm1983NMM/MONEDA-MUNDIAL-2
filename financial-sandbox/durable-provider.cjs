@@ -55,7 +55,7 @@ function openDurableProvider({environment,path,initialize=false,secret,clock=Dat
  },
  verifyEvent(raw,signature){
   if(typeof raw!=='string'||Buffer.byteLength(raw)>16384||typeof signature!=='string'||!/^[0-9a-f]{64}$/.test(signature)||!timingSafeEqual(Buffer.from(sign(raw),'hex'),Buffer.from(signature,'hex')))fail('INVALID_SIGNATURE');
-  const e=JSON.parse(raw);if(!Number.isSafeInteger(e.timestamp)||Math.abs(clock()-e.timestamp)>300000)fail('EVENT_EXPIRED');return e;
+  const e=JSON.parse(raw);const now=clock();if(!Number.isSafeInteger(now)||now<0)throw Error('CLOCK');if(!Number.isSafeInteger(e?.timestamp)||e.timestamp<0||Math.abs(now-e.timestamp)>300000)fail('EVENT_EXPIRED');return e;
  },
  close(){db.close();}
  };
