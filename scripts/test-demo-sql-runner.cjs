@@ -20,8 +20,8 @@ function simulate(mode, options = {}) {
   } catch (error) { if (error !== exitSignal) throw error; }
   return { status, calls, logs };
 }
-test('historical mode runs 15 distinct gates', () => {
-  const r = simulate('historical'); assert.equal(r.status, 0); assert.equal(r.calls.length, 15); assert.equal(new Set(r.calls.map(c=>c.args.at(-1))).size, 15);
+test('historical mode runs 16 distinct gates', () => {
+  const r = simulate('historical'); assert.equal(r.status, 0); assert.equal(r.calls.length, 16); assert.equal(new Set(r.calls.map(c=>c.args.at(-1))).size, 16);
 });
 test('functional mode runs only three first-operation gates', () => {
   const r = simulate('functional'); assert.equal(r.status, 0); assert.equal(r.calls.length, 3); assert.ok(r.calls.every(c=>/functional|contribution-pickup/.test(c.args.at(-1))));
