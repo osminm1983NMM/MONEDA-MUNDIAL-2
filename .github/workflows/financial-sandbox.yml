@@ -20,3 +20,33 @@ jobs:
         with:
           node-version: '22'
       - run: node --test tests/financial/*.test.cjs
+  postgres-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: lab
+          POSTGRES_PASSWORD: disposable-ci-only
+          POSTGRES_DB: mwd_financial_sandbox_test
+        options: >-
+          --health-cmd "pg_isready -U lab -d mwd_financial_sandbox_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify database-name guard and run transactional SQL tests
+        env:
+          LAB_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          if docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d postgres < financial-sandbox/postgres-lab.sql; then
+            echo "Expected non-lab database rejection"
+            exit 1
+          fi
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-lab.sql
