@@ -59,3 +59,36 @@ jobs:
           name: MonedaMundial-LAB-Samsung
           path: entrega/
           retention-days: 7
+
+  smoke-test:
+    needs: apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: MonedaMundial-LAB-Samsung
+          path: ${{ runner.temp }}/apk
+      - name: Verify APK provenance
+        run: |
+          cd "$RUNNER_TEMP/apk"
+          sha256sum -c SHA256.txt
+          test "$(cat COMMIT.txt)" = "$GITHUB_SHA"
+      - name: Install and launch Android 35
+        run: |
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          sudo chmod 666 /dev/kvm
+          image='system-images;android-35;google_apis;x86_64'
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install 'emulator' 'platform-tools' "$image"
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n mwd -k "$image" --force
+          "$ANDROID_HOME/emulator/emulator" -avd mwd -no-window -no-audio -no-snapshot -gpu swiftshader_indirect -no-boot-anim >"$RUNNER_TEMP/emulator.log" 2>&1 &
+          bash scripts/probar-apk-samsung.sh "$RUNNER_TEMP/apk/MonedaMundial-LAB.apk" || { status=$?; tail -50 "$RUNNER_TEMP/emulator.log"; exit "$status"; }
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: MonedaMundial-inicio-Android
+          path: ${{ runner.temp }}/inicio.png
+          retention-days: 7
