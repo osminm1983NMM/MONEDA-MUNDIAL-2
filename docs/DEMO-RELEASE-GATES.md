@@ -36,6 +36,12 @@ Los archivos históricos con bloqueo de filas requieren transacción de escritur
 - Configurar MWD_CONFIRM_ISOLATED=YES_LOCAL_DISPOSABLE y MWD_LOCAL_DB_PASSWORD en el entorno del operador, sin guardar contraseñas en Git. Ejecutar `node scripts/run-demo-sql-gates.cjs historical` (13 archivos) y, por separado, `node scripts/run-demo-sql-gates.cjs functional` (3 archivos). No restaura datos ni crea bases.
 - `node --test scripts/test-demo-sql-runner.cjs`: siete pruebas offline ejecutadas y aprobadas con Node 22, usando psql simulado; modos de 13 y 3 archivos, rechazo de modo inválido y credenciales faltantes, archivo ausente, parada ante fallo y destino local fijo. No prueba conexiones reales ni túneles locales. Pendiente ejecución integrada con PostgreSQL aislado; no se han validado concurrencia ni operaciones nuevas.
 
+## Prueba de concurrencia real en PostgreSQL desechable
+- `scripts/test-demo-concurrency-local.cjs`: cuatro escenarios de doble envío (transferencia, aportación, conversión y retiro); exige observar espera de bloqueo en pg_stat_activity, verificar la misma referencia y comprobar saldos y número de registros.
+- Solo para una base de datos local preparada y desechable con datos sintéticos, sin conexiones externas ni túneles. Usa el mismo destino local y variables de entorno que el ejecutor SQL. El operador debe marcar la base aislada con `COMMENT ON DATABASE mwd_demo_isolated IS 'MWD_DISPOSABLE_CONCURRENCY_TEST_ONLY';` y comprobar que las rutas reales están desactivadas.
+- Ejecutar `node scripts/test-demo-concurrency-local.cjs`. Este programa CONFIRMA transacciones de prueba; desechar la base después, incluso si falla. Requiere fixtures con dos billeteras MWD, saldos de conversión, liquidez y una cuenta elegible para retiro.
+- Estado: código guardado; ejecución con PostgreSQL real pendiente. No se ha certificado concurrencia ni creado infraestructura adicional.
+
 ## Validación Android
 
 Ejecutar manualmente `validar-demo.yml` en `dev/cierre-android-20261125`. Exigir éxito de pruebas Node, dependencias Expo y exportación Android antes de solicitar APK. Probar en dispositivo dos cuentas, transferencia, aportación, retiro, conversión, pérdida de red, cierre y reapertura, cambio de cuenta y recuperación de contraseña. No habilitar dinero real ni fusionar main hasta revisión.
