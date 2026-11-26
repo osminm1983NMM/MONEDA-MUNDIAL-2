@@ -166,6 +166,8 @@ export default function App() {
   const swapBusyTokenRef = useRef(null);
   const swapQuoteRef = useRef(null);
   const recoveryCodeStateRef = useRef({ inFlight: new Set(), processed: new Set() });
+  const recoveryActorRef = useRef(null);
+  const authEventUserRef = useRef(null);
   const userId = session?.user?.id;
   // Actualizar durante render para invalidar respuestas de red de cuentas anteriores.
   currentUserRef.current = userId;
@@ -200,30 +202,46 @@ export default function App() {
     const handleAuthUrl = async url => {
       if (!url) return;
       let claimedCode = null;
+      let ownsAuthBusy = false;
       try {
         const parsed = new URL(url);
         if (parsed.protocol !== 'com.monedamundial.app:' ||
             parsed.host !== 'auth' || parsed.pathname !== '/reset-password') return;
         const errorDescription = parsed.searchParams.get('error_description') ||
           parsed.searchParams.get('error');
-        if (errorDescription) throw new Error(errorDescription);
+        if (errorDescription) throw new Error('El enlace de recuperación no es válido o ha vencido. Solicita uno nuevo.');
         const code = parsed.searchParams.get('code');
-        if (!code) return;
+        if (!code) throw new Error('El enlace no contiene un código de recuperación. Solicita uno nuevo.');
         const codeState = recoveryCodeStateRef.current;
         if (codeState.processed.has(code) || codeState.inFlight.has(code)) return;
+        if (!beginAuthBusy()) {
+          if (active) message('Enlace de acceso', 'Hay otra operación de acceso en curso. Abre el enlace de nuevo cuando termine.');
+          return;
+        }
+        ownsAuthBusy = true;
         codeState.inFlight.add(code);
         claimedCode = code;
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) throw error;
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) throw new Error('No se pudo verificar el enlace. Solicita uno nuevo desde este dispositivo.');
+        const recoveredUser = data?.session?.user?.id;
+        if (!recoveredUser || authEventUserRef.current !== recoveredUser) {
+          throw new Error('La sesión de recuperación ya no está disponible. Solicita otro enlace.');
+        }
         codeState.processed.add(code);
         if (codeState.processed.size > 5) {
           codeState.processed.delete(codeState.processed.values().next().value);
         }
-        if (active) setScreen('CambiarContraseña');
+        if (active) {
+          recoveryActorRef.current = recoveredUser;
+          setNewPassword('');
+          setConfirmNewPassword('');
+          setScreen('CambiarContraseña');
+        }
       } catch (error) {
-        if (active) message('Enlace de acceso', error.message || 'El enlace no pudo verificarse.');
+        if (active) message('Enlace de acceso', 'El enlace no pudo verificarse o ha vencido. Abre un enlace válido desde este dispositivo.');
       } finally {
         if (claimedCode) recoveryCodeStateRef.current.inFlight.delete(claimedCode);
+        if (ownsAuthBusy && active) endAuthBusy();
       }
     };
 
@@ -239,13 +257,24 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
       authEventReceived = true;
+      const nextUser = nextSession?.user?.id || null;
+      authEventUserRef.current = nextUser;
       setSession(nextSession);
       setAuthLoading(false);
-      if (event === 'PASSWORD_RECOVERY') {
+      if (event === 'PASSWORD_RECOVERY' && nextUser) {
+        recoveryActorRef.current = nextUser;
         setNewPassword('');
         setConfirmNewPassword('');
         setScreen('CambiarContraseña');
-      } else if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+      } else if (event === 'SIGNED_OUT' || !nextUser ||
+                 (recoveryActorRef.current && recoveryActorRef.current !== nextUser)) {
+        recoveryActorRef.current = null;
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setScreen('Inicio');
+      } else if (event === 'SIGNED_IN' && recoveryActorRef.current !== nextUser) {
+        setNewPassword('');
+        setConfirmNewPassword('');
         setScreen('Inicio');
       }
     });
@@ -396,19 +425,22 @@ export default function App() {
     if (newPassword.length < 8) return message('Contraseña', 'Usa por lo menos 8 caracteres.');
     if (newPassword !== confirmNewPassword) return message('Contraseña', 'Las contraseñas no coinciden.');
     const actorId = userId;
-    if (!isCurrentUser(actorId)) return message('Sesión', 'El enlace de recuperación no tiene una sesión válida.');
+    if (!isCurrentUser(actorId) || recoveryActorRef.current !== actorId || authEventUserRef.current !== actorId) {
+      return message('Sesión', 'El enlace de recuperación no tiene una sesión válida.');
+    }
     if (!beginAuthBusy()) return;
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (!isCurrentUser(actorId)) return;
+      if (!isCurrentUser(actorId) || recoveryActorRef.current !== actorId || authEventUserRef.current !== actorId) return;
       if (error) throw error;
+      recoveryActorRef.current = null;
       setNewPassword('');
       setConfirmNewPassword('');
       setScreen('Inicio');
       message('Contraseña actualizada', 'La contraseña se actualizó. Tu sesión actual sigue activa.');
     } catch (error) {
-      if (isCurrentUser(actorId)) {
-        message('Contraseña', error.message || 'No se pudo actualizar la contraseña.');
+      if (isCurrentUser(actorId) && recoveryActorRef.current === actorId && authEventUserRef.current === actorId) {
+        message('Contraseña', 'No se pudo actualizar la contraseña. Revisa los requisitos e inténtalo nuevamente.');
       }
     } finally {
       // Liberar el formulario aunque la cuenta haya cambiado mientras esperaba la RPC.
