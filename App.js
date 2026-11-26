@@ -183,6 +183,7 @@ export default function App() {
   const pickupOrdersBusyRef = useRef(false);
   const pickupCancelBusyRef = useRef(false);
   const currentUserRef = useRef(null);
+  const confirmationRef = useRef(null);
   const refreshAccountVersionRef = useRef(0);
   const swapBusyTokenRef = useRef(null);
   const swapQuoteRef = useRef(null);
@@ -191,12 +192,27 @@ export default function App() {
   const authEventUserRef = useRef(null);
   const userId = session?.user?.id;
   // Actualizar durante render para invalidar respuestas de red de cuentas anteriores.
+  if (currentUserRef.current !== userId) confirmationRef.current = null;
   currentUserRef.current = userId;
   swapQuoteRef.current = userId === preparedUserId ? swapQuote : null;
   const isCurrentUser = id => !!id && id === currentUserRef.current;
+  // Las confirmaciones nativas pueden quedar abiertas después de cambiar de sesión.
+  function confirmSessionAction(title, detail, action) {
+    const actorId = userId;
+    if (!isCurrentUser(actorId) || preparedUserId !== actorId || authBusyRef.current) return;
+    const token = {};
+    confirmationRef.current = token;
+    confirmAction(title, detail, () => {
+      if (confirmationRef.current !== token) return;
+      confirmationRef.current = null;
+      if (!isCurrentUser(actorId) || authBusyRef.current) return;
+      action();
+    });
+  }
   function beginAuthBusy() {
     if (authBusyRef.current) return false;
     authBusyRef.current = true;
+    confirmationRef.current = null;
     setAuthBusy(true);
     return true;
   }
@@ -279,6 +295,9 @@ export default function App() {
       if (!active) return;
       authEventReceived = true;
       const nextUser = nextSession?.user?.id || null;
+      if (authEventUserRef.current !== nextUser || event === 'SIGNED_OUT' || event === 'PASSWORD_RECOVERY') {
+        confirmationRef.current = null;
+      }
       authEventUserRef.current = nextUser;
       setSession(nextSession);
       setAuthLoading(false);
@@ -701,7 +720,7 @@ export default function App() {
       }
       if (code === wallet.account_code) return message('Destinatario', 'No puedes enviarte MWD a tu propia cuenta.');
     }
-    confirmAction(type === 'transfer' ? 'Transferencia de prueba' : 'Aportación de prueba',
+    confirmSessionAction(type === 'transfer' ? 'Transferencia de prueba' : 'Aportación de prueba',
       `${formatMWD(cents)} MWD ficticios${type === 'transfer' ? '\nDestino: ' + code : '\nFondo de demostración'}`,
       () => executeOperation(type, cents, type === 'transfer' ? code : ''));
   }
@@ -1149,7 +1168,7 @@ export default function App() {
                   <Text selectable style={styles.muted}>Referencia: {order.orderId}</Text>
                   {order.status === 'pending' && <Btn title={pickupCancelBusy ? 'Procesando...' : 'Cancelar esta orden'}
                     secondary disabled={pickupCancelBusy || pickupOrdersBusy}
-                    onPress={() => confirmAction('Cancelar orden ficticia',
+                    onPress={() => confirmSessionAction('Cancelar orden ficticia',
                       'Esta acción cancelará la orden seleccionada. No afecta dinero real.',
                       () => cancelDemoPickup(order.orderId))} />}
                 </View>
@@ -1246,7 +1265,7 @@ export default function App() {
                 <Text style={styles.muted}>Comisión: {microDisplay(swapQuote.feeOutMicro)} {swapQuote.toAsset === 'STABLE' ? 'DIGITAL' : 'COIN'}</Text>
                 <Text style={styles.muted}>Cotización válida hasta: {new Date(swapQuote.expiresAt).toLocaleTimeString()}</Text>
                 <Btn title="Confirmar conversión ficticia" disabled={swapBusy}
-                  onPress={() => confirmAction('Confirmar conversión ficticia',
+                  onPress={() => confirmSessionAction('Confirmar conversión ficticia',
                     'Esta operación modificará únicamente los saldos de prueba.',
                     () => confirmSwap(swapQuote.quoteId))} />
               </View>}
