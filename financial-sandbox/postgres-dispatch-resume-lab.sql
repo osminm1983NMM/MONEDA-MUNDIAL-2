@@ -68,6 +68,15 @@ BEGIN
  PERFORM pg_advisory_xact_lock(60261126,17);
  PERFORM 1 FROM dispatch_control WHERE singleton AND halted FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'HALT_REQUIRED'; END IF;
+ -- READ COMMITTED is required so checks after the locks use a fresh snapshot.
+ IF current_setting('transaction_isolation')<>'read committed' THEN RAISE EXCEPTION 'RESUME_ISOLATION_REQUIRED'; END IF;
+ -- Freeze the internal evidence until this transaction commits. Do not wait on
+ -- a writer that could itself be waiting for the emergency control row.
+ BEGIN
+  LOCK TABLE orders,quotes,reservations,outbox,dispatch,inbox,journal,event_incidents,review_approvals
+   IN SHARE MODE NOWAIT;
+ EXCEPTION WHEN lock_not_available THEN RAISE EXCEPTION 'RESUME_EVIDENCE_BUSY';
+ END;
  SELECT * INTO h FROM dispatch_halt_events ORDER BY id DESC LIMIT 1;
  IF NOT FOUND OR h.id IS DISTINCT FROM p_halt THEN RAISE EXCEPTION 'HALT_MISMATCH'; END IF;
  SELECT * INTO b FROM statement_batches WHERE id=p_batch;
