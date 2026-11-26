@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/demo-postgres-isolated.yml'
       - 'database/replay/**'
+      - 'docs/operations-audit-v2-candidate.sql'
       - 'scripts/build-isolated-demo-sql.cjs'
       - 'scripts/test-demo-concurrency-local.cjs'
       - 'tests/sql/**'
@@ -71,6 +72,11 @@ jobs:
             echo "RUN $gate"
             psql -X -w -h 127.0.0.1 -p 54322 -U postgres -d mwd_demo_isolated -v ON_ERROR_STOP=1 -f "tests/sql/demo-$gate-gate.sql"
           done
+      - name: Rehearse private ledger audit V2 with negative control
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -X -w -h 127.0.0.1 -p 54322 -U postgres -d mwd_demo_isolated -v ON_ERROR_STOP=1 -f docs/operations-audit-v2-candidate.sql
       - name: Acceptance scope
         if: success()
         run: echo 'Local PostgreSQL tests passed. Auth is a SQL test double; no mobile, email or real payments certified. The service is discarded automatically by Actions.'
