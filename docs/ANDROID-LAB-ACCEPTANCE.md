@@ -141,3 +141,9 @@ Control previo: aportación normal de 1 MWD registrada a las 11:44:36 UTC, saldo
 - Se incorporó bloqueo compartido de autenticación para evitar doble cierre de sesión, captura de errores devueltos y excepciones, mensajes sin detalles internos y salida explícita desde la pantalla de recuperación. Se conserva el evento de Supabase como fuente del estado de sesión; no se borran referencias pendientes de operaciones.
 - Seis escenarios aprobados al ejecutar la lógica real de App.js con dobles de autenticación y aserciones: doble toque, error devuelto, excepción, cambio de cuenta durante error, ausencia de cuenta y botones protegidos. Prueba guardada en tests/android/logout.test.cjs. No equivale a ejecución nativa de Node ni a validación física.
 - Cambios en rama de desarrollo exclusivamente. Pendientes: verificar CI, compilación y prueba física de cierre/reingreso con nueva contraseña, sin solicitar contraseñas ni tokens en el chat. No se modificaron Supabase, saldos ni main.
+
+
+## Aislamiento visual durante cambio de cuenta — 26 de noviembre de 2026
+
+- App.js incorpora preparedUserId y una barrera de render que oculta pantallas privadas hasta limpiar billetera, historial, roles, conversión, retiros, campos y referencias de la cuenta anterior. La referencia de cotización también se invalida al renderizar una cuenta no preparada. No se borran referencias persistentes en AsyncStorage.
+- Siete pruebas de lógica y estructura aprobadas con adaptadores JavaScript: transición A/B, inicio, cuenta preparada, cierre, carga, orden de limpieza e invalidación de cotización. Guardadas en tests/android/account-privacy.test.cjs. No son pruebas de render React Native físico ni de todas las carreras A/B/A o revocación de sesiones. Pendiente CI y APK de esta revisión. No se modificaron main, Supabase ni saldos.
