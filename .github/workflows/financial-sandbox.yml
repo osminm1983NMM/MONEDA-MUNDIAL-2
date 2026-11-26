@@ -88,3 +88,60 @@ jobs:
           docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-cut-evidence-gate-lab.sql
           node tests/financial/postgres-provider-worker.cjs
           docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-final-security-lab.sql
+
+      - name: Concurrent statement cut exclusion and idempotent replay
+        env:
+          LAB_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          db=mwd_financial_sandbox_test
+          sql() { docker exec -i "$LAB_CONTAINER" psql -X -qAt -v ON_ERROR_STOP=1 -U lab -d "$db" "$@"; }
+          [[ "$(sql -c 'select current_database()')" == "$db" ]]
+          tmp=$(mktemp -d)
+          writer=''
+          cleanup() { if [[ -n "$writer" ]]; then wait "$writer" || true; fi; rm -rf "$tmp"; }
+          trap cleanup EXIT
+          # A writer holds a real independent table lock before announcing readiness.
+          sql > "$tmp/writer" <<'SQL' &
+          BEGIN;
+          LOCK TABLE mwd_financial_lab.inbox IN ROW EXCLUSIVE MODE;
+          SELECT pg_advisory_xact_lock(60261126,98);
+          SELECT pg_sleep(5);
+          ROLLBACK;
+          SQL
+          writer=$!
+          ready=false
+          for _ in $(seq 1 40); do
+            if [[ "$(sql -c 'SELECT pg_try_advisory_lock(60261126,98)')" == f ]]; then ready=true; break; fi
+            sleep 0.1
+          done
+          [[ "$ready" == true ]]
+          if sql -c "SET ROLE mwd_lab_statement_service; SELECT mwd_financial_lab.import_statement_cut('concurrent-cut-busy','US-HN:all-funding-payout-refund',clock_timestamp(),0,'[]');" > "$tmp/busy" 2>&1; then
+            echo 'Unsafe snapshot taken while inbox writer active'; exit 1
+          fi
+          grep -q 'CUT_EVIDENCE_BUSY' "$tmp/busy"
+          [[ "$(sql -c "SELECT count(*) FROM mwd_financial_lab.statement_batches WHERE external_id='concurrent-cut-busy'")" == 0 ]]
+          wait "$writer"; writer=''
+          # Two import sessions race with exactly the same immutable envelope.
+          stamp=$(sql -c 'SELECT clock_timestamp()')
+          sql > "$tmp/first" <<SQL &
+          BEGIN;
+          SET LOCAL ROLE mwd_lab_statement_service;
+          SELECT mwd_financial_lab.import_statement_cut('concurrent-cut-replay','US-HN:all-funding-payout-refund','$stamp',0,'[]');
+          SELECT pg_advisory_xact_lock(60261126,98);
+          SELECT pg_sleep(3);
+          COMMIT;
+          SQL
+          writer=$!
+          ready=false
+          for _ in $(seq 1 40); do
+            if [[ "$(sql -c 'SELECT pg_try_advisory_lock(60261126,98)')" == f ]]; then ready=true; break; fi
+            sleep 0.1
+          done
+          [[ "$ready" == true ]]
+          second=$(sql -c "SET ROLE mwd_lab_statement_service; SELECT mwd_financial_lab.import_statement_cut('concurrent-cut-replay','US-HN:all-funding-payout-refund','$stamp',0,'[]');")
+          wait "$writer"; writer=''
+          first=$(grep -E '^[0-9a-f-]{36}$' "$tmp/first")
+          [[ "$first" == "$second" ]]
+          [[ "$(sql -c "SELECT count(*) FROM mwd_financial_lab.statement_batches b JOIN mwd_financial_lab.statement_cut_metadata m ON m.batch_id=b.id WHERE b.external_id='concurrent-cut-replay'")" == 1 ]]
+          echo 'Concurrent cut writer exclusion and replay verified in disposable database'
