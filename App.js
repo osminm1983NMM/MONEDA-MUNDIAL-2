@@ -11,9 +11,30 @@ import {
   View, Text, TextInput, TouchableOpacity, ScrollView, Linking,
   StyleSheet, Alert, Platform, StatusBar, ActivityIndicator
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import NativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import PartnerRegistryScreen from './PartnerRegistryScreen';
+
+// Solo referencias de operaciones DEMO: orden FIFO por clave, incluso si cambia la sesión.
+// Las claves de autenticación de Supabase conservan su almacenamiento original.
+function createPendingStorage(nativeStorage) {
+  const queues = new Map();
+  function enqueue(key, work) {
+    const previous = queues.get(key) || Promise.resolve();
+    const result = previous.then(work);
+    // Un fallo se propaga a su solicitante, pero no bloquea las tareas siguientes.
+    const tail = result.then(() => undefined, () => undefined);
+    queues.set(key, tail);
+    tail.then(() => { if (queues.get(key) === tail) queues.delete(key); });
+    return result;
+  }
+  return {
+    getItem: key => enqueue(key, () => nativeStorage.getItem(key)),
+    setItem: (key, value) => enqueue(key, () => nativeStorage.setItem(key, value)),
+    removeItem: key => enqueue(key, () => nativeStorage.removeItem(key)),
+  };
+}
+const AsyncStorage = createPendingStorage(NativeAsyncStorage);
 
 // CLAVE PUBLICABLE de Supabase. Nunca coloques claves secret/service_role en App.js.
 const SUPABASE_URL = 'https://egrsdrlpavrtbgxoyxvg.supabase.co';
@@ -23,7 +44,7 @@ const BUILD_COMMIT = 'sin verificar';
 const PASSWORD_RESET_REDIRECT = 'com.monedamundial.app://auth/reset-password';
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: AsyncStorage,
+    storage: NativeAsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
