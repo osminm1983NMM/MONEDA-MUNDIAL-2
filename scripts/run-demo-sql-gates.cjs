@@ -5,7 +5,7 @@ const { spawnSync } = require('node:child_process');
 const { existsSync } = require('node:fs');
 const path = require('node:path');
 const historical = [
-  'accounting-release', 'ledger-posting-identity', 'security-release', 'auth-isolation', 'wallet-isolation',
+  'accounting-release', 'ledger-posting-identity', 'ledger-reverse-coverage', 'security-release', 'auth-isolation', 'wallet-isolation',
   'remittance-quote', 'owner-authorization', 'owner-nonnull-authorization', 'conversion-reconciliation',
   'private-permissions', 'historical-recovery', 'conversion-recovery-history',
   'pickup-recovery-history', 'transfer-contribution-retry-history', 'route-simulation-only',
