@@ -67,7 +67,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for gate in accounting-release ledger-posting-identity security-release private-permissions auth-isolation wallet-isolation remittance-quote route-simulation-only owner-authorization owner-nonnull-authorization historical-recovery transfer-contribution-retry-history; do
+          for gate in accounting-release ledger-posting-identity ledger-reverse-coverage security-release private-permissions auth-isolation wallet-isolation remittance-quote route-simulation-only owner-authorization owner-nonnull-authorization historical-recovery transfer-contribution-retry-history; do
             echo "RUN $gate"
             psql -X -w -h 127.0.0.1 -p 54322 -U postgres -d mwd_demo_isolated -v ON_ERROR_STOP=1 -f "tests/sql/demo-$gate-gate.sql"
           done
