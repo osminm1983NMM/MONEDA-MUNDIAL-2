@@ -475,7 +475,9 @@ export default function App() {
 
   async function recoverPendingOperation(id = userId) {
     if (!isCurrentUser(id) || busyRef.current) return;
-    busyRef.current = true;
+    const token = {};
+    busyRef.current = token;
+    const isActive = () => isCurrentUser(id) && busyRef.current === token;
     setBusy(true);
     const storageKey = pendingOperationStorageKey(id);
     let saved = null;
@@ -483,7 +485,7 @@ export default function App() {
     setPendingOperationRecoveryError('');
     try {
       saved = await AsyncStorage.getItem(storageKey);
-      if (id !== currentUserRef.current) return;
+      if (!isActive()) return;
       if (!saved) {
         pendingRef.current = null;
         setPendingOperation(null);
@@ -498,7 +500,7 @@ export default function App() {
         p_request_id: pending.id,
       });
       if (statusResponse.error) throw statusResponse.error;
-      if (id !== currentUserRef.current) return;
+      if (!isActive()) return;
       if (statusResponse.data?.status === 'processed') {
         const result = statusResponse.data;
         if (result.kind !== pending.type || Number(result.amountCents) !== pending.cents ||
@@ -506,11 +508,11 @@ export default function App() {
           throw new Error('La referencia local no coincide con la operación confirmada.');
         }
         await AsyncStorage.removeItem(storageKey);
-        if (id !== currentUserRef.current) return;
+        if (!isActive()) return;
         pendingRef.current = null;
         setPendingOperation(null);
         const refreshed = await refreshAccount(id);
-        if (id !== currentUserRef.current) return;
+        if (!isActive()) return;
         if (refreshed === true) {
           setSyncNotice('La operación pendiente ya estaba confirmada. Se actualizó tu saldo.');
         } else if (refreshed === false) {
@@ -524,7 +526,7 @@ export default function App() {
       pendingRef.current = pending;
       setPendingOperation(pending);
     } catch (error) {
-      if (id === currentUserRef.current) {
+      if (isActive()) {
         if (!pendingValidated) {
           setPendingOperationRecoveryError(
             'No pudimos leer o validar la referencia local. Por seguridad, no iniciaremos otra operación hasta revisarla.'
@@ -533,7 +535,7 @@ export default function App() {
         setSyncNotice('No se pudo verificar la operación pendiente. Conservamos su referencia para reintentar.');
       }
     } finally {
-      if (isCurrentUser(id)) {
+      if (isActive()) {
         busyRef.current = false;
         setBusy(false);
       }
@@ -551,7 +553,9 @@ export default function App() {
     if (busyRef.current) return;
     const actorId = userId;
     if (!isCurrentUser(actorId)) return message('Sesión', 'Inicia sesión para continuar.');
-    busyRef.current = true;
+    const token = {};
+    busyRef.current = token;
+    const isActive = () => isCurrentUser(actorId) && busyRef.current === token;
     setBusy(true);
     let referenceSaved = false;
     try {
@@ -559,7 +563,7 @@ export default function App() {
       let pending = pendingRef.current;
       if (!pending) {
         const saved = await AsyncStorage.getItem(storageKey);
-        if (!isCurrentUser(actorId)) return;
+        if (!isActive()) return;
         if (saved) pending = parsePendingOperation(saved, actorId);
       }
       referenceSaved = !!pending;
@@ -575,7 +579,7 @@ export default function App() {
         const statusResponse = await supabase.rpc('mwd_operation_status_demo', {
           p_request_id: pending.id,
         });
-        if (!isCurrentUser(actorId)) return;
+        if (!isActive()) return;
         if (statusResponse.error) throw statusResponse.error;
         if (statusResponse.data?.status === 'processed') {
           const result = statusResponse.data;
@@ -584,14 +588,14 @@ export default function App() {
             throw new Error('La referencia local no coincide con la operación confirmada.');
           }
           await AsyncStorage.removeItem(storageKey);
-          if (!isCurrentUser(actorId)) return;
+          if (!isActive()) return;
           pendingRef.current = null;
           setPendingOperation(null);
           setAmount('');
           setRecipientCode('');
           setScreen('Inicio');
           await refreshAccount(actorId);
-          if (!isCurrentUser(actorId)) return;
+          if (!isActive()) return;
           message('Operación ya confirmada', 'La solicitud anterior ya quedó registrada. Puedes consultar el estado de la actualización en Inicio.');
           return;
         }
@@ -609,11 +613,11 @@ export default function App() {
         };
         await AsyncStorage.setItem(storageKey, JSON.stringify(pending));
         referenceSaved = true;
-        if (!isCurrentUser(actorId)) return;
+        if (!isActive()) return;
         pendingRef.current = pending;
         setPendingOperation(pending);
       }
-      if (!isCurrentUser(actorId)) return;
+      if (!isActive()) return;
       const requestId = pending.id;
       const response = type === 'transfer'
         ? await supabase.rpc('mwd_transfer_demo', {
@@ -622,11 +626,11 @@ export default function App() {
         : await supabase.rpc('mwd_contribute_demo', {
           p_amount_cents: cents, p_request_id: requestId,
         });
-      if (!isCurrentUser(actorId)) return;
+      if (!isActive()) return;
       if (response.error) {
         if (isDefinitiveRpcRejection(response.error, response.status)) {
           await AsyncStorage.removeItem(storageKey);
-          if (!isCurrentUser(actorId)) return;
+          if (!isActive()) return;
           pendingRef.current = null;
           setPendingOperation(null);
           message('Operación rechazada',
@@ -641,7 +645,7 @@ export default function App() {
         throw new Error('La operación no pudo ser confirmada.');
       }
       await AsyncStorage.removeItem(storageKey);
-      if (!isCurrentUser(actorId)) return;
+      if (!isActive()) return;
       pendingRef.current = null;
       setPendingOperation(null);
       setAmount('');
@@ -652,7 +656,7 @@ export default function App() {
         : 'Aportación de demostración registrada en Supabase.');
       await refreshAccount(actorId);
     } catch (error) {
-      if (isCurrentUser(actorId)) {
+      if (isActive()) {
         if (!referenceSaved) {
           setPendingOperationRecoveryError('No se pudo verificar o guardar la referencia local. Reintenta la revisión antes de enviar otra operación.');
           message('Referencia no verificada', 'No se envió la operación. No pudimos confirmar el almacenamiento local. Reintenta la revisión.');
@@ -662,7 +666,7 @@ export default function App() {
           (error.message || 'Error desconocido') + '\nLa referencia queda guardada. Reintenta con los mismos datos.');
       }
     } finally {
-      if (isCurrentUser(actorId)) {
+      if (isActive()) {
         busyRef.current = false;
         setBusy(false);
       }
