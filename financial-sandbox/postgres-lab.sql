@@ -37,6 +37,8 @@ CREATE TABLE inbox (
  amount_minor bigint NOT NULL CHECK(amount_minor>0),
  PRIMARY KEY(provider,event_id)
 );
+-- Reconciliation and order integrity look up accepted events by transfer reference.
+CREATE INDEX inbox_reference_outcome_idx ON inbox(reference,outcome);
 CREATE TABLE journal (
  provider text NOT NULL,
  event_id text NOT NULL,
