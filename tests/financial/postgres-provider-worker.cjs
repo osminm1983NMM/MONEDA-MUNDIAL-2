@@ -3,7 +3,11 @@
 const {execFileSync}=require('node:child_process');
 const assert=require('node:assert/strict');
 const {createWorker}=require('../../financial-sandbox/provider-worker.cjs');
-const {createMockProvider}=require('../../financial-sandbox/mock-provider.cjs');
+const {openDurableProvider}=require('../../financial-sandbox/durable-provider.cjs');
+const {mkdtempSync,rmSync}=require('node:fs');
+const {tmpdir}=require('node:os');
+const {join}=require('node:path');
+const {setTimeout:delay}=require('node:timers/promises');
 const container=process.env.LAB_CONTAINER;
 if(!/^[a-f0-9]{12,64}$/.test(container||''))throw Error('CI_LAB_REQUIRED');
 const schema='mwd_financial_lab';
@@ -31,13 +35,27 @@ function openOrder(actor){
 function prepare(actor,order,kind){return sql('SELECT '+schema+'.prepare_authorized('+lit(actor)+','+lit(order)+'::uuid,'+lit(kind)+')','order');}
 async function main(){
  assert.equal(sql('SELECT current_database()'),'mwd_financial_sandbox_test');
- const p=createMockProvider({secret:'synthetic-ci-only-worker-secret-no-real-credentials'});
+ const dir=mkdtempSync(join(tmpdir(),'mwd-e2e-provider-'));
+ const config={environment:'sandbox',path:join(dir,'provider.sqlite'),secret:'synthetic-ci-only-worker-secret-no-real-credentials'};
+ let p=openDurableProvider({...config,initialize:true});
+ try{
  let worker=createWorker({environment:'sandbox',store:store(),provider:p});
  const order=openOrder('workerPaid');
  p.loseNextResponse();
  await assert.rejects(worker.tick(),/SIMULATED_RESPONSE_LOSS/);
  assert.equal(p.submissions().length,1);assert.equal(state(order),'funding_pending');
- // Simulate expired worker lease and restart process-local worker instance.
+ // Restart the independent provider and the disposable PostgreSQL service.
+ p.close();p=null;
+ execFileSync('docker',['restart',container],{timeout:30000});
+ let ready=false;
+ for(let attempt=0;attempt<40;attempt++){
+  try{execFileSync('docker',['exec',container,'pg_isready','-U','lab','-d','mwd_financial_sandbox_test'],{stdio:'ignore',timeout:3000});ready=true;break;}catch{await delay(500);}
+ }
+ assert.equal(ready,true,'database failed to recover');
+ p=openDurableProvider(config);
+ assert.equal((await p.lookup(order+'-funding')).status,'accepted');
+ assert.equal(state(order),'funding_pending');
+ // Expire the old lease and recreate the worker.
  sql("UPDATE "+schema+".dispatch SET lease_until=clock_timestamp()-interval '1 second' WHERE reference="+lit(order+'-funding'));
  worker=createWorker({environment:'sandbox',store:store(),provider:p});
  assert.equal((await worker.tick()).status,'transport_acknowledged');
@@ -65,6 +83,7 @@ async function main(){
  assert.equal((await worker.tick()).status,'idle');
  assert.equal(sql('SELECT sum(payable) FROM '+schema+'.journal WHERE order_id IN ('+lit(order)+'::uuid,'+lit(refund)+'::uuid)'),'0');
  assert.equal(sql('SELECT sum(revenue) FROM '+schema+'.journal WHERE order_id IN ('+lit(order)+'::uuid,'+lit(refund)+'::uuid)'),'-150');
- console.log('Sandbox worker: signed funding, payout, refund and lost-response recovery verified');
+ console.log('Sandbox worker: signed funding, payout, refund and PostgreSQL/provider restart recovery verified');
+ }finally{if(p)p.close();rmSync(dir,{recursive:true,force:true});}
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
