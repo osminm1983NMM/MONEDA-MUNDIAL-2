@@ -661,15 +661,6 @@ export default function App() {
     }
   }
   async function requestSwapQuote() {
-    const normalized = swapAmount.trim().replace(',', '.');
-    if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(normalized)) {
-      return message('Cantidad inválida', 'Usa hasta seis decimales.');
-    }
-    const [whole, fraction = ''] = normalized.split('.');
-    const micro = Number(whole) * 1000000 + Number(fraction.padEnd(6, '0'));
-    if (!Number.isSafeInteger(micro) || micro < 1000000 || micro > 10000000000) {
-      return message('Cantidad inválida', 'Introduce entre 1 y 10,000 unidades de prueba.');
-    }
     const actorId = userId;
     if (!isCurrentUser(actorId)) return;
     const busyToken = beginSwapBusy();
@@ -681,13 +672,22 @@ export default function App() {
       if (!isCurrentUser(actorId)) return;
       if (saved) {
         const pending = JSON.parse(saved);
-        if (pending.userId !== actorId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pending.quote?.quoteId || '')) {
+        if (!pending || pending.userId !== actorId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pending.quote?.quoteId || '')) {
           throw new Error('Referencia de conversión pendiente inválida. No se iniciará otra conversión.');
         }
         swapQuoteRef.current = pending.quote;
         setSwapQuote(pending.quote);
         message('Conversión pendiente', 'Confirma nuevamente la misma referencia para recuperar su resultado.');
         return;
+      }
+      const normalized = swapAmount.trim().replace(',', '.');
+      if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(normalized)) {
+        return message('Cantidad inválida', 'Usa hasta seis decimales.');
+      }
+      const [whole, fraction = ''] = normalized.split('.');
+      const micro = Number(whole) * 1000000 + Number(fraction.padEnd(6, '0'));
+      if (!Number.isSafeInteger(micro) || micro < 1000000 || micro > 10000000000) {
+        return message('Cantidad inválida', 'Introduce entre 1 y 10,000 unidades de prueba.');
       }
       const { data, error } = await supabase.rpc('mwd_conversion_quote_demo', {
         p_from_asset: swapFrom, p_amount_micro: micro, p_client_request_id: uniqueRequestId(),
@@ -717,7 +717,7 @@ export default function App() {
       if (!isCurrentUser(actorId)) return;
       if (saved) {
         const pending = JSON.parse(saved);
-        if (pending.userId !== actorId || pending.quote?.quoteId !== quote.quoteId) {
+        if (!pending || pending.userId !== actorId || pending.quote?.quoteId !== quote.quoteId) {
           throw new Error('Existe otra conversión pendiente. Recupera primero su referencia.');
         }
       } else {
