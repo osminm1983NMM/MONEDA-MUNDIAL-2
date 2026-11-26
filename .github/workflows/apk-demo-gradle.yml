@@ -31,7 +31,8 @@ jobs:
           node scripts/preflight-release-local.js
           node scripts/audit-demo-static.cjs
           node scripts/audit-regression-safety.cjs
-          node --test scripts/test-transfer-recovery.cjs scripts/test-conversion-retiro.cjs
+          node --test scripts/test-transfer-recovery.cjs scripts/test-conversion-retiro.cjs scripts/test-demo-sql-runner.cjs
+          node scripts/test-password-recovery.cjs
       - run: npx expo install --check
       - name: Configurar aplicación independiente para Samsung
         run: |
@@ -45,6 +46,8 @@ jobs:
           const app = fs.readFileSync('App.js', 'utf8');
           fs.writeFileSync('App.js', app.replaceAll('com.monedamundial.app:', 'com.monedamundial.lab.samsung:'));
           NODE
+      - name: Validar recuperación con el esquema LAB efectivo
+        run: node scripts/test-password-recovery.cjs --lab
       - run: npx expo prebuild --platform android --no-install
       - name: Compilar con JavaScript incluido y firma de desarrollo
         working-directory: android
