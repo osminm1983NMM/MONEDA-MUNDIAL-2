@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
 import NativeAsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
+import { createAuthStorage, createMemoryAuthStorage } from './auth-storage';
 import { createClient } from '@supabase/supabase-js';
 import PartnerRegistryScreen from './PartnerRegistryScreen';
 
@@ -43,9 +45,12 @@ const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_sKotmweOAug6XqTR16U9Wg_ugxAx3vm
 // GitHub Actions sustituye este marcador exclusivamente al compilar LAB.
 const BUILD_COMMIT = 'sin verificar';
 const PASSWORD_RESET_REDIRECT = 'com.monedamundial.app://auth/reset-password';
+// Native auth tokens and PKCE verifiers never fall back to plaintext storage.
+// Web DEMO uses volatile storage; persistent sessions are Android-only in this release.
+const authStorage = Platform.OS === 'web' ? createMemoryAuthStorage() : createAuthStorage(SecureStore, NativeAsyncStorage);
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: NativeAsyncStorage,
+    storage: authStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
@@ -310,7 +315,7 @@ export default function App() {
         // Una respuesta inicial tardía no debe sobrescribir una sesión más reciente.
         if (active && !authEventReceived) setSession(data.session);
       })
-      .catch(error => message('Sesión', error.message))
+      .catch(() => { if (active) message('Sesión', 'No se pudo restaurar la sesión de forma segura. Intenta iniciar sesión nuevamente.'); })
       .finally(() => { if (active) setAuthLoading(false); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
