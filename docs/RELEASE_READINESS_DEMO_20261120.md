@@ -15,7 +15,7 @@ Estado: **NO APROBADO para dinero real**. Esta lista no equivale a resultados de
 - [x] Liberar una referencia solo ante rechazo SQL definitivo; conservarla ante fallos de red o estados inciertos.
 - [x] Bloquear los campos de autenticación mientras se envían solicitudes para evitar perder cambios del usuario.
 - [x] Revisar de solo lectura las RPC de transferencia DEMO: actor desde `auth.uid()`, `search_path` vacío, sin ejecución de `anon`, y referencia idempotente única por actor.
-- [ ] Validar que la APK proviene del commit auditado y que se instala y abre en Android.
+- [x] Validar procedencia, instalación y apertura de la APK en emulador Android (CI 45736122605). Identidad de APK física aún pendiente.
 - [ ] Agregar `com.monedamundial.app://auth/reset-password` a Redirect URLs en Supabase Auth.
 - [ ] Probar el enlace de restablecimiento en el mismo teléfono, con la app abierta y cerrada, y luego iniciar sesión con la contraseña nueva.
 - [ ] Confirmar que el enlace de un solo uso rechaza enlaces vencidos o ya consumidos.
@@ -73,3 +73,7 @@ El ledger financiero, que es un flujo separado, tenía 19 transacciones `wallet_
 - [ ] Pruebas de penetración, recuperación, monitoreo y plan de incidentes.
 
 **Regla de costos:** no iniciar ramas de base de datos de pago, builds en la nube ni servicios persistentes para completar esta matriz. Registrar evidencia antes de marcar cada casilla.
+
+## Actualización de cierre — 2026-11-25
+
+Evidencia consolidada: [aceptación Android LAB](ANDROID-LAB-ACCEPTANCE.md). Ocho puertas SQL aprobadas en pruebas aisladas o con rollback; CI de APK y smoke test aprobados. Samsung: apertura, sesión, actualización y saldo de 10,104.00 MWD conciliado con Supabase. Cinco billeteras, 26 operaciones, cero saldos inválidos y cero referencias duplicadas. Las pruebas físicas de transferencia, cambio de cuenta, recuperación de red, conversión, aportación y retiro siguen pendientes. Para LAB se requiere además la URL exacta `com.monedamundial.lab.samsung://auth/reset-password` en Supabase Auth. No habilitar dinero real ni fusionar a main basándose únicamente en estos resultados.
