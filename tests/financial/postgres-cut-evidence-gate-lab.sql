@@ -193,8 +193,26 @@ BEGIN
  IF (SELECT count(*) FROM journal WHERE order_id=o)<>2 OR (SELECT sum(payable) FROM journal WHERE order_id=o)<>0 OR (SELECT sum(cash) FROM journal WHERE order_id=o)<>0 THEN RAISE EXCEPTION 'recovery accounting mismatch'; END IF;
  IF (SELECT count(*) FROM outbox WHERE order_id=o AND kind='refund')<>1 THEN RAISE EXCEPTION 'second refund created'; END IF;
 END $$;
+-- Completed refund recovery must not permanently block a global emergency resume.
+DO $ DECLARE h bigint; b uuid; o uuid:=current_setting('mwd.test.order')::uuid;
+BEGIN
+ IF NOT order_integrity_ok(o) THEN RAISE EXCEPTION 'recovered order integrity mismatch'; END IF;
+ IF halt_dispatch('operator_emergency')<>'halted' THEN RAISE EXCEPTION 'halt failed'; END IF;
+ SELECT max(id) INTO h FROM dispatch_halt_events;
+ b:=import_statement_cut('recover-resume','US-HN:all-funding-payout-refund',clock_timestamp(),jsonb_array_length(current_setting('mwd.test.rows')::jsonb),current_setting('mwd.test.rows')::jsonb);
+ IF propose_dispatch_resume(h,b,'resume-first')<>'proposed' OR approve_dispatch_resume(h,b,'resume-second')<>'resumed' THEN RAISE EXCEPTION 'recovered refund blocked resume'; END IF;
+ -- A distinct later contradiction on that same order must still block another resume.
+ IF record_verified_event('mock-remittance','recover-later-conflict',o::text||'-refund','confirmed','USD',1)<>'manual_review' THEN RAISE EXCEPTION 'later incident not quarantined'; END IF;
+ IF halt_dispatch('operator_emergency')<>'halted' THEN RAISE EXCEPTION 'second halt failed'; END IF;
+ SELECT max(id) INTO h FROM dispatch_halt_events;
+ b:=import_statement_cut('recover-resume-later','US-HN:all-funding-payout-refund',clock_timestamp(),jsonb_array_length(current_setting('mwd.test.rows')::jsonb),current_setting('mwd.test.rows')::jsonb);
+ BEGIN PERFORM propose_dispatch_resume(h,b,'resume-first'); RAISE EXCEPTION 'later incident bypassed';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'INCIDENTS_OPEN' THEN RAISE; END IF; END;
+ IF NOT (SELECT halted FROM dispatch_control_summary) THEN RAISE EXCEPTION 'unsafe resume'; END IF;
+ IF (SELECT count(*) FROM journal WHERE order_id=o)<>2 THEN RAISE EXCEPTION 'resume changed accounting'; END IF;
+END $;
 SET LOCAL ROLE mwd_lab_audit_service;
-DO $$ BEGIN IF (SELECT completed FROM refund_recovery_summary)<>1 OR (SELECT orders FROM refund_attention)<>0 THEN RAISE EXCEPTION 'audit mismatch'; END IF; END $$;
+DO $ BEGIN IF (SELECT completed FROM refund_recovery_summary)<>1 OR (SELECT orders FROM refund_attention)<>0 THEN RAISE EXCEPTION 'audit mismatch'; END IF; END $;
 RESET ROLE;
 ROLLBACK;
 
