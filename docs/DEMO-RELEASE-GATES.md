@@ -68,3 +68,11 @@ Ejecutar manualmente `validar-demo.yml` en `dev/cierre-android-20261125`. Exigir
 - Se compararon las definiciones de 73 funciones MWD actuales con el archivo de migraciones. Además de las seis funciones ya recuperadas del catálogo, se detectaron tres cuerpos actualizados fuera del historial: `mwd_get_payment_request_demo`, `mwd_owner_partner_audit_feed_demo` y `mwd_owner_partner_location_save_demo`.
 - `database/replay/current-rpc-overrides-20261126.json` conserva sus definiciones actuales; el generador las aplica después de las 38 migraciones distintas y de los objetos restaurados. Se verificó la generación de los tres reemplazos. No equivale a ejecutar PostgreSQL ni certificar paridad total de permisos y datos.
 - El entorno actual no tiene PostgreSQL ni Docker. El conector de GitHub no devuelve los resultados de workflows disparados por push mediante la consulta de runs por commit. Verificar la ejecución de `DEMO PostgreSQL aislado` en Actions; no declarar pruebas financieras concurrentes aprobadas hasta disponer de sus logs.
+
+### Evidencia de CI aislada — 26 de noviembre de 2026
+
+- PR de validación en borrador: https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/pull/132
+- Ejecución: https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45808960480, job 139871471465, commit f0cf7f9eaf9ba8ed93a72d60042d9654c348cae0.
+- Reconstrucción del esquema PostgreSQL 17 y creación de usuarios sintéticos: paso 6 completado con éxito.
+- Tres puertas funcionales transaccionales: paso 7 completado con éxito.
+- Estado observado al registrar: [{"step":"Execute four simultaneous retry scenarios","status":"in_progress","conclusion":null},{"step":"Verify accounting and security after concurrent operations","status":"pending","conclusion":null},{"step":"Acceptance scope","status":"pending","conclusion":null}]. No declarar aprobados pasos sin conclusión success. No se certifica Supabase Auth real ni Android físico.
