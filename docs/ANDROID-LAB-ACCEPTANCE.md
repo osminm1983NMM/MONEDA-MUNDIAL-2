@@ -49,3 +49,7 @@ Usuario confirma dos envíos voluntarios de 10 MWD. Supabase registra dos transf
 ## Historial físico del destinatario
 
 Captura Samsung 20:52 EST: dos transferencias recibidas de +10.00 MWD, a las 20:49:26 y 20:48:32 del 25/11/2026, coincidentes con los registros SQL. Recepción e historial visual aprobados. Pendiente captura de saldo B (esperado 9,913.00 MWD según consulta anterior) y prueba de recuperación de red. No se alteraron saldos.
+
+## Conciliación física del destinatario
+
+Captura Samsung 20:53 EST: cuenta B con código destinatario correcto y saldo 9,913.00 MWD, idéntico a la consulta Supabase posterior a los dos envíos voluntarios. Diferencia cero. Aprobada transferencia normal de extremo a extremo y visualización de saldo e historial receptor. Pendientes pruebas físicas de reintento, conversión, aportación, retiro y recuperación de contraseña. No se modificaron saldos.
