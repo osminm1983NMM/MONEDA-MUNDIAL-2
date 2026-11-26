@@ -3,6 +3,10 @@ on:
   push:
     branches: [fix/eas-build-current-ref-20261121, dev/cierre-android-20261125]
     paths: ['.github/workflows/apk-demo-gradle.yml', 'App.js', 'PartnerRegistryScreen.js', 'app.json', 'package.json', 'package-lock.json', 'scripts/probar-apk-samsung.sh', 'scripts/test-*.cjs', 'scripts/audit-*.cjs', 'scripts/preflight-release-local.js', 'tests/android/**']
+  pull_request:
+    branches: [dev/cierre-android-20261125]
+    paths:
+      - '.github/workflows/apk-demo-gradle.yml'
   workflow_dispatch:
 concurrency:
   group: mwd-lab-apk-${{ github.ref }}
@@ -11,6 +15,7 @@ permissions:
   contents: read
 jobs:
   apk:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 55
     steps:
