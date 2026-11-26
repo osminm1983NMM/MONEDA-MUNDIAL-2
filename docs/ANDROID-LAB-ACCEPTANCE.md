@@ -102,3 +102,7 @@ Captura Samsung 06:35 EST: listado de retiros muestra Honduras, 10.00 MWD fictic
 ## Cancelación física de retiro — 26 de noviembre de 2026
 
 Captura Samsung 06:37 EST: «Orden cancelada correctamente», estado cancelled. Consulta independiente de solo lectura confirma la misma orden HN de 1000 centavos, titular correcto, una fila por referencia, estado cancelled persistido y saldo sin cambios de 990300 centavos MWD. Creación, listado y cancelación físicos aprobados para el flujo normal simulado. Pendiente traducir pending/cancelled/expired al español sin modificar estados internos. No se cambió Supabase ni main. La identidad exacta del APK, recuperación por correo, conversión inversa y reintento físico de red siguen sujetos a evidencia independiente.
+
+## Conversión inversa física — 26 de noviembre de 2026
+
+Capturas Samsung 06:38–06:40 EST: origen DIGITAL, cotización de 10 DIGITAL, bruto 80 COIN, comisión 0.2 COIN (0.25%), neto 79.8 COIN. Mensaje «Operación registrada correctamente». Saldos COIN 282.500000 → 362.300000; DIGITAL 977.119684 → 967.119684. Consulta independiente de solo lectura confirma cotización de 11:39:50 UTC ejecutada una vez, importes 10000000/79800000/200000 micro-unidades, cuatro asientos, cero activos descuadrados y ambos saldos coincidentes. Conversión inversa normal física aprobada. Identidad exacta del APK, recuperación por correo y reintento de red físico siguen pendientes. No se cambió Supabase ni main.
