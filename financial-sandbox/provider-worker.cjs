@@ -1,4 +1,5 @@
 'use strict';
+const {normalizeVerifiedEvent}=require('./verified-event.cjs');
 // Offline synthetic worker; never import into mobile or live service.
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const id=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(v);
@@ -43,12 +44,10 @@ function createWorker({environment,store,provider}){
    return {status:'transport_acknowledged',reference:intent.reference};
   },
   async receive(raw,signature){
-   const e=provider.verifyEvent(raw,signature);
-   if(!e||e.provider!==provider.id||e.mode!=='sandbox'||!id(e.eventId)||!id(e.orderId)||!Number.isSafeInteger(e.amountMinor)||e.amountMinor<=0)fail('INVALID_EVENT');
-   const m=typeof e.type==='string'&&/^(funding|payout|refund)_(confirmed|failed)$/.exec(e.type);
-   if(!m||!id(e.reference)||e.reference!==e.orderId+'-'+m[1]||e.currency!==(m[1]==='payout'?'HNL':'USD'))fail('INVALID_EVENT');
+   const event=normalizeVerifiedEvent(provider.verifyEvent(raw,signature),provider.id);
+   if(!event)fail('INVALID_EVENT');
    // Event authorization is distinct from transport acknowledgment.
-   return store.record({provider:e.provider,eventId:e.eventId,reference:e.reference,outcome:m[2],currency:e.currency,amountMinor:e.amountMinor});
+   return store.record(event);
   }
  };
 }

@@ -58,3 +58,14 @@ test('worker recovers both payout response losses across provider restarts', asy
   provider.close();
  }
 });
+
+test('durable provider refuses to sign event IDs beyond the PostgreSQL limit',async t=>{
+ const p=openDurableProvider({...setup(t),initialize:true});
+ try{
+  await p.submit(intent);
+  const valid='x'.repeat(100);
+  a.throws(()=>p.event(intent.reference,'funding_confirmed',valid+'x'),/INVALID_EVENT/);
+  const {raw,signature}=p.event(intent.reference,'funding_confirmed',valid);
+  a.equal(p.verifyEvent(raw,signature).eventId,valid);
+ }finally{p.close();}
+});

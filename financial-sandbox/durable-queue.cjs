@@ -1,4 +1,5 @@
 'use strict';
+const {normalizeVerifiedEvent}=require('./verified-event.cjs');
 // Local synthetic prototype only. No network, actual funds, PII or live credentials.
 const {DatabaseSync}=require('node:sqlite');
 const {randomUUID,createHash}=require('node:crypto');
@@ -66,10 +67,8 @@ class DurableSandboxQueue{
  // Verifier must be trusted and synchronous; only authenticated synthetic events enter inbox.
  ingest({raw,signature,provider}){
   if(provider?.mode!=='sandbox'||!id(provider.id)||typeof provider.verifyEvent!=='function'||typeof raw!=='string'||Buffer.byteLength(raw)>16384||typeof signature!=='string'||!/^[0-9a-f]{64}$/.test(signature))fail('INVALID_EVENT');
-  const e=provider.verifyEvent(raw,signature);
-  if(!e||e.mode!=='sandbox'||e.provider!==provider.id||!id(e.eventId)||!id(e.reference)||!id(e.orderId))fail('INVALID_EVENT');
-  const m=typeof e.type==='string'&&/^(funding|payout|refund)_(confirmed|failed)$/.exec(e.type);
-  if(!m||e.reference!==e.orderId+'-'+m[1]||e.currency!==(m[1]==='payout'?'HNL':'USD')||!Number.isSafeInteger(e.amountMinor)||e.amountMinor<=0)fail('INVALID_EVENT');
+  const e=normalizeVerifiedEvent(provider.verifyEvent(raw,signature),provider.id);
+  if(!e)fail('INVALID_EVENT');
   const fp=hash(raw);
   return this.#tx(()=>{
    const old=this.#db.prepare('SELECT fingerprint FROM sandbox_inbox WHERE provider=? AND event_id=?').get(e.provider,e.eventId);

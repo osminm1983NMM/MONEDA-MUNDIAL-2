@@ -126,3 +126,5 @@ La asignación de un arrendamiento empieza a contar su plazo al actualizar la fi
 La cola asigna primero la intención elegible que lleva más tiempo en espera y usa la referencia para desempatar. Una prueba con fechas y referencias en orden inverso comprueba prioridad por antigüedad, exclusión de arrendamientos activos y desempate determinista al vencer dos arrendamientos.
 
 El resumen de revisión distingue los incidentes abiertos, las revisiones aprobadas y los incidentes resueltos por recuperación de reembolso. La auditoría y el control de reanudación consultan la misma clasificación. El historial conserva todos los incidentes, incluido cualquier conflicto posterior al reembolso. La regresión comprueba los conteos y que el rol auditor solo reciba agregados.
+
+Los eventos sintéticos normalizados aceptan identificadores de hasta 100 caracteres e importes expresados en enteros positivos representables exactamente en JavaScript. El worker y la bandeja de entrada local comparten esa validación y PostgreSQL rechaza importes fuera del rango antes de contabilizar o crear un incidente. Los límites contractuales del proveedor oficial se verificarán en su sandbox.

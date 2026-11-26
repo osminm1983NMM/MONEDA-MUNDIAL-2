@@ -10,14 +10,22 @@ RESET ROLE;
 SELECT set_config('mwd.test.ref',:'o_id'||'-funding',true);
 SET LOCAL ROLE mwd_lab_event_service;
 DO $$
-DECLARE ref text:=current_setting('mwd.test.ref');
+DECLARE ref text:=current_setting('mwd.test.ref'); event_id text:=repeat('x',100);
 BEGIN
- IF record_verified_event('mock-remittance','evt1',ref,'confirmed','USD',10150)<>'funded' THEN RAISE EXCEPTION 'normal event'; END IF;
- IF record_verified_event('mock-remittance','evt1',ref,'confirmed','USD',10150)<>'duplicate' THEN RAISE EXCEPTION 'duplicate'; END IF;
+ BEGIN
+  PERFORM record_verified_event('mock-remittance',event_id||'x',ref,'confirmed','USD',10150);
+  RAISE EXCEPTION 'overlong ID accepted';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'INVALID_EVENT' THEN RAISE; END IF; END;
+ BEGIN
+  PERFORM record_verified_event('mock-remittance',event_id,ref,'confirmed','USD',9007199254740992);
+  RAISE EXCEPTION 'unsafe integer accepted';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'INVALID_EVENT' THEN RAISE; END IF; END;
+ IF record_verified_event('mock-remittance',event_id,ref,'confirmed','USD',10150)<>'funded' THEN RAISE EXCEPTION 'normal event'; END IF;
+ IF record_verified_event('mock-remittance',event_id,ref,'confirmed','USD',10150)<>'duplicate' THEN RAISE EXCEPTION 'duplicate'; END IF;
  IF record_verified_event('mock-remittance','evt2',ref,'failed','USD',10150)<>'manual_review' THEN RAISE EXCEPTION 'contradiction missed'; END IF;
  IF record_verified_event('mock-remittance','evt2',ref,'failed','USD',10150)<>'manual_review' THEN RAISE EXCEPTION 'incident replay'; END IF;
  IF record_verified_event('mock-remittance','evt3','unknown','confirmed','USD',10)<>'manual_review' THEN RAISE EXCEPTION 'unknown missed'; END IF;
- IF record_verified_event('mock-remittance','evt1',ref,'confirmed','USD',1)<>'manual_review' THEN RAISE EXCEPTION 'event id conflict missed'; END IF;
+ IF record_verified_event('mock-remittance',event_id,ref,'confirmed','USD',1)<>'manual_review' THEN RAISE EXCEPTION 'event id conflict missed'; END IF;
  BEGIN PERFORM apply_verified_event('mock-remittance','evt4',ref,'confirmed','USD',10150); RAISE EXCEPTION 'raw bypass'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $$;
 RESET ROLE;

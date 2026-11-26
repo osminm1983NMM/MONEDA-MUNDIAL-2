@@ -24,7 +24,7 @@ DECLARE v_reason text; v_prior text; v_result text;
 BEGIN
  IF p_provider IS DISTINCT FROM 'mock-remittance' OR p_event IS NULL OR p_event !~ '^[A-Za-z0-9_-]{1,100}$'
  OR p_ref IS NULL OR p_ref !~ '^[A-Za-z0-9_-]{1,128}$' OR p_outcome IS NULL OR p_outcome NOT IN ('confirmed','failed')
- OR p_currency IS NULL OR p_currency NOT IN ('USD','HNL') OR p_amount IS NULL OR p_amount<=0 THEN RAISE EXCEPTION 'INVALID_EVENT'; END IF;
+ OR p_currency IS NULL OR p_currency NOT IN ('USD','HNL') OR p_amount IS NULL OR p_amount NOT BETWEEN 1 AND 9007199254740991 THEN RAISE EXCEPTION 'INVALID_EVENT'; END IF;
  -- Serialize reuse of an event ID across references, including unknown references.
  PERFORM pg_advisory_xact_lock(hashtextextended(p_provider||':'||p_event,0));
  SELECT reference INTO v_prior FROM inbox WHERE provider=p_provider AND event_id=p_event;

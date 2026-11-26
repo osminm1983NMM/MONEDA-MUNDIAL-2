@@ -21,3 +21,27 @@ test('acknowledgment does not manufacture provider event',t=>{const f=fixture(t)
 
 test('outbox rejects aliases of the same order and action before persistence',t=>{const f=fixture(t),q=f.open();for(const patch of [{reference:'alias-funding'},{orderId:'other'},{kind:'refund'}])a.throws(()=>q.enqueue({...intent,...patch}),/INVALID_INTENT/);a.deepEqual(q.counts().outbox,[]);q.enqueue(intent);a.equal(q.enqueue(intent).duplicate,true);});
 test('signed but malformed financial events cannot enter durable inbox',async t=>{const f=fixture(t),q=f.open(),p=createMockProvider({secret:'synthetic-secret-for-local-queue-tests',clock:f.clock});await p.submit(intent);for(const patch of [{reference:'alias-funding'},{orderId:'other'},{type:'funding_pending'},{type:'payout_confirmed'},{currency:'HNL'},{amountMinor:0},{amountMinor:1.5},{amountMinor:'10150'},{amountMinor:Number.MAX_SAFE_INTEGER+1}]){const e=p.event(intent.reference,'funding_confirmed','bad-event',patch);a.throws(()=>q.ingest({...e,provider:p}),/INVALID_EVENT/);}a.equal(q.counts().inbox,0);const e=p.event(intent.reference,'funding_confirmed','bad-event');a.equal(q.ingest({...e,provider:p}).status,'recorded_not_applied');a.equal(q.counts().inbox,1);});
+
+test('worker and local inbox accept 100-character event IDs and reject longer IDs before writing',async t=>{
+ const {createWorker}=require('../../financial-sandbox/provider-worker.cjs');
+ const f=fixture(t),q=f.open();
+ const provider=createMockProvider({secret:'synthetic-secret-for-event-limits-only',clock:f.clock});
+ const stored=[];
+ const worker=createWorker({environment:'sandbox',provider,store:{
+  claim(){},checkLease(){},ack(){},record(event){stored.push(event);}
+ }});
+ await provider.submit(intent);
+ const valid='x'.repeat(100);
+ for(const [eventId,patch] of [[valid+'x',{}],[valid,{amountMinor:Number.MAX_SAFE_INTEGER+1}]]){
+  const event=provider.event(intent.reference,'funding_confirmed',eventId,patch);
+  await a.rejects(worker.receive(event.raw,event.signature),/INVALID_EVENT/);
+  a.throws(()=>q.ingest({...event,provider}),/INVALID_EVENT/);
+ }
+ a.equal(stored.length,0);
+ a.equal(q.counts().inbox,0);
+ const event=provider.event(intent.reference,'funding_confirmed',valid);
+ await worker.receive(event.raw,event.signature);
+ a.equal(stored[0].eventId,valid);
+ a.equal(q.ingest({...event,provider}).status,'recorded_not_applied');
+ a.equal(q.counts().inbox,1);
+});

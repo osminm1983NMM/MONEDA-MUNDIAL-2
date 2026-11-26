@@ -1,4 +1,5 @@
 'use strict';
+const {isProviderEventId}=require('./verified-event.cjs');
 // Independent synthetic provider database. Never use for real funds or production.
 const {DatabaseSync}=require('node:sqlite');
 const {createHmac,timingSafeEqual}=require('node:crypto');
@@ -69,7 +70,7 @@ function openDurableProvider({environment,path,initialize=false,secret,clock=Dat
  loseNextResponse(){lose=true;},
  submissions(){return db.prepare('SELECT payload FROM submissions ORDER BY reference').all().map(r=>normalize(JSON.parse(r.payload)));},
  event(reference,type,eventId){
-  if(!id(eventId))fail('INVALID_EVENT');
+  if(!isProviderEventId(eventId))fail('INVALID_EVENT');
   return tx(()=>{
    const s=db.prepare('SELECT payload FROM submissions WHERE reference=?').get(reference);if(!s)fail('UNKNOWN_REFERENCE');
    if(db.prepare('SELECT 1 FROM unconfirmed_payouts WHERE reference=?').get(reference))fail('PAYOUT_NOT_CONFIRMED');
