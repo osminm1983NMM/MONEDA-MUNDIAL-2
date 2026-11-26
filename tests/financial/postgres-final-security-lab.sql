@@ -20,12 +20,14 @@ INSERT INTO expected_exec VALUES
  ('mwd_lab_resume_proposer','propose_dispatch_resume(bigint,uuid,text)'),
  ('mwd_lab_resume_approver','approve_dispatch_resume(bigint,uuid,text)'),
  ('mwd_lab_multi_order','multi_create(text,bigint,bigint,bigint)'),
- ('mwd_lab_multi_event','multi_apply(text,text,text,bigint,bigint,bigint)');
+ ('mwd_lab_multi_event','multi_apply(text,text,text,bigint,bigint,bigint)'),
+ ('mwd_lab_multi_order','multi_attach_transfer(uuid)'),
+ ('mwd_lab_multi_event','multi_mirror_accepted(uuid,text)');
 CREATE TEMP TABLE expected_audit(name text PRIMARY KEY);
 INSERT INTO expected_audit VALUES ('audit_summary'),('journal_summary'),('incident_summary'),
  ('review_summary'),('refund_attention'),('reconciliation_summary'),('review_evidence_summary'),
  ('refund_recovery_summary'),('dispatch_attention'),('ledger_integrity_summary'),
- ('lifecycle_integrity_summary'),('integrity_hold_summary'),('dispatch_control_summary'),('reconciliation_cut_summary'),('reconciliation_capacity_summary'),('multi_balance_summary');
+ ('lifecycle_integrity_summary'),('integrity_hold_summary'),('dispatch_control_summary'),('reconciliation_cut_summary'),('reconciliation_capacity_summary'),('multi_balance_summary'),('multi_transfer_summary');
 DO $$
 DECLARE r record; f record; t record; n oid; permitted boolean; expected boolean; p text;
 BEGIN
@@ -91,6 +93,7 @@ SELECT count(*) FROM lifecycle_integrity_summary;
 SELECT count(*) FROM integrity_hold_summary;
 SELECT count(*) FROM dispatch_control_summary;
 SELECT count(*) FROM multi_balance_summary;
+SELECT count(*) FROM multi_transfer_summary;
 RESET ROLE;
 -- The end-to-end worker has completed and all reserved orders should be internally consistent.
 DO $$ BEGIN
