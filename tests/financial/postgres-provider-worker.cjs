@@ -69,9 +69,25 @@ async function main(){
  const pay=p.event(order+'-payout','payout_confirmed','worker-pay-1');
  assert.equal(await worker.receive(pay.raw,pay.signature),'paid');assert.equal(state(order),'paid');
  const refund=openOrder('workerRefund');
- await worker.tick();
- const f2=p.event(refund+'-funding','funding_confirmed','worker-fund-2');
- await worker.receive(f2.raw,f2.signature);
+ // A signed settlement can arrive before the transport acknowledgment. Simulate
+ // a stale lease at that boundary; settlement must not be reversed or resent.
+ const earlyStore=store();
+ let earlyEvent;
+ const earlyWorker=createWorker({environment:'sandbox',provider:p,store:{...earlyStore,
+  async ack(ref,token){
+   assert.equal(ref,refund+'-funding');
+   earlyEvent=p.event(ref,'funding_confirmed','worker-fund-2');
+   assert.equal(await worker.receive(earlyEvent.raw,earlyEvent.signature),'funded');
+   sql("UPDATE "+schema+".dispatch SET lease_until=clock_timestamp()-interval '1 second' WHERE reference="+lit(ref));
+   earlyStore.ack(ref,token);
+  }
+ }});
+ await assert.rejects(earlyWorker.tick(),/STALE_LEASE/);
+ assert.equal(state(refund),'funded');
+ assert.equal(await worker.receive(earlyEvent.raw,earlyEvent.signature),'duplicate');
+ assert.equal((await worker.tick()).status,'idle');
+ assert.equal(p.submissions().filter(i=>i.reference===refund+'-funding').length,1);
+ assert.equal(sql('SELECT count(*) FROM '+schema+'.journal WHERE order_id='+lit(refund)+'::uuid'),'1');
  prepare('workerRefund',refund,'payout');await worker.tick();
  const fail=p.event(refund+'-payout','payout_failed','worker-pay-2');
  assert.equal(await worker.receive(fail.raw,fail.signature),'payout_failed');
