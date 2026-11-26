@@ -15,11 +15,16 @@ jobs:
     steps:
       # Use the exact ref selected when this workflow is manually dispatched.
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: |
+          test -s package-lock.json
+          npm ci --no-audit --no-fund
+          git diff --exit-code -- package.json package-lock.json
       - name: Run no-cost local preflight
         run: node scripts/preflight-release-local.js
       - name: Validate Expo config
