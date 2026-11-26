@@ -57,3 +57,5 @@ jobs:
           docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-policy-lab.sql
           docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-incident-lab.sql
           docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-incident-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-review-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-review-lab.sql
