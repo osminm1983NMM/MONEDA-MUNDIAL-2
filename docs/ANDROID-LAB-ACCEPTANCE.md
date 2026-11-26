@@ -37,3 +37,7 @@ APK verificable, instalación y pruebas físicas aprobadas, sin errores crítico
 - Actualización manual: interfaz muestra «Saldo e historial actualizados correctamente».
 - No se ha verificado aún la identidad exacta del APK instalado ni la coincidencia independiente del saldo con el servidor en esta sesión.
 - Pendientes: transferencia física A→B, conciliación de ambos saldos, historial, reintento de red, cambio de cuenta, conversiones, aportación, retiro y recuperación de contraseña.
+
+## Conciliación independiente de saldo
+
+Consulta de solo lectura en Supabase: saldo de la billetera observada en Samsung = 1,010,400 centavos MWD, igual a 10,104.00 MWD en pantalla. Diferencia cero. Cinco billeteras, 26 operaciones, cero saldos inválidos y cero referencias duplicadas por actor. No equivale a una prueba de transferencia física ni a conciliación bancaria real.
