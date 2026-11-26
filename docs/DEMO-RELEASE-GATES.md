@@ -55,3 +55,10 @@ Los archivos históricos con bloqueo de filas requieren transacción de escritur
 ## Validación Android
 
 Ejecutar manualmente `validar-demo.yml` en `dev/cierre-android-20261125`. Exigir éxito de pruebas Node, dependencias Expo y exportación Android antes de solicitar APK. Probar en dispositivo dos cuentas, transferencia, aportación, retiro, conversión, pérdida de red, cierre y reapertura, cambio de cuenta y recuperación de contraseña. No habilitar dinero real ni fusionar main hasta revisión.
+
+## Reconstrucción sin Supabase Pro — 26 de noviembre de 2026
+
+- El intento de rama temporal fue rechazado por requisito del plan Pro; no se creó ni se cobró esa rama.
+- `database/replay/migration-history-20261126.txt` archiva 39 migraciones registradas; una es duplicada exacta. `database/replay/catalog-missing-objects-20261126.json` conserva definiciones de tres tablas, siete vistas, seis funciones y cuatro disparadores ausentes de las declaraciones CREATE registradas. No se copiaron filas de usuarios ni de transacciones.
+- `scripts/build-isolated-demo-sql.cjs` genera 38 bloques de migración distintos y restaura objetos ausentes. Comprobaciones de generación y orden aprobadas; restauración PostgreSQL efectiva pendiente de CI. La recreación no es un respaldo completo de Supabase ni valida Auth/GoTrue: usa un sustituto SQL de auth.uid y una tabla de usuarios sintética. No usar para producción.
+- `.github/workflows/demo-postgres-isolated.yml` prepara un servicio PostgreSQL 17 desechable en GitHub Actions sin credenciales de Supabase, ejecuta tres puertas funcionales, cuatro escenarios concurrentes y auditorías posteriores. El flujo se activa por cambios de archivos específicos en la rama de desarrollo. Revisar el resultado de la ejecución antes de aprobar cualquier puerta; no se ha certificado todavía el replay ni la concurrencia.
