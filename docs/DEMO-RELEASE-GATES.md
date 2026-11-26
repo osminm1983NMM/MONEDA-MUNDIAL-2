@@ -76,3 +76,12 @@ Ejecutar manualmente `validar-demo.yml` en `dev/cierre-android-20261125`. Exigir
 - Reconstrucción del esquema PostgreSQL 17 y creación de usuarios sintéticos: paso 6 completado con éxito.
 - Tres puertas funcionales transaccionales: paso 7 completado con éxito.
 - Estado observado al registrar: [{"step":"Execute four simultaneous retry scenarios","status":"in_progress","conclusion":null},{"step":"Verify accounting and security after concurrent operations","status":"pending","conclusion":null},{"step":"Acceptance scope","status":"pending","conclusion":null}]. No declarar aprobados pasos sin conclusión success. No se certifica Supabase Auth real ni Android físico.
+
+### Aceptación CI PostgreSQL aislado — COMPLETADA
+
+Ejecución 45808960480, job 139871471465, commit f0cf7f9eaf9ba8ed93a72d60042d9654c348cae0. [Logs de GitHub Actions](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45808960480/job/139871471465). Conclusión success; se verificaron pasos y logs completos.
+
+- PostgreSQL 17: reconstrucción desde cero y dos usuarios sintéticos aprobados; tres puertas funcionales aprobadas.
+- Cuatro escenarios concurrentes aprobados con espera de bloqueo observada: transferencia (un débito/un crédito), aportación (un débito), conversión (una conversión/cuatro asientos), retiro (una orden sin fondos). No equivale a prueba de concurrencia ilimitada ni carga de producción.
+- Diez puertas posteriores aprobadas: contabilidad, estructura de seguridad, permisos privados, aislamiento Auth SQL, billeteras, cotizaciones (19 rutas/114 cotizaciones), rutas solo simulación, autorización (38 RPC de propietario, dos identidades no propietarias), recuperación histórica (dos operaciones/dos billeteras) y reintentos históricos (una transferencia/una aportación).
+- Los logs confirman eliminación del contenedor y su red. No se creó una rama de Supabase ni se copiaron filas personales. El Auth es un sustituto SQL; quedan pendientes la recuperación por correo real, la verificación de la APK actual y la aceptación física Android. No autoriza dinero real.
