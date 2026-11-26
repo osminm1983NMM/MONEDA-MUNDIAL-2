@@ -7,9 +7,13 @@ on:
       - 'RemittanceQuoteScreen.js'
       - 'remittance-quote.js'
       - 'package.json'
+      - 'package-lock.json'
+      - 'auth-storage.js'
+      - 'PartnerRegistryScreen.js'
       - 'app.json'
       - 'eas.json'
       - 'scripts/**'
+      - 'tests/auth/**'
       - '.github/workflows/preflight-integral-demo.yml'
 permissions:
   contents: read
@@ -19,12 +23,18 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Instalar dependencias Expo
         run: |
-          if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund --package-lock=false; fi
+          test -s package-lock.json
+          npm ci --no-audit --no-fund
+          git diff --exit-code -- package.json package-lock.json
+      - name: Verificar recuperación PKCE con el SDK fijado
+        run: node --test tests/auth/*.test.cjs
       - name: Validar bundle JavaScript Android
         run: npx expo export --platform android --output-dir /tmp/mwd-demo-bundle
       - name: Auditoría estática de demostración
