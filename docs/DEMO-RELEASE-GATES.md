@@ -2,25 +2,34 @@
 
 ## Estado consolidado de aceptación — 26 de noviembre de 2026
 
-Esta sección prevalece sobre los estados históricos de ejecución pendiente conservados más abajo. Evidencia física actualizada hasta las 08:58 EST del 26 de noviembre: [registro de aceptación Android](ANDROID-LAB-ACCEPTANCE.md).
+Esta sección prevalece sobre los estados históricos conservados más abajo. [Registro de aceptación Android](ANDROID-LAB-ACCEPTANCE.md).
 
 | Puerta | Estado verificable |
 | --- | --- |
-| PostgreSQL 17 aislado: reconstrucción y tres puertas funcionales | APROBADA en CI |
-| Cuatro reintentos simultáneos y diez auditorías posteriores | APROBADA en CI |
-| Android: compilación, procedencia, instalación y dos aperturas | APROBADA en emulador Android 35 |
+| PostgreSQL 17 aislado: reconstrucción y tres controles funcionales | APROBADA en CI 45840521789 |
+| Cuatro reintentos simultáneos y 14 auditorías posteriores | APROBADA en CI 45840521789 |
+| Auditoría contable V2 con control negativo y rollback | APROBADA en PostgreSQL aislado; no desplegada |
+| Android: dependencias, regresiones Node, auditorías, Expo y prebuild | APROBADA en CI 45840521938 |
+| Android: Gradle, artefacto, integridad, instalación y dos aperturas | PENDIENTE de resultado final para la nueva candidata |
 | Samsung: transferencia normal, saldo e historial | APROBADA en pruebas físicas anteriores; versión exacta pendiente |
-| Identidad de la candidata instalada | PENDIENTE |
-| Reintento físico de red | APROBADO ante fallo previo al registro; pérdida de respuesta posterior a commit PENDIENTE |
-| Conversión inversa, aportación y retiro físicos | APROBADOS en flujos normales según evidencia física y SQL |
-| Recuperación real por correo y enlace LAB | APROBADO flujo principal; reingreso explícito con nueva contraseña y casos negativos PENDIENTES |
+| Samsung: conversión bidireccional, aportación y retiro | APROBADOS en flujos anteriores; versión nueva pendiente |
+| Samsung: recuperación de red | APROBADA ante fallo previo al registro; pérdida de respuesta tras commit no certificada físicamente |
+| Recuperación de contraseña por correo | Flujo principal demostrado anteriormente; validar candidata exacta y casos negativos |
 | Producción, fondos reales y cumplimiento regulatorio | NO AUTORIZADOS |
 
-Evidencia: [PostgreSQL segunda ejecución 45809212853](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45809212853) y [Android 45809213055](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45809213055). Ambas concluyeron success, incluida eliminación del servicio de prueba PostgreSQL. APK candidata: [artefacto 15112630795](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45809213055/artifacts/15112630795), disponible hasta 2026-12-03 11:22:33 UTC. El APK fue generado desde el commit de integración temporal `119303c46bad66b02fa6a917e3af7b628df475bc`, asociado al [PR 132](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/pull/132), que continúa abierto en borrador.
+**Evidencia actual:** [PR 133](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/pull/133), base probada `fc5caa753f6c03f9afd47257a45dec54f4daf698`, head `852c8b21af501212f0153321ac7d4f0b087d793d`. [PostgreSQL aprobado](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45840521789); [Android en ejecución](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45840521938). El APK de la ejecución anterior 45809213055 no certifica la revisión actual. En la consulta de esta revisión todavía no hay artefacto nuevo disponible.
 
-Se compararon los SHA de blob de App.js, PartnerRegistryScreen.js, app.json, package.json, scripts/probar-apk-samsung.sh, scripts/test-password-recovery.cjs, scripts/test-demo-concurrency-local.cjs y scripts/build-isolated-demo-sql.cjs entre ese commit de integración y la rama de desarrollo: los ocho coinciden. Esto no certifica todos los archivos ni la identidad del APK instalado en Samsung. No es necesario repetir la compilación únicamente por actualizar documentación.
+### Protocolo mínimo de aceptación física de la nueva candidata
 
-Cierre físico: conservar datos de la versión instalada; no desinstalar ante conflicto de firma. Confirmar que el APK descargado es el de la ejecución aprobada, probar con créditos ficticios y registrar cada resultado. Verificar el redirect exacto `com.monedamundial.lab.samsung://auth/reset-password` antes de probar correo; el Auth SQL aislado no reemplaza esta prueba. No fusionar main, activar pagos ni crear infraestructura de pago.
+1. Antes de instalar: exigir éxito del APK y del emulador, verificar SHA256.txt, COMMIT.txt, DEPENDENCIES-SHA256.txt y compatibilidad de firma con el LAB anterior. No utilizar una descarga anterior para certificar código nuevo.
+2. Instalar como actualización del paquete `com.monedamundial.lab.samsung`. Ante error de instalación o firma, detenerse; no desinstalar ni borrar datos. Confirmar el SHA visible de compilación, abrir dos veces y comprobar acceso.
+3. Con dos cuentas DEMO existentes, verificar saldo e historial; cerrar sesión, cambiar de cuenta y comprobar que no se ven datos de la anterior. Usar créditos ficticios y registrar importes e historial, nunca credenciales.
+4. Ejecutar una operación pequeña de transferencia; confirmar una sola vez el débito y el crédito. Comprobar recuperación de una referencia tras desconexión y reconexión sin modificar datos de la solicitud. No afirmar que el fallo fue posterior al commit sin evidencia del servidor.
+5. Comprobar una conversión en cada dirección, una aportación y creación/listado/cancelación de retiro simulado. Los retiros no deben descontar saldo. Reutilizar casos anteriores como referencia, no como prueba de esta APK.
+6. Verificar acceso con la contraseña vigente tras cierre explícito y recuperación por el esquema LAB exacto `com.monedamundial.lab.samsung://auth/reset-password`. No compartir contraseñas, códigos ni enlaces. Un enlace usado o vencido no debe abrir una recuperación nueva.
+7. Contrastar evidencia física con consultas agregadas y de solo lectura. Cerrar exclusivamente la aceptación DEMO si cada criterio aplicable tiene evidencia; no fusionar main, desplegar V2 ni habilitar fondos reales por este protocolo.
+
+Las pruebas de CI SQL usan Auth sintético. No sustituyen la validación real de correo, permisos del dispositivo ni cumplimiento regulatorio. 
 
 ## Puertas de aceptación
 
