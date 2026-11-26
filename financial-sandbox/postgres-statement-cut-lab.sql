@@ -13,11 +13,11 @@ CREATE TRIGGER statement_cut_append_only BEFORE UPDATE OR DELETE ON statement_cu
  FOR EACH ROW EXECUTE FUNCTION deny_journal_mutation();
 CREATE FUNCTION import_statement_cut(p_external_id text,p_scope text,p_as_of timestamptz,p_count integer,p_rows jsonb)
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=mwd_financial_lab,pg_catalog AS $$
-DECLARE b uuid; prior statement_cut_metadata%ROWTYPE; now_at timestamptz;
+DECLARE b uuid; prior statement_cut_metadata%ROWTYPE; now_at timestamptz; max_rows constant integer:=10000;
 BEGIN
  IF current_setting('transaction_isolation')<>'read committed' THEN RAISE EXCEPTION 'CUT_ISOLATION_REQUIRED'; END IF;
  IF p_scope IS DISTINCT FROM 'US-HN:all-funding-payout-refund' OR p_as_of IS NULL OR NOT isfinite(p_as_of)
- OR p_count IS NULL OR p_count NOT BETWEEN 0 AND 10000 OR p_rows IS NULL OR jsonb_typeof(p_rows)<>'array'
+ OR p_count IS NULL OR p_count NOT BETWEEN 0 AND max_rows OR p_rows IS NULL OR jsonb_typeof(p_rows)<>'array'
  THEN RAISE EXCEPTION 'INVALID_CUT_ENVELOPE'; END IF;
  IF jsonb_array_length(p_rows)<>p_count THEN RAISE EXCEPTION 'CUT_COUNT_MISMATCH'; END IF;
  PERFORM pg_advisory_xact_lock(60261126,17);
@@ -37,6 +37,12 @@ BEGIN
  BEGIN
   LOCK TABLE outbox,reservations,inbox IN SHARE MODE NOWAIT;
  EXCEPTION WHEN lock_not_available THEN RAISE EXCEPTION 'CUT_EVIDENCE_BUSY'; END;
+ -- The full-history envelope cannot represent a larger internal universe.
+ -- Check under the same locks used to capture that universe.
+ IF (SELECT count(*) FROM (
+  SELECT 1 FROM outbox x JOIN reservations z ON z.order_id=x.order_id
+  LIMIT (max_rows+1)
+ ) AS bounded_references)>max_rows THEN RAISE EXCEPTION 'CUT_CAPACITY_EXCEEDED'; END IF;
  b:=import_statement(p_external_id,true,p_rows);
  INSERT INTO statement_cut_metadata(batch_id,scope,provider_as_of,declared_count) VALUES(b,p_scope,p_as_of,p_count);
  RETURN b;

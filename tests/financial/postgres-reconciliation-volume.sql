@@ -52,8 +52,10 @@ SET LOCAL ROLE mwd_lab_statement_service;
 DO $$
 DECLARE rows jsonb := current_setting('mwd.volume.rows')::jsonb;
         stamp timestamptz := clock_timestamp();
+        batch uuid;
 BEGIN
- PERFORM import_statement_cut('volume-cut', 'US-HN:all-funding-payout-refund', stamp, 10000, rows);
+ batch:=import_statement_cut('volume-cut', 'US-HN:all-funding-payout-refund', stamp, 10000, rows);
+ PERFORM set_config('mwd.volume.stamp',stamp::text,true),set_config('mwd.volume.batch',batch::text,true);
  RAISE NOTICE '10,000-row statement import elapsed: % ms',
   round(extract(epoch FROM clock_timestamp() - stamp) * 1000, 1);
 END $$;
@@ -68,4 +70,28 @@ DO $$ BEGIN
  ) THEN RAISE EXCEPTION 'VOLUME_RECONCILIATION_MISMATCH'; END IF;
 END $$;
 RESET ROLE;
+
+-- One more reserved reference makes full-history reconciliation impossible
+-- through this bounded envelope. An existing cut remains replayable.
+SET LOCAL ROLE mwd_lab_order_service;
+SELECT quote_id FROM issue_quote('volume-0','volume',10000) \gset extra_
+SELECT accept_quote('volume-0','volume-overflow',:'extra_quote_id','sandbox-disclosure-v1');
+RESET ROLE;
+SET LOCAL ROLE mwd_lab_statement_service;
+DO $$
+DECLARE rows jsonb:=current_setting('mwd.volume.rows')::jsonb;
+BEGIN
+ BEGIN
+  PERFORM import_statement_cut('volume-overflow','US-HN:all-funding-payout-refund',clock_timestamp(),10000,rows);
+  RAISE EXCEPTION 'oversized internal universe accepted';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'CUT_CAPACITY_EXCEEDED' THEN RAISE; END IF; END;
+ IF import_statement_cut('volume-cut','US-HN:all-funding-payout-refund',current_setting('mwd.volume.stamp')::timestamptz,10000,rows)
+    IS DISTINCT FROM current_setting('mwd.volume.batch')::uuid
+ THEN RAISE EXCEPTION 'original cut replay changed'; END IF;
+END $$;
+RESET ROLE;
+DO $$ BEGIN
+ IF EXISTS(SELECT FROM statement_batches WHERE external_id='volume-overflow')
+ THEN RAISE EXCEPTION 'overflow persisted an invalid statement'; END IF;
+END $$;
 ROLLBACK;
