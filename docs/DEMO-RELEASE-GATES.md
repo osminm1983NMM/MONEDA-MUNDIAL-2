@@ -20,6 +20,16 @@
 - Seguridad: 30 avisos informativos RLS sin política, 56 advertencias de SECURITY DEFINER accesibles a authenticated y protección de contraseñas filtradas desactivada. Los 76 rechazos no sustituyen pruebas de argumentos válidos ni de roles específicos. Revisar las funciones restantes y habilitar protección de contraseñas antes de uso real.
 - No se efectuaron escrituras de datos ni cambios de esquema; pruebas funcionales con mutaciones pendientes en entorno aislado y pruebas físicas pendientes. Sin nueva compilación ni fusión de main.
 
+## Pruebas adicionales verificadas — 26 de noviembre
+- `tests/sql/demo-private-permissions-gate.sql`: 38 relaciones privadas, seis esquemas; excepción limitada a disparadores invoker sin acceso al esquema.
+- `tests/sql/demo-historical-recovery-gate.sql`: 28 recuperaciones propias y 28 consultas ajenas bloqueadas; cinco historiales.
+- `tests/sql/demo-conversion-recovery-history-gate.sql`: 19 confirmaciones repetidas, seis cotizaciones vencidas rechazadas, 50 consultas/confirmaciones ajenas rechazadas.
+- `tests/sql/demo-pickup-recovery-history-gate.sql`: cinco órdenes históricas, tres cancelaciones repetidas, cinco cancelaciones ajenas bloqueadas.
+- `tests/sql/demo-transfer-contribution-retry-history-gate.sql`: 22 transferencias y seis aportaciones reintentadas; 28 conflictos de importe rechazados, saldos y recuento de operaciones intactos.
+
+## Ejecución integral
+Los archivos históricos con bloqueo de filas requieren transacción de escritura con rollback, pero no crean operaciones nuevas en el camino esperado. Ejecutar por separado de las pruebas funcionales de primera ejecución. Las tres pruebas funcionales de transferencia, conversión y aportación/retiro deben ejecutarse exclusivamente en una base DEMO aislada, con datos ficticios y sin integraciones externas. No usar credenciales de base de datos en la aplicación ni en ejecuciones públicas de CI.
+
 ## Validación Android
 
 Ejecutar manualmente `validar-demo.yml` en `dev/cierre-android-20261125`. Exigir éxito de pruebas Node, dependencias Expo y exportación Android antes de solicitar APK. Probar en dispositivo dos cuentas, transferencia, aportación, retiro, conversión, pérdida de red, cierre y reapertura, cambio de cuenta y recuperación de contraseña. No habilitar dinero real ni fusionar main hasta revisión.
