@@ -2,7 +2,7 @@
 
 ## Estado consolidado de aceptación — 26 de noviembre de 2026
 
-Esta sección prevalece sobre los estados históricos de ejecución pendiente conservados más abajo.
+Esta sección prevalece sobre los estados históricos de ejecución pendiente conservados más abajo. Evidencia física actualizada hasta las 08:58 EST del 26 de noviembre: [registro de aceptación Android](ANDROID-LAB-ACCEPTANCE.md).
 
 | Puerta | Estado verificable |
 | --- | --- |
@@ -10,9 +10,10 @@ Esta sección prevalece sobre los estados históricos de ejecución pendiente co
 | Cuatro reintentos simultáneos y diez auditorías posteriores | APROBADA en CI |
 | Android: compilación, procedencia, instalación y dos aperturas | APROBADA en emulador Android 35 |
 | Samsung: transferencia normal, saldo e historial | APROBADA en pruebas físicas anteriores; versión exacta pendiente |
-| Identidad de la candidata instalada y reintento físico de red | PENDIENTE |
-| Conversión inversa, aportación y retiro físicos | PENDIENTE de evidencia |
-| Recuperación real por correo y enlace LAB | PENDIENTE |
+| Identidad de la candidata instalada | PENDIENTE |
+| Reintento físico de red | APROBADO ante fallo previo al registro; pérdida de respuesta posterior a commit PENDIENTE |
+| Conversión inversa, aportación y retiro físicos | APROBADOS en flujos normales según evidencia física y SQL |
+| Recuperación real por correo y enlace LAB | APROBADO flujo principal; reingreso explícito con nueva contraseña y casos negativos PENDIENTES |
 | Producción, fondos reales y cumplimiento regulatorio | NO AUTORIZADOS |
 
 Evidencia: [PostgreSQL segunda ejecución 45809212853](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45809212853) y [Android 45809213055](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45809213055). Ambas concluyeron success, incluida eliminación del servicio de prueba PostgreSQL. APK candidata: [artefacto 15112630795](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45809213055/artifacts/15112630795), disponible hasta 2026-12-03 11:22:33 UTC. El APK fue generado desde el commit de integración temporal `119303c46bad66b02fa6a917e3af7b628df475bc`, asociado al [PR 132](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/pull/132), que continúa abierto en borrador.
