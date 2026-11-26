@@ -122,3 +122,5 @@ Cuando se agotan los tres arrendamientos por estado remoto desconocido, el desem
 El reconocimiento de transporte adquiere el bloqueo de la fila antes de medir el vencimiento del arrendamiento. La prueba de PostgreSQL hace que una sesión comience a reconocer mientras el token es válido, verifica que la sesión esté bloqueada y libera la fila después del vencimiento. El token previo recibe `STALE_LEASE` y el worker recupera la operación con un arrendamiento nuevo.
 
 La asignación de un arrendamiento empieza a contar su plazo al actualizar la fila de despacho. Una prueba con dos sesiones mantiene el control global bloqueado durante más tiempo que el arrendamiento solicitado y verifica que la concesión resultante sigue vigente.
+
+La cola asigna primero la intención elegible que lleva más tiempo en espera y usa la referencia para desempatar. Una prueba con fechas y referencias en orden inverso comprueba prioridad por antigüedad, exclusión de arrendamientos activos y desempate determinista al vencer dos arrendamientos.

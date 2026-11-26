@@ -55,7 +55,7 @@ BEGIN
  AND EXISTS(SELECT FROM dispatch_control WHERE singleton AND NOT halted)
  AND order_integrity_ok(o.id)
  AND o.state=CASE x.kind WHEN 'funding' THEN 'funding_pending' WHEN 'payout' THEN 'payout_pending' WHEN 'refund' THEN 'refund_pending' END
- ORDER BY d.reference LIMIT 1 FOR UPDATE OF d SKIP LOCKED;
+ ORDER BY d.queued_at,d.reference LIMIT 1 FOR UPDATE OF d SKIP LOCKED;
  IF NOT FOUND THEN RETURN; END IF;
  UPDATE dispatch d SET state='leased',token=gen_random_uuid(),lease_until=clock_timestamp()+make_interval(secs=>p_lease_seconds),attempts=d.attempts+1 WHERE d.reference=v_ref;
  RETURN QUERY SELECT x.reference,x.order_id,x.kind,x.currency,x.amount_minor,d.token,d.lease_until,d.attempts

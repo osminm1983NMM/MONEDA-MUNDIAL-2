@@ -90,3 +90,48 @@ DO $$ BEGIN
 END $$;
 RESET ROLE;
 ROLLBACK;
+
+BEGIN;
+SET LOCAL search_path=mwd_financial_lab,pg_catalog;
+INSERT INTO actor_policy VALUES ('queue-order-fixture','verified','clear','allow',50000);
+INSERT INTO beneficiaries VALUES ('queue-order-fixture','beneficiary','verified');
+
+SET LOCAL ROLE mwd_lab_order_service;
+SELECT quote_id FROM issue_quote('queue-order-fixture','beneficiary',10000) \gset q1_
+SELECT accept_quote('queue-order-fixture','first',:'q1_quote_id','sandbox-disclosure-v1') || '-funding' AS ref \gset first_
+SELECT quote_id FROM issue_quote('queue-order-fixture','beneficiary',10000) \gset q2_
+SELECT accept_quote('queue-order-fixture','second',:'q2_quote_id','sandbox-disclosure-v1') || '-funding' AS ref \gset second_
+RESET ROLE;
+
+-- Assign the earlier timestamp to the lexically larger reference so this
+-- test distinguishes chronological order from the prior UUID ordering.
+SELECT set_config('mwd.queue.older',greatest(:'first_ref',:'second_ref'),true),
+       set_config('mwd.queue.newer',least(:'first_ref',:'second_ref'),true);
+UPDATE dispatch SET queued_at=statement_timestamp()-interval '1 minute'
+WHERE reference=current_setting('mwd.queue.older');
+SET LOCAL ROLE mwd_lab_dispatch_service;
+DO $$
+DECLARE claimed record;
+BEGIN
+ SELECT reference,attempts INTO STRICT claimed FROM claim_dispatch(30);
+ IF claimed.reference<>current_setting('mwd.queue.older') OR claimed.attempts<>1
+ THEN RAISE EXCEPTION 'OLDEST_ELIGIBLE_ORDER_NOT_CLAIMED'; END IF;
+ SELECT reference,attempts INTO STRICT claimed FROM claim_dispatch(30);
+ IF claimed.reference<>current_setting('mwd.queue.newer') OR claimed.attempts<>1
+ THEN RAISE EXCEPTION 'ACTIVE_LEASE_NOT_SKIPPED'; END IF;
+END $$;
+RESET ROLE;
+
+-- Equal timestamps still have a deterministic tie-break after both leases expire.
+UPDATE dispatch SET queued_at=statement_timestamp(),lease_until=clock_timestamp()-interval '1 second'
+WHERE reference IN (current_setting('mwd.queue.older'),current_setting('mwd.queue.newer'));
+SET LOCAL ROLE mwd_lab_dispatch_service;
+DO $$
+DECLARE claimed record;
+BEGIN
+ SELECT reference,attempts INTO STRICT claimed FROM claim_dispatch(30);
+ IF claimed.reference<>current_setting('mwd.queue.newer') OR claimed.attempts<>2
+ THEN RAISE EXCEPTION 'QUEUE_TIE_BREAK_OR_RETRY_MISMATCH'; END IF;
+END $$;
+RESET ROLE;
+ROLLBACK;
