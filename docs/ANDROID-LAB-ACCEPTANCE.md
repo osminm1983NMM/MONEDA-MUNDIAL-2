@@ -90,3 +90,7 @@ Capturas Samsung antes/después: cuenta B, 9,913.00 → 9,903.00 MWD. Consulta S
 ## Historial y conciliación contable de aportación física
 
 Captura Samsung: aportación ficticia -10.00 MWD, 26/11/2026 06:33:06 EST, coincide con el registro SQL. Consulta independiente de solo lectura confirma transacción demo_contribution posted con exactamente dos asientos, débito 1000 y crédito 1000 centavos MWD, diferencia cero. La definición de demo_operations_audit_v1 devuelve incondicionalmente contribution_requires_accounting_policy para kind=contribution; es una clasificación heredada, no una detección de descuadre. Queda pendiente actualizar esa vista con verificaciones reales en entorno aislado, sin ocultar anomalías. Aportación física normal, saldo, historial y doble partida de esta operación aprobados. No se cambió esquema, datos ni saldos. Identidad exacta del APK y demás pruebas físicas siguen pendientes.
+
+## Retiro ficticio físico a Honduras — 26 de noviembre de 2026
+
+Captura Samsung: «Orden creada». Consulta de solo lectura por identificador de la orden confirma destino HN, importe 1000 centavos MWD, estado pending, creación 11:34:46 UTC, expiración exactamente 24 horas después, titular esperado y una sola fila por referencia. Saldo permanece 990300 centavos MWD, coherente con una orden de retiro exclusivamente simulada sin débito. Creación física y persistencia aprobadas; listado y cancelación física pendientes. No registrar código de retiro en documentación. No se modificaron datos, saldos ni configuración de Supabase.
