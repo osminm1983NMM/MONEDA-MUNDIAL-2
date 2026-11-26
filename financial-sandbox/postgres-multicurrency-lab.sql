@@ -43,7 +43,7 @@ CREATE TABLE multi_journal(
 CREATE TRIGGER multi_events_append_only BEFORE UPDATE OR DELETE ON multi_events FOR EACH ROW EXECUTE FUNCTION deny_journal_mutation();
 CREATE TRIGGER multi_journal_append_only BEFORE UPDATE OR DELETE ON multi_journal FOR EACH ROW EXECUTE FUNCTION deny_journal_mutation();
 CREATE FUNCTION multi_create(p_id text,p_principal bigint,p_fee bigint,p_payout bigint)
-RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=mwd_financial_lab,pg_catalog AS $$
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,mwd_financial_lab,pg_temp AS $$
 DECLARE o multi_orders%ROWTYPE;
 BEGIN
  IF current_setting('transaction_isolation')<>'read committed' THEN RAISE EXCEPTION 'MULTI_ISOLATION_REQUIRED'; END IF;
@@ -55,7 +55,7 @@ BEGIN
  RETURN 'duplicate';
 END $$;
 CREATE FUNCTION multi_apply(p_id text,p_event text,p_kind text,p_usd bigint,p_hnl bigint,p_cost bigint)
-RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=mwd_financial_lab,pg_catalog AS $$
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,mwd_financial_lab,pg_temp AS $$
 DECLARE o multi_orders%ROWTYPE; prior multi_events%ROWTYPE; total bigint; next_state text;
 BEGIN
  IF current_setting('transaction_isolation')<>'read committed' THEN RAISE EXCEPTION 'MULTI_ISOLATION_REQUIRED'; END IF;

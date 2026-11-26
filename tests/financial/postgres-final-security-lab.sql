@@ -18,17 +18,19 @@ INSERT INTO expected_exec VALUES
  ('mwd_lab_review_approver','approve_refund_recovery(uuid,text)'),
  ('mwd_lab_safety_service','halt_dispatch(text)'),
  ('mwd_lab_resume_proposer','propose_dispatch_resume(bigint,uuid,text)'),
- ('mwd_lab_resume_approver','approve_dispatch_resume(bigint,uuid,text)');
+ ('mwd_lab_resume_approver','approve_dispatch_resume(bigint,uuid,text)'),
+ ('mwd_lab_multi_order','multi_create(text,bigint,bigint,bigint)'),
+ ('mwd_lab_multi_event','multi_apply(text,text,text,bigint,bigint,bigint)');
 CREATE TEMP TABLE expected_audit(name text PRIMARY KEY);
 INSERT INTO expected_audit VALUES ('audit_summary'),('journal_summary'),('incident_summary'),
  ('review_summary'),('refund_attention'),('reconciliation_summary'),('review_evidence_summary'),
  ('refund_recovery_summary'),('dispatch_attention'),('ledger_integrity_summary'),
- ('lifecycle_integrity_summary'),('integrity_hold_summary'),('dispatch_control_summary'),('reconciliation_cut_summary'),('reconciliation_capacity_summary');
+ ('lifecycle_integrity_summary'),('integrity_hold_summary'),('dispatch_control_summary'),('reconciliation_cut_summary'),('reconciliation_capacity_summary'),('multi_balance_summary');
 DO $$
 DECLARE r record; f record; t record; n oid; permitted boolean; expected boolean; p text;
 BEGIN
  SELECT oid INTO STRICT n FROM pg_namespace WHERE nspname='mwd_financial_lab';
- IF (SELECT count(*) FROM pg_roles WHERE rolname LIKE 'mwd_lab_%')<>10 THEN RAISE EXCEPTION 'unexpected service roles'; END IF;
+ IF (SELECT count(*) FROM pg_roles WHERE rolname LIKE 'mwd_lab_%')<>12 THEN RAISE EXCEPTION 'unexpected service roles'; END IF;
  IF EXISTS(SELECT FROM expected_exec WHERE to_regprocedure(signature) IS NULL) THEN RAISE EXCEPTION 'missing expected endpoint'; END IF;
  IF EXISTS(SELECT FROM expected_audit WHERE to_regclass(name) IS NULL) THEN RAISE EXCEPTION 'missing audit view'; END IF;
  IF EXISTS(SELECT FROM pg_namespace s CROSS JOIN LATERAL aclexplode(coalesce(s.nspacl,acldefault('n',s.nspowner))) a WHERE s.oid=n AND a.grantee=0)
@@ -88,6 +90,7 @@ SELECT count(*) FROM ledger_integrity_summary;
 SELECT count(*) FROM lifecycle_integrity_summary;
 SELECT count(*) FROM integrity_hold_summary;
 SELECT count(*) FROM dispatch_control_summary;
+SELECT count(*) FROM multi_balance_summary;
 RESET ROLE;
 -- The end-to-end worker has completed and all reserved orders should be internally consistent.
 DO $$ BEGIN
