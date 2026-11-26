@@ -26,7 +26,12 @@ jobs:
           java-version: '17'
       - run: npm install --no-audit --no-fund
       - run: node --test tests/android/*.test.cjs
-      - run: node scripts/preflight-release-local.js
+      - name: Auditoría integral antes de compilar
+        run: |
+          node scripts/preflight-release-local.js
+          node scripts/audit-demo-static.cjs
+          node scripts/audit-regression-safety.cjs
+          node --test scripts/test-transfer-recovery.cjs scripts/test-conversion-retiro.cjs
       - run: npx expo install --check
       - name: Configurar aplicación independiente para Samsung
         run: |
