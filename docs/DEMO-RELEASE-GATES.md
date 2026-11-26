@@ -42,6 +42,15 @@ Los archivos históricos con bloqueo de filas requieren transacción de escritur
 - Ejecutar `node scripts/test-demo-concurrency-local.cjs`. Este programa CONFIRMA transacciones de prueba; desechar la base después, incluso si falla. Requiere fixtures con dos billeteras MWD, saldos de conversión, liquidez y una cuenta elegible para retiro.
 - Estado: código guardado; ejecución con PostgreSQL real pendiente. No se ha certificado concurrencia ni creado infraestructura adicional.
 
+## Ampliación de cotizaciones internacionales — 26 de noviembre
+- `tests/sql/demo-remittance-quote-gate.sql`: 114 cotizaciones aprobadas directamente en Supabase DEMO (19 rutas, dos métodos y tres importes por combinación). Verifica la comisión exacta, total, divisa, privacidad de costos internos, límites y ausencia de tasas FX ficticias para destinos no USD. También rechaza tres importes fuera de rango y un método inválido.
+- La prueba no ejecuta remesas reales ni valida integraciones bancarias externas.
+
+## Bloqueos de aceptación pendientes
+- No se ha podido confirmar la nueva ejecución del APK a través del conector GitHub; comprobar el workflow apk-demo-gradle directamente en Actions.
+- Las pruebas de concurrencia requieren una base aislada preparada. No ejecutar operaciones nuevas contra la base compartida. Si se utiliza una rama temporal de Supabase, obtener confirmación previa del costo y eliminarla cuando finalice la sesión.
+- La lista de Redirect URLs de Supabase Auth no puede editarse con las acciones disponibles. Confirmar el esquema LAB exacto en el dashboard y completar una prueba de correo en el Samsung.
+
 ## Validación Android
 
 Ejecutar manualmente `validar-demo.yml` en `dev/cierre-android-20261125`. Exigir éxito de pruebas Node, dependencias Expo y exportación Android antes de solicitar APK. Probar en dispositivo dos cuentas, transferencia, aportación, retiro, conversión, pérdida de red, cierre y reapertura, cambio de cuenta y recuperación de contraseña. No habilitar dinero real ni fusionar main hasta revisión.
