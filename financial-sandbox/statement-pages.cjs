@@ -28,6 +28,6 @@ function assembleStatementPages({environment,pages}={}) {
     }
   }
   if(rows.length!==first.declaredCount)fail('COUNT_MISMATCH');
-  return {mode:'sandbox',source:first.source,scope:first.scope,complete:true,start:first.start,end:first.end,capturedAt:first.capturedAt,declaredCount:first.declaredCount,rows};
+  return {mode:'sandbox',source:first.source,snapshotId:first.snapshotId,scope:first.scope,complete:true,start:first.start,end:first.end,capturedAt:first.capturedAt,declaredCount:first.declaredCount,rows};
 }
 module.exports={assembleStatementPages};

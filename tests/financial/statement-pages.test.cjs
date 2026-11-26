@@ -33,3 +33,9 @@ function exercise(assemble,assert){
   const extra=pages();extra[0].rows[0].secret='not copied';assert.equal('secret' in run(extra).rows[0],false);
 }
 test('synthetic paginated statement contract fails closed and handles more than 10000 rows',()=>exercise(assembleStatementPages,assert));
+
+
+test('assembled envelope preserves snapshot identity for traceability',()=>{
+ const p={mode:'sandbox',source:'internal',snapshotId:'internal-42',scope:'US-HN:all-funding-payout-refund',start:'2026-11-26T00:00:00.000Z',end:'2026-11-27T00:00:00.000Z',capturedAt:'2026-11-27T00:01:00.000Z',declaredCount:0,pageCount:1,index:0,cursor:null,nextCursor:null,complete:true,rows:[]};
+ assert.equal(assembleStatementPages({environment:'sandbox',pages:[p]}).snapshotId,'internal-42');
+});
