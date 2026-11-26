@@ -42,11 +42,22 @@ BEGIN
  IF p_external_id IS NULL OR p_external_id !~ '^[A-Za-z0-9_-]{1,100}$' OR p_complete IS NULL OR p_rows IS NULL OR jsonb_typeof(p_rows)<>'array' THEN RAISE EXCEPTION 'INVALID_STATEMENT'; END IF;
  IF jsonb_array_length(p_rows)>10000 OR octet_length(p_rows::text)>4000000 THEN RAISE EXCEPTION 'STATEMENT_TOO_LARGE'; END IF;
  -- Strict synthetic normalized rows, no additional metadata or sensitive data.
- IF EXISTS(SELECT FROM jsonb_array_elements(p_rows) e(v) WHERE
- jsonb_typeof(v)<>'object' OR NOT (v ?& ARRAY['mode','reference','kind','currency','amountMinor','status'])
- OR v->>'mode' IS DISTINCT FROM 'sandbox' OR jsonb_typeof(v->'amountMinor') IS DISTINCT FROM 'number'
+ IF EXISTS(SELECT FROM jsonb_array_elements(p_rows) e(v) WHERE CASE
+ WHEN jsonb_typeof(v) IS DISTINCT FROM 'object' THEN true
+ ELSE NOT (v ?& ARRAY['mode','reference','kind','currency','amountMinor','status'])
+ OR v->>'mode' IS DISTINCT FROM 'sandbox'
+ OR jsonb_typeof(v->'reference') IS DISTINCT FROM 'string'
+ OR (v->>'reference') !~ '^[A-Za-z0-9_-]{1,128}$'
+ OR jsonb_typeof(v->'kind') IS DISTINCT FROM 'string'
+ OR (v->>'kind') NOT IN ('funding','payout','refund')
+ OR v->>'currency' IS DISTINCT FROM (CASE WHEN v->>'kind'='payout' THEN 'HNL' ELSE 'USD' END)
+ OR jsonb_typeof(v->'status') IS DISTINCT FROM 'string'
+ OR (v->>'status') NOT IN ('pending','confirmed','failed')
+ OR jsonb_typeof(v->'amountMinor') IS DISTINCT FROM 'number'
  OR (v->>'amountMinor') !~ '^[1-9][0-9]{0,15}$'
- OR (v-ARRAY['mode','reference','kind','currency','amountMinor','status'])<>'{}'::jsonb)
+ OR (v->'amountMinor') > '9007199254740991'::jsonb
+ OR (v-ARRAY['mode','reference','kind','currency','amountMinor','status'])<>'{}'::jsonb
+ END)
  THEN RAISE EXCEPTION 'INVALID_STATEMENT_ROW'; END IF;
  -- Serialize statement imports with evidence review in the disposable lab.
  PERFORM pg_advisory_xact_lock(60261126,17);
