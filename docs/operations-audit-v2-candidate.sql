@@ -35,4 +35,35 @@ DO $gate$ BEGIN
  IF EXISTS (SELECT 1 FROM mwd_finance_private.demo_operations_audit_v2 WHERE audit_status IS DISTINCT FROM 'ok') THEN RAISE EXCEPTION 'Invalid ledger posting'; END IF;
 END $gate$;
 SELECT kind,audit_status,count(*) FROM mwd_finance_private.demo_operations_audit_v2 GROUP BY 1,2 ORDER BY 1,2;
+-- Negative control: intentionally perturb one synthetic debit account only in this
+-- guarded disposable transaction. Verify the exact-account audit catches it,
+-- then undo the perturbation before checking the clean baseline again.
+SAVEPOINT negative_control;
+DO $negative$
+DECLARE op_id uuid; account_id_to_test uuid; detected text;
+BEGIN
+ SELECT o.id,a.id INTO STRICT op_id,account_id_to_test
+ FROM public.mwd_operations o
+ JOIN mwd_finance_private.ledger_accounts a ON a.owner_user_id=o.source_user_id
+   AND a.currency_code='MWD' AND a.account_type='customer_liability'
+ WHERE o.kind='transfer'
+ ORDER BY o.id LIMIT 1;
+ UPDATE mwd_finance_private.ledger_accounts
+ SET account_code='MWD-ISOLATED-NEGATIVE-'||id::text
+ WHERE id=account_id_to_test;
+ SELECT audit_status INTO STRICT detected
+ FROM mwd_finance_private.demo_operations_audit_v2 WHERE operation_id=op_id;
+ IF detected IS DISTINCT FROM 'invalid_debit' THEN
+   RAISE EXCEPTION 'Negative control missed invalid debit account: %', detected;
+ END IF;
+END $negative$;
+ROLLBACK TO SAVEPOINT negative_control;
+DO $restored$
+BEGIN
+ IF EXISTS (SELECT 1 FROM mwd_finance_private.demo_operations_audit_v2 WHERE audit_status IS DISTINCT FROM 'ok')
+ THEN RAISE EXCEPTION 'Negative control did not restore clean baseline'; END IF;
+ IF has_table_privilege('anon','mwd_finance_private.demo_operations_audit_v2','SELECT')
+ OR has_table_privilege('authenticated','mwd_finance_private.demo_operations_audit_v2','SELECT')
+ THEN RAISE EXCEPTION 'Audit view exposed to client'; END IF;
+END $restored$;
 ROLLBACK;
