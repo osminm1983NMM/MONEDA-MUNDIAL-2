@@ -53,7 +53,11 @@ $$;
 -- Aggregate number of blocked orders (including missing audit rows). No raw IDs to auditor.
 CREATE VIEW integrity_hold_summary AS
  SELECT o.state,count(*) AS held_orders FROM orders o JOIN reservations z ON z.order_id=o.id
- WHERE NOT order_integrity_ok(o.id) GROUP BY o.state;
+ LEFT JOIN ledger_integrity_details l ON l.order_id=o.id
+ LEFT JOIN lifecycle_integrity_details c ON c.order_id=o.id
+ WHERE NOT coalesce(NOT l.balance_mismatch AND l.invalid_postings=0 AND l.missing_postings=0
+ AND NOT c.reservation_mismatch AND c.intent_mismatches=0 AND c.event_mismatches=0,false)
+ GROUP BY o.state;
 REVOKE ALL ON integrity_hold_summary FROM PUBLIC;
 GRANT SELECT ON integrity_hold_summary TO mwd_lab_audit_service;
 REVOKE ALL ON FUNCTION claim_dispatch(integer),check_dispatch_lease(text,uuid) FROM PUBLIC;
