@@ -30,3 +30,21 @@ test('screen and emulator require build identity',()=>{
   assert.ok(app.includes('Compilación: {BUILD_COMMIT}'));
   assert.ok(workflow.includes('grep -F "$GITHUB_SHA" "$RUNNER_TEMP/mwd-ui.xml"'));
 });
+
+test('dependency resolution uses a committed lock when present and captures a generated lock otherwise',()=>{
+  assert.ok(workflow.includes("'package-lock.json'"));
+  assert.match(workflow,/if \[ -f package-lock\.json \]; then\s+npm ci --no-audit --no-fund\s+else\s+npm install --package-lock --no-audit --no-fund/);
+  assert.ok(workflow.includes('test -s package-lock.json'));
+  assert.ok(workflow.includes('cp package-lock.json "$RUNNER_TEMP/mwd-package-lock.json"'));
+});
+test('packaged dependency resolution is checked for changes and hashed before upload',()=>{
+  assert.ok(workflow.includes('cmp "$RUNNER_TEMP/mwd-package-lock.json" ../package-lock.json'));
+  assert.ok(workflow.includes('cp "$RUNNER_TEMP/mwd-package-lock.json" package-lock.json'));
+  assert.ok(workflow.includes('sha256sum package-lock.json TOOLCHAIN.txt > DEPENDENCIES-SHA256.txt'));
+  assert.ok(workflow.indexOf('sha256sum package-lock.json TOOLCHAIN.txt')<workflow.indexOf('actions/upload-artifact@v4'));
+});
+test('emulator verifies APK and dependency provenance before installing',()=>{
+  const verify=workflow.indexOf('sha256sum -c DEPENDENCIES-SHA256.txt');
+  assert.ok(verify>workflow.indexOf('sha256sum -c SHA256.txt'));
+  assert.ok(verify<workflow.indexOf('Install and launch Android 35'));
+});
