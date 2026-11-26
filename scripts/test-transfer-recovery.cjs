@@ -11,6 +11,7 @@ function section(start, end) {
   return app.slice(from, to);
 }
 const handlers = [
+  section('function syncErrorMessage', 'function pendingOperationStorageKey'),
   section('function parsePendingOperation', 'function parsePendingPickup'),
   section('function pendingOperationStorageKey', 'function pendingPickupStorageKey'),
   section('function isDefinitiveRpcRejection', 'function amountToCents'),
@@ -168,7 +169,7 @@ test('una consulta sin respuesta libera el botón y permite actualizar la cuenta
     setTimeout: callback => { expire = callback; }, clearTimeout: noop,
     supabase: { from: () => Object.create(query) },
   });
-  vm.runInContext(section('async function refreshAccount', 'async function authenticate'), ctx);
+  vm.runInContext(section('function syncErrorMessage', 'function pendingOperationStorageKey') + '\n' + section('async function refreshAccount', 'async function authenticate'), ctx);
   const first = ctx.refreshAccount('A');
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(syncing, true);
@@ -184,3 +185,16 @@ test('una consulta sin respuesta libera el botón y permite actualizar la cuenta
   assert.equal(wallet.user_id, 'B');
   assert.equal(syncing, false);
 });
+
+for (const failure of ['getItem','setItem']) {
+  test('transferencia: fallo local '+failure+' impide enviar y exige revisión', async () => {
+    const storage = new Map(); let calls=0; let recoveryError; const notices=[];
+    const ctx=device(storage,async()=>{calls++;throw Error('RPC no esperada');});
+    ctx.AsyncStorage[failure]=async()=>{throw Error('Almacenamiento no disponible');};
+    ctx.setPendingOperationRecoveryError=value=>{recoveryError=value;};
+    ctx.message=title=>notices.push(title);
+    await ctx.executeOperation('transfer',100,recipient);
+    assert.equal(calls,0); assert.match(recoveryError,/referencia local/);
+    assert.deepEqual(notices,['Referencia no verificada']); assert.equal(ctx.busyRef.current,false);
+  });
+}
