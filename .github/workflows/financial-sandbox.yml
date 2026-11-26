@@ -1,0 +1,22 @@
+name: Núcleo financiero sandbox
+on:
+  push:
+    branches: [feature/infraestructura-financiera-sandbox-20261126, dev/cierre-android-20261125]
+    paths: ['financial-sandbox/**', 'tests/financial/**', '.github/workflows/financial-sandbox.yml']
+  pull_request:
+    paths: ['financial-sandbox/**', 'tests/financial/**', '.github/workflows/financial-sandbox.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sandbox:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/financial/*.test.cjs

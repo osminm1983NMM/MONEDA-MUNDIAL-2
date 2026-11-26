@@ -1,0 +1,12 @@
+# Núcleo financiero de integración — contrato sandbox
+
+Este módulo es exclusivamente sintético: no se importa desde App.js, no tiene endpoint, red, credenciales, base de datos ni capacidad de mover dinero. No usar en producción. No sustituye la DEMO instalada ni sus RPC. Corredor inicial US → HN; USD para financiación y contabilidad, HNL ilustrativo con tasa fija de prueba 25, no cotización comercial.
+
+## Contrato
+El servidor futuro deberá obtener la identidad del actor de una sesión validada, verificar beneficiario y estado KYC/sanciones/riesgo de fuentes autorizadas, reservar límites de forma transaccional, emitir cotización inmutable y registrar consentimiento/disclosures. El proveedor se encapsula por submit y verificación de evento. El simulador no transmite datos. Un reconocimiento de transporte no implica liquidación; una respuesta perdida se conserva como pendiente y se reintenta con referencia estable. Los eventos firmados deben coincidir con orden, estado, moneda, importe y referencia. Débito positivo y crédito negativo; contabilidad USD ilustrativa: efectivo proveedor contra pasivo cliente, pago contra pasivo y comisión, devolución íntegra si el pago falla definitivamente. No representa costo real de FX, prefunding, chargebacks, reservas, settlement bancario ni reconocimiento contable definitivo.
+
+## Siguiente implementación técnica (no habilitar dinero)
+- Persistencia privada con transacciones, bloqueos, restricciones únicas, outbox, inbox, asientos inmutables y recuperación tras reinicios. El modelo en memoria solo verifica contrato, no concurrencia entre procesos ni durabilidad. Reconciliación independiente de extractos del proveedor, saldos multimoneda, costos y ajustes.
+- Adaptadores reales únicamente después de contrato, sandbox oficial, documentación y autorización; verificación de firma exacta del proveedor, rotación, autenticación del servidor, protección de secretos, revisión de eventos tardíos/contradictorios y conciliación manual.
+- Proveedor KYC/AML, beneficiarios, reglas de riesgo, sanciones, monitoreo de transacciones, escalamiento humano y permisos segregados. Las reglas de prueba no son cumplimiento legal ni criterios aprobados de negocio.
+- Custodia, COIN/DIGITAL, reversos, disputas, obligaciones de divulgación, recuperación y monitorización: requieren diseño y revisión independiente antes del lanzamiento. Sin activación de pagos reales ni cambio de base compartida.
