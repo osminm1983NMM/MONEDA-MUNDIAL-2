@@ -11,6 +11,7 @@ function section(start, end) {
   return app.slice(from, to);
 }
 const handlers = [
+  section('function parsePendingOperation', 'function parsePendingPickup'),
   section('function pendingOperationStorageKey', 'function pendingPickupStorageKey'),
   section('function isDefinitiveRpcRejection', 'function amountToCents'),
   section('async function recoverPendingOperation', 'function changeAmount'),
@@ -22,7 +23,7 @@ const requestId = '469bea32-c0b9-43bd-b2e4-cadcaf0a3883';
 function device(storage, rpc) {
   const noop = () => {};
   const ctx = vm.createContext({
-    AbortController, setTimeout, clearTimeout,
+    LIMIT_CENTS: 100000000, AbortController, setTimeout, clearTimeout,
     userId: 'sender', currentUserRef: { current: 'sender' }, busyRef: { current: false },
     pendingRef: { current: null }, isCurrentUser: id => id === 'sender',
     AsyncStorage: {
@@ -61,7 +62,7 @@ for (const committed of [true, false]) {
           : { status: 'unconfirmed' } };
       }
       attempts.push([name, args.p_request_id]);
-      return { data: { status: 'ok' } };
+      return { data: { status: 'ok', operation_id: requestId } };
     });
     restarted.uniqueRequestId = () => assert.fail('A retry must reuse the stored reference');
     const recovery = restarted.recoverPendingOperation();
