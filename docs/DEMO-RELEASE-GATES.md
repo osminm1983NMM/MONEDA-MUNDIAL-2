@@ -10,14 +10,14 @@ Esta sección prevalece sobre los estados históricos conservados más abajo. [R
 | Cuatro reintentos simultáneos y 14 auditorías posteriores | APROBADA en CI 45840521789 |
 | Auditoría contable V2 con control negativo y rollback | APROBADA en PostgreSQL aislado; no desplegada |
 | Android: dependencias, regresiones Node, auditorías, Expo y prebuild | APROBADA en CI 45840521938 |
-| Android: Gradle, artefacto, integridad, instalación y dos aperturas | PENDIENTE de resultado final para la nueva candidata |
+| Android: Gradle, artefacto, integridad, instalación y dos aperturas | APROBADA en CI 45840521938; aceptación física pendiente |
 | Samsung: transferencia normal, saldo e historial | APROBADA en pruebas físicas anteriores; versión exacta pendiente |
 | Samsung: conversión bidireccional, aportación y retiro | APROBADOS en flujos anteriores; versión nueva pendiente |
 | Samsung: recuperación de red | APROBADA ante fallo previo al registro; pérdida de respuesta tras commit no certificada físicamente |
 | Recuperación de contraseña por correo | Flujo principal demostrado anteriormente; validar candidata exacta y casos negativos |
 | Producción, fondos reales y cumplimiento regulatorio | NO AUTORIZADOS |
 
-**Evidencia actual:** [PR 133](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/pull/133), base probada `fc5caa753f6c03f9afd47257a45dec54f4daf698`, head `852c8b21af501212f0153321ac7d4f0b087d793d`. [PostgreSQL aprobado](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45840521789); [Android en ejecución](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45840521938). El APK de la ejecución anterior 45809213055 no certifica la revisión actual. En la consulta de esta revisión todavía no hay artefacto nuevo disponible.
+**Evidencia actual:** [PR 133](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/pull/133), base probada `fc5caa753f6c03f9afd47257a45dec54f4daf698`, head `852c8b21af501212f0153321ac7d4f0b087d793d`. [PostgreSQL aprobado](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45840521789); [Android aprobado](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45840521938). Candidata LAB: [artefacto 15128571164](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45840521938/artifacts/15128571164), vence 2026-12-03 14:41:45 UTC. Checkout temporal de PR 133: `62cd2a5fd80fe54813b0a01e6f61a4b05930b620`; 97 pruebas Android, 27 regresiones adicionales y 24 escenarios de recuperación aprobados, dos aperturas verificadas en emulador. Ver registro de aceptación para huellas SHA-256. Las nuevas pruebas comerciales no forman parte de esta candidata. El APK anterior 45809213055 no certifica la revisión actual.
 
 ### Protocolo mínimo de aceptación física de la nueva candidata
 
