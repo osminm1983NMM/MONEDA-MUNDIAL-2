@@ -1,6 +1,7 @@
 'use strict';
 // Integration harness: Docker CI only. No URLs, secrets, production connections.
-const {execFileSync}=require('node:child_process');
+const {execFile,execFileSync}=require('node:child_process');
+const {promisify}=require('node:util');
 const assert=require('node:assert/strict');
 const {createWorker}=require('../../financial-sandbox/provider-worker.cjs');
 const {openDurableProvider}=require('../../financial-sandbox/durable-provider.cjs');
@@ -24,6 +25,46 @@ function store(){
   ack(ref,token){sql('SELECT '+schema+'.acknowledge_dispatch('+lit(ref)+','+lit(token)+'::uuid)','dispatch');},
   record(e){return sql('SELECT '+schema+'.record_verified_event('+[e.provider,e.eventId,e.reference,e.outcome,e.currency].map(lit).join(',')+','+e.amountMinor+')','event');}
  };
+}
+async function assertAckExpiresWhileWaiting(reference){
+ const ref=lit(reference);
+ const token=sql('SELECT token FROM '+schema+'.dispatch WHERE reference='+ref);
+ sql("UPDATE "+schema+".dispatch SET lease_until=clock_timestamp()+interval '5 seconds' WHERE reference="+ref);
+ const lock=promisify(execFile)('docker',['exec',container,'psql','-X','-qAt','-v','ON_ERROR_STOP=1','-U','lab','-d','mwd_financial_sandbox_test','-c',`
+  BEGIN;
+  SET LOCAL statement_timeout='12s';
+  SELECT 1 FROM ${schema}.dispatch WHERE reference=${ref} FOR NO KEY UPDATE;
+  SELECT pg_advisory_xact_lock(60261126,100);
+  DO $$
+  BEGIN
+   LOOP
+    PERFORM pg_stat_clear_snapshot();
+    EXIT WHEN EXISTS (
+     SELECT FROM pg_stat_activity WHERE application_name='mwd-late-transport-ack'
+      AND pg_backend_pid()=ANY(pg_blocking_pids(pid))
+    );
+    PERFORM pg_sleep(0.05);
+   END LOOP;
+  END $$;
+  SELECT pg_sleep_until(lease_until+interval '100 milliseconds') FROM ${schema}.dispatch WHERE reference=${ref};
+  ROLLBACK;
+ `],{timeout:15000}).then(()=>null,error=>error);
+ try{
+  let ready=false;
+  for(let attempt=0;attempt<40;attempt++){
+   if(sql('SELECT pg_try_advisory_lock(60261126,100)')==='f'){ready=true;break;}
+   await delay(50);
+  }
+  assert.equal(ready,true,'dispatch locker did not acquire the row');
+  assert.throws(
+   ()=>sql("SET application_name='mwd-late-transport-ack'; SET statement_timeout='15s'; SELECT "+schema+'.acknowledge_dispatch('+ref+','+lit(token)+'::uuid)','dispatch'),
+   /STALE_LEASE/
+  );
+  assert.equal(sql('SELECT state FROM '+schema+'.dispatch WHERE reference='+ref),'leased');
+ }finally{
+  const error=await lock;
+  if(error)throw error;
+ }
 }
 function state(order){return sql('SELECT state FROM '+schema+'.orders WHERE id='+lit(order)+'::uuid');}
 function openOrder(actor){
@@ -55,8 +96,9 @@ async function main(){
  p=openDurableProvider(config);
  assert.equal((await p.lookup(order+'-funding')).status,'accepted');
  assert.equal(state(order),'funding_pending');
- // Expire the old lease and recreate the worker.
- sql("UPDATE "+schema+".dispatch SET lease_until=clock_timestamp()-interval '1 second' WHERE reference="+lit(order+'-funding'));
+ // A transport acknowledgment starts before expiry but reaches the locked row
+ // too late. Recovery must reclaim the expired lease with a new token.
+ await assertAckExpiresWhileWaiting(order+'-funding');
  worker=createWorker({environment:'sandbox',store:store(),provider:p});
  assert.equal((await worker.tick()).status,'transport_acknowledged');
  assert.equal(p.submissions().length,1);assert.equal(state(order),'funding_pending');

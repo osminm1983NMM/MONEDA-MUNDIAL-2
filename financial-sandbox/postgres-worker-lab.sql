@@ -26,10 +26,16 @@ ALTER TABLE dispatch ADD CONSTRAINT dispatch_ack_timestamp CHECK(
  (state='acknowledged')=(acknowledged_at IS NOT NULL));
 CREATE OR REPLACE FUNCTION acknowledge_dispatch(p_ref text,p_token uuid) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=mwd_financial_lab,pg_catalog AS $$
+DECLARE deadline timestamptz; acknowledged timestamptz;
 BEGIN
- UPDATE dispatch SET state='acknowledged',token=NULL,lease_until=NULL,acknowledged_at=clock_timestamp()
- WHERE reference=p_ref AND state='leased' AND token=p_token AND lease_until>clock_timestamp();
- IF NOT FOUND THEN RAISE EXCEPTION 'STALE_LEASE'; END IF;
+ -- Acquire the row before reading the clock. A concurrent row locker can
+ -- delay an UPDATE without changing the tuple or rechecking its predicate.
+ SELECT lease_until INTO deadline FROM dispatch
+ WHERE reference=p_ref AND state='leased' AND token=p_token FOR NO KEY UPDATE;
+ acknowledged:=clock_timestamp();
+ IF deadline IS NULL OR deadline<=acknowledged THEN RAISE EXCEPTION 'STALE_LEASE'; END IF;
+ UPDATE dispatch SET state='acknowledged',token=NULL,lease_until=NULL,acknowledged_at=acknowledged
+ WHERE reference=p_ref;
 END $$;
 -- Read-only monitoring of reserved pending orders. Never dispatches, refunds or writes ledger.
 -- Five minutes is a synthetic alert threshold, NOT a real provider SLA.
