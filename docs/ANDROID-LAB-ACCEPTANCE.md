@@ -134,3 +134,10 @@ Control previo: aportación normal de 1 MWD registrada a las 11:44:36 UTC, saldo
 
 - App.js muestra el commit completo en un texto seleccionable; fuera de CI muestra «sin verificar». El workflow LAB reemplaza el marcador por GITHUB_SHA (40 caracteres hexadecimales) y falla si el marcador falta o está duplicado. COMMIT.txt utiliza el mismo SHA. El smoke-test exige encontrarlo en la jerarquía visible del emulador, además de comprobar hash e instalación del APK. No es una atestación criptográfica del APK físico por sí sola.
 - Cinco casos de tests/android/build-identity.test.cjs aprobados en un entorno JavaScript con adaptadores de archivos y aserciones; no se confirmó CI real. La versión instalada anterior no cambia hasta una actualización, ni se solicita desinstalar. Pendiente obtener una nueva ejecución aprobada y verificar identidad visible en Samsung con su COMMIT.txt. No se modificó main, Supabase, saldos ni dinero real.
+
+
+## Cierre de sesión y recuperación — 26 de noviembre de 2026
+
+- Se incorporó bloqueo compartido de autenticación para evitar doble cierre de sesión, captura de errores devueltos y excepciones, mensajes sin detalles internos y salida explícita desde la pantalla de recuperación. Se conserva el evento de Supabase como fuente del estado de sesión; no se borran referencias pendientes de operaciones.
+- Seis escenarios aprobados al ejecutar la lógica real de App.js con dobles de autenticación y aserciones: doble toque, error devuelto, excepción, cambio de cuenta durante error, ausencia de cuenta y botones protegidos. Prueba guardada en tests/android/logout.test.cjs. No equivale a ejecución nativa de Node ni a validación física.
+- Cambios en rama de desarrollo exclusivamente. Pendientes: verificar CI, compilación y prueba física de cierre/reingreso con nueva contraseña, sin solicitar contraseñas ni tokens en el chat. No se modificaron Supabase, saldos ni main.
