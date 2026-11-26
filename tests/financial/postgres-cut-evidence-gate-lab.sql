@@ -247,6 +247,7 @@ BEGIN
  PERFORM set_config('mwd.resume_rows',rows::text,true);
  b:=import_statement('resume-legacy-complete',true,rows);
  PERFORM set_config('mwd.resume_legacy',b::text,true);
+ BEGIN PERFORM check_resume_evidence(current_setting('mwd.resume_halt')::bigint,b); RAISE EXCEPTION 'legacy resume evidence allowed'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'RESUME_EVIDENCE_UNAVAILABLE' THEN RAISE; END IF; END;
  b:=import_statement_cut('resume-good1','US-HN:all-funding-payout-refund',clock_timestamp(),jsonb_array_length(rows),rows);
  PERFORM set_config('mwd.resume_good1',b::text,true);
 END $$;
