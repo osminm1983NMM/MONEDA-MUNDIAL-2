@@ -2,7 +2,7 @@ name: APK Android de demostración (Gradle)
 on:
   push:
     branches: [fix/eas-build-current-ref-20261121, dev/cierre-android-20261125]
-    paths: ['.github/workflows/apk-demo-gradle.yml', 'App.js', 'auth-storage.js', 'PartnerRegistryScreen.js', 'app.json', 'package.json', 'package-lock.json', 'scripts/probar-apk-samsung.sh', 'scripts/test-*.cjs', 'scripts/audit-*.cjs', 'scripts/preflight-release-local.js', 'tests/android/**']
+    paths: ['.github/workflows/apk-demo-gradle.yml', 'App.js', 'RemittanceQuoteScreen.js', 'remittance-quote.js', 'auth-storage.js', 'PartnerRegistryScreen.js', 'app.json', 'package.json', 'package-lock.json', 'scripts/probar-apk-samsung.sh', 'scripts/test-*.cjs', 'scripts/audit-*.cjs', 'scripts/preflight-release-local.js', 'tests/android/**']
   workflow_dispatch:
 concurrency:
   group: mwd-lab-apk-${{ github.ref }}

@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'App.js'
+      - 'RemittanceQuoteScreen.js'
+      - 'remittance-quote.js'
       - 'package.json'
       - 'app.json'
       - 'eas.json'
