@@ -731,13 +731,14 @@ export default function App() {
     if (!isCurrentUser(actorId)) return;
     const busyToken = beginSwapBusy();
     if (!busyToken) return;
+    const isActive = () => isCurrentUser(actorId) && swapBusyTokenRef.current === busyToken;
     try {
       const { data, error } = await supabase.rpc('mwd_conversion_wallet_demo');
-      if (!isCurrentUser(actorId)) return;
+      if (!isActive()) return;
       if (error) throw error;
       setSwapWallet(data);
     } catch (error) {
-      if (isCurrentUser(actorId)) message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
+      if (isActive()) message('Monedas de prueba', error.message || 'No se pudo cargar la billetera.');
     } finally {
       endSwapBusy(busyToken, actorId);
     }
@@ -747,11 +748,12 @@ export default function App() {
     if (!isCurrentUser(actorId)) return;
     const busyToken = beginSwapBusy();
     if (!busyToken) return;
+    const isActive = () => isCurrentUser(actorId) && swapBusyTokenRef.current === busyToken;
     swapQuoteRef.current = null;
     setSwapQuote(null);
     try {
       const saved = await AsyncStorage.getItem('mwd:pending-swap:' + actorId);
-      if (!isCurrentUser(actorId)) return;
+      if (!isActive()) return;
       if (saved) {
         const pending = JSON.parse(saved);
         if (!pending || pending.userId !== actorId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pending.quote?.quoteId || '')) {
@@ -774,12 +776,12 @@ export default function App() {
       const { data, error } = await supabase.rpc('mwd_conversion_quote_demo', {
         p_from_asset: swapFrom, p_amount_micro: micro, p_client_request_id: uniqueRequestId(),
       });
-      if (!isCurrentUser(actorId)) return;
+      if (!isActive()) return;
       if (error) throw error;
       swapQuoteRef.current = data;
       setSwapQuote(data);
     } catch (error) {
-      if (isCurrentUser(actorId)) message('Cotización', error.message || 'No se pudo cotizar.');
+      if (isActive()) message('Cotización', error.message || 'No se pudo cotizar.');
     } finally {
       endSwapBusy(busyToken, actorId);
     }
@@ -793,10 +795,11 @@ export default function App() {
     if (!isCurrentUser(actorId)) return;
     const busyToken = beginSwapBusy();
     if (!busyToken) return;
+    const isActive = () => isCurrentUser(actorId) && swapBusyTokenRef.current === busyToken;
     try {
       const key = 'mwd:pending-swap:' + actorId;
       const saved = await AsyncStorage.getItem(key);
-      if (!isCurrentUser(actorId)) return;
+      if (!isActive()) return;
       if (saved) {
         const pending = JSON.parse(saved);
         if (!pending || pending.userId !== actorId || pending.quote?.quoteId !== quote.quoteId) {
@@ -805,15 +808,15 @@ export default function App() {
       } else {
         await AsyncStorage.setItem(key, JSON.stringify({userId: actorId, quote}));
       }
-      if (!isCurrentUser(actorId)) return;
+      if (!isActive()) return;
       const { data, error, status } = await supabase.rpc('mwd_conversion_confirm_demo', {
         p_quote_id: quote.quoteId,
       });
-      if (!isCurrentUser(actorId)) return;
+      if (!isActive()) return;
       if (error) {
         if (isDefinitiveRpcRejection(error, status)) {
           await AsyncStorage.removeItem(key);
-          if (!isCurrentUser(actorId)) return;
+          if (!isActive()) return;
           swapQuoteRef.current = null;
           setSwapQuote(null);
           message('Cotización rechazada',
@@ -825,24 +828,24 @@ export default function App() {
       }
       if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
       await AsyncStorage.removeItem(key);
-      if (!isCurrentUser(actorId)) return;
+      if (!isActive()) return;
       swapQuoteRef.current = null;
       setSwapQuote(null);
       setSwapAmount('');
       message('Conversión ficticia', 'Operación registrada correctamente.');
       try {
         const walletResponse = await supabase.rpc('mwd_conversion_wallet_demo');
-        if (!isCurrentUser(actorId)) return;
+        if (!isActive()) return;
         if (walletResponse.error) throw walletResponse.error;
         setSwapWallet(walletResponse.data);
       } catch (syncError) {
-        if (isCurrentUser(actorId)) {
+        if (isActive()) {
           message('Saldo pendiente de actualizar',
             'La conversión se confirmó. Pulsa Consultar saldos para actualizar la pantalla.');
         }
       }
     } catch (error) {
-      if (isCurrentUser(actorId)) {
+      if (isActive()) {
         message('Conversión no confirmada', (error.message || 'Error desconocido') +
           '\nConsulta los saldos antes de intentar otra conversión.');
       }
