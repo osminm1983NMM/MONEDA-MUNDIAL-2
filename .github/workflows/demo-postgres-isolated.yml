@@ -8,6 +8,15 @@ on:
       - 'scripts/build-isolated-demo-sql.cjs'
       - 'scripts/test-demo-concurrency-local.cjs'
       - 'tests/sql/prepare-disposable-concurrency-fixtures.sql'
+  pull_request:
+    branches: [dev/cierre-android-20261125]
+    paths:
+      - '.github/workflows/demo-postgres-isolated.yml'
+      - 'database/replay/**'
+      - 'scripts/build-isolated-demo-sql.cjs'
+      - 'scripts/test-demo-concurrency-local.cjs'
+      - 'scripts/run-demo-sql-gates.cjs'
+      - 'tests/sql/**'
   workflow_dispatch:
 permissions:
   contents: read

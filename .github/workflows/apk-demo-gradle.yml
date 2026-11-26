@@ -3,6 +3,9 @@ on:
   push:
     branches: [fix/eas-build-current-ref-20261121, dev/cierre-android-20261125]
     paths: ['.github/workflows/apk-demo-gradle.yml', 'App.js', 'PartnerRegistryScreen.js', 'app.json', 'package.json', 'scripts/probar-apk-samsung.sh', 'tests/android/**']
+  pull_request:
+    branches: [dev/cierre-android-20261125]
+    paths: ['.github/workflows/apk-demo-gradle.yml', 'App.js', 'PartnerRegistryScreen.js', 'app.json', 'package.json', 'scripts/test-password-recovery.cjs', 'scripts/probar-apk-samsung.sh', 'tests/android/**']
   workflow_dispatch:
 concurrency:
   group: mwd-lab-apk-${{ github.ref }}
