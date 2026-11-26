@@ -32,6 +32,24 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 const LIMIT_CENTS = 100000000; // 1 millón de MWD por operación ficticia
 const formatMWD = cents => (Number(cents || 0) / 100).toFixed(2);
 
+function pickupStatusLabel(status) {
+  switch (status) {
+    case 'pending': return 'Pendiente';
+    case 'cancelled': return 'Cancelada';
+    case 'expired': return 'Vencida';
+    case 'claimed': return 'Retirada (simulación)';
+    default: return 'Estado no reconocido';
+  }
+}
+
+function syncErrorMessage(error) {
+  const detail = typeof error?.message === 'string' ? error.message.trim() : '';
+  if (/^(?:TypeError:\s*)?(?:Network request failed|Failed to fetch|NetworkError when attempting to fetch resource\.?)$/i.test(detail)) {
+    return 'No hay conexión con el servidor. Revisa tu conexión a internet y vuelve a pulsar Actualizar saldo e historial. Los datos visibles pueden estar desactualizados.';
+  }
+  return detail || 'No se pudo consultar Supabase.';
+}
+
 function pendingOperationStorageKey(userId) {
   return 'mwd_pending_operation:' + userId;
 }
@@ -367,7 +385,7 @@ export default function App() {
         setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
         message('Sincronización', controller.signal.aborted
           ? 'La consulta tardó demasiado. Vuelve a pulsar Actualizar saldo e historial.'
-          : error.message || 'No se pudo consultar Supabase.');
+          : syncErrorMessage(error));
         return false;
       }
     } finally {
@@ -1064,7 +1082,7 @@ export default function App() {
                 <View key={order.orderId} style={styles.card}>
                   <Text style={styles.small}>Destino: {order.destinationCountry === 'HN' ? 'Honduras' : order.destinationCountry}</Text>
                   <Text style={styles.small}>Monto: {formatMWD(order.amountCents)} MWD ficticios</Text>
-                  <Text style={styles.small}>Estado: {order.status}</Text>
+                  <Text style={styles.small}>Estado: {pickupStatusLabel(order.status)}</Text>
                   <Text style={styles.muted}>Creada: {new Date(order.createdAt).toLocaleString()}</Text>
                   <Text style={styles.muted}>Vence: {new Date(order.expiresAt).toLocaleString()}</Text>
                   <Text selectable style={styles.muted}>Referencia: {order.orderId}</Text>
