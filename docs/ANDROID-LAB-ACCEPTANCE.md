@@ -106,3 +106,7 @@ Captura Samsung 06:37 EST: «Orden cancelada correctamente», estado cancelled. 
 ## Conversión inversa física — 26 de noviembre de 2026
 
 Capturas Samsung 06:38–06:40 EST: origen DIGITAL, cotización de 10 DIGITAL, bruto 80 COIN, comisión 0.2 COIN (0.25%), neto 79.8 COIN. Mensaje «Operación registrada correctamente». Saldos COIN 282.500000 → 362.300000; DIGITAL 977.119684 → 967.119684. Consulta independiente de solo lectura confirma cotización de 11:39:50 UTC ejecutada una vez, importes 10000000/79800000/200000 micro-unidades, cuatro asientos, cero activos descuadrados y ambos saldos coincidentes. Conversión inversa normal física aprobada. Identidad exacta del APK, recuperación por correo y reintento de red físico siguen pendientes. No se cambió Supabase ni main.
+
+## Pérdida de conexión física — 26 de noviembre de 2026
+
+Captura Samsung 06:42 EST: modo avión activo, actualización manual de saldo e historial devuelve diálogo Sincronización / TypeError: Network request failed. La pantalla permanece abierta y muestra que no pudo actualizar. Detección de error de red en lectura aprobada visualmente; pendiente comprobar recuperación al restaurar conexión y verificar reintento de operación con la misma referencia. Hallazgo UX: localizar mensaje de red en español sin ocultar otros errores ni presentar datos antiguos como actualizados. No se hicieron operaciones financieras ni cambios de código o base de datos en esta revisión.
