@@ -51,9 +51,9 @@ RESET ROLE;
 SELECT import_statement('evidence-legacy-complete',true,current_setting('mwd.test.rows')::jsonb) AS id \gset legacy_
 SELECT set_config('mwd.test.legacy',:'legacy_id',true);
 SET LOCAL ROLE mwd_lab_review_proposer;
-DO $ BEGIN
+DO $$ BEGIN
  BEGIN PERFORM propose_statement_review(current_setting('mwd.test.incident')::bigint,'first',current_setting('mwd.test.legacy')::uuid); RAISE EXCEPTION 'legacy full evidence allowed'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'EVIDENCE_UNAVAILABLE' THEN RAISE; END IF; END;
-END $;
+END $$;
 RESET ROLE;
 SET LOCAL ROLE mwd_lab_statement_service;
 SELECT import_statement_cut('evidence-confirmed','US-HN:all-funding-payout-refund',clock_timestamp(),jsonb_array_length(current_setting('mwd.test.rows')::jsonb),current_setting('mwd.test.rows')::jsonb) AS id \gset good_
@@ -161,9 +161,9 @@ RESET ROLE;
 SELECT import_statement('recover-legacy-complete',true,current_setting('mwd.test.rows')::jsonb) AS id \gset legacy_
 SELECT set_config('mwd.test.legacy',:'legacy_id',true);
 SET LOCAL ROLE mwd_lab_review_proposer;
-DO $ BEGIN
+DO $$ BEGIN
  BEGIN PERFORM propose_refund_recovery(current_setting('mwd.test.order')::uuid,current_setting('mwd.test.incident')::bigint,current_setting('mwd.test.legacy')::uuid,'first'); RAISE EXCEPTION 'legacy refund evidence allowed'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'EVIDENCE_UNAVAILABLE' THEN RAISE; END IF; END;
-END $;
+END $$;
 RESET ROLE;
 SET LOCAL ROLE mwd_lab_statement_service;
 SELECT import_statement_cut('recover-good','US-HN:all-funding-payout-refund',clock_timestamp(),jsonb_array_length(current_setting('mwd.test.rows')::jsonb),current_setting('mwd.test.rows')::jsonb) AS id \gset b_
