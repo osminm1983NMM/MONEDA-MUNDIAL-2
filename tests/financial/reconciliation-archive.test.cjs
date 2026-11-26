@@ -5,7 +5,7 @@ const {mkdtempSync,rmSync}=require('node:fs');
 const {tmpdir}=require('node:os');
 const {join}=require('node:path');
 const {DatabaseSync}=require('node:sqlite');
-const {openReconciliationArchive}=require('../../financial-sandbox/reconciliation-archive.cjs');
+const {openReconciliationArchive,verifyReconciliationBackup}=require('../../financial-sandbox/reconciliation-archive.cjs');
 const row=(reference,amountMinor=100)=>({mode:'sandbox',reference,kind:'funding',currency:'USD',amountMinor,status:'confirmed'});
 const pages=(source,rows=[row('r1'),row('r2')],snapshotId=source+'-1')=>[{mode:'sandbox',source,snapshotId,scope:'US-HN:all-funding-payout-refund',start:'2026-11-26T00:00:00.000Z',end:'2026-11-27T00:00:00.000Z',capturedAt:'2026-11-27T00:01:00.000Z',declaredCount:rows.length,pageCount:1,index:0,cursor:null,nextCursor:null,complete:true,rows}];
 function fixture(fn){
@@ -45,4 +45,42 @@ test('archive refuses production, implicit creation and overwrite; ordinary upda
  try{for(const sql of ["UPDATE snapshots SET fingerprint='changed'","DELETE FROM snapshots","UPDATE receipts SET summary='changed'","DELETE FROM receipts"])a.throws(()=>db.exec(sql),/IMMUTABLE_ARCHIVE/);}
  finally{db.close();}
  a.deepEqual(store.counts(),{snapshots:2,receipts:1});
+}));
+
+test('independent backup restores clean and discrepant receipts after source loss',()=>fixture(({store,config})=>{
+ const first=store.record({internalPages:pages('internal'),providerPages:pages('provider')});
+ const second=store.record({internalPages:pages('internal'),providerPages:pages('provider',[row('r1',101),row('r2')],'provider-2')});
+ const destination=config.path+'.backup.sqlite';
+ const manifest=store.backup(destination);
+ a.deepEqual([manifest.snapshots,manifest.receipts],[3,2]);
+ a.deepEqual(verifyReconciliationBackup({environment:'sandbox',path:destination,expected:manifest}),manifest);
+ const restored=openReconciliationArchive({...config,path:destination});
+ try{
+  a.deepEqual(restored.get(first.receipt.receiptId),first.receipt);
+  a.deepEqual(restored.get(second.receipt.receiptId),second.receipt);
+  a.equal(restored.record({internalPages:pages('internal'),providerPages:pages('provider')}).status,'duplicate');
+ }finally{restored.close();}
+ a.throws(()=>store.backup(destination),/EEXIST/);
+ a.throws(()=>store.backup(config.path),/EEXIST/);
+ a.throws(()=>verifyReconciliationBackup({environment:'production',path:destination,expected:manifest}),/SANDBOX_ONLY/);
+}));
+test('backup rejects missing, malformed or changed manifest and a logically different archive',()=>fixture(({store,config})=>{
+ store.record({internalPages:pages('internal'),providerPages:pages('provider')});
+ const destination=config.path+'.backup.sqlite',manifest=store.backup(destination);
+ const check=(path,expected)=>verifyReconciliationBackup({environment:'sandbox',path,expected});
+ a.throws(()=>check(destination,{}),/INVALID_MANIFEST/);
+ a.throws(()=>check(destination,{...manifest,sha256:'0'.repeat(64)}),/BACKUP_MISMATCH/);
+ a.throws(()=>check(destination+'.missing.sqlite',manifest),/ARCHIVE_MISSING/);
+ const restored=openReconciliationArchive({...config,path:destination});
+ try{restored.record({internalPages:pages('internal'),providerPages:pages('provider',[row('r1',101),row('r2')],'provider-2')});}
+ finally{restored.close();}
+ a.throws(()=>check(destination,manifest),/BACKUP_MISMATCH/);
+}));
+test('verification detects missing linked snapshot despite a structurally healthy database',()=>fixture(({store,config})=>{
+ store.record({internalPages:pages('internal'),providerPages:pages('provider')});
+ const destination=config.path+'.backup.sqlite',manifest=store.backup(destination);
+ const db=new DatabaseSync(destination);
+ try{db.exec("DROP TRIGGER snapshots_no_delete; DELETE FROM snapshots WHERE source='provider'");}
+ finally{db.close();}
+ a.throws(()=>verifyReconciliationBackup({environment:'sandbox',path:destination,expected:manifest}),/ARCHIVE_CORRUPT/);
 }));
