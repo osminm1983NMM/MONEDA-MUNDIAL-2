@@ -163,5 +163,15 @@ assert.ok(cancelPickup.includes('await loadPickupOrders(true);'), 'La cancelaci�
 assert.ok(recovery.includes('isCurrentUser(id) && busyRef.current === token'), 'La recuperación debe validar su propio bloqueo');
 assert.ok(transfer.includes('isCurrentUser(actorId) && busyRef.current === token'), 'La transferencia debe validar su propio bloqueo');
 assert.ok(transfer.includes('if (!isActive()) return;'), 'Las respuestas obsoletas no deben publicar resultados');
+for (const [start, end] of [
+  ['async function loadSwapWallet() {', 'async function requestSwapQuote() {'],
+  ['async function requestSwapQuote() {', 'async function confirmSwap(expectedQuoteId) {'],
+  ['async function confirmSwap(expectedQuoteId) {', 'async function recoverPendingPickup('],
+]) {
+  const body = section(start, end);
+  assert.ok(body.includes('isCurrentUser(actorId) && swapBusyTokenRef.current === busyToken'), 'La conversión debe validar su propio bloqueo');
+  assert.ok(body.includes('if (!isActive()) return;'), 'La respuesta de conversión debe pertenecer a la solicitud vigente');
+  assert.ok(body.includes('if (isActive())'), 'Los errores de conversión deben pertenecer a la solicitud vigente');
+}
 console.log('PASS: barreras estáticas de reintentos, sesiones, lectura y RPC DEMO');
 console.log('NO CERTIFICA: concurrencia, RLS real, contabilidad, APK ni pagos reales');
