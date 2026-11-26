@@ -49,6 +49,7 @@ test('el doble toque confirma una sola cotización y el fallo de lectura posteri
   });
   const first = ctx.confirmSwap('quote-A');
   await ctx.confirmSwap('quote-A');
+  await new Promise(resolve => setImmediate(resolve));
   finish();
   await first;
   assert.deepEqual(calls, ['mwd_conversion_confirm_demo','mwd_conversion_wallet_demo']);
