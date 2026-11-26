@@ -20,6 +20,10 @@ function identity(id) {
 function guarded() {
   assert.equal(admin("SELECT current_database()||':'||coalesce(shobj_description(oid,'pg_database'),'') FROM pg_database WHERE datname=current_database()"),'mwd_demo_isolated:MWD_DISPOSABLE_CONCURRENCY_TEST_ONLY','Local database must have the explicit disposable marker');
   assert.equal(admin("SELECT count(*) FROM mwd_finance_private.demo_fee_routes WHERE real_payments_enabled IS DISTINCT FROM false"),'0','Real payments must be off');
+  assert.equal(admin("SELECT count(*) FROM auth.users"),'2','Expected exactly two synthetic auth users');
+  assert.equal(admin("SELECT count(*) FROM auth.users WHERE (id='f1a00000-0000-4000-8000-000000000001' AND email='fixture-a@example.invalid' OR id='f1a00000-0000-4000-8000-000000000002' AND email='fixture-b@example.invalid') AND coalesce(encrypted_password,'')=''"),'2','Refusing non-fixture identities');
+  assert.equal(admin("SELECT count(*) FROM public.mwd_wallets WHERE user_id IN ('f1a00000-0000-4000-8000-000000000001','f1a00000-0000-4000-8000-000000000002')"),'2','Synthetic wallets required');
+  assert.equal(admin("SELECT count(*) FROM public.mwd_wallets"),'2','Refusing additional wallets');
 }
 function session(sql,name) {
   let output='', err='';
