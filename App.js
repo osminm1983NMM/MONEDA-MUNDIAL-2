@@ -677,6 +677,18 @@ export default function App() {
     swapQuoteRef.current = null;
     setSwapQuote(null);
     try {
+      const saved = await AsyncStorage.getItem('mwd:pending-swap:' + actorId);
+      if (!isCurrentUser(actorId)) return;
+      if (saved) {
+        const pending = JSON.parse(saved);
+        if (pending.userId !== actorId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pending.quote?.quoteId || '')) {
+          throw new Error('Referencia de conversión pendiente inválida. No se iniciará otra conversión.');
+        }
+        swapQuoteRef.current = pending.quote;
+        setSwapQuote(pending.quote);
+        message('Conversión pendiente', 'Confirma nuevamente la misma referencia para recuperar su resultado.');
+        return;
+      }
       const { data, error } = await supabase.rpc('mwd_conversion_quote_demo', {
         p_from_asset: swapFrom, p_amount_micro: micro, p_client_request_id: uniqueRequestId(),
       });
@@ -700,12 +712,26 @@ export default function App() {
     const busyToken = beginSwapBusy();
     if (!busyToken) return;
     try {
+      const key = 'mwd:pending-swap:' + actorId;
+      const saved = await AsyncStorage.getItem(key);
+      if (!isCurrentUser(actorId)) return;
+      if (saved) {
+        const pending = JSON.parse(saved);
+        if (pending.userId !== actorId || pending.quote?.quoteId !== quote.quoteId) {
+          throw new Error('Existe otra conversión pendiente. Recupera primero su referencia.');
+        }
+      } else {
+        await AsyncStorage.setItem(key, JSON.stringify({userId: actorId, quote}));
+      }
+      if (!isCurrentUser(actorId)) return;
       const { data, error, status } = await supabase.rpc('mwd_conversion_confirm_demo', {
         p_quote_id: quote.quoteId,
       });
       if (!isCurrentUser(actorId)) return;
       if (error) {
         if (isDefinitiveRpcRejection(error, status)) {
+          await AsyncStorage.removeItem(key);
+          if (!isCurrentUser(actorId)) return;
           swapQuoteRef.current = null;
           setSwapQuote(null);
           message('Cotización rechazada',
@@ -716,6 +742,8 @@ export default function App() {
         throw error;
       }
       if (!['ok', 'already_processed'].includes(data?.status)) throw new Error('Confirmación no reconocida.');
+      await AsyncStorage.removeItem(key);
+      if (!isCurrentUser(actorId)) return;
       swapQuoteRef.current = null;
       setSwapQuote(null);
       setSwapAmount('');
