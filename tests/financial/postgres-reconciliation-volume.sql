@@ -8,6 +8,14 @@ DO $$ BEGIN
  THEN RAISE EXCEPTION 'EMPTY_RECONCILIATION_LAB_REQUIRED'; END IF;
 END $$;
 
+SET LOCAL ROLE mwd_lab_audit_service;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT FROM reconciliation_capacity_summary
+  WHERE reference_limit=10000 AND references_remaining=10000 AND NOT capacity_exceeded)
+ THEN RAISE EXCEPTION 'EMPTY_CAPACITY_MISMATCH'; END IF;
+END $$;
+RESET ROLE;
+
 -- Build a full-size synthetic fixture in bulk. The statement itself is
 -- assembled independently from the fixture identifiers and expected outcomes.
 CREATE TEMP TABLE volume_orders ON COMMIT DROP AS
@@ -68,6 +76,9 @@ DO $$ BEGIN
   WHERE declared_count=10000 AND clean AND discrepancy_count=0
     AND matched_usd_minor=50750000 AND matched_hnl_minor=0
  ) THEN RAISE EXCEPTION 'VOLUME_RECONCILIATION_MISMATCH'; END IF;
+ IF NOT EXISTS (SELECT FROM reconciliation_capacity_summary
+  WHERE reference_limit=10000 AND references_remaining=0 AND NOT capacity_exceeded)
+ THEN RAISE EXCEPTION 'FULL_CAPACITY_MISMATCH'; END IF;
 END $$;
 RESET ROLE;
 
@@ -88,6 +99,13 @@ BEGIN
  IF import_statement_cut('volume-cut','US-HN:all-funding-payout-refund',current_setting('mwd.volume.stamp')::timestamptz,10000,rows)
     IS DISTINCT FROM current_setting('mwd.volume.batch')::uuid
  THEN RAISE EXCEPTION 'original cut replay changed'; END IF;
+END $$;
+RESET ROLE;
+SET LOCAL ROLE mwd_lab_audit_service;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT FROM reconciliation_capacity_summary
+  WHERE reference_limit=10000 AND references_remaining=0 AND capacity_exceeded)
+ THEN RAISE EXCEPTION 'OVERFLOW_CAPACITY_MISMATCH'; END IF;
 END $$;
 RESET ROLE;
 DO $$ BEGIN

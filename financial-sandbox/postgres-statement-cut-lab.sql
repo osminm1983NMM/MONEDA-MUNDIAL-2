@@ -11,6 +11,19 @@ CREATE TABLE statement_cut_metadata(
 );
 CREATE TRIGGER statement_cut_append_only BEFORE UPDATE OR DELETE ON statement_cut_metadata
  FOR EACH ROW EXECUTE FUNCTION deny_journal_mutation();
+-- One bounded count backs both the import gate and audit capacity reporting.
+CREATE VIEW reconciliation_capacity_summary AS
+WITH limits AS (SELECT 10000 AS reference_limit),
+observed AS (
+ SELECT count(*) AS references_seen FROM (
+  SELECT 1 FROM outbox x JOIN reservations z ON z.order_id=x.order_id
+  LIMIT ((SELECT reference_limit FROM limits)+1)
+ ) AS bounded_references
+)
+SELECT reference_limit,
+ greatest(reference_limit-references_seen,0) AS references_remaining,
+ references_seen>reference_limit AS capacity_exceeded
+FROM limits CROSS JOIN observed;
 CREATE FUNCTION import_statement_cut(p_external_id text,p_scope text,p_as_of timestamptz,p_count integer,p_rows jsonb)
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=mwd_financial_lab,pg_catalog AS $$
 DECLARE b uuid; prior statement_cut_metadata%ROWTYPE; now_at timestamptz; max_rows constant integer:=10000;
@@ -39,10 +52,8 @@ BEGIN
  EXCEPTION WHEN lock_not_available THEN RAISE EXCEPTION 'CUT_EVIDENCE_BUSY'; END;
  -- The full-history envelope cannot represent a larger internal universe.
  -- Check under the same locks used to capture that universe.
- IF (SELECT count(*) FROM (
-  SELECT 1 FROM outbox x JOIN reservations z ON z.order_id=x.order_id
-  LIMIT (max_rows+1)
- ) AS bounded_references)>max_rows THEN RAISE EXCEPTION 'CUT_CAPACITY_EXCEEDED'; END IF;
+ IF (SELECT capacity_exceeded FROM reconciliation_capacity_summary)
+ THEN RAISE EXCEPTION 'CUT_CAPACITY_EXCEEDED'; END IF;
  b:=import_statement(p_external_id,true,p_rows);
  INSERT INTO statement_cut_metadata(batch_id,scope,provider_as_of,declared_count) VALUES(b,p_scope,p_as_of,p_count);
  RETURN b;
@@ -54,9 +65,9 @@ CREATE VIEW reconciliation_cut_summary AS
  CASE WHEN m.batch_id IS NOT NULL AND s.clean THEN s.matched_usd_minor END AS matched_usd_minor,
  CASE WHEN m.batch_id IS NOT NULL AND s.clean THEN s.matched_hnl_minor END AS matched_hnl_minor
  FROM reconciliation_summary s LEFT JOIN statement_cut_metadata m ON m.batch_id=s.batch_id;
-REVOKE ALL ON statement_cut_metadata,reconciliation_cut_summary FROM PUBLIC;
+REVOKE ALL ON statement_cut_metadata,reconciliation_cut_summary,reconciliation_capacity_summary FROM PUBLIC;
 REVOKE ALL ON FUNCTION import_statement_cut(text,text,timestamptz,integer,jsonb) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION import_statement(text,boolean,jsonb) FROM mwd_lab_statement_service;
 GRANT EXECUTE ON FUNCTION import_statement_cut(text,text,timestamptz,integer,jsonb) TO mwd_lab_statement_service;
-GRANT SELECT ON reconciliation_cut_summary TO mwd_lab_audit_service;
+GRANT SELECT ON reconciliation_cut_summary,reconciliation_capacity_summary TO mwd_lab_audit_service;
 COMMIT;
