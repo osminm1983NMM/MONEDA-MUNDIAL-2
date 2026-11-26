@@ -53,3 +53,7 @@ Captura Samsung 20:52 EST: dos transferencias recibidas de +10.00 MWD, a las 20:
 ## Conciliación física del destinatario
 
 Captura Samsung 20:53 EST: cuenta B con código destinatario correcto y saldo 9,913.00 MWD, idéntico a la consulta Supabase posterior a los dos envíos voluntarios. Diferencia cero. Aprobada transferencia normal de extremo a extremo y visualización de saldo e historial receptor. Pendientes pruebas físicas de reintento, conversión, aportación, retiro y recuperación de contraseña. No se modificaron saldos.
+
+## Conversión física COIN → DIGITAL
+
+Capturas Samsung 20:55–20:57 EST: saldo inicial 124.920000 COIN y 996.872809 DIGITAL; cotización de 10 COIN, neto 1.246875 DIGITAL, comisión 0.003125 DIGITAL (0.25% del bruto). Diálogo de confirmación visible. Saldo final 114.920000 COIN y 998.119684 DIGITAL, coincide con cálculo exacto. Aprobada evidencia visual de conversión normal; pendiente conciliación independiente SQL y conversión inversa física.
