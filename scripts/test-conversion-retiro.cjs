@@ -122,3 +122,13 @@ test('retiro con respuesta incompleta conserva la referencia', async () => {
   assert.equal(ctx.pickupResult,null);
   assert.equal(ctx.notices.at(-1)[0],'Retiro pendiente de confirmar');
 });
+
+for (const failure of ['getItem','setItem']) {
+  test('retiro: fallo local '+failure+' impide enviar y exige revisión', async () => {
+    let calls=0; const ctx=device(async()=>{calls++;throw Error('RPC no esperada');});
+    ctx.AsyncStorage[failure]=async()=>{throw Error('Almacenamiento no disponible');};
+    await ctx.createDemoPickup();
+    assert.equal(calls,0); assert.match(ctx.pickupPendingError,/referencia local/);
+    assert.equal(ctx.notices.at(-1)[0],'Referencia de retiro no verificada'); assert.equal(ctx.pickupBusy,false);
+  });
+}
