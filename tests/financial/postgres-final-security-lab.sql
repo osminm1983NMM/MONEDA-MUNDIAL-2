@@ -11,7 +11,7 @@ INSERT INTO expected_exec VALUES
  ('mwd_lab_dispatch_service','acknowledge_dispatch(text,uuid)'),
  ('mwd_lab_dispatch_service','check_dispatch_lease(text,uuid)'),
  ('mwd_lab_event_service','record_verified_event(text,text,text,text,text,bigint)'),
- ('mwd_lab_statement_service','import_statement(text,boolean,jsonb)'),
+ ('mwd_lab_statement_service','import_statement_cut(text,text,timestamptz,integer,jsonb)'),
  ('mwd_lab_review_proposer','propose_statement_review(bigint,text,uuid)'),
  ('mwd_lab_review_proposer','propose_refund_recovery(uuid,bigint,uuid,text)'),
  ('mwd_lab_review_approver','approve_statement_review(bigint,text,uuid)'),
@@ -23,7 +23,7 @@ CREATE TEMP TABLE expected_audit(name text PRIMARY KEY);
 INSERT INTO expected_audit VALUES ('audit_summary'),('journal_summary'),('incident_summary'),
  ('review_summary'),('refund_attention'),('reconciliation_summary'),('review_evidence_summary'),
  ('refund_recovery_summary'),('dispatch_attention'),('ledger_integrity_summary'),
- ('lifecycle_integrity_summary'),('integrity_hold_summary'),('dispatch_control_summary');
+ ('lifecycle_integrity_summary'),('integrity_hold_summary'),('dispatch_control_summary'),('reconciliation_cut_summary');
 DO $$
 DECLARE r record; f record; t record; n oid; permitted boolean; expected boolean; p text;
 BEGIN
@@ -71,7 +71,7 @@ BEGIN
   END LOOP;
  END LOOP;
 END $$;
--- Execute all thirteen public-facing aggregate views as the actual audit role.
+-- Execute all fourteen permitted aggregate views as the actual audit role.
 SET LOCAL ROLE mwd_lab_audit_service;
 SELECT count(*) FROM audit_summary;
 SELECT count(*) FROM journal_summary;
@@ -79,6 +79,7 @@ SELECT count(*) FROM incident_summary;
 SELECT count(*) FROM review_summary;
 SELECT count(*) FROM refund_attention;
 SELECT count(*) FROM reconciliation_summary;
+SELECT count(*) FROM reconciliation_cut_summary;
 SELECT count(*) FROM review_evidence_summary;
 SELECT count(*) FROM refund_recovery_summary;
 SELECT count(*) FROM dispatch_attention;
