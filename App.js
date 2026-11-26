@@ -37,7 +37,7 @@ function pickupStatusLabel(status) {
     case 'pending': return 'Pendiente';
     case 'cancelled': return 'Cancelada';
     case 'expired': return 'Vencida';
-    case 'claimed': return 'Retirada (simulación)';
+    case 'simulated_collected': return 'Retirada (simulación)';
     default: return 'Estado no reconocido';
   }
 }
