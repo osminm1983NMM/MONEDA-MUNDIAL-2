@@ -53,7 +53,7 @@ assert.ok(sql.length > 100, 'SQL de registro de socios vacío');
 assert.match(app, /const isCurrentUser = id => !!id && id === currentUserRef\.current/,
   'Debe existir una guarda de identidad para respuestas asíncronas');
 const recovery = section('async function recoverPendingOperation(id = userId) {', 'function changeAmount(value) {');
-const sessionGuard = 'if (id !== currentUserRef.current) return;';
+const sessionGuard = 'if (!isActive()) return;';
 const pendingVisible = recovery.indexOf('pendingRef.current = pending;');
 const statusLookup = recovery.indexOf("supabase.rpc('mwd_operation_status_demo'");
 assert.ok(pendingVisible >= 0 && statusLookup > pendingVisible &&
@@ -160,5 +160,8 @@ assert.ok(pickupRecovery.includes('isCurrentUser(id) && pickupBusyRef.current ==
 assert.ok(pickupOrders.includes('isCurrentUser(actorId) && pickupOrdersBusyRef.current === token'), 'La consulta solo puede publicar la respuesta vigente');
 assert.ok(cancelPickup.includes('isCurrentUser(actorId) && pickupCancelBusyRef.current === token'), 'La cancelación solo puede liberar su propio bloqueo');
 assert.ok(cancelPickup.includes('await loadPickupOrders(true);'), 'La cancelación confirmada debe reemplazar una consulta anterior');
+assert.ok(recovery.includes('isCurrentUser(id) && busyRef.current === token'), 'La recuperación debe validar su propio bloqueo');
+assert.ok(transfer.includes('isCurrentUser(actorId) && busyRef.current === token'), 'La transferencia debe validar su propio bloqueo');
+assert.ok(transfer.includes('if (!isActive()) return;'), 'Las respuestas obsoletas no deben publicar resultados');
 console.log('PASS: barreras estáticas de reintentos, sesiones, lectura y RPC DEMO');
 console.log('NO CERTIFICA: concurrencia, RLS real, contabilidad, APK ni pagos reales');
