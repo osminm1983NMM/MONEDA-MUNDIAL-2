@@ -15,13 +15,19 @@ function reconcileStatements({environment, internal, statement, complete}) {
   const issues = [], totals = {USD: 0n,HNL: 0n};
   if (complete !== true) issues.push({code:'INCOMPLETE_SNAPSHOT'});
   function index(rows, side) {
-    const map = new Map(), duplicates = new Set();
+    const map = new Map(), duplicates = new Set(), seen = new Set();
     for (const [index,r] of rows.entries()) {
+      // Even a malformed row with a recognizable reference makes that reference
+      // ambiguous. Never include another row for it in matched cash flow.
+      if (r && id(r.reference)) {
+        if (seen.has(r.reference)) {
+          duplicates.add(r.reference);
+          issues.push({code:'DUPLICATE_REFERENCE',side,reference:r.reference});
+        }
+        seen.add(r.reference);
+      }
       if (!valid(r)) {issues.push({code:'INVALID_ROW',side,index});continue;}
-      if (map.has(r.reference)) {
-        duplicates.add(r.reference);
-        issues.push({code:'DUPLICATE_REFERENCE',side,reference:r.reference});
-      } else map.set(r.reference,r);
+      if (!map.has(r.reference)) map.set(r.reference,r);
     }
     return {map,duplicates};
   }
