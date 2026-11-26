@@ -337,6 +337,8 @@ export default function App() {
     setOperations([]);
     setAdminRole(null);
     setSwapWallet(null);
+    setSwapFrom('COIN');
+    setSwapAmount('');
     swapQuoteRef.current = null;
     setSwapQuote(null);
     setPickupOrders([]);
@@ -845,7 +847,9 @@ export default function App() {
     }
   }
   async function recoverPendingPickup(id = userId) {
-    if (!isCurrentUser(id)) return;
+    if (!isCurrentUser(id) || pickupBusyRef.current) return;
+    pickupBusyRef.current = true;
+    setPickupBusy(true);
     setPickupPendingError('');
     try {
       const saved = await AsyncStorage.getItem(pendingPickupStorageKey(id));
@@ -857,6 +861,11 @@ export default function App() {
     } catch (error) {
       if (isCurrentUser(id)) {
         setPickupPendingError('Hay una referencia de retiro guardada que no se puede verificar. No crearemos otra orden automáticamente.');
+      }
+    } finally {
+      if (isCurrentUser(id)) {
+        pickupBusyRef.current = false;
+        setPickupBusy(false);
       }
     }
   }
