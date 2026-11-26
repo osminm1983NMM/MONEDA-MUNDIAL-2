@@ -57,3 +57,7 @@ Descargar [el artefacto 15136713259](https://github.com/osminm1983NMM/MONEDA-MUN
 | Consultar el cotizador internacional | Una consulta DEMO muestra importe, comisión y total. Si falta una tasa, la pantalla informa que no está disponible. |
 
 Registrar modelo de Samsung, versión de Android, compilación visible y resultado por paso. Para un fallo basta describir el mensaje y el punto donde ocurrió. Excluir contraseñas, enlaces de correo, tokens y datos de cuenta. Las transferencias, conversiones y aportaciones aceptadas conservan su evidencia previa. La aceptación física y la aprobación de fusión se registrarán cuando estén disponibles.
+
+## Corrección del tipo de sesión PKCE
+
+El formulario de cambio de contraseña exige que el SDK devuelva el tipo `recovery` y que la sesión corresponda al usuario observado por el callback de autenticación. La regresión reproduce un acceso PKCE normal enviado al enlace de recuperación y comprueba que permanece en Inicio y que el formulario no puede cambiar la contraseña. Como el cambio afecta al código de la app, la aceptación física final se hará con la compilación actualizada una vez aprobadas la construcción y la prueba en emulador. La entrega `ed15a7c` conserva su evidencia histórica.

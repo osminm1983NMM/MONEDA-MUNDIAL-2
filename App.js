@@ -290,6 +290,9 @@ export default function App() {
         claimedCode = code;
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) throw new Error('No se pudo verificar el enlace. Solicita uno nuevo desde este dispositivo.');
+        if (data?.redirectType !== 'recovery') {
+          throw new Error('El código no corresponde a recuperación de contraseña.');
+        }
         const recoveredUser = data?.session?.user?.id;
         if (!recoveredUser || authEventUserRef.current !== recoveredUser) {
           throw new Error('La sesión de recuperación ya no está disponible. Solicita otro enlace.');
