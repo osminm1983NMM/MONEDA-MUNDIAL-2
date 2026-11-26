@@ -134,7 +134,7 @@ for (const value of ['1x25', '1,2', '-1', '0.1234567', '1..2', '']) {
 }
 
 
-const pickupBody = app.split('async function createDemoPickup() {')[1]?.split('async function loadPickupOrders() {')[0];
+const pickupBody = app.split('async function createDemoPickup() {')[1]?.split('async function loadPickupOrders(force = false) {')[0];
 assert.ok(pickupBody, 'Falta función de retiro ficticio');
 assert.match(pickupBody, /p_request_id:\s*pending\.id/, 'Retiro sin referencia idempotente recuperada');
 assert.match(pickupBody, /p_request_id:\s*pending\.id/, 'RPC de retiro sin clave idempotente persistida');
@@ -247,7 +247,7 @@ assert.ok(app.includes('recoverPendingPickup(userId);'), 'Falta recuperar un ret
 assert.ok(app.includes("'mwd_pending_pickup:'"), 'Falta una clave persistente de retiro por usuario');
 assert.ok(pickupRecovery.includes('await AsyncStorage.getItem(pendingPickupStorageKey(id))'),
   'La recuperación de retiro debe leer AsyncStorage');
-const pickupCreate = app.split('async function createDemoPickup() {')[1]?.split('async function loadPickupOrders() {')[0];
+const pickupCreate = app.split('async function createDemoPickup() {')[1]?.split('async function loadPickupOrders(force = false) {')[0];
 assert.ok(pickupCreate, 'Falta crear/reintentar retiro');
 const persistPickup = pickupCreate.indexOf('await AsyncStorage.setItem(storageKey, JSON.stringify(pending));');
 const sendPickup = pickupCreate.indexOf("supabase.rpc('mwd_pickup_create_demo'");
