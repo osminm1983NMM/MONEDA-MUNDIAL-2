@@ -1,5 +1,5 @@
 -- Read-only structural security checks; not a substitute for authenticated functional tests.
-BEGIN TRANSACTION READ ONLY;
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
 DO $gate$
 BEGIN
  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE p.prosecdef AND (n.nspname='public' OR n.nspname LIKE 'mwd%') AND has_function_privilege('anon',p.oid,'EXECUTE')) THEN RAISE EXCEPTION 'Anonymous privileged execution'; END IF;
@@ -13,11 +13,17 @@ BEGIN
  RAISE EXCEPTION 'Unpinned search_path on privileged MWD RPC'; END IF;
  -- Prevent direct client mutation of the monetary and administrative core.
  IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ CROSS JOIN (VALUES ('anon'::name),('authenticated'::name)) AS client(role_name)
  WHERE n.nspname='public' AND c.relname IN ('mwd_wallets','mwd_operations','mwd_admin_roles')
- AND (has_table_privilege('authenticated',c.oid,'INSERT') OR has_table_privilege('authenticated',c.oid,'UPDATE')
- OR has_table_privilege('authenticated',c.oid,'DELETE') OR has_table_privilege('authenticated',c.oid,'TRUNCATE')
- OR has_any_column_privilege('authenticated',c.oid,'INSERT') OR has_any_column_privilege('authenticated',c.oid,'UPDATE'))) THEN
+ AND (has_table_privilege(client.role_name,c.oid,'INSERT') OR has_table_privilege(client.role_name,c.oid,'UPDATE')
+ OR has_table_privilege(client.role_name,c.oid,'DELETE') OR has_table_privilege(client.role_name,c.oid,'TRUNCATE')
+ OR has_any_column_privilege(client.role_name,c.oid,'INSERT') OR has_any_column_privilege(client.role_name,c.oid,'UPDATE'))) THEN
  RAISE EXCEPTION 'Direct client write privilege on protected core'; END IF;
+ -- Anonymous clients must not have table-level or column-level read access.
+ IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='public' AND c.relname IN ('mwd_wallets','mwd_operations','mwd_admin_roles')
+ AND (has_table_privilege('anon',c.oid,'SELECT') OR has_any_column_privilege('anon',c.oid,'SELECT'))) THEN
+ RAISE EXCEPTION 'Anonymous direct read privilege on protected core'; END IF;
  -- Require non-partial, immediate, valid unique indexes for all idempotency keys.
  IF EXISTS (
    SELECT 1 FROM (VALUES
