@@ -65,8 +65,36 @@ async function main(){
  assert.equal(await worker.receive(f.raw,f.signature),'funded');
  assert.equal(await worker.receive(f.raw,f.signature),'duplicate');
  prepare('workerPaid',order,'payout');
+ const payoutRef=order+'-payout';
+ const payoutState=()=>sql('SELECT state FROM '+schema+'.dispatch WHERE reference='+lit(payoutRef));
+ const expirePayoutLease=()=>sql(
+  "UPDATE "+schema+".dispatch SET lease_until=clock_timestamp()-interval '1 second' WHERE reference="+lit(payoutRef)
+ );
+ p.loseNextResponse();
+ await assert.rejects(worker.tick(),/SIMULATED_RESPONSE_LOSS/);
+ assert.equal((await p.lookup(payoutRef)).status,'awaiting_confirmation');
+ assert.equal(payoutState(),'leased');
+ assert.equal(state(order),'payout_pending');
+ expirePayoutLease();
+
+ // Lose the confirmation response after the provider has committed it.
+ p.loseNextResponse();
+ await assert.rejects(worker.tick(),/SIMULATED_RESPONSE_LOSS/);
+ assert.equal((await p.lookup(payoutRef)).status,'accepted');
+ assert.equal(payoutState(),'leased');
+ assert.equal(state(order),'payout_pending');
+ assert.equal(sql('SELECT count(*) FROM '+schema+'.journal WHERE order_id='+lit(order)+'::uuid'),'1');
+ expirePayoutLease();
+
+ p.close();p=null;
+ p=openDurableProvider(config);
+ worker=createWorker({environment:'sandbox',store:store(),provider:p});
  assert.equal((await worker.tick()).status,'transport_acknowledged');
- const pay=p.event(order+'-payout','payout_confirmed','worker-pay-1');
+ assert.equal(payoutState(),'acknowledged');
+ assert.equal(sql('SELECT attempts FROM '+schema+'.dispatch WHERE reference='+lit(payoutRef)),'3');
+ assert.equal(p.submissions().filter(i=>i.reference===payoutRef).length,1);
+ assert.equal(state(order),'payout_pending');
+ const pay=p.event(payoutRef,'payout_confirmed','worker-pay-1');
  assert.equal(await worker.receive(pay.raw,pay.signature),'paid');assert.equal(state(order),'paid');
  const refund=openOrder('workerRefund');
  // A signed settlement can arrive before the transport acknowledgment. Simulate
