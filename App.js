@@ -47,10 +47,12 @@ const BUILD_COMMIT = 'sin verificar';
 const PASSWORD_RESET_REDIRECT = 'com.monedamundial.app://auth/reset-password';
 // Native auth tokens and PKCE verifiers never fall back to plaintext storage.
 // Web DEMO uses volatile storage; persistent sessions are Android-only in this release.
-const authStorage = Platform.OS === 'web' ? createMemoryAuthStorage() : createAuthStorage(SecureStore, NativeAsyncStorage);
+const AUTH_STORAGE_KEY = 'sb-egrsdrlpavrtbgxoyxvg-auth-token';
+const authStorage = Platform.OS === 'web' ? createMemoryAuthStorage() : createAuthStorage(SecureStore, NativeAsyncStorage, AUTH_STORAGE_KEY);
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: authStorage,
+    storageKey: AUTH_STORAGE_KEY,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

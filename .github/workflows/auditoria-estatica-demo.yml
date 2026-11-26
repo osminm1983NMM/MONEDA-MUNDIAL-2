@@ -2,11 +2,12 @@ name: Auditoría y regresiones DEMO sin base de datos
 on:
   push:
     branches: [dev/cierre-android-20261125]
-    paths: ['App.js', 'PartnerRegistryScreen.js', 'package.json', 'app.json', 'eas.json', 'database/mwd_secure_partner_registry_demo.sql', 'scripts/*.cjs', 'scripts/preflight-release-local.js', 'tests/android/**', '.github/workflows/auditoria-estatica-demo.yml']
+    paths: ['App.js', 'auth-storage.js', 'PartnerRegistryScreen.js', 'package.json', 'app.json', 'eas.json', 'database/mwd_secure_partner_registry_demo.sql', 'scripts/*.cjs', 'scripts/preflight-release-local.js', 'tests/android/**', '.github/workflows/auditoria-estatica-demo.yml']
   workflow_dispatch:
   pull_request:
     paths:
       - 'App.js'
+      - 'auth-storage.js'
       - 'PartnerRegistryScreen.js'
       - 'eas.json'
       - 'database/mwd_secure_partner_registry_demo.sql'

@@ -8,11 +8,11 @@ function fixture(){
  let failure=null;
  const check=(op,k)=>{if(failure&&failure(op,k)){failure=null;throw Error('synthetic storage failure');}};
  const secure={async getItemAsync(k){check('get',k);return native.get(k)??null;},async setItemAsync(k,v){check('set',k);assert.ok(Buffer.byteLength(v)<=1600);native.set(k,v);},async deleteItemAsync(k){check('delete',k);native.delete(k);}};
- const legacy={async removeItem(k){check('legacy',k);plain.delete(k);}};
- return {native,plain,secure,legacy,storage:createAuthStorage(secure,legacy),fail:f=>failure=f,reopen:()=>createAuthStorage(secure,legacy)};
+ const legacy={async getAllKeys(){return [...plain.keys()];},async removeItem(k){check('legacy',k);plain.delete(k);}};
+ return {native,plain,secure,legacy,storage:createAuthStorage(secure,legacy,key),fail:f=>failure=f,reopen:()=>createAuthStorage(secure,legacy,key)};
 }
 test('upgrade discards legacy auth only; retains pending operation',async()=>{
- const f=fixture();assert.equal(await f.storage.getItem(key),null);assert.equal(await f.storage.getItem(verifier),null);
+ const f=fixture();f.plain.set('sb-other-auth-token','other project');assert.equal(await f.storage.getItem(key),null);assert.equal(f.plain.has(verifier),false);assert.equal(f.plain.get('sb-other-auth-token'),'other project');assert.equal(await f.storage.getItem(verifier),null);
  assert.equal(f.plain.has(key),false);assert.equal(f.plain.has(verifier),false);assert.equal(f.plain.get('mwd_pending_operation:fixture'),'keep');
 });
 test('long Unicode session survives reopening and no plaintext write',async()=>{
@@ -61,6 +61,8 @@ test('web auth is volatile',async()=>{
 });
 test('secure adapter wired into native auth and not pending operation storage',()=>{
  const fs=require('node:fs');const app=fs.readFileSync('App.js','utf8');const cfg=JSON.parse(fs.readFileSync('app.json','utf8'));
- assert.match(app,/storage: authStorage/);assert.match(app,/createAuthStorage\(SecureStore, NativeAsyncStorage\)/);assert.match(app,/createPendingStorage\(NativeAsyncStorage\)/);
+ assert.match(app,/storage: authStorage/);assert.match(app,/createAuthStorage\(SecureStore, NativeAsyncStorage, AUTH_STORAGE_KEY\)/);assert.match(app,/createPendingStorage\(NativeAsyncStorage\)/);
  assert.ok(cfg.expo.plugins.includes('expo-secure-store'));
 });
+
+test('refuses keys outside project auth namespace',async()=>{const f=fixture();assert.throws(()=>f.storage.getItem('mwd_pending_operation:fixture'),/Invalid auth storage key/);assert.equal(f.plain.get('mwd_pending_operation:fixture'),'keep');});

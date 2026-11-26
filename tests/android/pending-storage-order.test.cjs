@@ -34,8 +34,9 @@ test('different accounts and operation types do not block each other',async()=>{
  h.values.set(other,'B');h.values.set(swap,'quote');const write=h.store.setItem(k,'A');await tick();
  assert.equal(await h.store.getItem(other),'B');assert.equal(await h.store.getItem(swap),'quote');h.gates[0].finish();await write;
 });
-test('all pending reference methods queue and authentication uses native storage',()=>{
+test('all pending reference methods queue and authentication uses separate secure storage',()=>{
  assert.ok(source.includes('const AsyncStorage = createPendingStorage(NativeAsyncStorage);'));
- assert.ok(source.includes('storage: NativeAsyncStorage,'));
+ assert.ok(source.includes('storage: authStorage,'));
+ assert.ok(source.includes('createAuthStorage(SecureStore, NativeAsyncStorage, AUTH_STORAGE_KEY)'));
  assert.ok(!source.includes('storage: AsyncStorage,'));
 });

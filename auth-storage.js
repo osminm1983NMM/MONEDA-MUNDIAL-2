@@ -4,14 +4,28 @@
 // Each chunk stays below 2 KB even for four-byte Unicode. The previous committed value
 // remains usable after an interrupted write; a deleted pointer never restores old data.
 const CHUNK=400, MAX_CHUNKS=128;
-function createAuthStorage(secure, legacy) {
-  const tails=new Map(), purged=new Set();
-  const valid=key=>{if(typeof key!=='string'||!/^sb-[a-zA-Z0-9._-]+$/.test(key)||key.length>180)throw Error('Invalid auth storage key');return 'mwd.auth.v1.'+key;};
+function createAuthStorage(secure, legacy, authKey) {
+  if(typeof authKey!=='string'||!/^sb-[a-zA-Z0-9]+-auth-token$/.test(authKey))throw Error('Invalid auth namespace');
+  const tails=new Map();
+  let purgePromise=null;
+  const owned=key=>typeof key==='string'&&(key===authKey||key.startsWith(authKey+'-'));
+  const valid=key=>{if(!owned(key)||!/^sb-[a-zA-Z0-9._-]+$/.test(key)||key.length>180)throw Error('Invalid auth storage key');return 'mwd.auth.v1.'+key;};
+  function purgeLegacy(){
+    if(!purgePromise){
+      purgePromise=(async()=>{
+        // Remove every legacy auth key for this project, including an abandoned PKCE verifier.
+        // Never enumerate or delete DEMO operation references or other project namespaces.
+        const keys=await legacy.getAllKeys();
+        for(const key of keys.filter(owned))await legacy.removeItem(key);
+      })().catch(error=>{purgePromise=null;throw error;});
+    }
+    return purgePromise;
+  }
   function serial(key,work){
     const base=valid(key);
     const pending=(tails.get(key)||Promise.resolve()).then(async()=>{
       // Deliberate one-time re-login, not migration of old plaintext refresh tokens.
-      if(!purged.has(key)){await legacy.removeItem(key);purged.add(key);}
+      await purgeLegacy();
       return work(base);
     });
     const tail=pending.then(()=>undefined,()=>undefined);
