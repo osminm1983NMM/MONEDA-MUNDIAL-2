@@ -48,6 +48,8 @@ BEGIN
  OR (v->>'amountMinor') !~ '^[1-9][0-9]{0,15}$'
  OR (v-ARRAY['mode','reference','kind','currency','amountMinor','status'])<>'{}'::jsonb)
  THEN RAISE EXCEPTION 'INVALID_STATEMENT_ROW'; END IF;
+ -- Serialize statement imports with evidence review in the disposable lab.
+ PERFORM pg_advisory_xact_lock(60261126,17);
  INSERT INTO statement_batches(external_id,complete,payload) VALUES(p_external_id,p_complete,p_rows)
  ON CONFLICT(external_id) DO NOTHING RETURNING * INTO b;
  IF NOT FOUND THEN
