@@ -124,6 +124,17 @@ jobs:
           bash scripts/probar-apk-samsung.sh "$RUNNER_TEMP/apk/MonedaMundial-LAB.apk" || { status=$?; tail -50 "$RUNNER_TEMP/emulator.log"; exit "$status"; }
           grep -F "$GITHUB_SHA" "$RUNNER_TEMP/mwd-ui.xml" >/dev/null || { echo "La pantalla no identifica el commit del APK"; exit 1; }
       - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: MonedaMundial-diagnostico-Android
+          path: |
+            ${{ runner.temp }}/mwd-failure.png
+            ${{ runner.temp }}/mwd-ui-failure.xml
+            ${{ runner.temp }}/mwd-logcat-failure.txt
+            ${{ runner.temp }}/emulator.log
+          if-no-files-found: warn
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
         if: success()
         with:
           name: MonedaMundial-inicio-Android
