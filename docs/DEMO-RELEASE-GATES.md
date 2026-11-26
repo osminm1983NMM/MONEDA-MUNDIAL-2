@@ -1,5 +1,26 @@
 # Cierre técnico DEMO — Android
 
+## Estado consolidado de aceptación — 26 de noviembre de 2026
+
+Esta sección prevalece sobre los estados históricos de ejecución pendiente conservados más abajo.
+
+| Puerta | Estado verificable |
+| --- | --- |
+| PostgreSQL 17 aislado: reconstrucción y tres puertas funcionales | APROBADA en CI |
+| Cuatro reintentos simultáneos y diez auditorías posteriores | APROBADA en CI |
+| Android: compilación, procedencia, instalación y dos aperturas | APROBADA en emulador Android 35 |
+| Samsung: transferencia normal, saldo e historial | APROBADA en pruebas físicas anteriores; versión exacta pendiente |
+| Identidad de la candidata instalada y reintento físico de red | PENDIENTE |
+| Conversión inversa, aportación y retiro físicos | PENDIENTE de evidencia |
+| Recuperación real por correo y enlace LAB | PENDIENTE |
+| Producción, fondos reales y cumplimiento regulatorio | NO AUTORIZADOS |
+
+Evidencia: [PostgreSQL segunda ejecución 45809212853](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45809212853) y [Android 45809213055](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45809213055). Ambas concluyeron success, incluida eliminación del servicio de prueba PostgreSQL. APK candidata: [artefacto 15112630795](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45809213055/artifacts/15112630795), disponible hasta 2026-12-03 11:22:33 UTC. El APK fue generado desde el commit de integración temporal `119303c46bad66b02fa6a917e3af7b628df475bc`, asociado al [PR 132](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/pull/132), que continúa abierto en borrador.
+
+Se compararon los SHA de blob de App.js, PartnerRegistryScreen.js, app.json, package.json, scripts/probar-apk-samsung.sh, scripts/test-password-recovery.cjs, scripts/test-demo-concurrency-local.cjs y scripts/build-isolated-demo-sql.cjs entre ese commit de integración y la rama de desarrollo: los ocho coinciden. Esto no certifica todos los archivos ni la identidad del APK instalado en Samsung. No es necesario repetir la compilación únicamente por actualizar documentación.
+
+Cierre físico: conservar datos de la versión instalada; no desinstalar ante conflicto de firma. Confirmar que el APK descargado es el de la ejecución aprobada, probar con créditos ficticios y registrar cada resultado. Verificar el redirect exacto `com.monedamundial.lab.samsung://auth/reset-password` antes de probar correo; el Auth SQL aislado no reemplaza esta prueba. No fusionar main, activar pagos ni crear infraestructura de pago.
+
 ## Puertas de aceptación
 
 - `tests/sql/demo-accounting-release-gate.sql` — transacción con rollback
