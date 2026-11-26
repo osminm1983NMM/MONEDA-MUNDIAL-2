@@ -154,6 +154,15 @@ jobs:
             echo 'Unsafe snapshot taken while inbox writer active'; exit 1
           fi
           grep -q 'CUT_EVIDENCE_BUSY' "$tmp/busy"
+          # Both private evidence gates must reject concurrent writers before evaluating IDs.
+          if sql -c "SELECT mwd_financial_lab.check_statement_evidence(0,gen_random_uuid());" > "$tmp/review" 2>&1; then
+            echo 'Unsafe review while inbox writer active'; exit 1
+          fi
+          grep -q 'EVIDENCE_BUSY' "$tmp/review"
+          if sql -c "SELECT mwd_financial_lab.check_refund_recovery(gen_random_uuid(),0,gen_random_uuid());" > "$tmp/refund" 2>&1; then
+            echo 'Unsafe refund decision while inbox writer active'; exit 1
+          fi
+          grep -q 'EVIDENCE_BUSY' "$tmp/refund"
           [[ "$(sql -c "SELECT count(*) FROM mwd_financial_lab.statement_batches WHERE external_id='concurrent-cut-busy'")" == 0 ]]
           wait "$writer"; writer=''
           # Two import sessions race with exactly the same immutable envelope.

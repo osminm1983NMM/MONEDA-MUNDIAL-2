@@ -20,6 +20,12 @@ DECLARE i event_incidents%ROWTYPE; b statement_batches%ROWTYPE;
 BEGIN
  IF current_setting('transaction_isolation')<>'read committed' THEN RAISE EXCEPTION 'EVIDENCE_ISOLATION_REQUIRED'; END IF;
  PERFORM pg_advisory_xact_lock(60261126,17);
+ -- Freeze mutable financial evidence, including cross-reference event-ID reuse.
+ -- NOWAIT fails closed; EXCLUSIVE permits plain reads but prevents row-lock writers.
+ BEGIN
+  LOCK TABLE orders,outbox,inbox,event_incidents,review_approvals,journal IN EXCLUSIVE MODE NOWAIT;
+ EXCEPTION WHEN lock_not_available THEN RAISE EXCEPTION 'EVIDENCE_BUSY';
+ END;
  PERFORM check_reviewable(p_incident);
  SELECT * INTO STRICT i FROM event_incidents WHERE id=p_incident;
  SELECT * INTO b FROM statement_batches WHERE id=p_batch;
@@ -46,6 +52,12 @@ DECLARE o orders%ROWTYPE; i event_incidents%ROWTYPE; b statement_batches%ROWTYPE
 BEGIN
  IF current_setting('transaction_isolation')<>'read committed' THEN RAISE EXCEPTION 'EVIDENCE_ISOLATION_REQUIRED'; END IF;
  PERFORM pg_advisory_xact_lock(60261126,17);
+ -- Freeze mutable financial evidence, including cross-reference event-ID reuse.
+ -- NOWAIT fails closed; EXCLUSIVE permits plain reads but prevents row-lock writers.
+ BEGIN
+  LOCK TABLE orders,outbox,inbox,event_incidents,review_approvals,journal IN EXCLUSIVE MODE NOWAIT;
+ EXCEPTION WHEN lock_not_available THEN RAISE EXCEPTION 'EVIDENCE_BUSY';
+ END;
  SELECT * INTO o FROM orders WHERE id=p_order FOR UPDATE;
  IF NOT FOUND OR o.state<>'refund_pending' THEN RAISE EXCEPTION 'REFUND_UNAVAILABLE'; END IF;
  ref:=o.id::text||'-refund';
