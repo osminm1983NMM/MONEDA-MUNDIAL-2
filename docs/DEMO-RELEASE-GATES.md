@@ -30,6 +30,12 @@
 ## Ejecución integral
 Los archivos históricos con bloqueo de filas requieren transacción de escritura con rollback, pero no crean operaciones nuevas en el camino esperado. Ejecutar por separado de las pruebas funcionales de primera ejecución. Las tres pruebas funcionales de transferencia, conversión y aportación/retiro deben ejecutarse exclusivamente en una base DEMO aislada, con datos ficticios y sin integraciones externas. No usar credenciales de base de datos en la aplicación ni en ejecuciones públicas de CI.
 
+## Ejecutor local de aceptación
+- `tests/sql/demo-route-simulation-only-gate.sql`: ejecutado en Supabase, 19 rutas DEMO y cero rutas de pago real.
+- `scripts/run-demo-sql-gates.cjs`: requiere PostgreSQL local desechable en 127.0.0.1:54322, base mwd_demo_isolated, rol postgres, datos exclusivamente ficticios y sin túneles ni integraciones externas. Requiere Node y psql.
+- Configurar MWD_CONFIRM_ISOLATED=YES_LOCAL_DISPOSABLE y MWD_LOCAL_DB_PASSWORD en el entorno del operador, sin guardar contraseñas en Git. Ejecutar `node scripts/run-demo-sql-gates.cjs historical` (13 archivos) y, por separado, `node scripts/run-demo-sql-gates.cjs functional` (3 archivos). No restaura datos ni crea bases.
+- Comprobaciones del ejecutor aprobadas con psql simulado: sintaxis, rechazo sin confirmación, selección de 13 archivos, parada ante fallo, detección de archivo ausente y no herencia de parámetros remotos. Pendiente ejecución integrada con PostgreSQL aislado; no se han validado concurrencia ni operaciones nuevas.
+
 ## Validación Android
 
 Ejecutar manualmente `validar-demo.yml` en `dev/cierre-android-20261125`. Exigir éxito de pruebas Node, dependencias Expo y exportación Android antes de solicitar APK. Probar en dispositivo dos cuentas, transferencia, aportación, retiro, conversión, pérdida de red, cierre y reapertura, cambio de cuenta y recuperación de contraseña. No habilitar dinero real ni fusionar main hasta revisión.
