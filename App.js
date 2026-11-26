@@ -18,6 +18,8 @@ import PartnerRegistryScreen from './PartnerRegistryScreen';
 // CLAVE PUBLICABLE de Supabase. Nunca coloques claves secret/service_role en App.js.
 const SUPABASE_URL = 'https://egrsdrlpavrtbgxoyxvg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_sKotmweOAug6XqTR16U9Wg_ugxAx3vm';
+// GitHub Actions sustituye este marcador exclusivamente al compilar LAB.
+const BUILD_COMMIT = 'sin verificar';
 const PASSWORD_RESET_REDIRECT = 'com.monedamundial.app://auth/reset-password';
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
@@ -1013,6 +1015,7 @@ export default function App() {
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <Text style={styles.logo}>🌐 MONEDA MUNDIAL</Text>
         <Text style={styles.sub}>MWD • Versión 2.0 • Supabase</Text>
+        <Text selectable style={styles.buildIdentity}>Compilación: {BUILD_COMMIT}</Text>
         <Text style={styles.warning}>SOLO DEMOSTRACIÓN • SIN DINERO REAL</Text>
 
         {authLoading ? <ActivityIndicator color="#4a8dff" size="large" /> : !session ? (
@@ -1231,6 +1234,7 @@ const styles = StyleSheet.create({
   body: { padding: 22, paddingTop: 40, paddingBottom: 60 },
   logo: { color: '#ffffff', fontSize: 25, fontWeight: '800', textAlign: 'center' },
   sub: { color: '#9ab0cf', textAlign: 'center', marginTop: 6 },
+  buildIdentity: { color: '#9ab0cf', textAlign: 'center', marginTop: 4, fontSize: 10 },
   warning: { color: '#f4cc81', textAlign: 'center', marginVertical: 19, fontSize: 12 },
   card: { backgroundColor: '#13253e', borderRadius: 17, padding: 20, marginBottom: 17 },
   heading: { color: '#fff', fontSize: 21, fontWeight: '700', marginBottom: 13 },
