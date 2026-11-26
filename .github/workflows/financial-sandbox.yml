@@ -86,6 +86,109 @@ jobs:
           docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-cut-evidence-gate-lab.sql
           docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-final-security-lab.sql
           docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-cut-evidence-gate-lab.sql
+          # Race approval against a newer explicit statement cutoff before worker fixtures.
+          (
+            db=mwd_financial_sandbox_test
+            sql() { docker exec -i "$LAB_CONTAINER" psql -X -qAt -v ON_ERROR_STOP=1 -U lab -d "$db" "$@"; }
+            [[ "$(sql -c 'select current_database()')" == "$db" ]]
+            [[ "$(sql -c 'select count(*) from mwd_financial_lab.reservations')" == 0 ]]
+            tmp=$(mktemp -d)
+            writer=''
+            trap 'if [[ -n "$writer" ]]; then wait "$writer" || true; fi; rm -rf "$tmp"' EXIT
+            [[ "$(sql -c "SET ROLE mwd_lab_safety_service; SELECT mwd_financial_lab.halt_dispatch('operator_emergency');")" == halted ]]
+            halt=$(sql -c 'SELECT max(id) FROM mwd_financial_lab.dispatch_halt_events')
+            old=$(sql -c "SET ROLE mwd_lab_statement_service; SELECT mwd_financial_lab.import_statement_cut('resume-race-old','US-HN:all-funding-payout-refund',clock_timestamp(),0,'[]');")
+            [[ "$halt" =~ ^[0-9]+$ && "$old" =~ ^[0-9a-f-]{36}$ ]]
+            [[ "$(sql -c "SET ROLE mwd_lab_resume_proposer; SELECT mwd_financial_lab.propose_dispatch_resume($halt,'$old','race-first');")" == proposed ]]
+            sql > "$tmp/import" <<'SQL' &
+          BEGIN;
+          SET LOCAL ROLE mwd_lab_statement_service;
+          SELECT mwd_financial_lab.import_statement_cut('resume-race-new','US-HN:all-funding-payout-refund',clock_timestamp(),0,'[]');
+          SELECT pg_advisory_xact_lock(60261126,97);
+          SELECT pg_sleep(5);
+          COMMIT;
+          SQL
+            writer=$!
+            ready=false
+            for _ in $(seq 1 40); do
+              if [[ "$(sql -c 'SELECT pg_try_advisory_lock(60261126,97)')" == f ]]; then ready=true; break; fi
+              sleep 0.1
+            done
+            [[ "$ready" == true ]]
+            if sql -c "SET statement_timeout='20s'; SET ROLE mwd_lab_resume_approver; SELECT mwd_financial_lab.approve_dispatch_resume($halt,'$old','race-second');" > "$tmp/rejected" 2>&1; then
+              echo 'Unsafe resume with superseded explicit cutoff'; exit 1
+            fi
+            grep -q 'RESUME_EVIDENCE_UNAVAILABLE' "$tmp/rejected"
+            wait "$writer"; writer=''
+            new=$(grep -E '^[0-9a-f-]{36}
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-final-security-lab.sql
+
+      - name: Concurrent statement cut exclusion and idempotent replay
+        env:
+          LAB_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          db=mwd_financial_sandbox_test
+          sql() { docker exec -i "$LAB_CONTAINER" psql -X -qAt -v ON_ERROR_STOP=1 -U lab -d "$db" "$@"; }
+          [[ "$(sql -c 'select current_database()')" == "$db" ]]
+          tmp=$(mktemp -d)
+          writer=''
+          cleanup() { if [[ -n "$writer" ]]; then wait "$writer" || true; fi; rm -rf "$tmp"; }
+          trap cleanup EXIT
+          # A writer holds a real independent table lock before announcing readiness.
+          sql > "$tmp/writer" <<'SQL' &
+          BEGIN;
+          LOCK TABLE mwd_financial_lab.inbox IN ROW EXCLUSIVE MODE;
+          SELECT pg_advisory_xact_lock(60261126,98);
+          SELECT pg_sleep(5);
+          ROLLBACK;
+          SQL
+          writer=$!
+          ready=false
+          for _ in $(seq 1 40); do
+            if [[ "$(sql -c 'SELECT pg_try_advisory_lock(60261126,98)')" == f ]]; then ready=true; break; fi
+            sleep 0.1
+          done
+          [[ "$ready" == true ]]
+          if sql -c "SET ROLE mwd_lab_statement_service; SELECT mwd_financial_lab.import_statement_cut('concurrent-cut-busy','US-HN:all-funding-payout-refund',clock_timestamp(),0,'[]');" > "$tmp/busy" 2>&1; then
+            echo 'Unsafe snapshot taken while inbox writer active'; exit 1
+          fi
+          grep -q 'CUT_EVIDENCE_BUSY' "$tmp/busy"
+          [[ "$(sql -c "SELECT count(*) FROM mwd_financial_lab.statement_batches WHERE external_id='concurrent-cut-busy'")" == 0 ]]
+          wait "$writer"; writer=''
+          # Two import sessions race with exactly the same immutable envelope.
+          stamp=$(sql -c 'SELECT clock_timestamp()')
+          sql > "$tmp/first" <<SQL &
+          BEGIN;
+          SET LOCAL ROLE mwd_lab_statement_service;
+          SELECT mwd_financial_lab.import_statement_cut('concurrent-cut-replay','US-HN:all-funding-payout-refund','$stamp',0,'[]');
+          SELECT pg_advisory_xact_lock(60261126,98);
+          SELECT pg_sleep(3);
+          COMMIT;
+          SQL
+          writer=$!
+          ready=false
+          for _ in $(seq 1 40); do
+            if [[ "$(sql -c 'SELECT pg_try_advisory_lock(60261126,98)')" == f ]]; then ready=true; break; fi
+            sleep 0.1
+          done
+          [[ "$ready" == true ]]
+          second=$(sql -c "SET ROLE mwd_lab_statement_service; SELECT mwd_financial_lab.import_statement_cut('concurrent-cut-replay','US-HN:all-funding-payout-refund','$stamp',0,'[]');")
+          wait "$writer"; writer=''
+          first=$(grep -E '^[0-9a-f-]{36}$' "$tmp/first")
+          [[ "$first" == "$second" ]]
+          [[ "$(sql -c "SELECT count(*) FROM mwd_financial_lab.statement_batches b JOIN mwd_financial_lab.statement_cut_metadata m ON m.batch_id=b.id WHERE b.external_id='concurrent-cut-replay'")" == 1 ]]
+          echo 'Concurrent cut writer exclusion and replay verified in disposable database'
+ "$tmp/import")
+            [[ "$new" =~ ^[0-9a-f-]{36}$ && "$new" != "$old" ]]
+            [[ "$(sql -c 'SELECT halted FROM mwd_financial_lab.dispatch_control_summary')" == t ]]
+            [[ "$(sql -c "SELECT count(*) FROM mwd_financial_lab.dispatch_resume_approvals WHERE halt_id=$halt")" == 0 ]]
+            [[ "$(sql -c "SET ROLE mwd_lab_resume_proposer; SELECT mwd_financial_lab.propose_dispatch_resume($halt,'$new','race-first');")" == proposed ]]
+            [[ "$(sql -c "SET ROLE mwd_lab_resume_approver; SELECT mwd_financial_lab.approve_dispatch_resume($halt,'$new','race-second');")" == resumed ]]
+            [[ "$(sql -c 'SELECT halted FROM mwd_financial_lab.dispatch_control_summary')" == f ]]
+            [[ "$(sql -c "SELECT count(*) FROM mwd_financial_lab.dispatch_resume_approvals WHERE halt_id=$halt AND batch_id='$new'")" == 1 ]]
+            echo 'Concurrent superseding cutoff and safe resume verified'
+          )
           node tests/financial/postgres-provider-worker.cjs
           docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-final-security-lab.sql
 
