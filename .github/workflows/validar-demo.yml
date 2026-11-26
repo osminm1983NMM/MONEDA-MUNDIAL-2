@@ -15,6 +15,12 @@ jobs:
           node-version: '22'
       - name: Pruebas de referencias pendientes
         run: node --test tests/android/*.test.cjs
+      - name: Auditorías estáticas y recuperación funcional
+        run: |
+          node scripts/audit-demo-static.cjs
+          node scripts/audit-regression-safety.cjs
+          node scripts/preflight-release-local.js
+          node --test scripts/test-transfer-recovery.cjs scripts/test-conversion-retiro.cjs
       - name: Instalar dependencias
         run: |
           if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
