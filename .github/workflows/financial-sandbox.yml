@@ -81,10 +81,10 @@ jobs:
           docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-dispatch-resume-lab.sql
           docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-dispatch-resume-lab.sql
           bash tests/financial/postgres-resume-concurrency.sh
-          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-final-security-lab.sql
           docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-statement-cut-lab.sql
           docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-statement-cut-lab.sql
           docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-cut-evidence-gate-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-final-security-lab.sql
           docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-cut-evidence-gate-lab.sql
           node tests/financial/postgres-provider-worker.cjs
           docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-final-security-lab.sql
