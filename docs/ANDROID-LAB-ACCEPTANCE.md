@@ -94,3 +94,7 @@ Captura Samsung: aportación ficticia -10.00 MWD, 26/11/2026 06:33:06 EST, coinc
 ## Retiro ficticio físico a Honduras — 26 de noviembre de 2026
 
 Captura Samsung: «Orden creada». Consulta de solo lectura por identificador de la orden confirma destino HN, importe 1000 centavos MWD, estado pending, creación 11:34:46 UTC, expiración exactamente 24 horas después, titular esperado y una sola fila por referencia. Saldo permanece 990300 centavos MWD, coherente con una orden de retiro exclusivamente simulada sin débito. Creación física y persistencia aprobadas; listado y cancelación física pendientes. No registrar código de retiro en documentación. No se modificaron datos, saldos ni configuración de Supabase.
+
+## Historial físico de retiro — 26 de noviembre de 2026
+
+Captura Samsung 06:35 EST: listado de retiros muestra Honduras, 10.00 MWD ficticios, estado pending y creación 06:34:46 EST del 26/11/2026, coincidentes con la consulta SQL anterior. Listado físico aprobado para esta orden. Hallazgo de interfaz: el estado pending aparece en inglés dentro de una pantalla en español; traducir etiquetas de estado sin modificar los valores internos en una revisión posterior. Pendiente cancelación física de esta orden, sin crear otra. No se modificaron saldos ni datos de Supabase.
