@@ -1,26 +1,33 @@
 name: Probar APK Samsung en Android
 on:
-  push:
+  workflow_run:
+    workflows: ['APK Android de demostración (Gradle)']
     branches: [dev/cierre-android-20261125]
-    paths: ['.github/workflows/probar-apk-samsung.yml', 'scripts/probar-apk-samsung.sh']
+    types: [completed]
   workflow_dispatch:
 permissions:
   actions: read
   contents: read
 jobs:
   instalar:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Recuperar la APK compilada para esta rama
         env:
           GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ github.event.workflow_run.id }}
         run: |
-          run=$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/runs" -f branch="$GITHUB_REF_NAME" -f status=success --jq '[.workflow_runs[] | select(.path == ".github/workflows/apk-demo-gradle.yml")][0].id // empty')
+          run="$SOURCE_RUN"
+          if [ -z "$run" ]; then
+            run=$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/runs" -f branch="$GITHUB_REF_NAME" -f status=success --jq '[.workflow_runs[] | select(.path == ".github/workflows/apk-demo-gradle.yml")][0].id // empty')
+          fi
           test -n "$run"
           gh run download "$run" -n MonedaMundial-LAB-Samsung -D "$RUNNER_TEMP/apk"
           cd "$RUNNER_TEMP/apk"
