@@ -6,6 +6,18 @@ BEGIN
  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE p.prosecdef AND n.nspname LIKE 'mwd%private' AND has_function_privilege('authenticated',p.oid,'EXECUTE')) THEN RAISE EXCEPTION 'Private privileged execution'; END IF;
  IF (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('mwd_wallets','mwd_operations','mwd_admin_roles') AND c.relrowsecurity) <> 3 THEN RAISE EXCEPTION 'Missing RLS'; END IF;
  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename IN ('mwd_wallets','mwd_operations','mwd_admin_roles') AND cmd <> 'SELECT') THEN RAISE EXCEPTION 'Unexpected write policy'; END IF;
+ -- Privileged public MWD functions must pin an empty search_path.
+ IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='public' AND p.proname LIKE 'mwd_%' AND p.prosecdef
+ AND NOT coalesce(p.proconfig @> ARRAY['search_path=""'],false)) THEN
+ RAISE EXCEPTION 'Unpinned search_path on privileged MWD RPC'; END IF;
+ -- Prevent direct client mutation of the monetary and administrative core.
+ IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='public' AND c.relname IN ('mwd_wallets','mwd_operations','mwd_admin_roles')
+ AND (has_table_privilege('authenticated',c.oid,'INSERT') OR has_table_privilege('authenticated',c.oid,'UPDATE')
+ OR has_table_privilege('authenticated',c.oid,'DELETE') OR has_table_privilege('authenticated',c.oid,'TRUNCATE')
+ OR has_any_column_privilege('authenticated',c.oid,'INSERT') OR has_any_column_privilege('authenticated',c.oid,'UPDATE'))) THEN
+ RAISE EXCEPTION 'Direct client write privilege on protected core'; END IF;
  -- Require non-partial, immediate, valid unique indexes for all idempotency keys.
  IF EXISTS (
    SELECT 1 FROM (VALUES
