@@ -100,7 +100,7 @@ GRANT EXECUTE ON FUNCTION issue_quote(text,text,bigint),accept_quote(text,text,u
 -- Recheck current synthetic policy when leasing a task; exclude unreserved legacy fixtures.
 CREATE OR REPLACE FUNCTION claim_dispatch(p_lease_seconds integer)
 RETURNS TABLE(reference text,order_id uuid,kind text,currency text,amount_minor bigint,token uuid,lease_until timestamptz,attempts bigint)
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=mwd_financial_lab,pg_catalog AS $
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=mwd_financial_lab,pg_catalog AS $$
 DECLARE v_ref text; v_now timestamptz:=clock_timestamp();
 BEGIN
  IF p_lease_seconds IS NULL OR p_lease_seconds NOT BETWEEN 1 AND 300 THEN RAISE EXCEPTION 'INVALID_LEASE'; END IF;
@@ -118,5 +118,5 @@ BEGIN
  UPDATE dispatch d SET state='leased',token=gen_random_uuid(),lease_until=v_now+make_interval(secs=>p_lease_seconds),attempts=d.attempts+1 WHERE d.reference=v_ref;
  RETURN QUERY SELECT x.reference,x.order_id,x.kind,x.currency,x.amount_minor,d.token,d.lease_until,d.attempts
  FROM dispatch d JOIN outbox x ON x.reference=d.reference WHERE d.reference=v_ref;
-END $;
+END $$;
 COMMIT;
