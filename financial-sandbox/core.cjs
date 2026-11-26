@@ -54,7 +54,7 @@ class SandboxFinance {
  async submit(actor,id,kind){
   const o=this.#order(actor,id);
   const rules={funding:['awaiting_funding','funding_pending','fundingRef'],payout:['funded','payout_pending','payoutRef'],refund:['payout_failed','refund_pending','refundRef']};
-  const r=Object.hasOwn(rules,kind)?rules[kind]:null;if(!r)fail('INVALID_ACTION');
+  const r=typeof kind==='string'&&Object.hasOwn(rules,kind)?rules[kind]:null;if(!r)fail('INVALID_ACTION');
   const [before,pending,field]=r;
   if(o.state!==before&&o.state!==pending)fail('INVALID_TRANSITION');
   if(kind==='funding'||kind==='payout'){
@@ -84,7 +84,8 @@ class SandboxFinance {
    payout_failed:['payout_pending','payout_failed','payoutRef','HNL',o.payoutAmountMinor],
    refund_confirmed:['refund_pending','refunded','refundRef','USD',o.totalCents]
   };
-  const r=Object.hasOwn(rules,event.type)?rules[event.type]:null;
+  // Reject coercible non-string types before selecting any accounting transition.
+  const r=typeof event.type==='string'&&Object.hasOwn(rules,event.type)?rules[event.type]:null;
   if(!r||!o[r[2]]||event.reference!==o[r[2]]||event.currency!==r[3]||event.amountMinor!==r[4])fail('EVENT_MISMATCH');
   if(o.state!==r[0])fail('UNEXPECTED_EVENT_STATE');
   let posting=null;

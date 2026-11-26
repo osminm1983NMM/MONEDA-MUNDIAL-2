@@ -30,3 +30,26 @@ test('paid order posts balanced cash, payable and fee',async()=>{const f=fixture
 test('failed payout refunds full amount including fee and no revenue',async()=>{const f=fixture(),o=await funded(f);let p=await f.core.submit('A',o.id,'payout');f.receive(p.payoutRef,'payout_failed','p1');p=await f.core.submit('A',o.id,'refund');f.receive(p.refundRef,'refund_confirmed','r1');const r=f.core.reconcile();a.deepEqual(r.balances,{provider_cash:0,customer_payable:0,fee_revenue:0});a.ok(r.balanced&&r.liabilityMatches&&r.revenueMatches);a.equal(f.core.get('A',o.id).state,'refunded');});
 test('unconfirmed refund retains liability',async()=>{const f=fixture(),o=await funded(f);let p=await f.core.submit('A',o.id,'payout');f.receive(p.payoutRef,'payout_failed','p1');f.provider.loseNextResponse();await a.rejects(f.core.submit('A',o.id,'refund'));a.equal(f.core.reconcile().balances.customer_payable,-10150);a.equal(f.core.get('A',o.id).state,'refund_pending');});
 test('funding failure produces no posting',async()=>{const f=fixture(),o=await f.core.submit('A',f.create().id,'funding');f.receive(o.fundingRef,'funding_failed','f1');a.equal(f.core.reconcile().postings,0);a.ok(f.core.reconcile().liabilityMatches);});
+
+
+test('coercible non-string operation kinds cannot change state or submit',async()=>{
+ const f=fixture(),o=f.create();
+ for(const kind of [['funding'],{toString:()=> 'funding'},null,123]){
+  await a.rejects(f.core.submit('A',o.id,kind),/INVALID_ACTION/);
+  a.equal(f.core.get('A',o.id).state,'awaiting_funding');
+  a.equal(f.core.get('A',o.id).fundingRef,null);
+  a.equal(f.provider.submissions().length,0);
+ }
+});
+test('signed non-string event types cannot change ledger state or consume event ID',async()=>{
+ const f=fixture(),o=await f.core.submit('A',f.create().id,'funding');
+ const before=f.core.reconcile();
+ for(const type of [['funding_confirmed'],['funding_failed'],{},null,123]){
+  a.throws(()=>f.receive(o.fundingRef,'funding_confirmed','typed-event',{type}),/EVENT_MISMATCH/);
+  a.equal(f.core.get('A',o.id).state,'funding_pending');
+  a.deepEqual(f.core.reconcile(),before);
+ }
+ a.equal(f.receive(o.fundingRef,'funding_confirmed','typed-event').state,'funded');
+ a.equal(f.core.reconcile().postings,1);
+ a.equal(f.core.reconcile().liabilityMatches,true);
+});
