@@ -6,7 +6,7 @@ async function run(app, URLImpl, scheme) {
   function section(start,end){const a=app.indexOf(start),b=app.indexOf(end,a+start.length);if(a<0||b<a)throw Error('Source section missing');return app.slice(a,b);}
   const source=section('    const handleAuthUrl = async url => {','\n\n    supabase.auth.getSession()')+'\n'+section('    const { data: { subscription } } = supabase.auth.onAuthStateChange(','\n    const linkingSubscription')+'\n'+section('  async function saveNewPassword() {','\n  async function recoverPendingOperation')+'\nreturn {handleAuthUrl,saveNewPassword};';
   function harness(){
-    const recoveryActorRef={current:null},authEventUserRef={current:null},recoveryCodeStateRef={current:{inFlight:new Set(),processed:new Set()}};
+    const recoveryActorRef={current:null},authEventUserRef={current:null},recoveryCodeStateRef={current:{inFlight:new Set(),processed:new Set()}},confirmationRef={current:null};
     let current=null,screen='Inicio',busy=false,callback,exchanges=0,updates=0,alerts=[],fields=['',''];
     let control={};
     const supabase={auth:{
@@ -14,8 +14,8 @@ async function run(app, URLImpl, scheme) {
       async exchangeCodeForSession(code){exchanges++;if(control.exchange)return control.exchange(code);const session={user:{id:'A'}};callback('PASSWORD_RECOVERY',session);return {data:{session},error:null};},
       async updateUser(){updates++;return {error:null};}
     }};
-    const build=Function('supabase','URL','recoveryActorRef','authEventUserRef','recoveryCodeStateRef','beginAuthBusy','endAuthBusy','setNewPassword','setConfirmNewPassword','setScreen','message','setSession','setAuthLoading','getCurrent', 'getPasswords', 'let active=true,authEventReceived=false; const isCurrentUser=id=>!!id&&id===getCurrent(); let userId,newPassword,confirmNewPassword; const setValues=()=>{userId=getCurrent();[newPassword,confirmNewPassword]=getPasswords()};'+source.replace('async function saveNewPassword() {','async function saveNewPassword() { setValues();'));
-    const handlers=build(supabase,URLImpl,recoveryActorRef,authEventUserRef,recoveryCodeStateRef,()=>{if(busy)return false;busy=true;return true},()=>{busy=false},x=>{fields[0]=x},x=>{fields[1]=x},x=>{screen=x},(a,b)=>alerts.push(a+': '+b),s=>{current=s?.user?.id||null},()=>{},()=>current,()=>fields);
+    const build=Function('supabase','URL','recoveryActorRef','authEventUserRef','recoveryCodeStateRef','confirmationRef','beginAuthBusy','endAuthBusy','setNewPassword','setConfirmNewPassword','setScreen','message','setSession','setAuthLoading','getCurrent', 'getPasswords', 'let active=true,authEventReceived=false; const isCurrentUser=id=>!!id&&id===getCurrent(); let userId,newPassword,confirmNewPassword; const setValues=()=>{userId=getCurrent();[newPassword,confirmNewPassword]=getPasswords()};'+source.replace('async function saveNewPassword() {','async function saveNewPassword() { setValues();'));
+    const handlers=build(supabase,URLImpl,recoveryActorRef,authEventUserRef,recoveryCodeStateRef,confirmationRef,()=>{if(busy)return false;busy=true;return true},()=>{busy=false},x=>{fields[0]=x},x=>{fields[1]=x},x=>{screen=x},(a,b)=>alerts.push(a+': '+b),s=>{current=s?.user?.id||null},()=>{},()=>current,()=>fields);
     return {...handlers,control,emit:(event,id)=>callback(event,id?{user:{id}}:null),setFields:(a,b)=>fields=[a,b],state:()=>({screen,busy,exchanges,updates,alerts,fields,owner:recoveryActorRef.current})};
   }
   const base=scheme+'://auth/reset-password';
