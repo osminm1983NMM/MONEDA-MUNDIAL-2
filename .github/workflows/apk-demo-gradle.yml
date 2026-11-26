@@ -22,7 +22,9 @@ jobs:
           distribution: temurin
           java-version: '17'
       - run: npm install --no-audit --no-fund
+      - run: node --test tests/android/*.test.cjs
       - run: node scripts/preflight-release-local.js
+      - run: npx expo install --check
       - name: Configurar aplicación independiente para Samsung
         run: |
           node <<'NODE'
