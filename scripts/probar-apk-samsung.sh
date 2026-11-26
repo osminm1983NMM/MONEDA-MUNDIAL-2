@@ -9,7 +9,7 @@ adb shell wm size 1080x2400
 adb shell wm density 360
 abis=$(adb shell getprop ro.product.cpu.abilist)
 echo "ABI disponibles: $abis"
-[[ "$abis" == *arm64-v8a* ]]
+[[ "$abis" == *arm64-v8a* || "$abis" == *x86_64* ]]
 adb install "$apk"
 for launch in 1 2; do
   adb shell am force-stop "$package"
