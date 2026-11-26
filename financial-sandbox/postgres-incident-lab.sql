@@ -20,30 +20,53 @@ CREATE TABLE event_incidents(
 CREATE TRIGGER incidents_append_only BEFORE UPDATE OR DELETE ON event_incidents FOR EACH ROW EXECUTE FUNCTION deny_journal_mutation();
 CREATE FUNCTION record_verified_event(p_provider text,p_event text,p_ref text,p_outcome text,p_currency text,p_amount bigint)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=mwd_financial_lab,pg_catalog AS $$
-DECLARE v_reason text; v_prior text; v_result text;
+DECLARE v_reason text; v_prior text; v_result text; first_incident event_incidents%ROWTYPE;
 BEGIN
  IF p_provider IS DISTINCT FROM 'mock-remittance' OR p_event IS NULL OR p_event !~ '^[A-Za-z0-9_-]{1,100}$'
  OR p_ref IS NULL OR p_ref !~ '^[A-Za-z0-9_-]{1,128}$' OR p_outcome IS NULL OR p_outcome NOT IN ('confirmed','failed')
  OR p_currency IS NULL OR p_currency NOT IN ('USD','HNL') OR p_amount IS NULL OR p_amount NOT BETWEEN 1 AND 9007199254740991 THEN RAISE EXCEPTION 'INVALID_EVENT'; END IF;
+ -- A fresh snapshot after acquiring the event lock must see any prior quarantine.
+ IF current_setting('transaction_isolation')<>'read committed' THEN RAISE EXCEPTION 'EVENT_ISOLATION_REQUIRED'; END IF;
  -- Serialize reuse of an event ID across references, including unknown references.
  PERFORM pg_advisory_xact_lock(hashtextextended(p_provider||':'||p_event,0));
+ -- Serialize incident classification with order-level recovery and transitions.
+ PERFORM o.id FROM orders o JOIN outbox x ON x.order_id=o.id WHERE x.reference=p_ref FOR UPDATE OF o;
  SELECT reference INTO v_prior FROM inbox WHERE provider=p_provider AND event_id=p_event;
- IF NOT EXISTS(SELECT FROM outbox WHERE reference=p_ref) THEN
-  v_reason:='UNKNOWN_REFERENCE';
- ELSE
-  BEGIN
-   v_result:=apply_verified_event(p_provider,p_event,p_ref,p_outcome,p_currency,p_amount);
-   RETURN v_result;
-  EXCEPTION WHEN raise_exception THEN
-   IF SQLERRM NOT IN ('EVENT_MISMATCH','EVENT_ID_CONFLICT','UNEXPECTED_EVENT_STATE') THEN RAISE; END IF;
-   v_reason:=SQLERRM;
-  END;
+ IF v_prior IS NULL THEN
+  SELECT * INTO first_incident FROM event_incidents
+  WHERE provider=p_provider AND event_id=p_event ORDER BY id LIMIT 1;
+  IF FOUND THEN
+   IF (first_incident.reference,first_incident.outcome,first_incident.currency,first_incident.amount_minor)
+       IS NOT DISTINCT FROM (p_ref,p_outcome,p_currency,p_amount)
+   THEN RETURN 'manual_review'; END IF;
+   v_prior:=first_incident.reference;
+   v_reason:='EVENT_ID_CONFLICT';
+  END IF;
+ END IF;
+ IF v_reason IS NULL THEN
+  IF NOT EXISTS(SELECT FROM outbox WHERE reference=p_ref) THEN
+   v_reason:='UNKNOWN_REFERENCE';
+  ELSIF p_outcome='confirmed' AND EXISTS(
+   SELECT FROM outbox x JOIN orders o ON o.id=x.order_id JOIN event_incidents i ON i.reference=x.reference
+   WHERE x.reference=p_ref AND x.kind='refund' AND o.state='refund_pending' AND i.outcome='failed')
+  THEN
+   v_reason:='UNEXPECTED_EVENT_STATE';
+  ELSE
+   BEGIN
+    v_result:=apply_verified_event(p_provider,p_event,p_ref,p_outcome,p_currency,p_amount);
+    RETURN v_result;
+   EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM NOT IN ('EVENT_MISMATCH','EVENT_ID_CONFLICT','UNEXPECTED_EVENT_STATE') THEN RAISE; END IF;
+    v_reason:=SQLERRM;
+   END;
+  END IF;
  END IF;
  INSERT INTO event_incidents(provider,event_id,reference,prior_reference,outcome,currency,amount_minor,reason)
  VALUES(p_provider,p_event,p_ref,v_prior,p_outcome,p_currency,p_amount,v_reason)
  ON CONFLICT(provider,event_id,reference,outcome,currency,amount_minor,reason) DO NOTHING;
  RETURN 'manual_review';
 END $$;
+
 CREATE VIEW incident_summary AS SELECT reason,count(*) AS incidents FROM event_incidents GROUP BY reason;
 REVOKE EXECUTE ON FUNCTION apply_verified_event(text,text,text,text,text,bigint) FROM mwd_lab_event_service;
 REVOKE ALL ON ALL TABLES IN SCHEMA mwd_financial_lab FROM PUBLIC;

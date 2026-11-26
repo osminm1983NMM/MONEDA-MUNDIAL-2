@@ -18,40 +18,6 @@ CREATE TABLE refund_recovery_approvals(
 );
 CREATE TRIGGER refund_proposal_append_only BEFORE UPDATE OR DELETE ON refund_recovery_proposals FOR EACH ROW EXECUTE FUNCTION deny_journal_mutation();
 CREATE TRIGGER refund_approval_append_only BEFORE UPDATE OR DELETE ON refund_recovery_approvals FOR EACH ROW EXECUTE FUNCTION deny_journal_mutation();
-CREATE OR REPLACE FUNCTION record_verified_event(p_provider text,p_event text,p_ref text,p_outcome text,p_currency text,p_amount bigint)
-RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=mwd_financial_lab,pg_catalog AS $$
-DECLARE v_reason text; v_prior text; v_result text;
-BEGIN
- IF p_provider IS DISTINCT FROM 'mock-remittance' OR p_event IS NULL OR p_event !~ '^[A-Za-z0-9_-]{1,100}$'
- OR p_ref IS NULL OR p_ref !~ '^[A-Za-z0-9_-]{1,128}$' OR p_outcome IS NULL OR p_outcome NOT IN ('confirmed','failed')
- OR p_currency IS NULL OR p_currency NOT IN ('USD','HNL') OR p_amount IS NULL OR p_amount<=0 THEN RAISE EXCEPTION 'INVALID_EVENT'; END IF;
- -- Serialize reuse of an event ID across references, including unknown references.
- PERFORM pg_advisory_xact_lock(hashtextextended(p_provider||':'||p_event,0));
- -- Serialize incident classification with order-level recovery and transitions.
- PERFORM o.id FROM orders o JOIN outbox x ON x.order_id=o.id WHERE x.reference=p_ref FOR UPDATE OF o;
- SELECT reference INTO v_prior FROM inbox WHERE provider=p_provider AND event_id=p_event;
- IF NOT EXISTS(SELECT FROM outbox WHERE reference=p_ref) THEN
-  v_reason:='UNKNOWN_REFERENCE';
- ELSIF p_outcome='confirmed' AND EXISTS(
-  SELECT FROM outbox x JOIN orders o ON o.id=x.order_id JOIN event_incidents i ON i.reference=x.reference
-  WHERE x.reference=p_ref AND x.kind='refund' AND o.state='refund_pending' AND i.outcome='failed')
- THEN
-  v_reason:='UNEXPECTED_EVENT_STATE';
- ELSE
-  BEGIN
-   v_result:=apply_verified_event(p_provider,p_event,p_ref,p_outcome,p_currency,p_amount);
-   RETURN v_result;
-  EXCEPTION WHEN raise_exception THEN
-   IF SQLERRM NOT IN ('EVENT_MISMATCH','EVENT_ID_CONFLICT','UNEXPECTED_EVENT_STATE') THEN RAISE; END IF;
-   v_reason:=SQLERRM;
-  END;
- END IF;
- INSERT INTO event_incidents(provider,event_id,reference,prior_reference,outcome,currency,amount_minor,reason)
- VALUES(p_provider,p_event,p_ref,v_prior,p_outcome,p_currency,p_amount,v_reason)
- ON CONFLICT(provider,event_id,reference,outcome,currency,amount_minor,reason) DO NOTHING;
- RETURN 'manual_review';
-END $$;
-
 CREATE FUNCTION check_refund_recovery(p_order uuid,p_incident bigint,p_batch uuid) RETURNS void
 LANGUAGE plpgsql SET search_path=mwd_financial_lab,pg_catalog AS $$
 DECLARE o orders%ROWTYPE; i event_incidents%ROWTYPE; b statement_batches%ROWTYPE; ref text;
