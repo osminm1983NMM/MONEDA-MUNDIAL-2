@@ -86,3 +86,7 @@ Se descargaron los artefactos 15078693162 (run 45736122605) y 15112630795 (run 4
 ## Aportación física — 26 de noviembre de 2026, 06:33 EST
 
 Capturas Samsung antes/después: cuenta B, 9,913.00 → 9,903.00 MWD. Consulta Supabase de solo lectura confirma 990300 centavos de saldo y última operación contribution por 1000 centavos, a las 11:33:06 UTC; una sola fila con la referencia del actor. Débito ficticio y registro aprobados; historial visual pendiente. La vista de auditoría devuelve contribution_requires_accounting_policy: no equivale a conciliación contable completa y debe revisarse antes de cierre financiero. Identidad exacta del APK físico pendiente. No se modificaron datos ni configuración de Supabase.
+
+## Historial y conciliación contable de aportación física
+
+Captura Samsung: aportación ficticia -10.00 MWD, 26/11/2026 06:33:06 EST, coincide con el registro SQL. Consulta independiente de solo lectura confirma transacción demo_contribution posted con exactamente dos asientos, débito 1000 y crédito 1000 centavos MWD, diferencia cero. La definición de demo_operations_audit_v1 devuelve incondicionalmente contribution_requires_accounting_policy para kind=contribution; es una clasificación heredada, no una detección de descuadre. Queda pendiente actualizar esa vista con verificaciones reales en entorno aislado, sin ocultar anomalías. Aportación física normal, saldo, historial y doble partida de esta operación aprobados. No se cambió esquema, datos ni saldos. Identidad exacta del APK y demás pruebas físicas siguen pendientes.
