@@ -64,3 +64,52 @@ DO $$ BEGIN
 END $$;
 RESET ROLE;
 ROLLBACK;
+
+-- Independent retry budget fixture. No reset/requeue is exposed to service roles.
+BEGIN;
+SET LOCAL search_path=mwd_financial_lab,pg_catalog;
+-- Isolate the new fixture from earlier committed disposable tests.
+UPDATE dispatch SET attempts=greatest(attempts,3) WHERE state<>'acknowledged';
+INSERT INTO actor_policy VALUES ('retryBudget','verified','clear','allow',50000);
+INSERT INTO beneficiaries VALUES ('retryBudget','beneficiary','verified');
+DO $$ DECLARE q uuid; o uuid; ref text; lease record; previous_token uuid; n integer; baseline bigint;
+BEGIN
+ SELECT quote_id INTO q FROM issue_quote('retryBudget','beneficiary',10000);
+ o:=accept_quote('retryBudget','request',q,'sandbox-disclosure-v1');
+ ref:=o::text||'-funding';
+ SELECT coalesce(sum(operations),0) INTO baseline FROM dispatch_attention
+ WHERE kind='funding' AND reason='retry_budget_exhausted';
+ FOR n IN 1..3 LOOP
+  SELECT * INTO lease FROM claim_dispatch(30);
+  IF NOT FOUND OR lease.reference<>ref OR lease.attempts<>n THEN RAISE EXCEPTION 'retry claim mismatch %',n; END IF;
+  IF NOT check_dispatch_lease(ref,lease.token) THEN RAISE EXCEPTION 'fresh lease invalid'; END IF;
+  IF previous_token IS NOT NULL THEN
+   IF check_dispatch_lease(ref,previous_token) THEN RAISE EXCEPTION 'stale token accepted'; END IF;
+   BEGIN
+    PERFORM acknowledge_dispatch(ref,previous_token); RAISE EXCEPTION 'stale ack accepted';
+   EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'STALE_LEASE' THEN RAISE; END IF; END;
+  END IF;
+  previous_token:=lease.token;
+  UPDATE dispatch SET lease_until=clock_timestamp()-interval '1 second' WHERE reference=ref;
+ END LOOP;
+ IF EXISTS(SELECT FROM claim_dispatch(30)) THEN RAISE EXCEPTION 'fourth automatic retry allowed'; END IF;
+ IF check_dispatch_lease(ref,previous_token) THEN RAISE EXCEPTION 'expired final lease valid'; END IF;
+ IF (SELECT coalesce(sum(operations),0) FROM dispatch_attention
+ WHERE kind='funding' AND reason='retry_budget_exhausted')<>baseline+1
+ THEN RAISE EXCEPTION 'retry exhaustion not visible'; END IF;
+ IF (SELECT state FROM orders WHERE id=o)<>'funding_pending' OR EXISTS(SELECT FROM journal WHERE order_id=o)
+ THEN RAISE EXCEPTION 'retry exhaustion changed funds'; END IF;
+ -- A verified late confirmation remains accepted; no extra dispatch required.
+ IF record_verified_event('mock-remittance','retry-budget-confirmed',ref,'confirmed','USD',10150)<>'funded'
+ THEN RAISE EXCEPTION 'late confirmation blocked'; END IF;
+ IF (SELECT count(*) FROM journal WHERE order_id=o)<>1 THEN RAISE EXCEPTION 'late confirmation posting mismatch'; END IF;
+ IF (SELECT coalesce(sum(operations),0) FROM dispatch_attention
+ WHERE kind='funding' AND reason='retry_budget_exhausted')<>baseline
+ THEN RAISE EXCEPTION 'terminal operation remained in retry alert'; END IF;
+END $$;
+SET LOCAL ROLE mwd_lab_dispatch_service;
+DO $$ BEGIN
+ BEGIN UPDATE dispatch SET attempts=0; RAISE EXCEPTION 'retry reset allowed'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $$;
+RESET ROLE;
+ROLLBACK;
