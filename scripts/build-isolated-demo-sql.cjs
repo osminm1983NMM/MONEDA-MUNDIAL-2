@@ -4,7 +4,7 @@
 const fs=require('node:fs');
 const path=require('node:path');
 const base=path.join(__dirname,'../database/replay');
-function build(raw,catalog){
+function build(raw,catalog,overrides){
   const migrations=raw.split(/^-- ===== /m).slice(1).map(part=>{
     const first=part.indexOf('\n');
     const header=/^(\d{14}) ([a-z0-9_]+) =====$/.exec(part.slice(0,first));
@@ -81,11 +81,26 @@ COMMIT;`];
   }
   if(applied!==38)throw Error('Unexpected replay count');
   transaction('Restore remaining private views and two RPC definitions',remaining());
+  const expected={
+    mwd_get_payment_request_demo:'uuid',
+    mwd_owner_partner_audit_feed_demo:'text,uuid,integer',
+    mwd_owner_partner_location_save_demo:'uuid,text,text,text,text,uuid'
+  };
+  if(!Array.isArray(overrides)||overrides.length!==3)throw Error('Missing current RPC overrides');
+  const patches=[];
+  for(const name of Object.keys(expected)){
+    const f=lookup(overrides,name);
+    if(!f.definition.startsWith('CREATE OR REPLACE FUNCTION public.'+name+'('))throw Error('Unexpected override definition');
+    const signature='public.'+ident(name)+'('+expected[name]+')';
+    patches.push(f.definition.trim()+';','REVOKE ALL ON FUNCTION '+signature+' FROM PUBLIC,anon,authenticated;','GRANT EXECUTE ON FUNCTION '+signature+' TO authenticated,service_role;');
+  }
+  transaction('Restore current hardened RPCs',patches.join('\n'));
   return lines.join('\n\n')+'\n';
 }
 if(require.main===module){
  const raw=fs.readFileSync(path.join(base,'migration-history-20261126.txt'),'utf8');
  const catalog=JSON.parse(fs.readFileSync(path.join(base,'catalog-missing-objects-20261126.json'),'utf8'));
- process.stdout.write(build(raw,catalog));
+ const overrides=JSON.parse(fs.readFileSync(path.join(base,'current-rpc-overrides-20261126.json'),'utf8'));
+ process.stdout.write(build(raw,catalog,overrides));
 }
 module.exports={build};
