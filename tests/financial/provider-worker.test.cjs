@@ -77,3 +77,16 @@ test('worker does not resubmit when an accepted lookup result changes during lea
  a.equal((await f.worker().tick()).status,'transport_acknowledged');
  a.deepEqual(f.counts(),{acks:1,records:0,submissions:0});
 });
+
+
+test('contradictory absent lookup fails closed before lease check, submit or ack',async()=>{
+ for(const payload of [null,{},'unexpected','matching','conflicting']){
+  const f=fixture();let checks=0;
+  const intent=payload==='matching'?{...f.intent}:payload==='conflicting'?{...f.intent,amountMinor:1}:payload;
+  f.provider.lookup=async()=>({status:'absent',intent});
+  f.store.checkLease=()=>{checks++;return true;};
+  await a.rejects(f.worker().tick(),/INVALID_LOOKUP/);
+  a.equal(checks,0);
+  a.deepEqual(f.counts(),{acks:0,records:0,submissions:0});
+ }
+});

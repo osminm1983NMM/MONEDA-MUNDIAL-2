@@ -22,6 +22,8 @@ function createWorker({environment,store,provider}){
    const status=known?.status;
    if(!['absent','accepted','unknown','awaiting_confirmation'].includes(status))fail('INVALID_LOOKUP');
    if(status==='unknown')return {status:'provider_uncertain'};
+   // A purported absence with an intent is contradictory: never send again.
+   if(status==='absent'&&known.intent!==undefined)fail('INVALID_LOOKUP');
    if(status!=='absent'&&!same(intent,known.intent))fail('PROVIDER_REFERENCE_CONFLICT');
    let needsConfirmation=status==='awaiting_confirmation';
    if(needsConfirmation&&(intent.kind!=='payout'||typeof provider.confirmPayout!=='function'))fail('INVALID_LOOKUP');
