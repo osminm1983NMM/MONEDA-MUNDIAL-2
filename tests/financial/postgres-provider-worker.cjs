@@ -26,11 +26,11 @@ function store(){
   record(e){return sql('SELECT '+schema+'.record_verified_event('+[e.provider,e.eventId,e.reference,e.outcome,e.currency].map(lit).join(',')+','+e.amountMinor+')','event');}
  };
 }
-async function withDispatchLock({lockRow,applicationName,hold},action){
+async function withBlockedSession({setup,applicationName,hold='',commit=false,contenderRole='dispatch'},action){
  const lock=promisify(execFile)('docker',['exec',container,'psql','-X','-qAt','-v','ON_ERROR_STOP=1','-U','lab','-d','mwd_financial_sandbox_test','-c',`
   BEGIN;
   SET LOCAL statement_timeout='12s';
-  ${lockRow};
+  ${setup};
   SELECT pg_advisory_xact_lock(60261126,100);
   DO $$
   BEGIN
@@ -43,8 +43,8 @@ async function withDispatchLock({lockRow,applicationName,hold},action){
     PERFORM pg_sleep(0.05);
    END LOOP;
   END $$;
-  ${hold};
-  ROLLBACK;
+  ${hold ? hold+';' : ''}
+  ${commit ? 'COMMIT' : 'ROLLBACK'};
  `],{timeout:15000}).then(()=>null,error=>error);
  try{
   let ready=false;
@@ -52,9 +52,9 @@ async function withDispatchLock({lockRow,applicationName,hold},action){
    if(sql('SELECT pg_try_advisory_lock(60261126,100)')==='f'){ready=true;break;}
    await delay(50);
   }
-  assert.equal(ready,true,'dispatch locker did not acquire the row');
+  assert.equal(ready,true,'first database session did not reach the synchronization point');
   return action(query=>sql(
-   "SET application_name='"+applicationName+"'; SET statement_timeout='15s'; "+query,'dispatch'
+   "SET application_name='"+applicationName+"'; SET statement_timeout='15s'; "+query,contenderRole
   ));
  }finally{
   const error=await lock;
@@ -65,8 +65,8 @@ async function assertAckExpiresWhileWaiting(reference){
  const ref=lit(reference);
  const token=sql('SELECT token FROM '+schema+'.dispatch WHERE reference='+ref);
  sql("UPDATE "+schema+".dispatch SET lease_until=clock_timestamp()+interval '5 seconds' WHERE reference="+ref);
- await withDispatchLock({
-  lockRow:`SELECT 1 FROM ${schema}.dispatch WHERE reference=${ref} FOR NO KEY UPDATE`,
+ await withBlockedSession({
+  setup:`SELECT 1 FROM ${schema}.dispatch WHERE reference=${ref} FOR NO KEY UPDATE`,
   applicationName:'mwd-late-transport-ack',
   hold:`SELECT pg_sleep_until(lease_until+interval '100 milliseconds') FROM ${schema}.dispatch WHERE reference=${ref}`
  },contend=>{
@@ -75,8 +75,8 @@ async function assertAckExpiresWhileWaiting(reference){
  assert.equal(sql('SELECT state FROM '+schema+'.dispatch WHERE reference='+ref),'leased');
 }
 async function assertClaimStartsAfterControlLock(reference){
- const result=await withDispatchLock({
-  lockRow:`SELECT 1 FROM ${schema}.dispatch_control WHERE singleton FOR UPDATE`,
+ const result=await withBlockedSession({
+  setup:`SELECT 1 FROM ${schema}.dispatch_control WHERE singleton FOR UPDATE`,
   applicationName:'mwd-delayed-dispatch-claim',
   hold:'SELECT pg_sleep(3.1)'
  },contend=>contend(
@@ -84,6 +84,30 @@ async function assertClaimStartsAfterControlLock(reference){
  ));
  assert.equal(result,reference+'|1|t','waiting for dispatch control must not spend the new lease');
  sql("UPDATE "+schema+".dispatch SET lease_until=clock_timestamp()-interval '1 second' WHERE reference="+lit(reference));
+}
+async function assertConcurrentQuarantine(){
+ const order=openOrder('workerQuarantine');
+ const reference=lit(order+'-funding');
+ const eventId=lit('worker-quarantine-reused');
+ const record=(outcome,amount,id=eventId)=>(
+  `SELECT ${schema}.record_verified_event('mock-remittance',${id},${reference},'${outcome}','USD',${amount})`
+ );
+ const result=await withBlockedSession({
+  setup:`SET LOCAL ROLE mwd_lab_event_service; ${record('confirmed',1)}; RESET ROLE`,
+  applicationName:'mwd-concurrent-quarantine',
+  commit:true,
+  contenderRole:'event'
+ },contend=>contend(record('confirmed',10150)));
+ assert.equal(result,'manual_review');
+ assert.equal(state(order),'funding_pending');
+ assert.equal(sql('SELECT count(*) FROM '+schema+'.inbox WHERE event_id='+eventId),'0');
+ assert.equal(sql(
+  "SELECT string_agg(reason,',' ORDER BY id) FROM "+schema+'.event_incidents WHERE event_id='+eventId
+ ),'EVENT_MISMATCH,EVENT_ID_CONFLICT');
+ assert.equal(sql('SELECT count(*) FROM '+schema+'.journal WHERE order_id='+lit(order)+'::uuid'),'0');
+ // A separately identified, valid status can close the funding fixture.
+ assert.equal(sql(record('failed',10150,lit('worker-quarantine-terminal')),'event'),'funding_failed');
+ console.log('Concurrent quarantine reuse rejected without a ledger posting');
 }
 function state(order){return sql('SELECT state FROM '+schema+'.orders WHERE id='+lit(order)+'::uuid');}
 function openOrder(actor){
@@ -210,6 +234,7 @@ async function main(){
  assert.equal((await worker.tick()).status,'idle');
  assert.equal(sql('SELECT sum(payable) FROM '+schema+'.journal WHERE order_id IN ('+lit(order)+'::uuid,'+lit(refund)+'::uuid)'),'0');
  assert.equal(sql('SELECT sum(revenue) FROM '+schema+'.journal WHERE order_id IN ('+lit(order)+'::uuid,'+lit(refund)+'::uuid)'),'-150');
+ await assertConcurrentQuarantine();
  console.log('Sandbox worker: signed funding, payout, refund and PostgreSQL/provider restart recovery verified');
  }finally{if(p)p.close();rmSync(dir,{recursive:true,force:true});}
 }
