@@ -36,12 +36,13 @@ END $$;
 CREATE OR REPLACE FUNCTION claim_dispatch(p_lease_seconds integer)
 RETURNS TABLE(reference text,order_id uuid,kind text,currency text,amount_minor bigint,token uuid,lease_until timestamptz,attempts bigint)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=mwd_financial_lab,pg_catalog AS $$
-DECLARE v_ref text; v_now timestamptz:=clock_timestamp();
+DECLARE v_ref text; v_now timestamptz;
 BEGIN
  IF p_lease_seconds IS NULL OR p_lease_seconds NOT BETWEEN 1 AND 300 THEN RAISE EXCEPTION 'INVALID_LEASE'; END IF;
  -- Serialize new leases with emergency stop and resume.
  PERFORM 1 FROM dispatch_control WHERE singleton AND NOT halted FOR SHARE;
  IF NOT FOUND THEN RETURN; END IF;
+ v_now:=clock_timestamp();
  SELECT d.reference INTO v_ref FROM dispatch d
  JOIN outbox x ON x.reference=d.reference
  JOIN orders o ON o.id=x.order_id
@@ -56,7 +57,7 @@ BEGIN
  AND o.state=CASE x.kind WHEN 'funding' THEN 'funding_pending' WHEN 'payout' THEN 'payout_pending' WHEN 'refund' THEN 'refund_pending' END
  ORDER BY d.reference LIMIT 1 FOR UPDATE OF d SKIP LOCKED;
  IF NOT FOUND THEN RETURN; END IF;
- UPDATE dispatch d SET state='leased',token=gen_random_uuid(),lease_until=v_now+make_interval(secs=>p_lease_seconds),attempts=d.attempts+1 WHERE d.reference=v_ref;
+ UPDATE dispatch d SET state='leased',token=gen_random_uuid(),lease_until=clock_timestamp()+make_interval(secs=>p_lease_seconds),attempts=d.attempts+1 WHERE d.reference=v_ref;
  RETURN QUERY SELECT x.reference,x.order_id,x.kind,x.currency,x.amount_minor,d.token,d.lease_until,d.attempts
  FROM dispatch d JOIN outbox x ON x.reference=d.reference WHERE d.reference=v_ref;
 END $$;

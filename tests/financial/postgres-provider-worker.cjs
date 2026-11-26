@@ -26,27 +26,24 @@ function store(){
   record(e){return sql('SELECT '+schema+'.record_verified_event('+[e.provider,e.eventId,e.reference,e.outcome,e.currency].map(lit).join(',')+','+e.amountMinor+')','event');}
  };
 }
-async function assertAckExpiresWhileWaiting(reference){
- const ref=lit(reference);
- const token=sql('SELECT token FROM '+schema+'.dispatch WHERE reference='+ref);
- sql("UPDATE "+schema+".dispatch SET lease_until=clock_timestamp()+interval '5 seconds' WHERE reference="+ref);
+async function withDispatchLock({lockRow,applicationName,hold},action){
  const lock=promisify(execFile)('docker',['exec',container,'psql','-X','-qAt','-v','ON_ERROR_STOP=1','-U','lab','-d','mwd_financial_sandbox_test','-c',`
   BEGIN;
   SET LOCAL statement_timeout='12s';
-  SELECT 1 FROM ${schema}.dispatch WHERE reference=${ref} FOR NO KEY UPDATE;
+  ${lockRow};
   SELECT pg_advisory_xact_lock(60261126,100);
   DO $$
   BEGIN
    LOOP
     PERFORM pg_stat_clear_snapshot();
     EXIT WHEN EXISTS (
-     SELECT FROM pg_stat_activity WHERE application_name='mwd-late-transport-ack'
+     SELECT FROM pg_stat_activity WHERE application_name=${lit(applicationName)}
       AND pg_backend_pid()=ANY(pg_blocking_pids(pid))
     );
     PERFORM pg_sleep(0.05);
    END LOOP;
   END $$;
-  SELECT pg_sleep_until(lease_until+interval '100 milliseconds') FROM ${schema}.dispatch WHERE reference=${ref};
+  ${hold};
   ROLLBACK;
  `],{timeout:15000}).then(()=>null,error=>error);
  try{
@@ -56,15 +53,37 @@ async function assertAckExpiresWhileWaiting(reference){
    await delay(50);
   }
   assert.equal(ready,true,'dispatch locker did not acquire the row');
-  assert.throws(
-   ()=>sql("SET application_name='mwd-late-transport-ack'; SET statement_timeout='15s'; SELECT "+schema+'.acknowledge_dispatch('+ref+','+lit(token)+'::uuid)','dispatch'),
-   /STALE_LEASE/
-  );
-  assert.equal(sql('SELECT state FROM '+schema+'.dispatch WHERE reference='+ref),'leased');
+  return action(query=>sql(
+   "SET application_name='"+applicationName+"'; SET statement_timeout='15s'; "+query,'dispatch'
+  ));
  }finally{
   const error=await lock;
   if(error)throw error;
  }
+}
+async function assertAckExpiresWhileWaiting(reference){
+ const ref=lit(reference);
+ const token=sql('SELECT token FROM '+schema+'.dispatch WHERE reference='+ref);
+ sql("UPDATE "+schema+".dispatch SET lease_until=clock_timestamp()+interval '5 seconds' WHERE reference="+ref);
+ await withDispatchLock({
+  lockRow:`SELECT 1 FROM ${schema}.dispatch WHERE reference=${ref} FOR NO KEY UPDATE`,
+  applicationName:'mwd-late-transport-ack',
+  hold:`SELECT pg_sleep_until(lease_until+interval '100 milliseconds') FROM ${schema}.dispatch WHERE reference=${ref}`
+ },contend=>{
+  assert.throws(()=>contend('SELECT '+schema+'.acknowledge_dispatch('+ref+','+lit(token)+'::uuid)'),/STALE_LEASE/);
+ });
+ assert.equal(sql('SELECT state FROM '+schema+'.dispatch WHERE reference='+ref),'leased');
+}
+async function assertClaimStartsAfterControlLock(reference){
+ const result=await withDispatchLock({
+  lockRow:`SELECT 1 FROM ${schema}.dispatch_control WHERE singleton FOR UPDATE`,
+  applicationName:'mwd-delayed-dispatch-claim',
+  hold:'SELECT pg_sleep(3.1)'
+ },contend=>contend(
+  'SELECT reference, attempts, lease_until>clock_timestamp() FROM '+schema+'.claim_dispatch(3)'
+ ));
+ assert.equal(result,reference+'|1|t','waiting for dispatch control must not spend the new lease');
+ sql("UPDATE "+schema+".dispatch SET lease_until=clock_timestamp()-interval '1 second' WHERE reference="+lit(reference));
 }
 function state(order){return sql('SELECT state FROM '+schema+'.orders WHERE id='+lit(order)+'::uuid');}
 function openOrder(actor){
@@ -82,6 +101,7 @@ async function main(){
  try{
  let worker=createWorker({environment:'sandbox',store:store(),provider:p});
  const order=openOrder('workerPaid');
+ await assertClaimStartsAfterControlLock(order+'-funding');
  p.loseNextResponse();
  await assert.rejects(worker.tick(),/SIMULATED_RESPONSE_LOSS/);
  assert.equal(p.submissions().length,1);assert.equal(state(order),'funding_pending');
