@@ -1,6 +1,6 @@
 # Aceptación Android LAB — Moneda Mundial
 
-Estado: pendiente de evidencia del APK actualizado. Exclusivamente créditos ficticios.
+Estado: CI aprobado; validación física parcial, identidad exacta del APK pendiente. Exclusivamente créditos ficticios.
 
 ## Evidencia de compilación
 - Registrar URL de ejecución, commit y conclusión de los trabajos apk y smoke-test.
@@ -30,3 +30,10 @@ APK verificable, instalación y pruebas físicas aprobadas, sin errores crítico
 - Artefactos temporales: vencen el 3 de diciembre de 2026 (UTC).
 - Pendiente: instalación y pruebas funcionales en Samsung físico. No aprobado para dinero real.
 - Recuperación LAB: autorizar exactamente `com.monedamundial.lab.samsung://auth/reset-password` en Supabase Auth y probar enlace abierto/cerrado, vencido y consumido. No se ha cambiado esa configuración.
+
+## Evidencia física parcial — 25 de noviembre de 2026
+
+- Capturas del Samsung aportadas por el usuario: aplicación abierta, sesión activa, saldo ficticio visible de 10,104.00 MWD.
+- Actualización manual: interfaz muestra «Saldo e historial actualizados correctamente».
+- No se ha verificado aún la identidad exacta del APK instalado ni la coincidencia independiente del saldo con el servidor en esta sesión.
+- Pendientes: transferencia física A→B, conciliación de ambos saldos, historial, reintento de red, cambio de cuenta, conversiones, aportación, retiro y recuperación de contraseña.
