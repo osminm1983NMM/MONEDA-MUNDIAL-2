@@ -18,9 +18,9 @@ DO $$ DECLARE p uuid:=current_setting('mwd.test_paid')::uuid; r uuid:=current_se
  BEGIN PERFORM multi_mirror_accepted(p,'worker-fund-1'); RAISE EXCEPTION 'EXPECTED_REJECTION'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $$;
 RESET ROLE;
-DO $ BEGIN
+DO $$ BEGIN
  IF NOT EXISTS(SELECT FROM multi_transfer_summary WHERE linked_transfers=2 AND terminal_state_mismatches=2 AND event_discrepancies>0) THEN RAISE EXCEPTION 'MISSING_HISTORY_NOT_DETECTED'; END IF;
-END $;
+END $$;
 SET LOCAL ROLE mwd_lab_multi_event;
 DO $$ DECLARE p uuid:=current_setting('mwd.test_paid')::uuid; r uuid:=current_setting('mwd.test_refund')::uuid; BEGIN
  BEGIN PERFORM multi_mirror_accepted(p,'worker-fund-2'); RAISE EXCEPTION 'EXPECTED_REJECTION'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'ACCEPTED_EVENT_UNAVAILABLE' THEN RAISE; END IF; END;

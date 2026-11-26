@@ -41,7 +41,7 @@ END $$;
 -- The direct fixture endpoint must not bypass accepted-event evidence for a linked order.
 -- multi_apply locks the multi order before inserting; attachment uses the same order lock.
 CREATE FUNCTION require_multi_source_event() RETURNS trigger
-LANGUAGE plpgsql SET search_path=pg_catalog,mwd_financial_lab,pg_temp AS $
+LANGUAGE plpgsql SET search_path=pg_catalog,mwd_financial_lab,pg_temp AS $$
 BEGIN
  IF NEW.kind NOT IN ('fx_acquired','fx_unwound') AND EXISTS(
   SELECT FROM multi_transfer_links WHERE multi_id=NEW.order_id
@@ -58,7 +58,7 @@ BEGIN
   )
  ) THEN RAISE EXCEPTION 'ACCEPTED_EVENT_REQUIRED'; END IF;
  RETURN NEW;
-END $;
+END $$;
 CREATE TRIGGER multi_linked_event_evidence BEFORE INSERT ON multi_events
  FOR EACH ROW EXECUTE FUNCTION require_multi_source_event();
 REVOKE ALL ON FUNCTION require_multi_source_event() FROM PUBLIC;
