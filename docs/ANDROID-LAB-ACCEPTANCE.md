@@ -147,3 +147,10 @@ Control previo: aportación normal de 1 MWD registrada a las 11:44:36 UTC, saldo
 
 - App.js incorpora preparedUserId y una barrera de render que oculta pantallas privadas hasta limpiar billetera, historial, roles, conversión, retiros, campos y referencias de la cuenta anterior. La referencia de cotización también se invalida al renderizar una cuenta no preparada. No se borran referencias persistentes en AsyncStorage.
 - Siete pruebas de lógica y estructura aprobadas con adaptadores JavaScript: transición A/B, inicio, cuenta preparada, cierre, carga, orden de limpieza e invalidación de cotización. Guardadas en tests/android/account-privacy.test.cjs. No son pruebas de render React Native físico ni de todas las carreras A/B/A o revocación de sesiones. Pendiente CI y APK de esta revisión. No se modificaron main, Supabase ni saldos.
+
+
+## Exclusión mutua de recuperación de retiros — 26 de noviembre de 2026
+
+- La recuperación local de retiro adquiere el mismo bloqueo que la creación antes de leer AsyncStorage y lo libera en finally para la cuenta vigente. Evita lectura y creación concurrentes durante ese intervalo. El cambio de cuenta limpia también importe y dirección de conversión.
+- Cuatro casos de tests/android/pickup-recovery-lock.test.cjs aprobados mediante adaptadores JavaScript: lectura pendiente bloquea creación y otra recuperación, lectura fallida y vacía liberan el bloqueo, cambio de cuenta limpia campos. No certifica carreras A/B/A, render físico ni CI nativo.
+- PR 132 conserva evidencia de una compilación anterior (run 45809213055); no certifica el código nuevo. La consulta de workflows por commit no devuelve los runs por push. Consultar Actions del branch para confirmar el APK actualizado. No fusionar main, ni modificar Supabase o saldos. Solo DEMO.
