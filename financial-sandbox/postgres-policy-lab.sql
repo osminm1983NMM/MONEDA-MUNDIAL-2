@@ -97,4 +97,26 @@ REVOKE EXECUTE ON FUNCTION create_order(text,text,text,text,bigint),prepare_next
 REVOKE ALL ON ALL TABLES IN SCHEMA mwd_financial_lab FROM PUBLIC;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA mwd_financial_lab FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION issue_quote(text,text,bigint),accept_quote(text,text,uuid,text),prepare_authorized(text,uuid,text) TO mwd_lab_order_service;
+-- Recheck current synthetic policy when leasing a task; exclude unreserved legacy fixtures.
+CREATE OR REPLACE FUNCTION claim_dispatch(p_lease_seconds integer)
+RETURNS TABLE(reference text,order_id uuid,kind text,currency text,amount_minor bigint,token uuid,lease_until timestamptz,attempts bigint)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=mwd_financial_lab,pg_catalog AS $
+DECLARE v_ref text; v_now timestamptz:=clock_timestamp();
+BEGIN
+ IF p_lease_seconds IS NULL OR p_lease_seconds NOT BETWEEN 1 AND 300 THEN RAISE EXCEPTION 'INVALID_LEASE'; END IF;
+ SELECT d.reference INTO v_ref FROM dispatch d
+ JOIN outbox x ON x.reference=d.reference
+ JOIN orders o ON o.id=x.order_id
+ JOIN reservations z ON z.order_id=o.id AND z.actor=o.actor
+ JOIN actor_policy pol ON pol.actor=o.actor
+ JOIN beneficiaries b ON b.actor=o.actor AND b.reference=o.beneficiary_ref
+ WHERE (d.state='queued' OR (d.state='leased' AND d.lease_until<=v_now))
+ AND (x.kind='refund' OR (pol.identity='verified' AND pol.sanctions='clear' AND pol.risk='allow' AND b.status='verified'))
+ AND o.state=CASE x.kind WHEN 'funding' THEN 'funding_pending' WHEN 'payout' THEN 'payout_pending' WHEN 'refund' THEN 'refund_pending' END
+ ORDER BY d.reference LIMIT 1 FOR UPDATE OF d SKIP LOCKED;
+ IF NOT FOUND THEN RETURN; END IF;
+ UPDATE dispatch d SET state='leased',token=gen_random_uuid(),lease_until=v_now+make_interval(secs=>p_lease_seconds),attempts=d.attempts+1 WHERE d.reference=v_ref;
+ RETURN QUERY SELECT x.reference,x.order_id,x.kind,x.currency,x.amount_minor,d.token,d.lease_until,d.attempts
+ FROM dispatch d JOIN outbox x ON x.reference=d.reference WHERE d.reference=v_ref;
+END $;
 COMMIT;
