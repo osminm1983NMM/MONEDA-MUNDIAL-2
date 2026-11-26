@@ -27,6 +27,8 @@ BEGIN
  OR p_currency IS NULL OR p_currency NOT IN ('USD','HNL') OR p_amount IS NULL OR p_amount<=0 THEN RAISE EXCEPTION 'INVALID_EVENT'; END IF;
  -- Serialize reuse of an event ID across references, including unknown references.
  PERFORM pg_advisory_xact_lock(hashtextextended(p_provider||':'||p_event,0));
+ -- Serialize incident classification with order-level recovery and transitions.
+ PERFORM o.id FROM orders o JOIN outbox x ON x.order_id=o.id WHERE x.reference=p_ref FOR UPDATE OF o;
  SELECT reference INTO v_prior FROM inbox WHERE provider=p_provider AND event_id=p_event;
  IF NOT EXISTS(SELECT FROM outbox WHERE reference=p_ref) THEN
   v_reason:='UNKNOWN_REFERENCE';
