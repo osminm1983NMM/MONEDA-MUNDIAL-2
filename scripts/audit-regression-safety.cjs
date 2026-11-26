@@ -45,7 +45,7 @@ assert.match(refresh, /if \(h\.error\) throw h\.error/, 'Error de historial igno
 const swap = section('async function confirmSwap(expectedQuoteId) {', 'async function createDemoPickup() {');
 assert.match(swap, /already_processed/, 'Conversión no reconoce reintentos');
 assert.match(swap, /catch \(syncError\)/, 'Fallo de lectura puede confundirse con fallo de conversión');
-const pickup = section('async function createDemoPickup() {', 'async function loadPickupOrders() {');
+const pickup = section('async function createDemoPickup() {', 'async function loadPickupOrders(force = false) {');
 
 assert.match(pickup, /p_request_id:\s*pending\.id/, 'Retiro no reusa la referencia persistida');
 assert.ok(sql.length > 100, 'SQL de registro de socios vacío');
@@ -89,13 +89,13 @@ assert.ok(refreshAfterRecovery >= 0 &&
 const pickupRecovery = section('async function recoverPendingPickup(id = userId) {', 'async function createDemoPickup() {');
 const pickupRead = pickupRecovery.indexOf('await AsyncStorage.getItem(pendingPickupStorageKey(id));');
 assert.ok(pickupRead >= 0 &&
-  pickupRecovery.indexOf('if (!isCurrentUser(id) || !saved) return;', pickupRead) > pickupRead,
+  pickupRecovery.indexOf('if (!isActive() || !saved) return;', pickupRead) > pickupRead,
   'La recuperación de retiro debe validar la sesión tras leer almacenamiento');
-const pickupCreate = section('async function createDemoPickup() {', 'async function loadPickupOrders() {');
+const pickupCreate = section('async function createDemoPickup() {', 'async function loadPickupOrders(force = false) {');
 assert.ok(app.includes('const pickupBusyRef = useRef(false);'),
   'El retiro necesita un bloqueo síncrono contra dobles toques');
 assert.ok(pickupCreate, 'Falta función de creación de retiro');
-const pickupLock = pickupCreate.indexOf('pickupBusyRef.current = true;');
+const pickupLock = pickupCreate.indexOf('pickupBusyRef.current = token;');
 const pickupFirstAwait = pickupCreate.indexOf('await ');
 assert.ok(pickupLock >= 0 && pickupFirstAwait > pickupLock,
   'El bloqueo de retiro debe activarse antes de cualquier espera asíncrona');
@@ -109,9 +109,9 @@ assert.ok(pickupCreate.includes('p_request_id: pending.id'),
   'La RPC de retiro debe usar la misma referencia recuperada');
 const removePickup = pickupCreate.indexOf('await AsyncStorage.removeItem(storageKey);');
 assert.ok(removePickup >= 0 &&
-  pickupCreate.indexOf('if (!isCurrentUser(actorId)) return;', removePickup) > removePickup,
+  pickupCreate.indexOf('if (!isActive()) return;', removePickup) > removePickup,
   'La limpieza del retiro debe comprobar que la sesión no cambió');
-assert.ok(pickupCreate.includes('if (isCurrentUser(actorId)) {') &&
+assert.ok(pickupCreate.includes('if (isActive()) {') && pickupCreate.includes('isCurrentUser(actorId) && pickupBusyRef.current === token') &&
   pickupCreate.includes('pickupBusyRef.current = false;') &&
   pickupCreate.includes('setPickupBusy(false);'),
   'Una respuesta tardía de retiro no debe cambiar el estado de carga de otra cuenta');
@@ -121,17 +121,17 @@ const asyncAccountSections = [
   ['async function loadSwapWallet() {', 'async function requestSwapQuote() {'],
   ['async function requestSwapQuote() {', 'async function confirmSwap(expectedQuoteId) {'],
   ['async function confirmSwap(expectedQuoteId) {', 'async function createDemoPickup() {'],
-  ['async function createDemoPickup() {', 'async function loadPickupOrders() {'],
-  ['async function loadPickupOrders() {', 'async function cancelDemoPickup(orderId) {'],
+  ['async function createDemoPickup() {', 'async function loadPickupOrders(force = false) {'],
+  ['async function loadPickupOrders(force = false) {', 'async function cancelDemoPickup(orderId) {'],
   ['async function cancelDemoPickup(orderId) {', 'function navigate(to) {'],
 ];
 for (const [start, end] of asyncAccountSections) {
   const body = section(start, end);
   assert.match(body, /const actorId = userId/, 'Falta capturar el usuario de la solicitud: ' + start);
-  assert.match(body, /if \(!isCurrentUser\(actorId\)\) return/,
+  assert.match(body, /if \(!(?:isCurrentUser\(actorId\)|isActive\(\)|isLatest\(\))\) return/,
     'Una respuesta tardía puede actualizar otra cuenta: ' + start);
   assert.ok(
-    /finally \{\s*if \(isCurrentUser\(actorId\)\)/.test(body) ||
+    /finally \{\s*if \((?:isCurrentUser\(actorId\)|isActive\(\)|isLatest\(\))\)/.test(body) ||
       /finally \{\s*endSwapBusy\(busyToken, actorId\);/.test(body),
     'El estado de carga de otra cuenta puede cambiar: ' + start
   );
@@ -142,19 +142,23 @@ assert.ok(app.includes('const pickupOrdersBusyRef = useRef(false);') &&
   'Las lecturas y cancelaciones de retiros necesitan bloqueos síncronos');
 assert.match(app, /pickupOrdersBusyRef\.current = false;\s*pickupCancelBusyRef\.current = false;/,
   'Los bloqueos de retiro deben reiniciarse al cambiar de cuenta');
-const pickupOrders = section('async function loadPickupOrders() {', 'async function cancelDemoPickup(orderId) {');
-assert.ok(pickupOrders.indexOf('pickupOrdersBusyRef.current = true;') >= 0 &&
-  pickupOrders.indexOf('pickupOrdersBusyRef.current = true;') < pickupOrders.indexOf("supabase.rpc('mwd_pickup_my_orders_demo'"),
+const pickupOrders = section('async function loadPickupOrders(force = false) {', 'async function cancelDemoPickup(orderId) {');
+assert.ok(pickupOrders.indexOf('pickupOrdersBusyRef.current = token;') >= 0 &&
+  pickupOrders.indexOf('pickupOrdersBusyRef.current = token;') < pickupOrders.indexOf("supabase.rpc('mwd_pickup_my_orders_demo'"),
   'La consulta de retiros debe bloquear dobles toques antes de llamar al servidor');
-assert.match(pickupOrders, /finally \{\s*if \(isCurrentUser\(actorId\)\) \{\s*pickupOrdersBusyRef\.current = false;/,
+assert.match(pickupOrders, /finally \{\s*if \(isLatest\(\)\) \{\s*pickupOrdersBusyRef\.current = false;/,
   'Una consulta antigua no debe liberar el bloqueo de otra cuenta');
 const cancelPickup = section('async function cancelDemoPickup(orderId) {', 'function navigate(to) {');
 assert.ok(cancelPickup.includes('pickupCancelBusyRef.current) return') &&
-  cancelPickup.indexOf('pickupCancelBusyRef.current = true;') >= 0 &&
-  cancelPickup.indexOf('pickupCancelBusyRef.current = true;') < cancelPickup.indexOf("supabase.rpc('mwd_pickup_cancel_demo'"),
+  cancelPickup.indexOf('pickupCancelBusyRef.current = token;') >= 0 &&
+  cancelPickup.indexOf('pickupCancelBusyRef.current = token;') < cancelPickup.indexOf("supabase.rpc('mwd_pickup_cancel_demo'"),
   'La cancelación de retiro debe bloquear dobles toques antes de la RPC');
-assert.match(cancelPickup, /finally \{\s*if \(isCurrentUser\(actorId\)\) \{\s*pickupCancelBusyRef\.current = false;/,
+assert.match(cancelPickup, /finally \{\s*if \(isActive\(\)\) \{\s*pickupCancelBusyRef\.current = false;/,
   'Una cancelación antigua no debe liberar el bloqueo de otra cuenta');
 
+assert.ok(pickupRecovery.includes('isCurrentUser(id) && pickupBusyRef.current === token'), 'La recuperación solo puede liberar su propio bloqueo');
+assert.ok(pickupOrders.includes('isCurrentUser(actorId) && pickupOrdersBusyRef.current === token'), 'La consulta solo puede publicar la respuesta vigente');
+assert.ok(cancelPickup.includes('isCurrentUser(actorId) && pickupCancelBusyRef.current === token'), 'La cancelación solo puede liberar su propio bloqueo');
+assert.ok(cancelPickup.includes('await loadPickupOrders(true);'), 'La cancelación confirmada debe reemplazar una consulta anterior');
 console.log('PASS: barreras estáticas de reintentos, sesiones, lectura y RPC DEMO');
 console.log('NO CERTIFICA: concurrencia, RLS real, contabilidad, APK ni pagos reales');
