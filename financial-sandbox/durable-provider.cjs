@@ -6,7 +6,7 @@ const {openSync,closeSync,existsSync}=require('node:fs');
 const id=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(v);
 const fail=c=>{throw Object.assign(Error(c),{code:c});};
 function normalize(i){
- if(!i||i.mode!=='sandbox'||!id(i.orderId)||!['funding','payout','refund'].includes(i.kind)||i.reference!==i.orderId+'-'+i.kind||i.currency!==(i.kind==='payout'?'HNL':'USD')||!Number.isSafeInteger(i.amountMinor)||i.amountMinor<=0)fail('INVALID_INTENT');
+ if(!i||i.mode!=='sandbox'||!id(i.orderId)||!id(i.reference)||!['funding','payout','refund'].includes(i.kind)||i.reference!==i.orderId+'-'+i.kind||i.currency!==(i.kind==='payout'?'HNL':'USD')||!Number.isSafeInteger(i.amountMinor)||i.amountMinor<=0)fail('INVALID_INTENT');
  return {mode:'sandbox',orderId:i.orderId,reference:i.reference,kind:i.kind,currency:i.currency,amountMinor:i.amountMinor};
 }
 function openDurableProvider({environment,path,initialize=false,secret,clock=Date.now}){
