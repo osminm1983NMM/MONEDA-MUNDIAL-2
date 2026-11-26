@@ -214,3 +214,8 @@ jobs:
           LAB_CONTAINER: ${{ job.services.postgres.id }}
           RECOVERY_CONTAINER: ${{ job.services.recovery.id }}
         run: bash tests/financial/postgres-backup-restore.sh
+
+      - name: Verify concurrent daily limits after recovery
+        env:
+          RECOVERY_CONTAINER: ${{ job.services.recovery.id }}
+        run: bash tests/financial/postgres-policy-concurrency.sh
