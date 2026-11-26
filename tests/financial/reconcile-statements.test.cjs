@@ -13,3 +13,24 @@ test('status mismatch and pending prevent clean reconciliation',()=>{a.equal(run
 test('failed matched events produce no confirmed cash flow',()=>{const f=row('f1','funding','failed');a.deepEqual(run([f],[f]),{mode:'sandbox',clean:true,issues:[],matchedConfirmedNetMinor:{USD:'0',HNL:'0'}});});
 test('invalid currencies, amounts, modes and missing completeness fail closed',()=>{for(const p of [{currency:'EUR'},{amountMinor:1.5},{mode:'production'}])a.equal(run([],[{...row(),...p}]).issues[0].code,'INVALID_ROW');a.equal(run([],[],false).clean,false);});
 test('integer totals beyond safe-number range remain exact',()=>{const rows=[row('a','funding','confirmed',Number.MAX_SAFE_INTEGER),row('b','funding','confirmed',Number.MAX_SAFE_INTEGER)];a.equal(run(rows,rows).matchedConfirmedNetMinor.USD,'18014398509481982');});
+
+test('malformed duplicates never contribute to matched totals, regardless of row order or side',()=>{
+  const good=row('a'), bad={...good,amountMinor:-1}, independent=row('b');
+  for(const pair of [[good,bad],[bad,good]]) {
+    for(const side of ['internal','provider']) {
+      const clean=[good,independent], ambiguous=[...pair,independent];
+      const x=side==='internal'?run(ambiguous,clean):run(clean,ambiguous);
+      a.equal(x.clean,false);
+      a.ok(x.issues.some(i=>i.code==='INVALID_ROW'&&i.side===side));
+      a.ok(x.issues.some(i=>i.code==='DUPLICATE_REFERENCE'&&i.reference==='a'&&i.side===side));
+      a.equal(x.matchedConfirmedNetMinor.USD,String(independent.amountMinor));
+    }
+  }
+});
+test('malformed duplicates on both sides cannot mask an ambiguous payout',()=>{
+  const good=row('p','payout','confirmed',250000), bad={...good,currency:'USD'};
+  const x=run([good,bad],[bad,good]);
+  a.equal(x.clean,false);
+  a.deepEqual(x.matchedConfirmedNetMinor,{USD:'0',HNL:'0'});
+  a.equal(x.issues.filter(i=>i.code==='DUPLICATE_REFERENCE').length,2);
+});
