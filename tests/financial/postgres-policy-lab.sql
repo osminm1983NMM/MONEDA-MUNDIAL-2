@@ -53,4 +53,17 @@ DO $$ BEGIN
  IF (SELECT count(*) FROM outbox x JOIN orders o ON o.id=x.order_id WHERE o.actor='fixtureA')<>3 THEN RAISE EXCEPTION 'outbox totals'; END IF;
  RAISE NOTICE 'quote, consent, ownership, policy, limit and payout checks passed';
 END $$;
+-- Blocked actor cannot dispatch even an already prepared payout or funding.
+UPDATE actor_policy SET risk='review' WHERE actor='fixtureA';
+SET LOCAL ROLE mwd_lab_dispatch_service;
+DO $ BEGIN
+ IF EXISTS(SELECT FROM claim_dispatch(30)) THEN RAISE EXCEPTION 'risk hold dispatch bypass'; END IF;
+END $;
+RESET ROLE;
+UPDATE actor_policy SET risk='allow' WHERE actor='fixtureA';
+SET LOCAL ROLE mwd_lab_dispatch_service;
+DO $ BEGIN
+ IF NOT EXISTS(SELECT FROM claim_dispatch(30)) THEN RAISE EXCEPTION 'eligible dispatch missing'; END IF;
+END $;
+RESET ROLE;
 ROLLBACK;
