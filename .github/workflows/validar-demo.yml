@@ -20,7 +20,7 @@ jobs:
           node scripts/audit-demo-static.cjs
           node scripts/audit-regression-safety.cjs
           node scripts/preflight-release-local.js
-          node --test scripts/test-transfer-recovery.cjs scripts/test-conversion-retiro.cjs
+          node --test scripts/test-transfer-recovery.cjs scripts/test-conversion-retiro.cjs scripts/test-demo-sql-runner.cjs
       - name: Instalar dependencias
         run: |
           if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
