@@ -98,3 +98,7 @@ Captura Samsung: «Orden creada». Consulta de solo lectura por identificador de
 ## Historial físico de retiro — 26 de noviembre de 2026
 
 Captura Samsung 06:35 EST: listado de retiros muestra Honduras, 10.00 MWD ficticios, estado pending y creación 06:34:46 EST del 26/11/2026, coincidentes con la consulta SQL anterior. Listado físico aprobado para esta orden. Hallazgo de interfaz: el estado pending aparece en inglés dentro de una pantalla en español; traducir etiquetas de estado sin modificar los valores internos en una revisión posterior. Pendiente cancelación física de esta orden, sin crear otra. No se modificaron saldos ni datos de Supabase.
+
+## Cancelación física de retiro — 26 de noviembre de 2026
+
+Captura Samsung 06:37 EST: «Orden cancelada correctamente», estado cancelled. Consulta independiente de solo lectura confirma la misma orden HN de 1000 centavos, titular correcto, una fila por referencia, estado cancelled persistido y saldo sin cambios de 990300 centavos MWD. Creación, listado y cancelación físicos aprobados para el flujo normal simulado. Pendiente traducir pending/cancelled/expired al español sin modificar estados internos. No se cambió Supabase ni main. La identidad exacta del APK, recuperación por correo, conversión inversa y reintento físico de red siguen sujetos a evidencia independiente.
