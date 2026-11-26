@@ -110,3 +110,7 @@ Capturas Samsung 06:38–06:40 EST: origen DIGITAL, cotización de 10 DIGITAL, b
 ## Pérdida de conexión física — 26 de noviembre de 2026
 
 Captura Samsung 06:42 EST: modo avión activo, actualización manual de saldo e historial devuelve diálogo Sincronización / TypeError: Network request failed. La pantalla permanece abierta y muestra que no pudo actualizar. Detección de error de red en lectura aprobada visualmente; pendiente comprobar recuperación al restaurar conexión y verificar reintento de operación con la misma referencia. Hallazgo UX: localizar mensaje de red en español sin ocultar otros errores ni presentar datos antiguos como actualizados. No se hicieron operaciones financieras ni cambios de código o base de datos en esta revisión.
+
+## Recuperación física de conexión — 26 de noviembre de 2026
+
+Captura Samsung 06:43 EST: modo avión desactivado, conexión 5G y mensaje «Saldo e historial actualizados correctamente» tras actualización manual. Recuperación visual de lectura aprobada. La captura no muestra el valor del saldo; no se certifica conciliación nueva por esta evidencia sola. Pendiente prueba física de una operación interrumpida con la misma referencia, recuperación por correo e identificación exacta del APK. No se cambió código de aplicación, main ni datos de Supabase.
