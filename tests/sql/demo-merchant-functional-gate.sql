@@ -6,7 +6,7 @@ DECLARE
  b constant uuid:='f1a00000-0000-4000-8000-000000000002';
  paid_id uuid:=gen_random_uuid(); cancel_id uuid:=gen_random_uuid();
  invalid_id uuid:=gen_random_uuid(); amount constant bigint:=100;
- before_a bigint; before_b bigint; x jsonb; rejected boolean;
+ before_a bigint; before_b bigint; x jsonb; rejected boolean; affected integer;
 BEGIN
  IF current_database()<>'mwd_demo_isolated' OR
   (SELECT shobj_description(oid,'pg_database') FROM pg_database WHERE datname=current_database())
@@ -18,6 +18,14 @@ BEGIN
  THEN RAISE EXCEPTION 'Expected two synthetic accounts and empty merchant tables'; END IF;
  IF EXISTS(SELECT 1 FROM mwd_finance_private.demo_fee_routes WHERE real_payments_enabled IS DISTINCT FROM false)
  THEN RAISE EXCEPTION 'Real payment route enabled'; END IF;
+ IF has_table_privilege('anon','public.mwd_merchants','SELECT')
+ OR has_any_column_privilege('anon','public.mwd_merchants','SELECT')
+ OR has_table_privilege('anon','public.mwd_payment_requests','SELECT')
+ OR has_any_column_privilege('anon','public.mwd_payment_requests','SELECT')
+ OR has_function_privilege('anon','public.mwd_get_payment_request_demo(uuid)','EXECUTE')
+ OR has_function_privilege('anon','public.mwd_pay_merchant_demo(uuid)','EXECUTE')
+ OR has_function_privilege('anon','public.mwd_cancel_payment_request_demo(uuid)','EXECUTE')
+ THEN RAISE EXCEPTION 'Anonymous merchant access'; END IF;
  SELECT balance_cents INTO before_a FROM public.mwd_wallets WHERE user_id=a;
  SELECT balance_cents INTO before_b FROM public.mwd_wallets WHERE user_id=b;
  IF before_a<amount THEN RAISE EXCEPTION 'Insufficient synthetic balance'; END IF;
@@ -35,6 +43,26 @@ BEGIN
  EXCEPTION WHEN check_violation OR insufficient_privilege THEN rejected:=true;
  END;
  IF NOT rejected THEN RAISE EXCEPTION 'Non-MWD request accepted'; END IF;
+ -- Even the merchant cannot fabricate a paid request or edit its payment status directly.
+ rejected:=false;
+ BEGIN
+   INSERT INTO public.mwd_payment_requests(id,merchant_user_id,amount_cents,status)
+   VALUES(invalid_id,b,amount,'paid');
+ EXCEPTION WHEN insufficient_privilege THEN rejected:=true;
+ END;
+ IF NOT rejected THEN RAISE EXCEPTION 'Prepaid request inserted'; END IF;
+ rejected:=false;
+ BEGIN
+   UPDATE public.mwd_payment_requests SET status='paid' WHERE id=paid_id;
+ EXCEPTION WHEN insufficient_privilege THEN rejected:=true;
+ END;
+ IF NOT rejected THEN RAISE EXCEPTION 'Direct merchant status mutation accepted'; END IF;
+ rejected:=false;
+ BEGIN
+   UPDATE public.mwd_merchants SET created_at=now() WHERE owner_user_id=b;
+ EXCEPTION WHEN insufficient_privilege THEN rejected:=true;
+ END;
+ IF NOT rejected THEN RAISE EXCEPTION 'Merchant metadata mutation accepted'; END IF;
  rejected:=false;
  BEGIN
    PERFORM public.mwd_pay_merchant_demo(paid_id);
@@ -47,6 +75,20 @@ BEGIN
  PERFORM set_config('request.jwt.claim.sub',a::text,true);
  PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',a,'role','authenticated')::text,true);
  SET LOCAL ROLE authenticated;
+ -- A payer may use the narrow quote RPC but cannot list or modify another merchant's records.
+ IF EXISTS(SELECT 1 FROM public.mwd_merchants WHERE owner_user_id=b)
+ OR EXISTS(SELECT 1 FROM public.mwd_payment_requests WHERE id IN(paid_id,cancel_id))
+ THEN RAISE EXCEPTION 'Foreign merchant or request visible via table'; END IF;
+ UPDATE public.mwd_merchants SET business_name='Unauthorized edit' WHERE owner_user_id=b;
+ GET DIAGNOSTICS affected = ROW_COUNT;
+ IF affected<>0 THEN RAISE EXCEPTION 'Foreign merchant updated'; END IF;
+ rejected:=false;
+ BEGIN
+   INSERT INTO public.mwd_payment_requests(id,merchant_user_id,amount_cents)
+   VALUES(invalid_id,b,amount);
+ EXCEPTION WHEN insufficient_privilege THEN rejected:=true;
+ END;
+ IF NOT rejected THEN RAISE EXCEPTION 'Foreign merchant request inserted'; END IF;
  x:=public.mwd_get_payment_request_demo(paid_id);
  IF x->>'status' IS DISTINCT FROM 'pending' OR x->>'currency_code' IS DISTINCT FROM 'MWD'
  OR (x->>'amount_cents')::bigint IS DISTINCT FROM amount THEN RAISE EXCEPTION 'Quote mismatch'; END IF;
@@ -102,6 +144,6 @@ BEGIN
  OR (SELECT balance_cents FROM public.mwd_wallets WHERE user_id=a) IS DISTINCT FROM before_a-amount
  OR (SELECT balance_cents FROM public.mwd_wallets WHERE user_id=b) IS DISTINCT FROM before_b+amount
  THEN RAISE EXCEPTION 'Rejected payment changed balances or ledger'; END IF;
- RAISE NOTICE 'PASS merchant functional: currency, self-pay, ownership, payment retry, balances and cancellation';
+ RAISE NOTICE 'PASS merchant functional: anonymous access, RLS, direct mutation denial, currency, self-pay, ownership, payment retry, balances and cancellation';
 END $gate$;
 ROLLBACK;
