@@ -218,6 +218,14 @@ jobs:
           node tests/financial/postgres-provider-worker.cjs
           docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-final-security-lab.sql
 
+      - name: Verify transactional USD/HNL ledger and segregated roles
+        env:
+          LAB_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-multicurrency-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-multicurrency-lab.sql
+
       - name: Restore financial backup in a separate disposable cluster
         env:
           LAB_CONTAINER: ${{ job.services.postgres.id }}
