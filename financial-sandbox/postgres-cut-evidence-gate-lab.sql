@@ -18,6 +18,7 @@ CREATE OR REPLACE FUNCTION check_statement_evidence(p_incident bigint,p_batch uu
 LANGUAGE plpgsql SET search_path=mwd_financial_lab,pg_catalog AS $$
 DECLARE i event_incidents%ROWTYPE; b statement_batches%ROWTYPE;
 BEGIN
+ IF current_setting('transaction_isolation')<>'read committed' THEN RAISE EXCEPTION 'EVIDENCE_ISOLATION_REQUIRED'; END IF;
  PERFORM pg_advisory_xact_lock(60261126,17);
  PERFORM check_reviewable(p_incident);
  SELECT * INTO STRICT i FROM event_incidents WHERE id=p_incident;
@@ -43,6 +44,7 @@ CREATE OR REPLACE FUNCTION check_refund_recovery(p_order uuid,p_incident bigint,
 LANGUAGE plpgsql SET search_path=mwd_financial_lab,pg_catalog AS $$
 DECLARE o orders%ROWTYPE; i event_incidents%ROWTYPE; b statement_batches%ROWTYPE; ref text;
 BEGIN
+ IF current_setting('transaction_isolation')<>'read committed' THEN RAISE EXCEPTION 'EVIDENCE_ISOLATION_REQUIRED'; END IF;
  PERFORM pg_advisory_xact_lock(60261126,17);
  SELECT * INTO o FROM orders WHERE id=p_order FOR UPDATE;
  IF NOT FOUND OR o.state<>'refund_pending' THEN RAISE EXCEPTION 'REFUND_UNAVAILABLE'; END IF;
