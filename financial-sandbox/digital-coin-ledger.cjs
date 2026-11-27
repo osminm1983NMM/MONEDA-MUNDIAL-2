@@ -1,0 +1,82 @@
+'use strict';
+// Private disposable SQLite laboratory; the two asset projections derive from
+// one append-only conversion history. No production, network or live assets.
+const {DatabaseSync}=require('node:sqlite');
+const {openSync,closeSync,lstatSync,existsSync}=require('node:fs');
+const {projectDigitalCoinSwaps}=require('./digital-coin-swap-projection.cjs');
+const fail=code=>{throw Object.assign(Error(code),{code});};
+const ordered=e=>JSON.stringify(Object.fromEntries(Object.keys(e).sort().map(k=>[k,e[k]])));
+function openDigitalCoinLedger({environment,path,initialize=false,seed}={}){
+ if(environment!=='sandbox')fail('SANDBOX_ONLY');
+ if(typeof path!=='string'||!path.endsWith('.sqlite')||typeof initialize!=='boolean')fail('INVALID_LEDGER_PATH');
+ if(initialize){
+  if(!seed||Object.keys(seed).length!==3||!['capMinor','digitalEvents','coinEvents'].every(k=>Object.hasOwn(seed,k)))fail('INVALID_SEED');
+  projectDigitalCoinSwaps({environment,...seed,events:[]});
+  const fd=openSync(path,'wx',0o600);closeSync(fd);
+ }else{
+  if(seed!==undefined)fail('SEED_IMMUTABLE');
+  if(!existsSync(path)||!lstatSync(path).isFile())fail('LEDGER_MISSING');
+ }
+ const db=new DatabaseSync(path);
+ let base;
+ try{
+  db.exec('PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;');
+  if(initialize){
+   db.exec('BEGIN IMMEDIATE;');
+   try{
+    db.exec("CREATE TABLE metadata(id INTEGER PRIMARY KEY CHECK(id=1),mode TEXT NOT NULL,seed TEXT NOT NULL) STRICT; CREATE TABLE events(sequence INTEGER PRIMARY KEY,event_id TEXT NOT NULL UNIQUE,payload TEXT NOT NULL) STRICT;");
+    db.prepare('INSERT INTO metadata VALUES(1,?,?)').run('synthetic-digital-coin-v1',JSON.stringify(seed));
+    db.exec("CREATE TRIGGER metadata_no_update BEFORE UPDATE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER metadata_no_delete BEFORE DELETE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER events_no_update BEFORE UPDATE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER events_no_delete BEFORE DELETE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; COMMIT;");
+   }catch(e){db.exec('ROLLBACK');throw e;}
+  }
+  const row=db.prepare('SELECT mode,seed FROM metadata WHERE id=1').get();
+  if(row?.mode!=='synthetic-digital-coin-v1')fail('INVALID_LEDGER');
+  base=JSON.parse(row.seed);
+  if(!base||Object.keys(base).length!==3||!['capMinor','digitalEvents','coinEvents'].every(k=>Object.hasOwn(base,k)))fail('INVALID_SEED');
+  projectDigitalCoinSwaps({environment,...base,events:[]});
+ }catch(e){db.close();throw e;}
+ const project=events=>projectDigitalCoinSwaps({environment,...base,events});
+ function tx(fn,write=true){
+  db.exec(write?'BEGIN IMMEDIATE':'BEGIN');
+  try{const result=fn();db.exec('COMMIT');return result;}catch(e){db.exec('ROLLBACK');throw e;}
+ }
+ function history(){
+  const rows=db.prepare('SELECT sequence,event_id,payload FROM events ORDER BY sequence LIMIT 2001').all();
+  if(rows.length>2000)fail('INVALID_HISTORY');
+  return rows.map((r,i)=>{
+   const e=JSON.parse(r.payload);
+   if(r.sequence!==i+1||!e||e.eventId!==r.event_id||ordered(e)!==r.payload)fail('LEDGER_CORRUPT');
+   return e;
+  });
+ }
+ return {
+  appendBatch(events){
+   if(!Array.isArray(events)||events.length<1||events.length>100)fail('INVALID_BATCH');
+   return tx(()=>{
+    const prior=history(),all=[...prior],known=new Map(prior.map(e=>[e.eventId,ordered(e)])),added=[];
+    // Reject invalid shape even for duplicate submissions. Deduplicate only
+    // identical payloads; never let a replay consume another journal sequence.
+    for(const e of events){
+     if(!e||typeof e!=='object'||Array.isArray(e)||typeof e.eventId!=='string')fail('INVALID_SWAP_EVENT');
+     const payload=ordered(e);
+     if(known.has(e.eventId)){
+      if(known.get(e.eventId)!==payload)fail('EVENT_ID_CONFLICT');
+      // A JSON payload cannot represent undefined or extra non-JSON fields.
+      const normalized=JSON.parse(payload);
+      if(Object.keys(e).length!==Object.keys(normalized).length||Object.keys(e).some(k=>e[k]!==normalized[k]))fail('INVALID_SWAP_EVENT');
+      continue;
+     }
+     known.set(e.eventId,payload);all.push(e);added.push([e.eventId,payload]);
+    }
+    const projection=project(all);
+    const insert=db.prepare('INSERT INTO events(event_id,payload) VALUES(?,?)');
+    for(const row of added)insert.run(...row);
+    return {status:added.length?'applied':'duplicate',added:added.length,projection};
+   });
+  },
+  get(){return tx(()=>project(history()),false);},
+  counts(){return tx(()=>({events:history().length}),false);},
+  close(){db.close();}
+ };
+}
+module.exports={openDigitalCoinLedger};
