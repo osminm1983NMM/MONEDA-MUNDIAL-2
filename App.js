@@ -221,6 +221,9 @@ export default function App() {
   const recoveryActorRef = useRef(null);
   const authEventUserRef = useRef(null);
   const userId = session?.user?.id;
+  // Remount the scroll container only when account or screen changes.
+  // This prevents the login form from inheriting a previous private screen offset.
+  const scrollKey = userId ? 'account:' + userId + ':' + screen : 'login';
   // Actualizar durante render para invalidar respuestas de red de cuentas anteriores.
   if (currentUserRef.current !== userId) confirmationRef.current = null;
   currentUserRef.current = userId;
@@ -1106,7 +1109,7 @@ export default function App() {
     <SafeAreaProvider initialMetrics={initialWindowMetrics} style={styles.container}>
       <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.container} edges={['top', 'right', 'bottom', 'left']}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.scroll} key={scrollKey} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <Text style={styles.logo}>🌐 MONEDA MUNDIAL</Text>
         <Text style={styles.sub}>MWD • Versión 2.0 • Supabase</Text>
         <Text selectable style={styles.buildIdentity}>Compilación: {BUILD_COMMIT}</Text>
@@ -1116,12 +1119,13 @@ export default function App() {
           <View style={styles.card}>
             <Text style={styles.heading}>Accede a Moneda Mundial</Text>
             <Text style={styles.muted}>Crea una cuenta de prueba o inicia sesión.</Text>
-            <TextInput style={styles.input} placeholder="Correo electrónico"
+            <TextInput style={styles.input} placeholder="Correo electrónico" accessibilityLabel="Correo electrónico"
               placeholderTextColor="#9fb1c8" keyboardType="email-address"
               autoCapitalize="none" autoCorrect={false} value={email} onChangeText={setEmail} editable={!authBusy} />
-            <TextInput style={styles.input} placeholder="Contraseña (8 caracteres mínimo)"
+            <TextInput style={styles.input} placeholder="Contraseña" accessibilityLabel="Contraseña"
               placeholderTextColor="#9fb1c8" autoCapitalize="none"
               secureTextEntry value={password} onChangeText={setPassword} editable={!authBusy} />
+            <Text style={styles.muted}>Mínimo 8 caracteres.</Text>
             <Btn title={authBusy ? 'Espera...' : 'Iniciar sesión'} onPress={() => authenticate('login')} disabled={authBusy} />
             <Btn title="Olvidé mi contraseña" secondary onPress={requestPasswordReset} disabled={authBusy} />
             <Btn title="Crear cuenta de prueba" secondary onPress={() => authenticate('register')} disabled={authBusy} />
