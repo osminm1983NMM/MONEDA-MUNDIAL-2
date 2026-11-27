@@ -90,19 +90,20 @@ async function main(){
   const Panel=createRemittanceStatusPanel({createElement:(type,props,...children)=>({type,props,children})},
    {View:'View',Text:'Text',TouchableOpacity:'TouchableOpacity'});
   const text=node=>typeof node==='string'?node:node?.children?.map(text).join(' ')||'';
-  const refresh=async(label)=>{
-   await host.refresh(orderId,mobile.selectionRevision);
+  const refresh=async(label,id=orderId)=>{
+   await host.refresh(id,mobile.selectionRevision);
+   assert.equal(mobile.orderId,id);
    assert.equal(mobile.view.state,'ready');
    assert.equal(mobile.view.value.statusLabel,label);
    assert.equal(mobile.view.value.total,'101,50 USD');
    assert.equal(mobile.view.value.destination,'2.500,00 HNL');
    assert.ok(text(Panel({...mobile,onRefresh:host.refresh})).includes(label));
   };
-  const counts=async()=>{
+  const counts=async(id=orderId)=>{
    await run('RESET ROLE;');
-   const rows=await run("SELECT (SELECT count(*) FROM orders WHERE id="+literal(orderId)+"::uuid),"+
-    "(SELECT count(*) FROM outbox WHERE order_id="+literal(orderId)+"::uuid),"+
-    "(SELECT count(*) FROM journal WHERE order_id="+literal(orderId)+"::uuid);");
+   const rows=await run("SELECT (SELECT count(*) FROM orders WHERE id="+literal(id)+"::uuid),"+
+    "(SELECT count(*) FROM outbox WHERE order_id="+literal(id)+"::uuid),"+
+    "(SELECT count(*) FROM journal WHERE order_id="+literal(id)+"::uuid);");
    await run('SET LOCAL ROLE mwd_lab_status_service;');
    return rows;
   };
@@ -134,6 +135,44 @@ async function main(){
    assert.deepEqual(mobile.view,{state:'error',code:'NOT_FOUND'});
    assert.ok(!text(Panel({...mobile,onRefresh:host.refresh})).includes('101,50 USD'));
    assert.deepEqual(await counts(),settled);
+   // Separate order: failed delivery and full refund, with the same read-only
+   // native composition and independently checked journal and replay counts.
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_order_service;');
+   const [refundQuote]=await run("SELECT quote_id FROM issue_quote("+literal(owner)+",'beneficiary',10000);");
+   const [refundId]=await run("SELECT accept_quote("+literal(owner)+",'integration-status-refund',"+literal(refundQuote)+"::uuid,'sandbox-disclosure-v1');");
+   assert.match(refundId,uuid);assert.notEqual(refundId,orderId);
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_status_service;');
+   host.setSession('owner-token');host.selectOrder(refundId);
+   await refresh('Financiación pendiente',refundId);
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_event_service;');
+   assert.deepEqual(await run("SELECT record_verified_event('mock-remittance','status-refund-funding',"+literal(refundId)+"||'-funding','confirmed','USD',10150);"),['funded']);
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_order_service;');
+   await run("SELECT prepare_authorized("+literal(owner)+","+literal(refundId)+"::uuid,'payout');");
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_event_service;');
+   assert.deepEqual(await run("SELECT record_verified_event('mock-remittance','status-refund-failed',"+literal(refundId)+"||'-payout','failed','HNL',250000);"),['payout_failed']);
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_status_service;');
+   await refresh('Entrega no completada',refundId);
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_order_service;');
+   await run("SELECT prepare_authorized("+literal(owner)+","+literal(refundId)+"::uuid,'refund');");
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_status_service;');
+   await refresh('Devolución pendiente',refundId);
+   const pendingRefund=await counts(refundId);
+   assert.deepEqual(pendingRefund,['1|3|1']);
+   await refresh('Devolución pendiente',refundId);
+   assert.deepEqual(await counts(refundId),pendingRefund);
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_event_service;');
+   const refundEvent="SELECT record_verified_event('mock-remittance','status-refund-confirmed',"+literal(refundId)+"||'-refund','confirmed','USD',10150);";
+   assert.deepEqual(await run(refundEvent),['refunded']);
+   assert.deepEqual(await run(refundEvent),['duplicate']);
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_status_service;');
+   await refresh('Devolución confirmada en prueba',refundId);
+   assert.deepEqual(await counts(refundId),['1|3|2']);
+   await run('RESET ROLE;');
+   assert.deepEqual(await run('SELECT sum(cash),sum(payable),sum(revenue) FROM journal WHERE order_id='+literal(refundId)+';'),['0|0|0']);
+   await run('SET LOCAL ROLE mwd_lab_status_service;');
+   host.selectOrder(orderId);
+   await refresh('Entrega confirmada en prueba');
+   assert.deepEqual(await counts(),settled);
   }finally{host.dispose();}
   // Disable after identity resolution but before the actual status query.
   let revoked=false;
@@ -147,12 +186,12 @@ async function main(){
   assert.equal((await racing.read({sessionToken:'owner-token',orderId})).status,404);
   assert.equal(revoked,true);assert.equal((await read('owner-token')).status,401);
   await run('RESET ROLE;');
-  assert.deepEqual(await run('SELECT count(*) FROM orders WHERE actor='+literal(owner)+';'),['1']);
+  assert.deepEqual(await run('SELECT count(*) FROM orders WHERE actor='+literal(owner)+';'),['2']);
   assert.deepEqual(await run('SELECT count(*) FROM journal WHERE order_id='+literal(orderId)+';'),['2']);
   assert.deepEqual(await run('SELECT sum(cash),sum(payable),sum(revenue) FROM journal WHERE order_id='+literal(orderId)+';'),['150|0|-150']);
   await run('ROLLBACK;');
   assert.deepEqual(await run('SELECT count(*) FROM mwd_financial_lab.actor_policy WHERE actor='+literal(owner)+';'),['0']);
-  console.log('Integrated Auth fixture, restricted PostgreSQL roles, mobile lifecycle, read-only invariants, settlement and revocation verified');
+  console.log('Integrated Auth fixture, restricted PostgreSQL roles, mobile lifecycle, read-only invariants, settlement, refund replay and revocation verified');
  }finally{
   if(!closed)child.stdin.end('\\q\n');
   const code=await finished;

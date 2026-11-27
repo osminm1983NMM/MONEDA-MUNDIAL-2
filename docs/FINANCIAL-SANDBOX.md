@@ -360,3 +360,7 @@ Se amplía el arnés PostgreSQL desechable para conectar host y panel móvil ais
 
 ## Recuperación verificable del diario USD/HNL (27 noviembre 2026)
 El ledger SQLite multicurrency añade manifiesto lógico con recálculo por orden, conteos de estados, secuencia global, referencias y SHA-256; se valida al reabrir. Respaldo privado temporal, verificación contra manifiesto previo, publicación exclusiva y sincronización. Wrapper de eventos HMAC sintéticos expone respaldo y manifiesto sin exponer append. Nuevas bases bloquean reemplazos de filas; antiguas no migran triggers. Pruebas de recuperación de conversión fallida, replay, reembolso y detección de truncamiento; límite de inspección de laboratorio 10000 órdenes/50000 eventos. Requiere escritores pausados y ancla independiente; no conserva firmas originales, no prueba autenticidad frente a administrador privilegiado, no es respaldo externo ni integra dinero real. CI pendiente al registrar.
+
+
+## Aceptación integrada de devolución (27 noviembre 2026)
+El arnés de seguimiento incorpora una segunda orden de prueba: entrega fallida, devolución pendiente, devolución confirmada y repetición del mismo evento. Comprueba estados de pantalla, importes, conteos antes/después de lecturas, un único efecto de devolución, saldo contable neto cero y que la remesa pagada original permanece intacta. Usa el mismo PostgreSQL desechable y roles restringidos, transacción revertida al finalizar. No inicia una devolución externa ni prueba un proveedor oficial. CI pendiente al registrar.
