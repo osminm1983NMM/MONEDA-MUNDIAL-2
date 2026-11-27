@@ -94,3 +94,37 @@ test('gated ledger requires a clean current cut, rejects stale evidence, preserv
 test('legacy fixture remains explicitly ungated for isolated tests',()=>fixture(({ledger})=>{
  a.equal(ledger.reconciliationRequired(),false);
 }));
+
+
+test('audited gate stores proof with each committed batch, verifies history and detects missing evidence',()=>{
+ const {DatabaseSync}=require('node:sqlite');
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-asset-audit-')),options={environment:'sandbox',path:join(dir,'ledger.sqlite')};
+ let ledger=open({...options,initialize:true,seed,requireReconciliation:true});
+ try{
+  const initial=reports();
+  initial.digital.balances=[{owner:'alice',totalMinor:'1000'},{owner:'treasury',totalMinor:'1000'}];
+  initial.coin.balances=[{owner:'treasury',totalMinor:'1000'}];
+  const proof={cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:initial};
+  const bad=structuredClone(proof);bad.reports.reserve.eligibleMinor='1999';
+  a.throws(()=>ledger.appendBatch(events,bad),/RECONCILIATION_DISCREPANCY/);
+  a.deepEqual(ledger.auditReconciliation().receipts,[]);
+  ledger.appendBatch(events,proof);
+  const current={cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:reports()};
+  const next={...events[0],eventId:'q2',quoteId:'q2',at:20};
+  ledger.appendBatch([next],current);
+  a.equal(ledger.appendBatch(events).status,'duplicate');
+  const audit=ledger.auditReconciliation();
+  a.deepEqual(audit.receipts,[{startSequence:1,endSequence:3},{startSequence:4,endSequence:4}]);
+  const copy=join(dir,'copy.sqlite');ledger.backup(copy);
+  const restored=open({...options,path:copy});
+  try{a.deepEqual(restored.auditReconciliation(),audit);}finally{restored.close();}
+  ledger.close();ledger=open(options);a.deepEqual(ledger.auditReconciliation(),audit);
+  const db=new DatabaseSync(copy);
+  try{
+   a.throws(()=>db.exec('DELETE FROM reconciliation_receipts'),/APPEND_ONLY/);
+   db.exec('DROP TRIGGER receipts_no_delete; DELETE FROM reconciliation_receipts WHERE start_sequence=4');
+  }finally{db.close();}
+  const {verifyDigitalCoinBackup}=require('../../financial-sandbox/digital-coin-ledger.cjs');
+  a.throws(()=>verifyDigitalCoinBackup({environment:'sandbox',path:copy,expected:audit.manifest}),/RECEIPT_COVERAGE_MISMATCH/);
+ }finally{ledger.close();fs.rmSync(dir,{recursive:true,force:true});}
+});

@@ -7,7 +7,9 @@ const {createHash}=require('node:crypto');
 const {projectDigitalCoinSwaps}=require('./digital-coin-swap-projection.cjs');
 const {compareDigitalCoinCut}=require('./digital-coin-reconciliation.cjs');
 const LEGACY='synthetic-digital-coin-v1',GATED='synthetic-digital-coin-gated-v1';
-const validMode=mode=>mode===LEGACY||mode===GATED;
+const AUDITED='synthetic-digital-coin-gated-v2';
+const validMode=mode=>mode===LEGACY||mode===GATED||mode===AUDITED;
+const gated=mode=>mode===GATED||mode===AUDITED;
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const ordered=e=>JSON.stringify(Object.fromEntries(Object.keys(e).sort().map(k=>[k,e[k]])));
 // Inspect a single read transaction. The manifest is independently retained
@@ -21,6 +23,33 @@ function readHistory(db){
   return e;
  });
 }
+function manifestFor(row,events,projection,receipts=[]){
+ const contents=[row.mode,row.seed,events.map(ordered)];
+ if(row.mode===AUDITED)contents.push(receipts);
+ const sha256=createHash('sha256').update(JSON.stringify(contents)).digest('hex');
+ return {format:'synthetic-digital-coin-manifest-v1',events:events.length,sha256,
+  reserveUsdMinor:projection.digital.reserveUsdMinor,obligationsUsdMinor:projection.digital.obligationsUsdMinor,
+  coinOutstandingMinor:projection.coin.outstandingMinor};
+}
+function verifyReceipts(db,row,base,events){
+ if(row.mode!==AUDITED)return [];
+ const rows=db.prepare('SELECT start_sequence,end_sequence,evidence FROM reconciliation_receipts ORDER BY start_sequence LIMIT 2001').all();
+ if(rows.length>2000)fail('INVALID_RECEIPT_HISTORY');
+ const prefix=[];let count=0;
+ for(const receipt of rows){
+  if(receipt.start_sequence!==count+1||receipt.end_sequence<receipt.start_sequence||receipt.end_sequence>events.length||
+   receipt.end_sequence-receipt.start_sequence>=100)fail('RECEIPT_COVERAGE_MISMATCH');
+  const proof=JSON.parse(receipt.evidence),prior=events.slice(0,count);
+  const projection=projectDigitalCoinSwaps({environment:'sandbox',...base,events:prior});
+  const manifest=manifestFor(row,prior,projection,prefix);
+  if(proof.internalSha256!==manifest.sha256)fail('RECEIPT_HISTORY_MISMATCH');
+  const result=compareDigitalCoinCut({environment:'sandbox',cutId:proof.cutId,snapshot:{manifest,projection},reports:proof.reports});
+  if(!result.clean)fail('RECEIPT_DISCREPANCY');
+  prefix.push(receipt);count=receipt.end_sequence;
+ }
+ if(count!==events.length)fail('RECEIPT_COVERAGE_MISMATCH');
+ return prefix;
+}
 function inspect(db){
  if(db.prepare('PRAGMA quick_check').all().some(r=>Object.values(r)[0]!=='ok'))fail('LEDGER_CORRUPT');
  const row=db.prepare('SELECT mode,seed FROM metadata WHERE id=1').get();
@@ -29,10 +58,8 @@ function inspect(db){
  if(!base||Object.keys(base).length!==3||!['capMinor','digitalEvents','coinEvents'].every(k=>Object.hasOwn(base,k)))fail('INVALID_SEED');
  const events=readHistory(db);
  const projection=projectDigitalCoinSwaps({environment:'sandbox',...base,events});
- const sha256=createHash('sha256').update(JSON.stringify([row.mode,row.seed,events.map(ordered)])).digest('hex');
- return {format:'synthetic-digital-coin-manifest-v1',events:events.length,sha256,
-  reserveUsdMinor:projection.digital.reserveUsdMinor,obligationsUsdMinor:projection.digital.obligationsUsdMinor,
-  coinOutstandingMinor:projection.coin.outstandingMinor};
+ const receipts=verifyReceipts(db,row,base,events);
+ return manifestFor(row,events,projection,receipts);
 }
 function verifyDigitalCoinBackup({environment,path,expected}={}){
  if(environment!=='sandbox')fail('SANDBOX_ONLY');
@@ -66,7 +93,8 @@ function openDigitalCoinLedger({environment,path,initialize=false,seed,requireRe
    db.exec('BEGIN IMMEDIATE;');
    try{
     db.exec("CREATE TABLE metadata(id INTEGER PRIMARY KEY CHECK(id=1),mode TEXT NOT NULL,seed TEXT NOT NULL) STRICT; CREATE TABLE events(sequence INTEGER PRIMARY KEY,event_id TEXT NOT NULL UNIQUE,payload TEXT NOT NULL) STRICT;");
-    db.prepare('INSERT INTO metadata VALUES(1,?,?)').run(requireReconciliation===true?GATED:LEGACY,JSON.stringify(seed));
+    db.prepare('INSERT INTO metadata VALUES(1,?,?)').run(requireReconciliation===true?AUDITED:LEGACY,JSON.stringify(seed));
+    if(requireReconciliation===true)db.exec("CREATE TABLE reconciliation_receipts(start_sequence INTEGER PRIMARY KEY,end_sequence INTEGER NOT NULL,evidence TEXT NOT NULL) STRICT; CREATE TRIGGER receipts_no_update BEFORE UPDATE ON reconciliation_receipts BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER receipts_no_delete BEFORE DELETE ON reconciliation_receipts BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END;");
     db.exec("CREATE TRIGGER metadata_no_update BEFORE UPDATE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER metadata_no_delete BEFORE DELETE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER events_no_update BEFORE UPDATE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER events_no_delete BEFORE DELETE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; COMMIT;");
    }catch(e){db.exec('ROLLBACK');throw e;}
   }
@@ -105,20 +133,29 @@ function openDigitalCoinLedger({environment,path,initialize=false,seed,requireRe
     const projection=project(all);
     // The mode is durable and cannot be disabled on reopen. Exact replays
     // have no new financial effect. New events require a fresh matching cut.
-    if(mode===GATED&&added.length){
+    let receiptEvidence;
+    if(gated(mode)&&added.length){
      if(!evidence||typeof evidence.internalSha256!=='string')fail('RECONCILIATION_REQUIRED');
      const manifest=inspect(db);
      if(evidence.internalSha256!==manifest.sha256)fail('STALE_RECONCILIATION');
      const result=compareDigitalCoinCut({environment,cutId:evidence.cutId,
       snapshot:{manifest,projection:project(prior)},reports:evidence.reports});
      if(!result.clean)fail('RECONCILIATION_DISCREPANCY');
+     if(mode===AUDITED)receiptEvidence=JSON.stringify({cutId:evidence.cutId,internalSha256:evidence.internalSha256,reports:evidence.reports});
     }
     const insert=db.prepare('INSERT INTO events(event_id,payload) VALUES(?,?)');
     for(const row of added)insert.run(...row);
+    if(receiptEvidence!==undefined)db.prepare('INSERT INTO reconciliation_receipts VALUES(?,?,?)').run(prior.length+1,all.length,receiptEvidence);
     return {status:added.length?'applied':'duplicate',added:added.length,projection};
    });
   },
-  reconciliationRequired(){return mode===GATED;},
+  reconciliationRequired(){return gated(mode);},
+  auditReconciliation(){return tx(()=>{
+   if(mode!==AUDITED)fail('AUDITED_MODE_REQUIRED');
+   const manifest=inspect(db);
+   const receipts=db.prepare('SELECT start_sequence,end_sequence FROM reconciliation_receipts ORDER BY start_sequence').all();
+   return {manifest,receipts:receipts.map(r=>({startSequence:r.start_sequence,endSequence:r.end_sequence}))};
+  },false);},
   get(){return tx(()=>project(history()),false);},
   counts(){return tx(()=>({events:history().length}),false);},
   manifest(){return tx(()=>inspect(db),false);},
