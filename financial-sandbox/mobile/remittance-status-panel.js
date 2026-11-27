@@ -10,9 +10,9 @@ function createRemittanceStatusPanel(React,Native){
  if(typeof React?.createElement!=='function'||!Native?.View||!Native?.Text||!Native?.TouchableOpacity)throw Error('INVALID_NATIVE_HOST');
  const h=React.createElement,{View,Text,TouchableOpacity}=Native;
  const styles={card:{backgroundColor:'#13253e',padding:20,borderRadius:17,marginBottom:17},title:{color:'#fff',fontWeight:'700',fontSize:21,marginBottom:12},warning:{color:'#f4cc81',fontSize:13,marginBottom:12},text:{color:'#d4e0f1',fontSize:15,marginBottom:8},button:{padding:14,borderRadius:10,backgroundColor:'#276af1',marginTop:10},buttonText:{color:'#fff',fontWeight:'700',textAlign:'center'},disabled:{opacity:0.5}};
- return function RemittanceStatusPanel({enabled=false,orderId,view,locale='es',onRefresh}={}){
+ return function RemittanceStatusPanel({enabled=false,orderId,selectionRevision,view,locale='es',onRefresh}={}){
   const t=locale==='en'?strings.en:strings.es;
-  const active=enabled===true&&typeof orderId==='string'&&uuid.test(orderId)&&typeof onRefresh==='function';
+  const active=enabled===true&&typeof orderId==='string'&&uuid.test(orderId)&&Number.isSafeInteger(selectionRevision)&&selectionRevision>=0&&typeof onRefresh==='function';
   const state=active?view?.state:'disabled';
   const data=state==='ready'&&view?.value?.mode==='sandbox'&&view.value.orderId===orderId&&
    ['statusLabel','principal','fee','total','destination','acceptedAt'].every(k=>typeof view.value[k]==='string')?view.value:null;
@@ -31,7 +31,7 @@ function createRemittanceStatusPanel(React,Native){
    ):h(Text,{style:styles.text,accessibilityLiveRegion:'polite'},message),
    h(TouchableOpacity,{style:[styles.button,blocked&&styles.disabled],accessibilityRole:'button',
     accessibilityState:{disabled:blocked,busy:state==='loading'},disabled:blocked,
-    onPress:()=>{if(!blocked)onRefresh(orderId);}},
+    onPress:()=>{if(!blocked)onRefresh(orderId,selectionRevision);}},
     h(Text,{style:styles.buttonText},state==='loading'?t.loading:t.refresh)));
  };
 }
