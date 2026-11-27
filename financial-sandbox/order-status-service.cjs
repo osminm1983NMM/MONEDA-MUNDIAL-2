@@ -32,13 +32,13 @@ function createOrderStatusService({environment,verifySession,query}={}){
    if(!uuid(orderId))return error(400,'INVALID_REQUEST');
    if(signal?.aborted)return error(503,'UNAVAILABLE');
    let session;
-   try{session=await verifySession(sessionToken);}catch{return error(503,'UNAVAILABLE');}
+   try{session=await verifySession(sessionToken,signal);}catch{return error(503,'UNAVAILABLE');}
    // Do not start a database read after a cancelled identity check.
    if(signal?.aborted)return error(503,'UNAVAILABLE');
    if(!exact(session,['environment','actor'])||session.environment!=='sandbox'||!actorId(session.actor))return error(401,'AUTH_REQUIRED');
    const actor=session.actor;
    try{
-    const response=await query(SQL,[actor,orderId]);
+    const response=await query(SQL,[actor,orderId],signal);
     if(signal?.aborted)return error(503,'UNAVAILABLE');
     if(!Array.isArray(response?.rows)||response.rows.length>1)return error(503,'UNAVAILABLE');
     if(response.rows.length===0)return error(404,'NOT_FOUND');

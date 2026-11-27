@@ -46,3 +46,17 @@ test('default registry adapter uses a bound UUID and read-only status contract',
  a.deepEqual(calls[0].params,[id]);a.match(calls[1].sql,/read_bound_order_status\(\$1::text,\$2::uuid\)/);
  a.deepEqual(calls[1].params,[id,orderId]);
 });
+
+test('cancelled Auth response never initiates registry lookup',async()=>{
+ const ctrl=new AbortController();
+ const f=fixture({getUser:()=>{ctrl.abort();return {data:{user},error:null};}});
+ a.equal((await f.service.read(request,ctrl.signal)).status,503);
+ a.deepEqual(f.calls,[['auth',request.sessionToken]]);
+});
+test('cancellation is propagated to the registry and no status query follows',async()=>{
+ const ctrl=new AbortController(),calls=[];
+ const service=create({environment:'sandbox',authClient:{auth:{getUser:async()=>({data:{user},error:null})}},
+  query:async(sql,params,signal)=>{calls.push(sql);a.equal(signal,ctrl.signal);ctrl.abort();return {rows:[binding]};}});
+ a.equal((await service.read(request,ctrl.signal)).status,503);
+ a.equal(calls.length,1);a.match(calls[0],/resolve_status_binding/);
+});

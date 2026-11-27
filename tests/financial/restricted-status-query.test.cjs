@@ -48,3 +48,26 @@ test('pool acquisition backlog is bounded until actual acquisition settles',asyn
  const pending=query(binding,[actor]);await a.rejects(query(binding,[actor]),/CAPACITY/);
  resolve(null);await a.rejects(pending,/STATUS_QUERY_UNAVAILABLE/);
 });
+
+test('cancelled pool acquisition cannot begin a transaction and releases capacity',async()=>{
+ const ctrl=new AbortController(),calls=[],releases=[];
+ let resolve;
+ const pool={connect:()=>new Promise(r=>{resolve=r;})};
+ const query=create({environment:'sandbox',pool,maxActive:1});
+ const pending=query(binding,[actor],ctrl.signal);ctrl.abort();
+ await a.rejects(query(binding,[actor]),/CAPACITY/);
+ resolve({query:async(sql)=>{calls.push(sql);return {rows:[]};},release:destroy=>releases.push(destroy)});
+ await a.rejects(pending,/STATUS_QUERY_UNAVAILABLE/);
+ a.deepEqual(calls,[]);a.deepEqual(releases,[true]);
+ await a.rejects(query(binding,[actor],ctrl.signal),/ABORTED/);
+});
+test('cancellation after guard rolls back without starting the status statement',async()=>{
+ const ctrl=new AbortController(),calls=[],releases=[];
+ const pool={connect:async()=>({
+  async query(sql){calls.push(sql);if(sql.startsWith('SELECT current_database')){ctrl.abort();return {rows:[{database_name:'mwd_financial_sandbox_test',role_name:'mwd_lab_status_service',read_only:'on'}]};}return {rows:[]};},
+  release:destroy=>releases.push(destroy)
+ })};
+ const query=create({environment:'sandbox',pool});
+ await a.rejects(query(status,[actor,id],ctrl.signal),/STATUS_QUERY_UNAVAILABLE/);
+ a.ok(!calls.includes(status));a.equal(calls.at(-1),'ROLLBACK');a.deepEqual(releases,[true]);
+});

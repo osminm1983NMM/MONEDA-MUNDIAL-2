@@ -6,15 +6,17 @@ const {createOrderStatusService}=require('./order-status-service.cjs');
 const uuid=v=>typeof v==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(v);
 function createSupabaseOrderStatus({environment,authClient,resolveBinding,query}={}){
  if(environment!=='sandbox'||typeof authClient?.auth?.getUser!=='function'||(resolveBinding!==undefined&&typeof resolveBinding!=='function')||typeof query!=='function')throw Error('SANDBOX_ONLY');
- const lookup=resolveBinding??(async userId=>{
-  const result=await query("SELECT environment,user_id::text AS \"userId\",actor,active FROM mwd_financial_lab.resolve_status_binding($1::uuid)",[userId]);
+ const lookup=resolveBinding??(async (userId,signal)=>{
+  const result=await query("SELECT environment,user_id::text AS \"userId\",actor,active FROM mwd_financial_lab.resolve_status_binding($1::uuid)",[userId],signal);
   if(!Array.isArray(result?.rows)||result.rows.length>1)throw Error('INVALID_BINDING');
   return result.rows[0]??null;
  });
  const getUser=authClient.auth.getUser.bind(authClient.auth);
- return createOrderStatusService({environment,query,verifySession:async token=>{
+ return createOrderStatusService({environment,query,verifySession:async (token,signal)=>{
   // Always pass the supplied token explicitly; never read a cached session.
+  if(signal?.aborted)throw Error('ABORTED');
   const response=await getUser(token);
+  if(signal?.aborted)throw Error('ABORTED');
   if(!response||typeof response!=='object')throw Error('AUTH_UNAVAILABLE');
   if(response.error){
    if([400,401,403].includes(response.error.status))return null;
@@ -24,7 +26,8 @@ function createSupabaseOrderStatus({environment,authClient,resolveBinding,query}
   if(!user||!uuid(user.id)||user.is_anonymous!==false||user.role!=='authenticated')return null;
   // Resolve an independently provisioned server-owned binding. Do not trust
   // user_metadata, app_metadata, email or client-selected actor for ownership.
-  const binding=await lookup(user.id);
+  const binding=await lookup(user.id,signal);
+  if(signal?.aborted)throw Error('ABORTED');
   if(binding===null)return null;
   if(!binding||binding.environment!=='sandbox'||binding.userId!==user.id||
    binding.actor!==user.id||typeof binding.active!=='boolean')throw Error('INVALID_BINDING');
