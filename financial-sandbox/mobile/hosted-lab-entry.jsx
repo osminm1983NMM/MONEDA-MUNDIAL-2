@@ -8,6 +8,8 @@ import {createClient} from '@supabase/supabase-js';
 const {createRemittanceStatusHost}=require('./financial-sandbox/mobile/remittance-status-host.js');
 const {createRemittanceStatusPanel}=require('./financial-sandbox/mobile/remittance-status-panel.js');
 const {createOrderStatusClient}=require('./financial-sandbox/order-status-client.cjs');
+const {createExpoPortfolio}=require('./financial-sandbox/mobile/digital-coin-portfolio-expo.js');
+const {createPortfolioClient}=require('./financial-sandbox/digital-coin-portfolio-client.cjs');
 const Native=require('react-native');
 const Panel=createRemittanceStatusPanel(React,Native);
 const origin='https://tfamyuqqpenilnovqjpp.supabase.co';
@@ -30,14 +32,16 @@ async function authDeadline(operation,onLate=()=>{},ms=15000){
 function Lab(){
  const [state,setState]=useState(initial),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[order,setOrder]=useState('');
  const [signed,setSigned]=useState(false),[busy,setBusy]=useState(false),[info,setInfo]=useState('');
- const host=useRef(null),auth=useRef(null),revision=useRef(0),pending=useRef(false),mounted=useRef(false);
+ const [,setWalletView]=useState(null);
+ const wallet=useRef(null),host=useRef(null),auth=useRef(null),revision=useRef(0),pending=useRef(false),mounted=useRef(false);
  useEffect(()=>{
   mounted.current=true;
   host.current=createRemittanceStatusHost({environment:'sandbox',enabled:true,sandboxOrigin:origin,transport:'hosted-rpc',publishableKey,expoFetch,locale:'es',onChange:next=>{if(mounted.current)setState(next);}});
-  return ()=>{mounted.current=false;revision.current++;pending.current=false;host.current?.dispose();host.current=null;const old=auth.current;auth.current=null;if(old)void old.auth.signOut({scope:'local'}).catch(()=>{});};
+  wallet.current=createExpoPortfolio({React,Native,environment:'sandbox',enabled:true,sandboxOrigin:origin,transport:'hosted-snapshot',publishableKey,expoFetch,onChange:next=>{if(mounted.current)setWalletView(next);}});
+  return ()=>{mounted.current=false;wallet.current?.dispose();wallet.current=null;revision.current++;pending.current=false;host.current?.dispose();host.current=null;const old=auth.current;auth.current=null;if(old)void old.auth.signOut({scope:'local'}).catch(()=>{});};
  },[]);
  async function login(){
-  if(pending.current||!host.current||signed||!email.trim()||!password)return;
+  if(pending.current||!host.current||!wallet.current||signed||!email.trim()||!password)return;
   pending.current=true;setBusy(true);setInfo('');setOrder('');
   const request=++revision.current,secret=password;setPassword('');
   let client;
@@ -47,14 +51,14 @@ function Lab(){
    const {data,error}=await authDeadline(()=>client.auth.signInWithPassword({email:email.trim(),password:secret}),()=>client.auth.signOut({scope:'local'}));
    if(!mounted.current||revision.current!==request){void client.auth.signOut({scope:'local'}).catch(()=>{});return;}
    const token=data?.session?.access_token;
-   if(error||typeof token!=='string'||data?.user?.is_anonymous!==false){auth.current=null;host.current.setSession(null);setInfo('No se pudo iniciar sesión. Utiliza una cuenta autorizada del laboratorio.');void client.auth.signOut({scope:'local'}).catch(()=>{});return;}
-   host.current.setSession(token);setSigned(true);setInfo('Sesión de laboratorio iniciada. Introduce el identificador de tu remesa de prueba.');
-  }catch(error){if(mounted.current&&revision.current===request){auth.current=null;host.current?.setSession(null);setInfo(error?.message==='AUTH_DEADLINE'?'El laboratorio no respondió a tiempo. Intenta nuevamente.':'No se pudo conectar al laboratorio.');if(client&&error?.message!=='AUTH_DEADLINE')void client.auth.signOut({scope:'local'}).catch(()=>{});}}
+   if(error||typeof token!=='string'||data?.user?.is_anonymous!==false){auth.current=null;host.current.setSession(null);wallet.current?.setSession(null);setInfo('No se pudo iniciar sesión. Utiliza una cuenta autorizada del laboratorio.');void client.auth.signOut({scope:'local'}).catch(()=>{});return;}
+   host.current.setSession(token);wallet.current.setSession(token);setSigned(true);setInfo('Sesión de laboratorio iniciada. Introduce el identificador de tu remesa de prueba.');
+  }catch(error){if(mounted.current&&revision.current===request){auth.current=null;host.current?.setSession(null);wallet.current?.setSession(null);setInfo(error?.message==='AUTH_DEADLINE'?'El laboratorio no respondió a tiempo. Intenta nuevamente.':'No se pudo conectar al laboratorio.');if(client&&error?.message!=='AUTH_DEADLINE')void client.auth.signOut({scope:'local'}).catch(()=>{});}}
   finally{if(mounted.current&&revision.current===request){pending.current=false;setBusy(false);}}
  }
  async function logout(){
   const request=++revision.current,old=auth.current;auth.current=null;pending.current=false;
-  host.current?.setSession(null);setSigned(false);setBusy(false);setOrder('');setPassword('');setInfo('Sesión local cerrada.');
+  host.current?.setSession(null);wallet.current?.setSession(null);setSigned(false);setBusy(false);setOrder('');setPassword('');setInfo('Sesión local cerrada.');
   if(old){try{const {error}=await authDeadline(()=>old.auth.signOut({scope:'local'}));if(error&&mounted.current&&revision.current===request)setInfo('Sesión local cerrada. No se pudo confirmar la revocación remota.');}catch{if(mounted.current&&revision.current===request)setInfo('Sesión local cerrada. No se pudo confirmar la revocación remota.');}}
  }
  // Explicit diagnostic: prove a previously working bearer cannot read the same
@@ -63,7 +67,7 @@ function Lab(){
   const ownOrder=order.trim(),old=auth.current;
   if(pending.current||!signed||!old||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(ownOrder))return;
   const request=++revision.current;pending.current=true;setBusy(true);setInfo('Verificando acceso y revocación…');
-  let token=null,reader=null,positive=false,revoked=false;
+  let token=null,reader=null,walletReader=null,positive=false,walletPositive=false,revoked=false,walletRevoked=false;
   const current=()=>mounted.current&&revision.current===request;
   try{
    const {data,error}=await authDeadline(()=>old.auth.getSession());
@@ -72,22 +76,25 @@ function Lab(){
     reader=createOrderStatusClient({environment:'sandbox',sandboxOrigin:origin,transport:'hosted-rpc',publishableKey,fetchImpl:expoFetch});
     const own=await reader.read({sessionToken:token,orderId:ownOrder});
     positive=own.ok===true;
+    walletReader=createPortfolioClient({environment:'sandbox',sandboxOrigin:origin,transport:'hosted-snapshot',publishableKey,fetchImpl:expoFetch});
+    const ownWallet=await walletReader.read(token);walletPositive=ownWallet.ok===true;
    }
   }catch{}
   if(!current())return;
-  auth.current=null;host.current?.setSession(null);setSigned(false);setOrder('');setPassword('');
+  auth.current=null;host.current?.setSession(null);wallet.current?.setSession(null);setSigned(false);setOrder('');setPassword('');
   try{
    const {error}=await authDeadline(()=>old.auth.signOut({scope:'local'}));
-   if(!error&&positive&&current()){
+   if(!error&&positive&&walletPositive&&current()){
     const denied=await reader.read({sessionToken:token,orderId:ownOrder});
     revoked=denied.ok===false&&['NOT_FOUND','AUTH_REQUIRED'].includes(denied.code);
+    const deniedWallet=await walletReader.read(token);walletRevoked=deniedWallet.ok===false&&deniedWallet.code==='AUTH_REQUIRED';
    }
   }catch{}
   finally{
    token=null;
    if(current()){
     pending.current=false;setBusy(false);
-    setInfo(revoked?'APROBADO: el token anterior ya no permite consultar la remesa. Sesión cerrada.':positive?'Sesión local cerrada. Revocación no comprobada; no se declara aprobada.':'Sesión local cerrada. No se comprobó acceso propio previo; prueba inconclusa.');
+    setInfo(revoked&&walletRevoked?'APROBADO: el token anterior ya no permite consultar la remesa ni la billetera. Sesión cerrada.':positive&&walletPositive?'Sesión local cerrada. Revocación de ambas consultas no comprobada.':'Sesión local cerrada. No se comprobó acceso propio previo a remesa y billetera; prueba inconclusa.');
    }
   }
  }
@@ -95,7 +102,7 @@ function Lab(){
  return <SafeAreaView style={styles.page}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
   <Text accessibilityRole="header" style={styles.title}>Moneda Mundial | LAB Financiero</Text>
   <Text style={styles.warning}>SOLO PRUEBAS · SIN DINERO REAL</Text>
-  <Text style={styles.text}>Entorno independiente. Esta versión solo consulta remesas de laboratorio. No permite depósitos, transferencias ni pagos.</Text>
+  <Text style={styles.text}>Entorno independiente. Esta versión solo consulta remesas y capturas contables de laboratorio. No permite depósitos, transferencias ni pagos.</Text>
   {!signed?<View>
    <Text style={styles.text}>Correo de la cuenta de laboratorio</Text><TextInput accessibilityLabel="Correo" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" editable={!busy} style={styles.input} value={email} onChangeText={setEmail}/>
    <Text style={styles.text}>Contraseña de laboratorio</Text><TextInput accessibilityLabel="Contraseña" secureTextEntry autoCapitalize="none" autoCorrect={false} editable={!busy} style={styles.input} value={password} onChangeText={setPassword}/>
@@ -104,6 +111,7 @@ function Lab(){
    <Text style={styles.text}>Identificador de la remesa de prueba</Text>
    <TextInput accessibilityLabel="Identificador de remesa" autoCapitalize="none" autoCorrect={false} style={styles.input} value={order} onChangeText={v=>{setOrder(v);host.current?.selectOrder(v.trim());}}/>
    <Panel {...state} onRefresh={(id,rev)=>{void host.current?.refresh(id,rev);}}/>
+   {wallet.current?.render('es')}
    {button('Cerrar sesión',logout,busy)}
    {button('Verificar revocación y cerrar sesión',verifyRevocation,busy||!order.trim())}
   </View>}
