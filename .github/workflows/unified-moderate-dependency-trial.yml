@@ -1,0 +1,79 @@
+name: Unified LAB moderate dependency trial
+on:
+  push:
+    branches: [dev/unified-lab-secure-lock-20261127]
+    paths: ['.github/workflows/unified-moderate-dependency-trial.yml']
+permissions:
+  contents: read
+jobs:
+  trial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm baseline and stage disposable LAB
+        run: |
+          set -euo pipefail
+          echo '3962eeee930022e112ec65bbef5dbf55291587008f55434574642fb4dcf11c86  package-lock.json' | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/moderate"
+          cp package.json package-lock.json "$RUNNER_TEMP/moderate/"
+          node --test tests/financial/unified-lab-stage.test.cjs
+          node scripts/stage-unified-lab.cjs --disposable-checkout
+          npm view glob@14.0.2 version engines dependencies --json --registry=https://registry.npmjs.org
+          npm view minimatch@11.0.1 version engines --json --registry=https://registry.npmjs.org
+      - name: Resolve scoped Expo tooling overrides only
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('node:fs');
+          const p=JSON.parse(fs.readFileSync('package.json'));
+          for(const name of ['@expo/config','@expo/config-plugins','@expo/fingerprint','@expo/cli','@expo/metro-config']){
+            p.overrides[name]={...p.overrides[name],glob:'14.0.2'};
+          }
+          for(const name of ['@expo/fingerprint','@expo/cli'])p.overrides[name].minimatch='11.0.1';
+          p.overrides['glob@14.0.2']={minimatch:'11.0.1'};
+          fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');
+          NODE
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund --engine-strict --registry=https://registry.npmjs.org
+          cp package.json "$RUNNER_TEMP/moderate/candidate-package.json"
+          cp package-lock.json "$RUNNER_TEMP/moderate/candidate-lock.json"
+          node <<'NODE'
+          const fs=require('node:fs'),p=process.env.RUNNER_TEMP+'/moderate/';
+          const a=JSON.parse(fs.readFileSync(p+'package-lock.json')).packages,b=JSON.parse(fs.readFileSync(p+'candidate-lock.json')).packages;
+          const changes=[...new Set([...Object.keys(a),...Object.keys(b)])].filter(k=>k&&JSON.stringify(a[k])!==JSON.stringify(b[k])).map(k=>({path:k,before:a[k]?.version,after:b[k]?.version}));
+          fs.writeFileSync(p+'changes.json',JSON.stringify(changes,null,2));
+          console.log(JSON.stringify(changes,null,2));
+          for(const k of Object.keys(a[''].dependencies))if(a['node_modules/'+k]?.version!==b['node_modules/'+k]?.version)throw Error('DIRECT_DEPENDENCY_CHANGED: '+k);
+          for(const x of changes){
+            if(/(^|\/)node_modules\/(glob|minimatch|path-scurry|lru-cache|jackspeak|foreground-child|minipass|brace-expansion|balanced-match|@isaacs\/[^/]+|@pkgjs\/[^/]+)(\/|$)/.test(x.path))continue;
+            throw Error('UNREVIEWED_CHANGE: '+x.path);
+          }
+          NODE
+      - name: Require zero reported vulnerabilities
+        run: |
+          set -euo pipefail
+          rc=0
+          npm audit --package-lock-only --omit=dev --audit-level=moderate --registry=https://registry.npmjs.org --json > "$RUNNER_TEMP/moderate/audit.json" || rc=$?
+          node -e 'const r=require(process.env.RUNNER_TEMP+"/moderate/audit.json");if(r.error||!r.metadata?.vulnerabilities)throw Error("AUDIT_UNAVAILABLE");console.log(r.metadata.vulnerabilities);if(r.metadata.vulnerabilities.total!==0)process.exitCode=1'
+          test "$rc" = 0
+      - name: Validate build tooling and Android bundle
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund --engine-strict
+          npx expo install --check
+          npx expo config --type public > "$RUNNER_TEMP/moderate/expo-config.txt"
+          npx expo prebuild --platform android --no-install
+          npx expo export --platform android --output-dir "$RUNNER_TEMP/export"
+          cmp package-lock.json "$RUNNER_TEMP/moderate/candidate-lock.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: moderate-dependency-trial
+          path: ${{ runner.temp }}/moderate/
+          if-no-files-found: error
+          retention-days: 7
