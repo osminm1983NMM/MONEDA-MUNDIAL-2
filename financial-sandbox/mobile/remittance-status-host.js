@@ -4,12 +4,12 @@ const {createExpoOrderStatusClient}=require('./order-status-expo.js');
 const {createStatusPresentation}=require('../order-status-presentation.cjs');
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const tokenOk=v=>typeof v==='string'&&/^[A-Za-z0-9._~-]{1,8192}$/.test(v);
-function createRemittanceStatusHost({environment,enabled=false,sandboxOrigin,expoFetch,locale='es',onChange}={}){
+function createRemittanceStatusHost({environment,enabled=false,sandboxOrigin,expoFetch,transport,publishableKey,locale='es',onChange}={}){
  if(environment!=='sandbox'||!['es','en'].includes(locale)||typeof onChange!=='function')throw Error('INVALID_HOST');
  let closed=false,session=null,orderId=null,view={state:'signed_out'},controller=null,selectionRevision=0;
  const publish=()=>onChange({enabled:enabled===true&&session!==null&&orderId!==null,orderId,locale,view,selectionRevision});
  if(enabled===true){
-  const client=createExpoOrderStatusClient({environment,enabled,sandboxOrigin,expoFetch});
+  const client=createExpoOrderStatusClient({environment,enabled,sandboxOrigin,expoFetch,transport,publishableKey});
   controller=createStatusPresentation({client,locale,onChange:next=>{view=next;publish();}});
  }
  function setSession(next){
