@@ -2,7 +2,7 @@ name: Android LAB financiero alojado
 on:
   pull_request:
     branches: [feature/infraestructura-financiera-sandbox-20261126]
-    paths: ['App.js', 'app.json', '.github/workflows/hosted-financial-android.yml']
+    paths: ['financial-sandbox/**', '.github/workflows/hosted-financial-android.yml']
 permissions:
   contents: read
 jobs:
@@ -24,6 +24,12 @@ jobs:
           java-version: '17'
       - run: npm ci
       - run: npx expo install --check
+      - name: Stage independent financial app only on ephemeral runner
+        run: |
+          git diff --exit-code -- App.js app.json
+          cp financial-sandbox/mobile/hosted-lab-entry.jsx App.js
+          cp financial-sandbox/mobile/hosted-lab-app.json app.json
+          node -e "const c=require('./app.json').expo;if(c.android.package!=='com.monedamundial.financiallab'||c.scheme!=='com.monedamundial.financiallab')process.exit(1)"
       - run: npx expo prebuild --platform android --no-install
       - name: Build standalone development-signed APK
         run: |
@@ -34,6 +40,7 @@ jobs:
           mkdir -p hosted-artifact
           cp android/app/build/outputs/apk/release/app-release.apk hosted-artifact/MonedaMundial-LAB-Financiero.apk
           git rev-parse HEAD > hosted-artifact/revision.txt
+          sha256sum financial-sandbox/mobile/hosted-lab-entry.jsx financial-sandbox/mobile/hosted-lab-app.json > hosted-artifact/source-SHA256SUMS
           (cd hosted-artifact && sha256sum MonedaMundial-LAB-Financiero.apk > SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
