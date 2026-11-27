@@ -10,11 +10,13 @@ function createPortfolioPanel(React,Native){
  if(typeof React?.createElement!=='function'||!Native?.View||!Native?.Text||!Native?.TouchableOpacity)throw Error('INVALID_NATIVE_HOST');
  const h=React.createElement,{View,Text,TouchableOpacity}=Native;
  const styles={card:{padding:16,borderRadius:12,backgroundColor:'#13253e',marginBottom:16},title:{fontSize:20,fontWeight:'700',color:'#fff',marginBottom:8},warning:{fontSize:13,color:'#f4cc81',marginBottom:10},text:{fontSize:15,color:'#d4e0f1',marginBottom:6},section:{paddingVertical:8},button:{padding:12,marginTop:8,backgroundColor:'#276af1',borderRadius:8},buttonText:{fontWeight:'700',color:'#fff',textAlign:'center'},disabled:{opacity:0.5}};
- return function PortfolioPanel({enabled=false,revision,view,locale='es',onRefresh}={}){
+ return function PortfolioPanel({enabled=false,revision,view,locale='es',onRefresh,requireSnapshot=false}={}){
   const t=locale==='en'?messages.en:messages.es;
   const active=enabled===true&&view?.enabled===true&&Number.isSafeInteger(revision)&&revision>=0&&view.revision===revision&&typeof onRefresh==='function';
   const state=active?view.state:'disabled';
-  const ready=state==='ready'&&validPortfolio(view.value)?view.value:null;
+  const snap=view?.snapshot;
+  const dated=snap&&Object.keys(snap).length===2&&snap.kind==='immutable_wallet_snapshot'&&typeof snap.exportedAt==='string'&&Number.isFinite(Date.parse(snap.exportedAt))&&new Date(snap.exportedAt).toISOString()===snap.exportedAt;
+  const ready=state==='ready'&&validPortfolio(view.value)&&(requireSnapshot?dated:snap===undefined)?view.value:null;
   const blocked=!active||!['idle','ready','error'].includes(state);
   const line=(label,value)=>h(Text,{key:label,style:styles.text},label+': '+value);
   const amount=n=>n+' '+t.minor;
@@ -28,7 +30,7 @@ function createPortfolioPanel(React,Native){
   return h(View,{style:styles.card},
    h(Text,{style:styles.title,accessibilityRole:'header'},t.title),
    h(Text,{style:styles.warning},t.warning),
-   ready?h(View,{accessibilityLiveRegion:'polite'},...cards,line(t.pending,usd(ready.pendingRedemptionUsdMinor)),
+   ready?h(View,{accessibilityLiveRegion:'polite'},...(dated?[h(Text,{key:'snapshot',style:styles.warning},(locale==='en'?'Archived test snapshot — NOT live balances · UTC: ':'Captura contable de prueba — NO es saldo en tiempo real · UTC: ')+snap.exportedAt)]:[]),...cards,line(t.pending,usd(ready.pendingRedemptionUsdMinor)),
     h(Text,{style:styles.title},t.history),...(history.length?history:[h(Text,{key:'empty',style:styles.text},t.empty)]),
     ...(ready.conversions.length>20?[h(Text,{key:'more',style:styles.text},t.more)]:[])):
     h(Text,{style:styles.text,accessibilityLiveRegion:'polite'},message),
