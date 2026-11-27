@@ -1,0 +1,32 @@
+'use strict';
+const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {stage,scheme}=require('../../scripts/stage-unified-lab.cjs');
+const source=path.resolve(__dirname,'../..');
+function fixture(t){
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'mwd-unified-'));
+ t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ for(const p of ['App.js','app.json','financial-sandbox/mobile/hosted-lab-entry.jsx','financial-sandbox/mobile/unified-lab-entry.jsx']){
+  const dest=path.join(root,p);fs.mkdirSync(path.dirname(dest),{recursive:true});fs.copyFileSync(path.join(source,p),dest);
+ }
+ return root;
+}
+test('staging keeps LAB package, Auth redirects and mode selection separate',t=>{
+ const root=fixture(t),read=p=>fs.readFileSync(path.join(root,p),'utf8');
+ const hosted=read('financial-sandbox/mobile/hosted-lab-entry.jsx');
+ const entry=read('financial-sandbox/mobile/unified-lab-entry.jsx');
+ stage(root);
+ const {expo}=JSON.parse(read('app.json'));
+ a.equal(expo.android.package,scheme);a.equal(expo.scheme,scheme);
+ a.ok(expo.plugins.includes('expo-secure-store'));a.equal(expo.extra,undefined);a.equal(expo.owner,undefined);
+ a.equal(read('App.js'),entry);a.equal(read('HostedFinancialLab.jsx'),hosted);
+ a.match(read('DemoApp.jsx'),/com\.monedamundial\.unifiedlab:\/\/auth\/reset-password/);
+ a.doesNotMatch(read('DemoApp.jsx'),/resetPasswordForEmail\(|com\.monedamundial\.app/);
+ a.match(entry,/setMode\(old=>old\?\?'demo'\)/);a.match(entry,/setMode\(old=>old\?\?'financial'\)/);a.doesNotMatch(entry,/setMode\(null\)/);
+ a.throws(()=>stage(root),/UNEXPECTED_BASE_CONFIG/);
+});
+test('staging rejects wrong target and missing recovery guard before writing',t=>{
+ const root=fixture(t),p=path.join(root,'App.js');
+ fs.writeFileSync(p,fs.readFileSync(p,'utf8').replace('async function requestPasswordReset()', 'async function changedReset()'));
+ a.throws(()=>stage(root),/UNEXPECTED_DEMO_AUTH/);
+ a.equal(fs.existsSync(path.join(root,'DemoApp.jsx')),false);
+});
