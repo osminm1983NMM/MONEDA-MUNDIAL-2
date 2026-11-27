@@ -60,3 +60,22 @@ test('wire transport rejects foreign HTTP authority and browser origin',{timeout
  a.equal(await send({}),200);
  a.equal(calls.length,2);
 });
+
+test('TCP transport through actual status service binds orders to authenticated actors',{timeout:5000},async t=>{
+ const {createOrderStatusService}=require('../../financial-sandbox/order-status-service.cjs');
+ const calls=[];
+ const row={order_id:orderId,status:'paid',principal_minor:'9007199254740993',fee_minor:'1',total_minor:'9007199254740994',source_currency:'USD',payout_minor:'250000',payout_currency:'HNL',accepted_at:'2026-11-26T15:00:00.000Z'};
+ const service=createOrderStatusService({environment:'sandbox',
+  verifySession:async token=>token==='owner-token'?{environment:'sandbox',actor:'owner'}:token==='other-token'?{environment:'sandbox',actor:'other'}:null,
+  query:async(sql,params)=>{calls.push(params);return {rows:params[0]==='owner'&&params[1]===orderId?[row]:[]};}});
+ const listener=createOrderStatusLoopback({environment:'sandbox',service});
+ t.after(()=>listener.close());
+ const base=await listener.start();
+ const send=(token,id=orderId)=>fetch(base+route,{...options,headers:{...options.headers,authorization:'Bearer '+token},body:JSON.stringify({orderId:id})});
+ const owner=await send('owner-token');a.equal(owner.status,200);
+ a.equal((await owner.json()).source.totalMinor,'9007199254740994');
+ const other=await send('other-token');const absent=await send('owner-token','00000000-0000-4000-8000-000000000002');
+ a.equal(other.status,404);a.equal(absent.status,404);a.deepEqual(await other.json(),await absent.json());
+ a.equal((await send('unknown-token')).status,401);
+ a.deepEqual(calls,[['owner',orderId],['other',orderId],['owner','00000000-0000-4000-8000-000000000002']]);
+});

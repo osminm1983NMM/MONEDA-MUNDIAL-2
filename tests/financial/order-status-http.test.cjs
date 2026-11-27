@@ -57,3 +57,18 @@ test('admission is bounded across incomplete uploads and invalid limits fail clo
  a.equal((await pending).status,408);a.equal(cancelled,true);
  for(const opts of [{maxActive:0},{maxActive:257},{bodyTimeoutMs:0},{serviceTimeoutMs:Infinity}])a.throws(()=>createOrderStatusHttp({environment:'sandbox',service:{read(){}},...opts}),/INVALID_HTTP_LIMITS/);
 });
+
+test('single-field wire contract rejects duplicate keys and escaped aliases before authentication',async()=>{
+ const f=fixture();
+ for(const body of [
+  '{"orderId":"'+orderId+'","orderId":"'+orderId+'"}',
+  '{"orderId":"'+orderId+'","order\\u0049d":"'+orderId+'"}',
+  '{"order\\u0049d":"'+orderId+'"}',
+  '\ufeff'+JSON.stringify({orderId})
+ ]){
+  a.equal((await f.handle(make({body}))).status,400);
+ }
+ a.equal(f.calls.length,0);
+ a.equal((await f.handle(make({body:' \n { "orderId" : "'+orderId+'" }\t'}))).status,200);
+ a.equal(f.calls.length,1);
+});

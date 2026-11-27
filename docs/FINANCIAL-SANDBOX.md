@@ -304,3 +304,6 @@ El nuevo adaptador order-status-loopback.cjs usa node:http y enlaza exclusivamen
 
 ## Autoridad HTTP y origen del transporte local
 El transporte exige que Host coincida exactamente con 127.0.0.1 y el puerto real del socket. Rechaza Host/Origin duplicados y cualquier Origin explícito distinto de la URL local, incluido null. Las solicitudes nativas sin Origin siguen permitidas y requieren autenticación. Una regresión TCP comprueba los rechazos sin invocar el servicio y la consulta válida con y sin Origin. Defensa adicional contra DNS rebinding y peticiones de navegador de otros orígenes; no sustituye autenticación, aislamiento del host o controles de producción. Pendiente CI.
+
+## Contrato HTTP inequívoco e integración TCP con el servicio de estado
+La petición de consulta acepta solamente el campo ASCII orderId con un UUID, permitiendo espacios JSON normales; rechaza claves duplicadas, alias escapados y BOM antes de invocar el servicio. Una prueba TCP nueva atraviesa el transporte, el manejador y el servicio real con verificador de identidad y adaptador SQL simulados: el titular recibe importes exactos, otro actor y una orden inexistente reciben la misma respuesta 404, y un token desconocido no llega al adaptador SQL. Esta prueba no sustituye las pruebas con PostgreSQL o autenticación real. Sin despliegue ni dinero real. Pendiente CI.

@@ -29,7 +29,11 @@ async function parseBody(request,timeoutMs){
   }
  }catch(e){void reader.cancel().catch(()=>{});throw e;}
  finally{reader.releaseLock();}
-  return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));
+  const raw=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(Buffer.concat(chunks));
+ // This endpoint has exactly one ASCII UUID field. Accept JSON whitespace,
+ // but reject duplicated keys, escaped aliases and any ambiguous wire shape.
+ if(!/^[ \t\r\n]*\{[ \t\r\n]*"orderId"[ \t\r\n]*:[ \t\r\n]*"[a-f0-9-]{36}"[ \t\r\n]*\}[ \t\r\n]*$/.test(raw))throw Error('INVALID_REQUEST');
+ return JSON.parse(raw);
  };
  // Cancelling a Web Streams reader settles pending reads, even if its
  // underlying source takes longer to finish cancellation.
