@@ -32,23 +32,26 @@ function presentStatus(value,locale='es'){
 // Invalidates delayed requests and clears state synchronously. No cache.
 function createStatusPresentation({client,locale='es',onChange}={}){
  if(typeof client?.read!=='function'||typeof onChange!=='function'||!['es','en'].includes(locale))throw Error('INVALID_HOST');
- let token=null,revision=0,closed=false;
+ let token=null,revision=0,closed=false,pending=null;
+ function invalidate(){revision++;const old=pending;pending=null;old?.abort();}
  const publish=state=>onChange(state);
  function setSession(next){
   if(closed)return;
   if(next!==null&&(typeof next!=='string'||!/^[A-Za-z0-9._~-]{1,8192}$/.test(next)))throw Error('INVALID_SESSION');
-  revision++;token=next;publish({state:next?'idle':'signed_out'});
+  invalidate();token=next;publish({state:next?'idle':'signed_out'});
  }
  async function read(orderId){
   if(closed||!token)return;
-  const request=++revision;const sessionToken=token;
+  invalidate();const request=revision;const sessionToken=token;
   if(typeof orderId!=='string'||!uuid.test(orderId)){publish({state:'error',code:'INVALID_REQUEST'});return;}
   publish({state:'loading'});
   // A synchronous host callback may change session, selection or dispose.
   // Do not start transport with a token captured before that invalidation.
   if(closed||request!==revision||token!==sessionToken)return;
+  const controller=new AbortController();pending=controller;
   let result;
-  try{result=await client.read({sessionToken,orderId});}catch{result={ok:false,code:'UNAVAILABLE'};}
+  try{result=await client.read({sessionToken,orderId},controller.signal);}catch{result={ok:false,code:'UNAVAILABLE'};}
+  finally{if(pending===controller)pending=null;}
   if(closed||request!==revision)return;
   let view;
   if(result?.ok===true){
@@ -59,6 +62,6 @@ function createStatusPresentation({client,locale='es',onChange}={}){
   }
   publish(view);
  }
- return Object.freeze({setSession,read,clear(){if(!closed){revision++;publish({state:token?'idle':'signed_out'});}},dispose(){closed=true;revision++;token=null;}});
+ return Object.freeze({setSession,read,clear(){if(!closed){invalidate();publish({state:token?'idle':'signed_out'});}},dispose(){closed=true;invalidate();token=null;}});
 }
 module.exports={presentStatus,createStatusPresentation};

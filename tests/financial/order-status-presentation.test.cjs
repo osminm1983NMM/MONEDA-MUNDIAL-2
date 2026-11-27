@@ -61,3 +61,20 @@ test('presentation independently rejects inconsistent or noncanonical financial 
   a.ok(!states.some(s=>s.state==='ready'));
  }
 });
+
+test('session change, selection clear, superseding query and disposal cancel obsolete transport',async()=>{
+ for(const action of ['session','clear','read','dispose']){
+  const states=[],requests=[];
+  const ui=createStatusPresentation({onChange:s=>states.push(s),client:{read:(input,signal)=>new Promise(resolve=>requests.push({signal,resolve}))}});
+  ui.setSession('token');const first=ui.read(orderId);
+  let next;
+  if(action==='session')ui.setSession('other');
+  if(action==='clear')ui.clear();
+  if(action==='read')next=ui.read(orderId);
+  if(action==='dispose')ui.dispose();
+  a.equal(requests[0].signal.aborted,true);
+  requests[0].resolve({ok:true,value});await first;
+  a.ok(!states.some(s=>s.state==='ready'));
+  if(next){a.equal(requests[1].signal.aborted,false);requests[1].resolve({ok:true,value});await next;a.equal(states.at(-1).state,'ready');}
+ }
+});

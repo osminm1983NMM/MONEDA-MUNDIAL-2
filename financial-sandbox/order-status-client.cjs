@@ -35,21 +35,24 @@ function createOrderStatusClient({environment,sandboxOrigin,fetchImpl=globalThis
  if(origin.protocol!=='https:'||origin.username||origin.password||origin.href!==origin.origin+'/')throw Error('INVALID_ORIGIN');
  const endpoint=origin.origin+route;
  let active=0;
- return Object.freeze({async read({sessionToken,orderId}={}){
+ return Object.freeze({async read({sessionToken,orderId}={},signal){
   if(typeof sessionToken!=='string'||!/^[A-Za-z0-9._~-]{1,8192}$/.test(sessionToken))return fail('AUTH_REQUIRED');
   if(typeof orderId!=='string'||!uuid.test(orderId))return fail('INVALID_REQUEST');
   // Retain capacity until the underlying transport actually settles, not
   // merely until the caller's deadline. A stuck transport cannot grow without bound.
-  if(active>=maxActive)return fail('UNAVAILABLE');
+  if(signal!==undefined&&(!signal||typeof signal.addEventListener!=='function'||typeof signal.removeEventListener!=='function'||typeof signal.aborted!=='boolean'))return fail('INVALID_REQUEST');
+  if(signal?.aborted||active>=maxActive)return fail('UNAVAILABLE');
   active++;
   const controller=new AbortController();
   // Bound the caller's wait even if the injected transport ignores abort.
   // The losing operation remains observed by Promise.race; a late response
   // is discarded and its body cancelled without parsing or publishing it.
-  let timer;
-  const deadline=new Promise(resolve=>{timer=setTimeout(()=>{
-   resolve(fail('UNAVAILABLE'));controller.abort();
-  },timeoutMs);});
+  let timer,cancel;
+  const deadline=new Promise(resolve=>{
+   cancel=()=>{resolve(fail('UNAVAILABLE'));controller.abort();};
+   timer=setTimeout(cancel,timeoutMs);
+  });
+  signal?.addEventListener('abort',cancel,{once:true});
   const operation=async()=>{try{
    const response=await fetchImpl(endpoint,{method:'POST',redirect:'error',cache:'no-store',credentials:'omit',
     headers:{authorization:'Bearer '+sessionToken,'content-type':'application/json'},body:JSON.stringify({orderId}),signal:controller.signal});
@@ -67,7 +70,7 @@ function createOrderStatusClient({environment,sandboxOrigin,fetchImpl=globalThis
    const value=await readJson(response,controller.signal);
    return !controller.signal.aborted&&validOrderStatus(value,orderId)?{ok:true,value}:fail('UNAVAILABLE');
   }catch{return fail('UNAVAILABLE');}};
-  try{return await Promise.race([operation().finally(()=>{active--;}),deadline]);}finally{clearTimeout(timer);}
+  try{return await Promise.race([operation().finally(()=>{active--;}),deadline]);}finally{clearTimeout(timer);signal?.removeEventListener('abort',cancel);}
  }});
 }
 module.exports={createOrderStatusClient};

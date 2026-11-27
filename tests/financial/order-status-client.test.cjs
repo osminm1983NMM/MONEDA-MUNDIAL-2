@@ -104,3 +104,21 @@ test('client admission rejects invalid capacity and releases capacity on transpo
  a.deepEqual(await client.read(req),{ok:false,code:'UNAVAILABLE'});
  a.deepEqual(await client.read(req),{ok:true,value});
 });
+
+test('external cancellation stops caller wait, aborts transport and preserves admission until settlement',{timeout:2000},async()=>{
+ let calls=0,complete,transport;
+ const ctrl=new AbortController();
+ const client=create({environment:'sandbox',sandboxOrigin:'https://sandbox.invalid',timeoutMs:1000,maxActive:1,fetchImpl:(_,init)=>{
+  transport=init.signal;
+  if(++calls===1)return new Promise(resolve=>{complete=resolve;});
+  return response(value);
+ }});
+ const first=client.read(req,ctrl.signal);ctrl.abort();
+ a.deepEqual(await first,{ok:false,code:'UNAVAILABLE'});
+ a.equal(transport.aborted,true);
+ a.deepEqual(await client.read(req),{ok:false,code:'UNAVAILABLE'});
+ a.deepEqual(await client.read(req,ctrl.signal),{ok:false,code:'UNAVAILABLE'});
+ a.equal(calls,1);
+ complete(response(value));await new Promise(resolve=>setImmediate(resolve));
+ a.deepEqual(await client.read(req),{ok:true,value});
+});
