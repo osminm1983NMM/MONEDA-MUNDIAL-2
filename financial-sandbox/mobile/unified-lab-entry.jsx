@@ -2,20 +2,21 @@
 import React, {useState} from 'react';
 import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
-import DemoApp from './DemoApp';
-import HostedFinancialLab from './HostedFinancialLab';
+// Load only the selected environment. A process must not switch between auth contexts.
+const loadMode=mode=>mode==='demo'?require('./DemoApp').default:require('./HostedFinancialLab').default;
 
 export default function UnifiedLab(){
  const [mode,setMode]=useState(null);
+ const Selected=mode===null?null:loadMode(mode);
  return <SafeAreaProvider><SafeAreaView style={styles.page}>
   <Text style={styles.warning}>MONEDA MUNDIAL · LAB UNIFICADO · SIN DINERO REAL</Text>
   {mode===null?<View style={styles.menu}>
    <Text style={styles.text}>Elige un entorno de pruebas. Sus cuentas y saldos son independientes.</Text>
-   <TouchableOpacity accessibilityRole="button" style={styles.button} onPress={()=>setMode('demo')}><Text style={styles.label}>DEMO · Créditos ficticios MWD</Text></TouchableOpacity>
-   <TouchableOpacity accessibilityRole="button" style={styles.button} onPress={()=>setMode('financial')}><Text style={styles.label}>LAB financiero · Consultas de solo lectura</Text></TouchableOpacity>
+   <TouchableOpacity accessibilityRole="button" style={styles.button} onPress={()=>setMode(old=>old??'demo')}><Text style={styles.label}>DEMO · Créditos ficticios MWD</Text></TouchableOpacity>
+   <TouchableOpacity accessibilityRole="button" style={styles.button} onPress={()=>setMode(old=>old??'financial')}><Text style={styles.label}>LAB financiero · Consultas de solo lectura</Text></TouchableOpacity>
   </View>:<>
-   <TouchableOpacity accessibilityRole="button" style={styles.button} onPress={()=>setMode(null)}><Text style={styles.label}>Volver a elegir entorno</Text></TouchableOpacity>
-   <View style={styles.body}>{mode==='demo'?<DemoApp key="demo"/>:<HostedFinancialLab key="financial"/>}</View>
+   <Text style={styles.warning}>Para cambiar de entorno, cierra completamente la aplicación y vuelve a abrirla.</Text>
+   <View style={styles.body}><Selected/></View>
   </>}
  </SafeAreaView></SafeAreaProvider>;
 }
