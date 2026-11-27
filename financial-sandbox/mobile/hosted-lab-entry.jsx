@@ -7,6 +7,7 @@ import {fetch as expoFetch} from 'expo/fetch';
 import {createClient} from '@supabase/supabase-js';
 const {createRemittanceStatusHost}=require('./financial-sandbox/mobile/remittance-status-host.js');
 const {createRemittanceStatusPanel}=require('./financial-sandbox/mobile/remittance-status-panel.js');
+const {createOrderStatusClient}=require('./financial-sandbox/order-status-client.cjs');
 const Native=require('react-native');
 const Panel=createRemittanceStatusPanel(React,Native);
 const origin='https://tfamyuqqpenilnovqjpp.supabase.co';
@@ -56,6 +57,40 @@ function Lab(){
   host.current?.setSession(null);setSigned(false);setBusy(false);setOrder('');setPassword('');setInfo('Sesión local cerrada.');
   if(old){try{const {error}=await authDeadline(()=>old.auth.signOut({scope:'local'}));if(error&&mounted.current&&revision.current===request)setInfo('Sesión local cerrada. No se pudo confirmar la revocación remota.');}catch{if(mounted.current&&revision.current===request)setInfo('Sesión local cerrada. No se pudo confirmar la revocación remota.');}}
  }
+ // Explicit diagnostic: prove a previously working bearer cannot read the same
+ // synthetic order after remote logout. Never display, persist or log the token.
+ async function verifyRevocation(){
+  const ownOrder=order.trim(),old=auth.current;
+  if(pending.current||!signed||!old||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(ownOrder))return;
+  const request=++revision.current;pending.current=true;setBusy(true);setInfo('Verificando acceso y revocación…');
+  let token=null,reader=null,positive=false,revoked=false;
+  const current=()=>mounted.current&&revision.current===request;
+  try{
+   const {data,error}=await authDeadline(()=>old.auth.getSession());
+   if(!error&&typeof data?.session?.access_token==='string'){
+    token=data.session.access_token;
+    reader=createOrderStatusClient({environment:'sandbox',sandboxOrigin:origin,transport:'hosted-rpc',publishableKey,fetchImpl:expoFetch});
+    const own=await reader.read({sessionToken:token,orderId:ownOrder});
+    positive=own.ok===true;
+   }
+  }catch{}
+  if(!current())return;
+  auth.current=null;host.current?.setSession(null);setSigned(false);setOrder('');setPassword('');
+  try{
+   const {error}=await authDeadline(()=>old.auth.signOut({scope:'local'}));
+   if(!error&&positive&&current()){
+    const denied=await reader.read({sessionToken:token,orderId:ownOrder});
+    revoked=denied.ok===false&&['NOT_FOUND','AUTH_REQUIRED'].includes(denied.code);
+   }
+  }catch{}
+  finally{
+   token=null;
+   if(current()){
+    pending.current=false;setBusy(false);
+    setInfo(revoked?'APROBADO: el token anterior ya no permite consultar la remesa. Sesión cerrada.':positive?'Sesión local cerrada. Revocación no comprobada; no se declara aprobada.':'Sesión local cerrada. No se comprobó acceso propio previo; prueba inconclusa.');
+   }
+  }
+ }
  const button=(label,action,disabled=false)=><TouchableOpacity accessibilityRole="button" accessibilityState={{disabled}} disabled={disabled} style={[styles.button,disabled&&styles.disabled]} onPress={action}><Text style={styles.buttonText}>{label}</Text></TouchableOpacity>;
  return <SafeAreaView style={styles.page}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
   <Text accessibilityRole="header" style={styles.title}>Moneda Mundial | LAB Financiero</Text>
@@ -69,7 +104,8 @@ function Lab(){
    <Text style={styles.text}>Identificador de la remesa de prueba</Text>
    <TextInput accessibilityLabel="Identificador de remesa" autoCapitalize="none" autoCorrect={false} style={styles.input} value={order} onChangeText={v=>{setOrder(v);host.current?.selectOrder(v.trim());}}/>
    <Panel {...state} onRefresh={(id,rev)=>{void host.current?.refresh(id,rev);}}/>
-   {button('Cerrar sesión',logout)}
+   {button('Cerrar sesión',logout,busy)}
+   {button('Verificar revocación y cerrar sesión',verifyRevocation,busy||!order.trim())}
   </View>}
   {!!info&&<Text accessibilityLiveRegion="polite" style={styles.text}>{info}</Text>}
  </ScrollView></SafeAreaView>;
