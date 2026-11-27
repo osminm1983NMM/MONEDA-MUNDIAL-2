@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "Moneda Mundial LAB Financiero",
+    "slug": "moneda-mundial-hosted-financial-lab",
+    "scheme": "com.monedamundial.financiallab",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "com.monedamundial.financiallab"
+    }
+  }
+}
