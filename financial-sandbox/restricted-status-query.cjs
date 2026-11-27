@@ -4,7 +4,7 @@
 // already connect to the disposable database as the restricted status role.
 const STATUS_SQL="SELECT order_id::text,status,principal_minor::text,fee_minor::text,total_minor::text,source_currency,payout_minor::text,payout_currency,to_char(accepted_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') AS accepted_at FROM mwd_financial_lab.read_bound_order_status($1::text,$2::uuid)";
 const BINDING_SQL="SELECT environment,user_id::text AS \"userId\",actor,active FROM mwd_financial_lab.resolve_status_binding($1::uuid)";
-const GUARD="SELECT current_database() AS database_name,current_user AS role_name,current_setting('transaction_read_only') AS read_only";
+const GUARD="SELECT current_database() AS database_name,current_user AS role_name,session_user AS login_role,current_setting('transaction_read_only') AS read_only";
 const uuid=v=>typeof v==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(v);
 function createRestrictedStatusQuery({environment,pool,maxActive=4}={}){
  if(environment!=='sandbox'||typeof pool?.connect!=='function'||!Number.isSafeInteger(maxActive)||maxActive<1||maxActive>16)throw Error('SANDBOX_ONLY');
@@ -30,7 +30,7 @@ function createRestrictedStatusQuery({environment,pool,maxActive=4}={}){
    const check=await client.query(GUARD);
    checkAbort();
    const r=check?.rows?.[0];
-   if(check?.rows?.length!==1||r?.database_name!=='mwd_financial_sandbox_test'||r.role_name!=='mwd_lab_status_service'||r.read_only!=='on')throw Error('ISOLATED_ROLE_REQUIRED');
+   if(check?.rows?.length!==1||r?.database_name!=='mwd_financial_sandbox_test'||r.role_name!=='mwd_lab_status_service'||r.login_role!=='mwd_lab_status_service'||r.read_only!=='on')throw Error('ISOLATED_ROLE_REQUIRED');
    const result=await client.query(sql,values);
    checkAbort();
    if(!Array.isArray(result?.rows)||result.rows.length>1)throw Error('INVALID_QUERY_RESULT');

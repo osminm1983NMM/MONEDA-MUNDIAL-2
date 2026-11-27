@@ -236,14 +236,22 @@ async function main(){
    },
    release(destroy){releases.push(destroy);}
   };}}});
-  await run('SET ROLE mwd_lab_status_service;');
   const guardedService=createSupabaseOrderStatus({environment:'sandbox',authClient:{auth:{getUser:async()=>({data:{user:{id:owner,role:'authenticated',is_anonymous:false}},error:null})}},query:guarded});
+  // An administrative login that merely switches effective role must fail.
+  await run('SET ROLE mwd_lab_status_service;');
+  assert.equal((await guardedService.read({sessionToken:'owner-token',orderId})).status,503);
+  assert.deepEqual(releases,[true]);
+  await run('RESET ROLE;');
+  // Exercise the identity guard in this disposable superuser harness using
+  // session authorization; direct socket login is tested separately.
+  await run('SET SESSION AUTHORIZATION mwd_lab_status_service;');
+  assert.deepEqual(await run('SELECT session_user,current_user;'),['mwd_lab_status_service|mwd_lab_status_service']);
   assert.equal((await guardedService.read({sessionToken:'owner-token',orderId})).status,401);
   assert.deepEqual(await guarded("SELECT order_id::text,status,principal_minor::text,fee_minor::text,total_minor::text,source_currency,payout_minor::text,payout_currency,to_char(accepted_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') AS accepted_at FROM mwd_financial_lab.read_bound_order_status($1::text,$2::uuid)",[owner,orderId]),{rows:[]});
-  assert.deepEqual(releases,[false,false]);
-  await run('RESET ROLE;');
+  assert.deepEqual(releases,[true,false,false]);
+  await run('RESET SESSION AUTHORIZATION;');
   assert.equal((await guardedService.read({sessionToken:'owner-token',orderId})).status,503);
-  assert.deepEqual(releases,[false,false,true]);
+  assert.deepEqual(releases,[true,false,false,true]);
   console.log('Restricted query adapter verified against disposable PostgreSQL, wrong role rejected');
   console.log('Integrated Auth fixture, restricted PostgreSQL roles, signed synthetic events, mobile lifecycle, read-only invariants, settlement, refund replay and revocation verified');
  }finally{

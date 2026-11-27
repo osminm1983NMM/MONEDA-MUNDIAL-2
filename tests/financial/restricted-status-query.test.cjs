@@ -5,7 +5,7 @@ const {createOrderStatusService}=require('../../financial-sandbox/order-status-s
 const id='00000000-0000-4000-8000-000000000001',actor='00000000-0000-4000-8000-000000000002';
 const status="SELECT order_id::text,status,principal_minor::text,fee_minor::text,total_minor::text,source_currency,payout_minor::text,payout_currency,to_char(accepted_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') AS accepted_at FROM mwd_financial_lab.read_bound_order_status($1::text,$2::uuid)";
 const binding="SELECT environment,user_id::text AS \"userId\",actor,active FROM mwd_financial_lab.resolve_status_binding($1::uuid)";
-function fixture({guard={database_name:'mwd_financial_sandbox_test',role_name:'mwd_lab_status_service',read_only:'on'},failAt}={}){
+function fixture({guard={database_name:'mwd_financial_sandbox_test',role_name:'mwd_lab_status_service',login_role:'mwd_lab_status_service',read_only:'on'},failAt}={}){
  const calls=[],releases=[];
  const pool={async connect(){calls.push(['connect']);return {
   async query(sql,params){calls.push([sql,params]);if(sql===failAt)throw Error('private');return {rows:sql.startsWith('SELECT current_database')?[guard]:[]};},
@@ -17,7 +17,7 @@ test('both exact status statements execute with read-only limits and bound UUIDs
  const f=fixture();
  for(const [sql,params] of [[binding,[actor]],[status,[actor,id]]]){
   a.deepEqual(await f.query(sql,params),{rows:[]});
-  a.deepEqual(f.calls.slice(-7).map(x=>x[0]),['connect','BEGIN READ ONLY',"SET LOCAL statement_timeout = '3000ms'","SET LOCAL lock_timeout = '1000ms'",'SELECT current_database() AS database_name,current_user AS role_name,current_setting(\'transaction_read_only\') AS read_only',sql,'COMMIT']);
+  a.deepEqual(f.calls.slice(-7).map(x=>x[0]),['connect','BEGIN READ ONLY',"SET LOCAL statement_timeout = '3000ms'","SET LOCAL lock_timeout = '1000ms'",'SELECT current_database() AS database_name,current_user AS role_name,session_user AS login_role,current_setting(\'transaction_read_only\') AS read_only',sql,'COMMIT']);
   a.deepEqual(f.calls.at(-2)[1],params);
  }
  a.deepEqual(f.releases,[false,false]);
@@ -30,8 +30,8 @@ test('wrong SQL and malformed parameters never acquire a connection',async()=>{
  a.equal(f.calls.length,0);
  a.throws(()=>create({environment:'production',pool:f.pool}),/SANDBOX_ONLY/);
 });
-test('wrong database, role or read-only state rolls back and discards connection',async()=>{
- for(const guard of [{database_name:'postgres',role_name:'mwd_lab_status_service',read_only:'on'},{database_name:'mwd_financial_sandbox_test',role_name:'lab',read_only:'on'},{database_name:'mwd_financial_sandbox_test',role_name:'mwd_lab_status_service',read_only:'off'}]){
+test('wrong database, effective role, login identity or read-only state rolls back and discards connection',async()=>{
+ for(const guard of [{database_name:'mwd_financial_sandbox_test',role_name:'mwd_lab_status_service',login_role:'lab',read_only:'on'},{database_name:'mwd_financial_sandbox_test',role_name:'mwd_lab_status_service',read_only:'on'},{database_name:'postgres',role_name:'mwd_lab_status_service',login_role:'mwd_lab_status_service',read_only:'on'},{database_name:'mwd_financial_sandbox_test',role_name:'lab',login_role:'mwd_lab_status_service',read_only:'on'},{database_name:'mwd_financial_sandbox_test',role_name:'mwd_lab_status_service',login_role:'mwd_lab_status_service',read_only:'off'}]){
   const f=fixture({guard});await a.rejects(f.query(status,[actor,id]),/STATUS_QUERY_UNAVAILABLE/);
   a.equal(f.calls.some(x=>x[0]===status),false);a.equal(f.calls.at(-1)[0],'ROLLBACK');a.deepEqual(f.releases,[true]);
  }
@@ -64,7 +64,7 @@ test('cancelled pool acquisition cannot begin a transaction and releases capacit
 test('cancellation after guard rolls back without starting the status statement',async()=>{
  const ctrl=new AbortController(),calls=[],releases=[];
  const pool={connect:async()=>({
-  async query(sql){calls.push(sql);if(sql.startsWith('SELECT current_database')){ctrl.abort();return {rows:[{database_name:'mwd_financial_sandbox_test',role_name:'mwd_lab_status_service',read_only:'on'}]};}return {rows:[]};},
+  async query(sql){calls.push(sql);if(sql.startsWith('SELECT current_database')){ctrl.abort();return {rows:[{database_name:'mwd_financial_sandbox_test',role_name:'mwd_lab_status_service',login_role:'mwd_lab_status_service',read_only:'on'}]};}return {rows:[]};},
   release:destroy=>releases.push(destroy)
  })};
  const query=create({environment:'sandbox',pool});
