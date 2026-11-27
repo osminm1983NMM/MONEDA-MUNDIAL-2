@@ -43,6 +43,9 @@ function createStatusPresentation({client,locale='es',onChange}={}){
   const request=++revision;const sessionToken=token;
   if(typeof orderId!=='string'||!uuid.test(orderId)){publish({state:'error',code:'INVALID_REQUEST'});return;}
   publish({state:'loading'});
+  // A synchronous host callback may change session, selection or dispose.
+  // Do not start transport with a token captured before that invalidation.
+  if(closed||request!==revision||token!==sessionToken)return;
   let result;
   try{result=await client.read({sessionToken,orderId});}catch{result={ok:false,code:'UNAVAILABLE'};}
   if(closed||request!==revision)return;
