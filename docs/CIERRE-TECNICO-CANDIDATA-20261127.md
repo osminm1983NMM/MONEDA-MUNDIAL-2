@@ -126,3 +126,11 @@ Orden de integración una vez autorizada: (1) verificar identidad y alcance de p
 | No monetario | Confirmar ausencia de acciones de movimiento y mantener separación del proveedor oficial. |
 
 No instalar otra APK ni repetir los recorridos físicos aprobados de la DEMO sin etapa conjunta acordada. El entorno remoto y los casos físicos de esta candidata no fueron probados en esta revisión; el sandbox oficial Thunes, contratos, permisos y activación permanecen pendientes según el registro del proyecto, sin comprobación del buzón. No se generan nuevas compilaciones ni se modifican servicios, fondos o código funcional para este registro de evidencia.
+
+
+## Invalidación de sesión compartida — revisión 20ad831
+
+- Revisión funcional `20ad831486f0a2a5b8cbf681993433db617118ea`: [CI financiero 46062515161](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/46062515161), job sandbox 140719918162 completado success. Log verificado: 378 tests, 378 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo. Las cuatro nuevas pruebas de pérdida de autorización cruzada, recuperación mediante nueva sesión, fallo de red/orden ausente y captura contable ausente aprobaron; no sumar a los 374 de la revisión anterior.
+- Una respuesta AUTH_REQUIRED de remesas o pérdida de acceso a captura de billetera invalida ambos hosts y borra la selección visible. La captura ausente se trata de modo conservador; no constituye prueba de revocación remota. Una falla de red o remesa no encontrada no cierra automáticamente toda la sesión. Evidencia de composición automática de hosts, no de comportamiento nativo observado.
+- [CI Android 46062515157](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/46062515157): prebuild y validación de dependencias aprobados, assembleRelease en ejecución al consultar. Job postgres-lab 140719917919 también en ejecución. No declarar nueva APK aprobada ni solicitar instalación hasta comprobar ambos resultados. La candidata anterior ecda775 conserva su evidencia independiente.
+- main verificado en `3f2fbdb7ffb5d6c75b8c56d41b4d1fa98ef64ffc`. No se modifican datos, infraestructura remota o fondos. No iniciar compilaciones duplicadas mientras estas puertas estén en curso.
