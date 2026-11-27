@@ -106,6 +106,7 @@ function openDigitalCoinLedger({environment,path,initialize=false,seed}={}){
   get(){return tx(()=>project(history()),false);},
   counts(){return tx(()=>({events:history().length}),false);},
   manifest(){return tx(()=>inspect(db),false);},
+  reconciliationSnapshot(){return tx(()=>({manifest:inspect(db),projection:project(history())}),false);},
   // Writers should be paused. If a write races the snapshot and changes its
   // contents, independent manifest verification fails and removes the copy.
   backup(destination){
