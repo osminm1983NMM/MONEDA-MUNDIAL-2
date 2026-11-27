@@ -13,6 +13,19 @@ const origin='https://tfamyuqqpenilnovqjpp.supabase.co';
 // Public project key, never a secret/service_role key. Only this sandbox.
 const publishableKey="sb_publishable_NesVIbsf44Dhb41k1CzRkA_il-cO3Fe";
 const initial={enabled:false,orderId:null,locale:'es',view:{state:'signed_out'},selectionRevision:0};
+// A UI deadline also handles transports that ignore cancellation. Late sign-ins
+// are never published and their local session is explicitly revoked if possible.
+async function authDeadline(operation,onLate=()=>{},ms=15000){
+ let expired=false,timer;
+ const task=Promise.resolve().then(operation);
+ const observed=task.then(value=>{
+  if(expired)void Promise.resolve().then(()=>onLate(value)).catch(()=>{});
+  return value;
+ });
+ try{return await Promise.race([observed,new Promise((_,reject)=>{
+  timer=setTimeout(()=>{expired=true;reject(Error('AUTH_DEADLINE'));},ms);
+ })]);}finally{clearTimeout(timer);}
+}
 function Lab(){
  const [state,setState]=useState(initial),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[order,setOrder]=useState('');
  const [signed,setSigned]=useState(false),[busy,setBusy]=useState(false),[info,setInfo]=useState('');
@@ -26,21 +39,22 @@ function Lab(){
   if(pending.current||!host.current||signed||!email.trim()||!password)return;
   pending.current=true;setBusy(true);setInfo('');setOrder('');
   const request=++revision.current,secret=password;setPassword('');
-  const client=createClient(origin,publishableKey,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
-  auth.current=client;
+  let client;
   try{
-   const {data,error}=await client.auth.signInWithPassword({email:email.trim(),password:secret});
+   client=createClient(origin,publishableKey,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+   auth.current=client;
+   const {data,error}=await authDeadline(()=>client.auth.signInWithPassword({email:email.trim(),password:secret}),()=>client.auth.signOut({scope:'local'}));
    if(!mounted.current||revision.current!==request){void client.auth.signOut({scope:'local'}).catch(()=>{});return;}
    const token=data?.session?.access_token;
-   if(error||typeof token!=='string'||data?.user?.is_anonymous===true){auth.current=null;host.current.setSession(null);setInfo('No se pudo iniciar sesión. Utiliza una cuenta autorizada del laboratorio.');void client.auth.signOut({scope:'local'}).catch(()=>{});return;}
+   if(error||typeof token!=='string'||data?.user?.is_anonymous!==false){auth.current=null;host.current.setSession(null);setInfo('No se pudo iniciar sesión. Utiliza una cuenta autorizada del laboratorio.');void client.auth.signOut({scope:'local'}).catch(()=>{});return;}
    host.current.setSession(token);setSigned(true);setInfo('Sesión de laboratorio iniciada. Introduce el identificador de tu remesa de prueba.');
-  }catch{if(mounted.current&&revision.current===request){auth.current=null;host.current?.setSession(null);setInfo('No se pudo conectar al laboratorio.');void client.auth.signOut({scope:'local'}).catch(()=>{});}}
+  }catch(error){if(mounted.current&&revision.current===request){auth.current=null;host.current?.setSession(null);setInfo(error?.message==='AUTH_DEADLINE'?'El laboratorio no respondió a tiempo. Intenta nuevamente.':'No se pudo conectar al laboratorio.');if(client&&error?.message!=='AUTH_DEADLINE')void client.auth.signOut({scope:'local'}).catch(()=>{});}}
   finally{if(mounted.current&&revision.current===request){pending.current=false;setBusy(false);}}
  }
  async function logout(){
   const request=++revision.current,old=auth.current;auth.current=null;pending.current=false;
   host.current?.setSession(null);setSigned(false);setBusy(false);setOrder('');setPassword('');setInfo('Sesión local cerrada.');
-  if(old){try{const {error}=await old.auth.signOut({scope:'local'});if(error&&mounted.current&&revision.current===request)setInfo('Sesión local cerrada. No se pudo confirmar la revocación remota.');}catch{if(mounted.current&&revision.current===request)setInfo('Sesión local cerrada. No se pudo confirmar la revocación remota.');}}
+  if(old){try{const {error}=await authDeadline(()=>old.auth.signOut({scope:'local'}));if(error&&mounted.current&&revision.current===request)setInfo('Sesión local cerrada. No se pudo confirmar la revocación remota.');}catch{if(mounted.current&&revision.current===request)setInfo('Sesión local cerrada. No se pudo confirmar la revocación remota.');}}
  }
  const button=(label,action,disabled=false)=><TouchableOpacity accessibilityRole="button" accessibilityState={{disabled}} disabled={disabled} style={[styles.button,disabled&&styles.disabled]} onPress={action}><Text style={styles.buttonText}>{label}</Text></TouchableOpacity>;
  return <SafeAreaView style={styles.page}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
