@@ -66,3 +66,31 @@ test('secure adapter wired into native auth and not pending operation storage',(
 });
 
 test('refuses keys outside project auth namespace',async()=>{const f=fixture();assert.throws(()=>f.storage.getItem('mwd_pending_operation:fixture'),/Invalid auth storage key/);assert.equal(f.plain.get('mwd_pending_operation:fixture'),'keep');});
+
+test('logout attempts both encrypted slots after a cleanup failure and keeps retry metadata',async()=>{
+ const f=fixture(),base='mwd.auth.v1.'+key;
+ await f.storage.setItem(key,'x'.repeat(1000));
+ f.fail((op,k)=>op==='delete'&&k===base+'.0.0');
+ await f.storage.setItem(key,'y'.repeat(1000));
+ assert.equal(f.native.has(base+'.0.0'),true);
+ assert.equal(f.native.has(base+'.0.1'),false);
+ assert.equal(f.native.has(base+'.0.count'),true);
+ f.fail((op,k)=>op==='delete'&&k===base+'.0.0');
+ await assert.rejects(f.storage.removeItem(key),/cleanup incomplete/);
+ assert.equal(await f.reopen().getItem(key),null);
+ assert.equal(f.native.has(base+'.1.count'),false);
+ assert.equal([...f.native.keys()].some(k=>k.startsWith(base+'.1.')),false);
+ assert.equal(f.native.has(base+'.0.count'),true);
+ await f.storage.removeItem(key);
+ assert.equal(f.native.size,0);
+});
+test('pointer deletion failure does not erase the authoritative session or claim logout cleanup',async()=>{
+ const f=fixture(),base='mwd.auth.v1.'+key;
+ await f.storage.setItem(key,'current');
+ f.fail((op,k)=>op==='delete'&&k===base+'.active');
+ await assert.rejects(f.storage.removeItem(key));
+ assert.equal(await f.reopen().getItem(key),'current');
+ await f.storage.removeItem(key);
+ assert.equal(await f.reopen().getItem(key),null);
+ assert.equal(f.native.size,0);
+});
