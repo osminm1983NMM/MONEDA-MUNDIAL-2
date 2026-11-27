@@ -9,9 +9,11 @@ const copy=x=>structuredClone(x);
 class SandboxFinance {
  #orders=new Map();#quotes=new Map();#requests=new Map();#events=new Map();#journal=[];#used=new Map();
  #clock;#id;#provider;#policy;#busy=new Set();
- constructor({provider,policy,clock=Date.now,id=randomUUID,environment}){
+ #requireDisclosure;#disclosures=new Map();#accepted=new Map();#receipts=new Map();
+ constructor({provider,policy,clock=Date.now,id=randomUUID,environment,requireDisclosure=false}){
   if(environment!=='sandbox'||provider?.mode!=='sandbox'||typeof provider.verifyEvent!=='function'||typeof provider.submit!=='function'||typeof policy!=='function')fail('SANDBOX_ONLY');
-  this.#provider=provider;this.#policy=policy;this.#clock=clock;this.#id=id;
+  if(typeof requireDisclosure!=='boolean')fail('INVALID_DISCLOSURE_MODE');
+  this.#requireDisclosure=requireDisclosure;this.#provider=provider;this.#policy=policy;this.#clock=clock;this.#id=id;
  }
  #now(){const n=this.#clock();if(!Number.isSafeInteger(n)||n<0)fail('CLOCK');return n;}
  #actor(a){if(!idOk(a))fail('AUTH_REQUIRED');}
@@ -34,21 +36,51 @@ class SandboxFinance {
   if(this.#quotes.has(q.id))fail('ID_COLLISION');
   this.#quotes.set(q.id,q);return copy(q);
  }
- create(actor,{quoteId,requestId,beneficiaryRef}){
+ // A structured presentation record, not a regulatory form or proof of reading.
+ presentDisclosure(actor,{quoteId,beneficiaryRef,locale}){
+  this.#actor(actor);
+  if(!this.#requireDisclosure)fail('DISCLOSURE_MODE_REQUIRED');
+  if(!idOk(quoteId)||!idOk(beneficiaryRef)||!['es','en'].includes(locale))fail('INVALID_DISCLOSURE');
+  const q=this.#quotes.get(quoteId),now=this.#now();
+  if(!q||q.actor!==actor||q.used||q.expiresAt<=now)fail('QUOTE_UNAVAILABLE');
+  const record={mode:'sandbox',template:'fixture-disclosure-v1',locale,quoteId,actor,beneficiaryRef,
+   origin:q.origin,destination:q.destination,method:q.method,sourceCurrency:q.sourceCurrency,
+   amountCents:q.amountCents,feeCents:q.feeCents,totalCents:q.totalCents,
+   payoutCurrency:q.payoutCurrency,payoutAmountMinor:q.payoutAmountMinor,rateLabel:q.rateLabel,
+   expiresAt:q.expiresAt,presentedAt:now};
+  const sha256=hash(record);
+  this.#disclosures.set(sha256,record);
+  return {sha256,record:copy(record)};
+ }
+ create(actor,{quoteId,requestId,beneficiaryRef,disclosureSha256}){
   this.#actor(actor);
   if(!idOk(requestId)||!idOk(quoteId)||!idOk(beneficiaryRef))fail('INVALID_REQUEST');
-  const key=actor+':'+requestId, fingerprint=hash([quoteId,beneficiaryRef]);
+  const key=actor+':'+requestId, fingerprint=hash(this.#requireDisclosure?[quoteId,beneficiaryRef,disclosureSha256]:[quoteId,beneficiaryRef]);
   const previous=this.#requests.get(key);
   if(previous){if(previous.fingerprint!==fingerprint)fail('IDEMPOTENCY_CONFLICT');return copy(this.#order(actor,previous.orderId));}
   const q=this.#quotes.get(quoteId);
   if(!q||q.actor!==actor||q.expiresAt<=this.#now()||q.used)fail('QUOTE_UNAVAILABLE');
+  let disclosure;
+  if(this.#requireDisclosure){
+   if(typeof disclosureSha256!=='string'||!/^[a-f0-9]{64}$/.test(disclosureSha256))fail('DISCLOSURE_REQUIRED');
+   disclosure=this.#disclosures.get(disclosureSha256);
+   if(!disclosure||disclosure.actor!==actor||disclosure.quoteId!==q.id||
+    disclosure.beneficiaryRef!==beneficiaryRef||hash(disclosure)!==disclosureSha256)fail('DISCLOSURE_MISMATCH');
+   if(disclosure.expiresAt<=this.#now())fail('QUOTE_UNAVAILABLE');
+  }
   const risk=this.#risk(actor,q.totalCents);
   const o={id:this.#id(),actor,quoteId,requestId,beneficiaryRef,amountCents:q.amountCents,feeCents:q.feeCents,totalCents:q.totalCents,payoutAmountMinor:q.payoutAmountMinor,payoutCurrency:q.payoutCurrency,state:'awaiting_funding',mode:'sandbox',provider:this.#provider.id,createdAt:this.#now(),fundingRef:null,payoutRef:null,refundRef:null};
   if(this.#orders.has(o.id))fail('ID_COLLISION');
+  if(disclosure){
+   if(o.createdAt>=disclosure.expiresAt||o.createdAt<disclosure.presentedAt)fail('QUOTE_UNAVAILABLE');
+   this.#accepted.set(o.id,{sha256:disclosureSha256,record:copy(disclosure),acceptedAt:o.createdAt});
+  }
   this.#orders.set(o.id,o);this.#requests.set(key,{fingerprint,orderId:o.id});q.used=true;
   this.#used.set(risk.key,risk.used+o.totalCents);return copy(o);
  }
  get(actor,id){return copy(this.#order(actor,id));}
+ getDisclosure(actor,id){this.#order(actor,id);return copy(this.#accepted.get(id)??null);}
+ getReceipt(actor,id){this.#order(actor,id);return copy(this.#receipts.get(id)??null);}
  // Submit only against a known state, with stable provider reference for retries.
  // Unknown transport outcome leaves a pending reference; never assumes payment failed.
  async submit(actor,id,kind){
@@ -88,6 +120,14 @@ class SandboxFinance {
   const r=typeof event.type==='string'&&Object.hasOwn(rules,event.type)?rules[event.type]:null;
   if(!r||!o[r[2]]||event.reference!==o[r[2]]||event.currency!==r[3]||event.amountMinor!==r[4])fail('EVENT_MISMATCH');
   if(o.state!==r[0])fail('UNEXPECTED_EVENT_STATE');
+  let receipt=null;
+  if(this.#requireDisclosure&&event.type==='funding_confirmed'){
+   const accepted=this.#accepted.get(o.id);
+   if(!accepted||!Number.isSafeInteger(event.timestamp)||event.timestamp<accepted.acceptedAt)fail('INVALID_PAYMENT_EVIDENCE');
+   receipt={mode:'sandbox',kind:'funding_confirmed_not_payout',orderId:o.id,disclosureSha256:accepted.sha256,
+    disclosure:copy(accepted.record),acceptedAt:accepted.acceptedAt,paymentAt:event.timestamp,
+    provider:o.provider,paymentReference:event.reference,paymentEventId:event.eventId,paidCurrency:event.currency,paidMinor:event.amountMinor};
+  }
   let posting=null;
   if(event.type==='funding_confirmed')posting=[['provider_cash',o.totalCents],['customer_payable',-o.totalCents]];
   if(event.type==='payout_confirmed')posting=[['customer_payable',o.totalCents],['provider_cash',-o.amountCents],['fee_revenue',-o.feeCents]];
@@ -96,6 +136,7 @@ class SandboxFinance {
    if(posting.reduce((s,e)=>s+e[1],0)!==0||posting.some(e=>!Number.isSafeInteger(e[1])||e[1]===0))fail('UNBALANCED');
    this.#journal.push({orderId:o.id,eventId:event.eventId,currency:'USD',entries:posting.map(([account,delta])=>({account,delta}))});
   }
+  if(receipt)this.#receipts.set(o.id,receipt);
   o.state=r[1];this.#events.set(key,fingerprint);
   return {status:'applied',state:o.state};
  }
