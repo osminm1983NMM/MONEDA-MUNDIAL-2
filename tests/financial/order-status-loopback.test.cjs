@@ -1,0 +1,46 @@
+'use strict';
+const {test}=require('node:test'),a=require('node:assert/strict'),http=require('node:http');
+const {createOrderStatusLoopback}=require('../../financial-sandbox/order-status-loopback.cjs');
+const {route}=require('../../financial-sandbox/order-status-http.cjs');
+const orderId='00000000-0000-4000-8000-000000000001';
+const options={method:'POST',headers:{authorization:'Bearer fixture-token','content-type':'application/json'},body:JSON.stringify({orderId})};
+async function fixture(t,extra={}){
+ const calls=[];
+ const listener=createOrderStatusLoopback({environment:'sandbox',service:{async read(value){calls.push(value);return {status:200,body:{mode:'sandbox',orderId}};}},...extra});
+ t.after(()=>listener.close());return {base:await listener.start(),calls};
+}
+test('real TCP loopback serves only the authenticated sandbox query',async t=>{
+ const {base,calls}=await fixture(t);
+ a.equal(new URL(base).hostname,'127.0.0.1');
+ const r=await fetch(base+route,options);
+ a.equal(r.status,200);a.equal(r.headers.get('cache-control'),'no-store');
+ a.deepEqual(await r.json(),{mode:'sandbox',orderId});
+ a.deepEqual(calls,[{sessionToken:'fixture-token',orderId}]);
+ a.equal((await fetch(base+route+'?actor=other',options)).status,400);
+ a.equal((await fetch(base+'/other',options)).status,404);
+ a.equal((await fetch(base+route)).status,405);
+ a.equal((await fetch(base+route,{...options,headers:{'content-type':'application/json'}})).status,401);
+ a.equal(calls.length,1);
+});
+test('wire transport rejects oversized input and recovers after a stalled upload',{timeout:5000},async t=>{
+ const {base,calls}=await fixture(t,{bodyTimeoutMs:100});
+ a.equal((await fetch(base+route,{...options,body:'x'.repeat(1025)})).status,413);
+ const status=await new Promise((resolve,reject)=>{
+  const req=http.request(base+route,{method:'POST',headers:{...options.headers,'content-length':100}},res=>{res.resume();res.on('end',()=>resolve(res.statusCode));});
+  req.on('error',reject);req.write('{'); // deliberately incomplete body
+ });
+ a.equal(status,408);a.equal(calls.length,0);
+ a.equal((await fetch(base+route,options)).status,200);
+});
+test('duplicate authorization headers are rejected before the service',{timeout:5000},async t=>{
+ const {base,calls}=await fixture(t);
+ const status=await new Promise((resolve,reject)=>{
+  const req=http.request(base+route,{method:'POST',headers:{authorization:['Bearer first','Bearer second'],'content-type':'application/json'}},res=>{res.resume();res.on('end',()=>resolve(res.statusCode));});
+  req.on('error',reject);req.end(options.body);
+ });
+ a.equal(status,400);a.equal(calls.length,0);
+});
+test('listener requires sandbox mode and bounded configuration',()=>{
+ a.throws(()=>createOrderStatusLoopback({environment:'production',service:{read(){}}}),/SANDBOX_ONLY/);
+ a.throws(()=>createOrderStatusLoopback({environment:'sandbox',service:{read(){}},maxConnections:0}),/INVALID_CONNECTION_LIMIT/);
+});
