@@ -31,7 +31,9 @@ const hostedArtifacts={
   "financial-hosted/mwd_hosted_ledger_status_bridge.sql": "e5a55012042819747bb649868490dd3246c77a04",
   "financial-hosted/verify_ledger_status_bridge.sql": "0e33d90d56e0674040808b2895c2bd5f3f16677b",
   "financial-hosted/mwd_hosted_authenticated_status.sql": "bf172d3769e8075b35ca742a4f9e2220e14e6a42",
-  "financial-hosted/verify_authenticated_status.sql": "2717372105a5eafd9afb7948358271168e5ed32e"
+  "financial-hosted/verify_authenticated_status.sql": "2717372105a5eafd9afb7948358271168e5ed32e",
+  "financial-sandbox/sql/mwd_lab_session_identity.sql": "53fb1e1648686fdae2a2c7f23c27bc7f8adcc7b3",
+  "financial-sandbox/sql/mwd_lab_wallet_snapshot.sql": "9fe113158f0b22dc049892311a7a4e838928a3d9"
 };
 function blobSha(bytes){
  return createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');
@@ -41,7 +43,7 @@ function assertMobileBoundary(tracked,read){
  assert.deepEqual(rootFiles,Object.keys(expected).sort(),'Root mobile inventory changed; review Android baseline');
  const allowedDirectories=new Set(['.github','database','docs','scripts','tests','financial-sandbox']);
  for(const p of tracked.filter(p=>p.includes('/'))){
-  if(p.startsWith('financial-hosted/')){
+  if(p.startsWith('financial-hosted/')||p.startsWith('financial-sandbox/sql/')){
    assert.ok(Object.hasOwn(hostedArtifacts,p),'Unreviewed hosted file: '+p);
    assert.equal(blobSha(read(p)),hostedArtifacts[p],'Hosted artifact changed: '+p);
   }else assert.ok(allowedDirectories.has(p.split('/')[0]),'Unreviewed root directory: '+p);
@@ -68,7 +70,9 @@ test('boundary rejects changed source and unreviewed new root paths',()=>{
  assert.throws(()=>assertMobileBoundary(paths.filter(p=>p!=='package-lock.json'),read),/inventory changed/);
  assert.throws(()=>assertMobileBoundary([...paths,'financial-hosted/index.js'],read),/Unreviewed hosted file/);
  assert.throws(()=>assertMobileBoundary([...paths,'financial-hosted/unreviewed.sql'],read),/Unreviewed hosted file/);
- const first=Object.keys(hostedArtifacts)[0];
- assert.throws(()=>assertMobileBoundary(paths.filter(p=>p!==first),read),/Reviewed hosted artifact missing/);
- assert.throws(()=>assertMobileBoundary(paths,p=>p===first?Buffer.concat([read(p),Buffer.from(' ')]):read(p)),/Hosted artifact changed/);
+ assert.throws(()=>assertMobileBoundary([...paths,'financial-sandbox/sql/unreviewed.sql'],read),/Unreviewed hosted file/);
+ for(const file of Object.keys(hostedArtifacts)){
+  assert.throws(()=>assertMobileBoundary(paths.filter(p=>p!==file),read),/Reviewed hosted artifact missing/);
+  assert.throws(()=>assertMobileBoundary(paths,p=>p===file?Buffer.concat([read(p),Buffer.from(' ')]):read(p)),/Hosted artifact changed/);
+ }
 });
