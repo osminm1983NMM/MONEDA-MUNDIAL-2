@@ -31,4 +31,15 @@ jobs:
           probe 'No API key'
           probe 'Public key, no user session' --header "apikey: $LAB_PUBLIC_KEY"
           probe 'Public key, invalid bearer' --header "apikey: $LAB_PUBLIC_KEY" --header 'Authorization: Bearer invalid-test-token'
-          echo 'PASS: all three unauthenticated or invalid requests denied; revocation replay not covered.'
+          # Prove the publishable key is accepted independently; an invalid key
+          # could otherwise make all negative checks falsely reassuring.
+          key_code=$(curl --silent --show-error --proto '=https' --max-time 15 --connect-timeout 5 --output /dev/null --write-out '%{http_code}' --header "apikey: $LAB_PUBLIC_KEY" 'https://tfamyuqqpenilnovqjpp.supabase.co/auth/v1/settings')
+          [[ "$key_code" == 200 ]] || { echo "Public key control failed: HTTP $key_code"; exit 1; }
+          echo 'Public key control: HTTP 200'
+          for rpc in mwd_lab_session_identity mwd_lab_read_wallet_snapshot; do
+            LAB_URL="https://tfamyuqqpenilnovqjpp.supabase.co/rest/v1/rpc/$rpc"
+            body='{}'
+            probe "$rpc: public key, no user session" --header "apikey: $LAB_PUBLIC_KEY"
+            probe "$rpc: invalid bearer" --header "apikey: $LAB_PUBLIC_KEY" --header 'Authorization: Bearer invalid-test-token'
+          done
+          echo 'PASS: seven unauthenticated or invalid requests denied; public key accepted; revocation replay not covered.'
