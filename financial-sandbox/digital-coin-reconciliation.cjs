@@ -28,6 +28,16 @@ function compareDigitalCoinCut({environment,cutId,snapshot,reports}={}){
  m.reserveUsdMinor!==p.digital.reserveUsdMinor||m.obligationsUsdMinor!==p.digital.obligationsUsdMinor||
  m.coinOutstandingMinor!==p.coin.outstandingMinor||
  BigInt(m.obligationsUsdMinor)!==BigInt(p.digital.outstandingDigitalMinor)+BigInt(p.digital.redemptionPayableUsdMinor))fail('INVALID_INTERNAL_SNAPSHOT');
+ // Verify redundant internal totals independently before comparing reports.
+ // These checks detect inconsistent projections; they do not authenticate history.
+ const d=p.digital,c=p.coin;
+ if(![d.shortfallUsdMinor,c.fixtureCapMinor,c.mintedMinor,c.burnedMinor,c.remainingIssuanceMinor,c.treasuryMinor,c.nonTreasuryMinor].every(units))fail('INVALID_INTERNAL_SNAPSHOT');
+ const reserveBook=BigInt(m.reserveUsdMinor),owed=BigInt(m.obligationsUsdMinor);
+ const cap=BigInt(c.fixtureCapMinor),minted=BigInt(c.mintedMinor),burned=BigInt(c.burnedMinor);
+ const outstanding=BigInt(m.coinOutstandingMinor),treasury=BigInt(c.treasuryMinor);
+ if(d.coverageSufficient!==(reserveBook>=owed)||BigInt(d.shortfallUsdMinor)!==(reserveBook<owed?owed-reserveBook:0n)||
+  cap===0n||minted>cap||burned>minted||minted-burned!==outstanding||cap-minted!==BigInt(c.remainingIssuanceMinor)||
+  treasury>outstanding||treasury+BigInt(c.nonTreasuryMinor)!==outstanding)fail('INVALID_INTERNAL_SNAPSHOT');
  const specs=[
   ['reserve','USD','reserve-bank-fixture'],
   ['digital','DIGITAL_TEST','digital-custody-fixture'],
@@ -57,7 +67,7 @@ function compareDigitalCoinCut({environment,cutId,snapshot,reports}={}){
  ]){
   const internal=index(p[key].accounts,true),external=index(reports[key].balances);
   const sum=map=>[...map.values()].reduce((s,v)=>s+v,0n);
-  if(sum(internal)!==BigInt(expected))fail('INVALID_INTERNAL_SNAPSHOT');
+  if(sum(internal)!==BigInt(expected)||(key==='coin'&&(internal.get('treasury')||0n)!==treasury))fail('INVALID_INTERNAL_SNAPSHOT');
   const declared=BigInt(reports[key].outstandingMinor);
   if(sum(external)!==declared)mismatch('CUSTODY_TOTAL_MISMATCH',asset,declared,sum(external));
   if(BigInt(expected)!==declared)mismatch('SUPPLY_MISMATCH',asset,expected,declared);

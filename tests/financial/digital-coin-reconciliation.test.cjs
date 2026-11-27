@@ -171,3 +171,17 @@ test('priced mode requires reproducible quote amounts and persists price proof w
   a.throws(()=>verifyDigitalCoinBackup({environment:'sandbox',path:copy,expected:audit.manifest}),/PRICE_QUOTE_MISMATCH/);
  }finally{ledger.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+
+test('inconsistent internal coverage or Coin issuance totals fail closed even with matching external reports',()=>fixture(({snapshot,run})=>{
+ for(const [asset,patch] of [
+  ['digital',{coverageSufficient:false}],['digital',{shortfallUsdMinor:'1'}],
+  ['coin',{mintedMinor:'999'}],['coin',{burnedMinor:'1'}],['coin',{fixtureCapMinor:'999'}],
+  ['coin',{remainingIssuanceMinor:'1'}],['coin',{treasuryMinor:'701',nonTreasuryMinor:'299'}],
+  ['coin',{nonTreasuryMinor:'301'}],['coin',{mintedMinor:1000}]
+ ]){
+  const bad=structuredClone(snapshot);Object.assign(bad.projection[asset],patch);
+  a.throws(()=>run(reports(),{snapshot:bad}),/INVALID_INTERNAL_SNAPSHOT/);
+ }
+ a.equal(run().clean,true);
+}));
