@@ -57,7 +57,9 @@ jobs:
           node <<'NODE'
           const fs=require('node:fs');
           const path=require('node:path');
-          const {getAssetData}=require('metro/src/Assets');
+          // Metro restricts package exports; resolve the installed module entry first.
+          const metroEntry=require.resolve('metro');
+          const {getAssetData}=require(path.join(path.dirname(metroEntry),'Assets.js'));
           const dir=fs.mkdtempSync(path.join(process.env.RUNNER_TEMP,'metro-asset-'));
           const png=path.join(dir,'sample.png');
           fs.writeFileSync(png,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jR2sAAAAASUVORK5CYII=','base64'));
