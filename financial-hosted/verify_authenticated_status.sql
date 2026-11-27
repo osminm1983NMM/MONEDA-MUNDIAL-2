@@ -1,0 +1,31 @@
+BEGIN;
+INSERT INTO auth.users(id,role,is_anonymous) VALUES ('00000000-0000-4000-8000-000000000071','authenticated',false),('00000000-0000-4000-8000-000000000072','authenticated',false);
+INSERT INTO auth.sessions(id,user_id,not_after) VALUES ('00000000-0000-4000-8000-000000000091','00000000-0000-4000-8000-000000000071',now()+interval '10 minutes'),('00000000-0000-4000-8000-000000000092','00000000-0000-4000-8000-000000000072',now()-interval '1 minute');
+INSERT INTO mwd_financial_hosted.status_bindings(user_id,active) VALUES ('00000000-0000-4000-8000-000000000071',true),('00000000-0000-4000-8000-000000000072',true);
+SELECT mwd_financial_hosted.hosted_register_synthetic_order('00000000-0000-4000-8000-000000000081','00000000-0000-4000-8000-000000000071',10000,150,250000);
+SELECT mwd_financial_hosted.hosted_register_synthetic_order('00000000-0000-4000-8000-000000000082','00000000-0000-4000-8000-000000000072',10000,150,250000);
+SET LOCAL ROLE authenticated;
+DO $$ DECLARE a jsonb; BEGIN
+ PERFORM set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000071","role":"authenticated","session_id":"00000000-0000-4000-8000-000000000091","is_anonymous":false}',true);
+ a:=public.mwd_lab_read_status('00000000-0000-4000-8000-000000000081');
+ IF a IS NULL OR a->>'status'<>'funding_pending' OR a#>>'{source,totalMinor}'<>'10150' THEN RAISE EXCEPTION 'OWNER_DENIED'; END IF;
+ IF public.mwd_lab_read_status('00000000-0000-4000-8000-000000000082') IS NOT NULL THEN RAISE EXCEPTION 'CROSS_USER'; END IF;
+ BEGIN PERFORM 1 FROM mwd_financial_hosted.multi_journal; RAISE EXCEPTION 'EXPECTED_DENIAL'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN UPDATE mwd_financial_hosted.order_status_projection SET status='paid'; RAISE EXCEPTION 'EXPECTED_DENIAL'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ PERFORM set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000072","role":"authenticated","session_id":"00000000-0000-4000-8000-000000000092","is_anonymous":false}',true);
+ IF public.mwd_lab_read_status('00000000-0000-4000-8000-000000000082') IS NOT NULL THEN RAISE EXCEPTION 'EXPIRED_SESSION'; END IF;
+ PERFORM set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000071","role":"authenticated","session_id":"00000000-0000-4000-8000-000000000092","is_anonymous":false}',true);
+ IF public.mwd_lab_read_status('00000000-0000-4000-8000-000000000081') IS NOT NULL THEN RAISE EXCEPTION 'WRONG_SESSION'; END IF;
+ PERFORM set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000071","role":"authenticated","session_id":"00000000-0000-4000-8000-000000000091","is_anonymous":true}',true);
+ IF public.mwd_lab_read_status('00000000-0000-4000-8000-000000000081') IS NOT NULL THEN RAISE EXCEPTION 'ANONYMOUS'; END IF;
+END $$;
+RESET ROLE;
+DELETE FROM auth.sessions WHERE id='00000000-0000-4000-8000-000000000091';
+SET LOCAL ROLE authenticated;
+DO $$ BEGIN
+ PERFORM set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000071","role":"authenticated","session_id":"00000000-0000-4000-8000-000000000091","is_anonymous":false}',true);
+ IF public.mwd_lab_read_status('00000000-0000-4000-8000-000000000081') IS NOT NULL THEN RAISE EXCEPTION 'REVOKED_SESSION'; END IF;
+END $$;
+RESET ROLE;
+ROLLBACK;
+SELECT 'session ownership, expiration, revocation, anonymous denial and ledger access denial verified' AS result;

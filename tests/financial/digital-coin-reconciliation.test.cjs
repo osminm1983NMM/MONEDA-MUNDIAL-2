@@ -1,0 +1,273 @@
+'use strict';
+const {test}=require('node:test');const a=require('node:assert/strict');
+const fs=require('node:fs');const {join}=require('node:path');const {tmpdir}=require('node:os');
+const {openDigitalCoinLedger:open}=require('../../financial-sandbox/digital-coin-ledger.cjs');
+const {compareDigitalCoinCut:compare}=require('../../financial-sandbox/digital-coin-reconciliation.cjs');
+const seed={capMinor:'1000',digitalEvents:[
+ {eventId:'f',kind:'reserve_confirmed',amountMinor:'2000',asset:'USD',purpose:'digital_reserve'},
+ {eventId:'ia',kind:'issue_confirmed',owner:'alice',amountMinor:'1000'},
+ {eventId:'it',kind:'issue_confirmed',owner:'treasury',amountMinor:'1000'}
+],coinEvents:[{eventId:'m',kind:'mint_confirmed',amountMinor:'1000'}]};
+const events=[
+ {eventId:'q',kind:'quote_created',at:10,quoteId:'q',owner:'alice',direction:'digital_to_coin',digitalMinor:'200',coinMinor:'300',expiresAt:100},
+ {eventId:'a',kind:'quote_accepted',at:11,quoteId:'q',owner:'alice'},
+ {eventId:'c',kind:'swap_confirmed',at:12,quoteId:'q'}
+];
+// Manually specified independent fixtures, not constructed from the ledger output.
+const report=(asset,source,reportId)=>({mode:'sandbox',cutId:'cut-1',scope:'all-test-accounts',source,reportId,asset,complete:true});
+function reports(){return {
+ reserve:{...report('USD','reserve-bank-fixture','bank-1'),eligibleMinor:'2000'},
+ digital:{...report('DIGITAL_TEST','digital-custody-fixture','digital-1'),outstandingMinor:'2000',balances:[{owner:'alice',totalMinor:'800'},{owner:'treasury',totalMinor:'1200'}]},
+ coin:{...report('COIN_TEST','coin-custody-fixture','coin-1'),outstandingMinor:'1000',balances:[{owner:'treasury',totalMinor:'700'},{owner:'alice',totalMinor:'300'}]}
+};}
+function fixture(fn,base=seed,history=events){
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-asset-recon-'));
+ const ledger=open({environment:'sandbox',path:join(dir,'ledger.sqlite'),initialize:true,seed:base});
+ try{if(history.length)ledger.appendBatch(history);const snapshot=ledger.reconciliationSnapshot();
+ const run=(r=reports(),extra={})=>compare({environment:'sandbox',cutId:'cut-1',snapshot,reports:r,...extra});
+ fn({ledger,snapshot,run});}
+ finally{ledger.close();fs.rmSync(dir,{recursive:true,force:true});}
+}
+test('frozen joint snapshot matches independent synthetic balances and reserve with no writes',()=>fixture(({ledger,snapshot,run})=>{
+ const x=run();a.equal(x.clean,true);a.deepEqual(x.issues,[]);a.equal(x.internalSha256,snapshot.manifest.sha256);
+ a.deepEqual(ledger.counts(),{events:3});
+}));
+test('same aggregate supply but swapped ownership is not clean',()=>fixture(({run})=>{
+ const r=reports();r.coin.balances=[{owner:'treasury',totalMinor:'800'},{owner:'alice',totalMinor:'200'}];
+ const x=run(r);a.equal(x.clean,false);a.equal(x.issues.length,2);a.ok(x.issues.every(i=>i.code==='OWNER_BALANCE_MISMATCH'));
+}));
+test('missing owners, unknown owners, custody total and reserve deficit are detected',()=>fixture(({run})=>{
+ const r=reports();r.digital.balances=[{owner:'treasury',totalMinor:'1200'},{owner:'bob',totalMinor:'700'}];
+ r.coin.outstandingMinor='900';r.reserve.eligibleMinor='1999';
+ const x=run(r);a.equal(x.clean,false);
+ for(const code of ['RESERVE_MISMATCH','INSUFFICIENT_COVERAGE','CUSTODY_TOTAL_MISMATCH','SUPPLY_MISMATCH','MISSING_CUSTODY_BALANCE','UNKNOWN_CUSTODY_BALANCE'])a.ok(x.issues.some(i=>i.code===code),code);
+}));
+test('pending redemption remains an obligation even if issued supply and custody match',()=>fixture(({run})=>{
+ const r=reports();r.reserve.eligibleMinor='1999';r.digital.balances=[{owner:'alice',totalMinor:'600'},{owner:'treasury',totalMinor:'1000'}];r.digital.outstandingMinor='1600';
+ r.coin.balances=[{owner:'treasury',totalMinor:'1000'}];
+ const x=run(r);a.ok(x.issues.some(i=>i.code==='INSUFFICIENT_COVERAGE'&&i.internalMinor==='2000'));
+}, {...seed,digitalEvents:[...seed.digitalEvents,{eventId:'rh',kind:'redemption_reserved',owner:'alice',amountMinor:'400',redemptionId:'r'},{eventId:'rb',kind:'burn_confirmed',redemptionId:'r'}]},[]));
+test('incomplete or different cuts, duplicate owners and invalid amounts fail closed',()=>fixture(({run})=>{
+ for(const patch of [{complete:false},{cutId:'other'},{asset:'COIN_TEST'},{scope:'partial'},{reportId:'bank-1'}]){
+  const r=reports();Object.assign(r.digital,patch);a.throws(()=>run(r),/INCOMPLETE_OR_MISMATCHED_REPORT/);
+ }
+ const r=reports();r.coin.balances.push({...r.coin.balances[0]});a.throws(()=>run(r),/DUPLICATE_OWNER/);
+ const bad=reports();bad.reserve.eligibleMinor=2000;a.throws(()=>run(bad),/INVALID_AMOUNT/);
+ a.throws(()=>run(reports(),{environment:'production'}),/SANDBOX_ONLY/);
+}));
+
+
+test('gated ledger requires a clean current cut, rejects stale evidence, preserves mode across restart',()=>{
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-asset-gate-')),options={environment:'sandbox',path:join(dir,'ledger.sqlite')};
+ let ledger=open({...options,initialize:true,seed,requireReconciliation:true});
+ try{
+  const initial=reports();
+  initial.digital.balances=[{owner:'alice',totalMinor:'1000'},{owner:'treasury',totalMinor:'1000'}];
+  initial.coin.balances=[{owner:'treasury',totalMinor:'1000'}];
+  const proof={cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:initial};
+  a.equal(ledger.reconciliationRequired(),true);
+  a.throws(()=>ledger.appendBatch(events),/RECONCILIATION_REQUIRED/);
+  const bad=structuredClone(proof);bad.reports.reserve.eligibleMinor='1999';
+  a.throws(()=>ledger.appendBatch(events,bad),/RECONCILIATION_DISCREPANCY/);
+  const incomplete=structuredClone(proof);incomplete.reports.coin.complete=false;
+  a.throws(()=>ledger.appendBatch(events,incomplete),/INCOMPLETE_OR_MISMATCHED_REPORT/);
+  a.deepEqual(ledger.counts(),{events:0});
+  const other=open(options);
+  try{
+   a.equal(other.appendBatch(events,proof).status,'applied');
+   const next={...events[0],eventId:'q2',quoteId:'q2',at:20,expiresAt:100};
+   a.throws(()=>ledger.appendBatch([next],proof),/STALE_RECONCILIATION/);
+   a.equal(ledger.appendBatch(events).status,'duplicate');
+   ledger.close();ledger=open(options);a.equal(ledger.reconciliationRequired(),true);
+   a.throws(()=>open({...options,requireReconciliation:false}),/INVALID_GATE_CONFIGURATION/);
+   a.throws(()=>ledger.appendBatch([next]),/RECONCILIATION_REQUIRED/);
+   const current={cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:reports()};
+   a.equal(ledger.appendBatch([next],current).status,'applied');
+   a.deepEqual(ledger.counts(),{events:4});
+   const copy=join(dir,'copy.sqlite');ledger.backup(copy);
+   const restored=open({...options,path:copy});
+   try{a.equal(restored.reconciliationRequired(),true);a.deepEqual(restored.counts(),{events:4});}
+   finally{restored.close();}
+  }finally{other.close();}
+ }finally{ledger.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+test('legacy fixture remains explicitly ungated for isolated tests',()=>fixture(({ledger})=>{
+ a.equal(ledger.reconciliationRequired(),false);
+}));
+
+
+test('audited gate stores proof with each committed batch, verifies history and detects missing evidence',()=>{
+ const {DatabaseSync}=require('node:sqlite');
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-asset-audit-')),options={environment:'sandbox',path:join(dir,'ledger.sqlite')};
+ let ledger=open({...options,initialize:true,seed,requireReconciliation:true});
+ try{
+  const initial=reports();
+  initial.digital.balances=[{owner:'alice',totalMinor:'1000'},{owner:'treasury',totalMinor:'1000'}];
+  initial.coin.balances=[{owner:'treasury',totalMinor:'1000'}];
+  const proof={cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:initial};
+  const bad=structuredClone(proof);bad.reports.reserve.eligibleMinor='1999';
+  a.throws(()=>ledger.appendBatch(events,bad),/RECONCILIATION_DISCREPANCY/);
+  a.deepEqual(ledger.auditReconciliation().receipts,[]);
+  ledger.appendBatch(events,proof);
+  const current={cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:reports()};
+  const next={...events[0],eventId:'q2',quoteId:'q2',at:20};
+  ledger.appendBatch([next],current);
+  a.equal(ledger.appendBatch(events).status,'duplicate');
+  const audit=ledger.auditReconciliation();
+  a.deepEqual(audit.receipts,[{startSequence:1,endSequence:3},{startSequence:4,endSequence:4}]);
+  const copy=join(dir,'copy.sqlite');ledger.backup(copy);
+  const restored=open({...options,path:copy});
+  try{a.deepEqual(restored.auditReconciliation(),audit);}finally{restored.close();}
+  ledger.close();ledger=open(options);a.deepEqual(ledger.auditReconciliation(),audit);
+  const db=new DatabaseSync(copy);
+  try{
+   a.throws(()=>db.exec('DELETE FROM reconciliation_receipts'),/APPEND_ONLY/);
+   db.exec('DROP TRIGGER receipts_no_delete; DELETE FROM reconciliation_receipts WHERE start_sequence=4');
+  }finally{db.close();}
+  const {verifyDigitalCoinBackup}=require('../../financial-sandbox/digital-coin-ledger.cjs');
+  a.throws(()=>verifyDigitalCoinBackup({environment:'sandbox',path:copy,expected:audit.manifest}),/RECEIPT_COVERAGE_MISMATCH/);
+ }finally{ledger.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+
+test('priced mode requires reproducible quote amounts and persists price proof with reconciliation',()=>{
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-asset-price-gate-')),options={environment:'sandbox',path:join(dir,'ledger.sqlite')};
+ let ledger=open({...options,initialize:true,seed,requireReconciliation:true,requireVerifiedPricing:true});
+ try{
+  const initial=reports();
+  initial.digital.balances=[{owner:'alice',totalMinor:'1000'},{owner:'treasury',totalMinor:'1000'}];
+  initial.coin.balances=[{owner:'treasury',totalMinor:'1000'}];
+  const evidence={cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:initial};
+  const price={mode:'sandbox',source:'synthetic-price-fixture',priceId:'p1',digitalMinor:'2',coinMinor:'3',observedAt:0,validUntil:100};
+  const request={eventId:'q',quoteId:'q',owner:'alice',direction:'digital_to_coin',inputMinor:'200',minimumOutputMinor:'300',ttlMs:90};
+  const proof={...evidence,priceProofs:[{price,request}]};
+  a.equal(ledger.verifiedPricingRequired(),true);
+  a.throws(()=>ledger.appendBatch(events,evidence),/PRICE_PROOF_REQUIRED/);
+  const altered=[{...events[0],coinMinor:'301'},...events.slice(1)];
+  a.throws(()=>ledger.appendBatch(altered,proof),/PRICE_QUOTE_MISMATCH/);
+  a.throws(()=>ledger.appendBatch(events,{...proof,priceProofs:[{price:{...price,observedAt:11},request}]}),/STALE_PRICE/);
+  a.deepEqual(ledger.counts(),{events:0});
+  ledger.appendBatch(events.slice(0,1),proof);
+  // Settlement uses the already stored quote; no second price proof required.
+  const next={cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:initial};
+  ledger.appendBatch(events.slice(1),next);
+  a.equal(ledger.appendBatch(events).status,'duplicate');
+  const audit=ledger.auditReconciliation();a.deepEqual(audit.receipts,[{startSequence:1,endSequence:1},{startSequence:2,endSequence:3}]);
+  const copy=join(dir,'copy.sqlite');ledger.backup(copy);
+  const restored=open({...options,path:copy});
+  try{a.equal(restored.verifiedPricingRequired(),true);a.deepEqual(restored.auditReconciliation(),audit);}
+  finally{restored.close();}
+  ledger.close();ledger=open(options);
+  a.equal(ledger.verifiedPricingRequired(),true);
+  a.throws(()=>open({...options,requireVerifiedPricing:false}),/INVALID_PRICING_CONFIGURATION/);
+  const {DatabaseSync}=require('node:sqlite'),db=new DatabaseSync(copy);
+  try{
+   db.exec('DROP TRIGGER receipts_no_update');
+   const row=db.prepare('SELECT evidence FROM reconciliation_receipts WHERE start_sequence=1').get();
+   const saved=JSON.parse(row.evidence);saved.priceProofs[0].request.inputMinor='201';
+   db.prepare('UPDATE reconciliation_receipts SET evidence=? WHERE start_sequence=1').run(JSON.stringify(saved));
+  }finally{db.close();}
+  const {verifyDigitalCoinBackup}=require('../../financial-sandbox/digital-coin-ledger.cjs');
+  a.throws(()=>verifyDigitalCoinBackup({environment:'sandbox',path:copy,expected:audit.manifest}),/PRICE_QUOTE_MISMATCH/);
+ }finally{ledger.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+
+test('inconsistent internal coverage or Coin issuance totals fail closed even with matching external reports',()=>fixture(({snapshot,run})=>{
+ for(const [asset,patch] of [
+  ['digital',{coverageSufficient:false}],['digital',{shortfallUsdMinor:'1'}],
+  ['coin',{mintedMinor:'999'}],['coin',{burnedMinor:'1'}],['coin',{fixtureCapMinor:'999'}],
+  ['coin',{remainingIssuanceMinor:'1'}],['coin',{treasuryMinor:'701',nonTreasuryMinor:'299'}],
+  ['coin',{nonTreasuryMinor:'301'}],['coin',{mintedMinor:1000}]
+ ]){
+  const bad=structuredClone(snapshot);Object.assign(bad.projection[asset],patch);
+  a.throws(()=>run(reports(),{snapshot:bad}),/INVALID_INTERNAL_SNAPSHOT/);
+ }
+ a.equal(run().clean,true);
+}));
+
+
+test('new audited ledger rejects replacement of committed reconciliation receipt',()=>{
+ const {DatabaseSync}=require('node:sqlite');
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-receipt-replace-')),options={environment:'sandbox',path:join(dir,'ledger.sqlite')};
+ const ledger=open({...options,initialize:true,seed,requireReconciliation:true});
+ try{
+  const initial=reports();
+  initial.digital.balances=[{owner:'alice',totalMinor:'1000'},{owner:'treasury',totalMinor:'1000'}];
+  initial.coin.balances=[{owner:'treasury',totalMinor:'1000'}];
+  ledger.appendBatch(events,{cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:initial});
+  const before=ledger.auditReconciliation(),db=new DatabaseSync(options.path);
+  try{
+   db.exec('PRAGMA recursive_triggers=OFF');
+   a.throws(()=>db.exec("INSERT OR REPLACE INTO reconciliation_receipts SELECT start_sequence,end_sequence,evidence FROM reconciliation_receipts"),/APPEND_ONLY/);
+  }finally{db.close();}
+  a.deepEqual(ledger.auditReconciliation(),before);
+ }finally{ledger.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+
+test('audited recovery and duplicate replay refuse missing reconciliation evidence',()=>{
+ const {DatabaseSync}=require('node:sqlite');
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-receipt-recovery-')),options={environment:'sandbox',path:join(dir,'ledger.sqlite')};
+ const ledger=open({...options,initialize:true,seed,requireReconciliation:true});
+ try{
+  const initial=reports();
+  initial.digital.balances=[{owner:'alice',totalMinor:'1000'},{owner:'treasury',totalMinor:'1000'}];
+  initial.coin.balances=[{owner:'treasury',totalMinor:'1000'}];
+  ledger.appendBatch(events,{cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:initial});
+  const copy=join(dir,'copy.sqlite');ledger.backup(copy);
+  const db=new DatabaseSync(copy);
+  try{db.exec('DROP TRIGGER receipts_no_delete; DELETE FROM reconciliation_receipts');}finally{db.close();}
+  a.throws(()=>open({...options,path:copy}),/RECEIPT_COVERAGE_MISMATCH/);
+  const active=new DatabaseSync(options.path);
+  try{active.exec('DROP TRIGGER receipts_no_delete; DELETE FROM reconciliation_receipts');}finally{active.close();}
+  a.throws(()=>ledger.get(),/RECEIPT_COVERAGE_MISMATCH/);
+  a.throws(()=>ledger.appendBatch(events),/RECEIPT_COVERAGE_MISMATCH/);
+  a.deepEqual(ledger.counts(),{events:3});
+ }finally{ledger.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('reconciliation evidence is captured once and accessors or serialization hooks cannot poison durable receipts',()=>{
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-asset-evidence-')),options={environment:'sandbox',path:join(dir,'ledger.sqlite')};
+ const ledger=open({...options,initialize:true,seed,requireReconciliation:true});
+ try{
+  const initial=reports();
+  initial.digital.balances=[{owner:'alice',totalMinor:'1000'},{owner:'treasury',totalMinor:'1000'}];
+  initial.coin.balances=[{owner:'treasury',totalMinor:'1000'}];
+  const proof={cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:initial};
+  const before=ledger.auditReconciliation();let reads=0;
+  const unstable=structuredClone(proof);
+  Object.defineProperty(unstable.reports.reserve,'eligibleMinor',{enumerable:true,get(){reads++;return reads===1?'2000':'1999';}});
+  const hook=structuredClone(proof);
+  Object.defineProperty(hook.reports.reserve,'toJSON',{value(){throw Error('must not run');}});
+  const sparse=structuredClone(proof);delete sparse.reports.digital.balances[0];
+  for(const bad of [unstable,hook,sparse]){
+   a.throws(()=>ledger.appendBatch(events,bad),/INVALID_RECONCILIATION_EVIDENCE/);
+   a.deepEqual(ledger.auditReconciliation(),before);
+  }
+  a.equal(reads,0);
+  a.equal(ledger.appendBatch(events,proof).status,'applied');
+  const audit=ledger.auditReconciliation(),restored=open(options);
+  try{a.deepEqual(restored.auditReconciliation(),audit);}finally{restored.close();}
+ }finally{ledger.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('priced reconciliation rejects mutable nested price proofs before committing either asset',()=>{
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-price-evidence-')),options={environment:'sandbox',path:join(dir,'ledger.sqlite')};
+ const ledger=open({...options,initialize:true,seed,requireReconciliation:true,requireVerifiedPricing:true});
+ try{
+  const initial=reports();
+  initial.digital.balances=[{owner:'alice',totalMinor:'1000'},{owner:'treasury',totalMinor:'1000'}];
+  initial.coin.balances=[{owner:'treasury',totalMinor:'1000'}];
+  const price={mode:'sandbox',source:'synthetic-price-fixture',priceId:'p1',digitalMinor:'2',coinMinor:'3',observedAt:0,validUntil:100};
+  const request={eventId:'q',quoteId:'q',owner:'alice',direction:'digital_to_coin',inputMinor:'200',minimumOutputMinor:'300',ttlMs:90};
+  const proof={cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:initial,priceProofs:[{price,request}]};
+  const before=ledger.auditReconciliation(),bad=structuredClone(proof);let reads=0;
+  Object.defineProperty(bad.priceProofs[0].request,'inputMinor',{enumerable:true,get(){reads++;return reads===1?'200':'201';}});
+  a.throws(()=>ledger.appendBatch(events,bad),/INVALID_RECONCILIATION_EVIDENCE/);
+  a.equal(reads,0);a.deepEqual(ledger.auditReconciliation(),before);
+  a.equal(ledger.appendBatch(events,proof).status,'applied');
+  const audit=ledger.auditReconciliation(),restored=open(options);
+  try{a.deepEqual(restored.auditReconciliation(),audit);}finally{restored.close();}
+ }finally{ledger.close();fs.rmSync(dir,{recursive:true,force:true});}
+});

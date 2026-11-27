@@ -1,0 +1,13 @@
+'use strict';
+const {test}=require('node:test');
+const a=require('node:assert/strict');
+const {reconcileCut}=require('../../financial-sandbox/reconcile-cut.cjs');
+const row={mode:'sandbox',reference:'f1',kind:'funding',status:'confirmed',amountMinor:100,currency:'USD'};
+const snap=(source,overrides={})=>({mode:'sandbox',source,scope:'US-HN:all-funding-payout-refund',complete:true,start:'2026-11-26T00:00:00.000Z',end:'2026-11-27T00:00:00.000Z',capturedAt:'2026-11-27T00:01:00.000Z',declaredCount:1,rows:[row],...overrides});
+const run=(i={},p={})=>reconcileCut({environment:'sandbox',internal:snap('internal',i),provider:snap('provider',p)});
+test('matching independent declared cuts reconcile per currency',()=>{const x=run();a.equal(x.clean,true);a.equal(x.matchedConfirmedNetMinor.USD,'100');});
+test('different windows cannot return a clean result even with identical rows',()=>{const x=run({}, {start:'2026-11-26T01:00:00.000Z'});a.equal(x.clean,false);a.equal(x.issues[0].code,'CUT_MISMATCH');a.equal(x.matchedConfirmedNetMinor,null);});
+test('wrong scope, source, environment and incomplete snapshot fail closed',()=>{for(const p of [{scope:'US-SV'},{source:'internal'},{complete:false},{mode:'production'}])a.equal(run({},p).issues[0].code,'INVALID_ENVELOPE');a.throws(()=>reconcileCut({environment:'production'}),/SANDBOX_ONLY/);});
+test('noncanonical, reversed and premature capture times fail closed',()=>{for(const p of [{start:'2026-02-30T00:00:00.000Z'},{start:'2026-11-26T00:00:00Z'},{start:'2026-11-27T00:00:00.000Z'},{capturedAt:'2026-11-26T23:59:59.999Z'}])a.equal(run({},p).issues[0].code,'INVALID_CUT');});
+test('missing or inconsistent declared counts cannot pass',()=>{for(const p of [{declaredCount:undefined},{declaredCount:0},{declaredCount:2},{declaredCount:'1'}])a.equal(run({},p).issues[0].code,'COUNT_MISMATCH');});
+test('underlying missing references, contradictory amounts and duplicates still fail',()=>{a.equal(run({}, {rows:[],declaredCount:0}).issues[0].code,'MISSING_PROVIDER');a.equal(run({}, {rows:[{...row,amountMinor:101}]}).issues[0].code,'VALUE_MISMATCH');a.equal(run({}, {rows:[row,row],declaredCount:2}).issues[0].code,'DUPLICATE_REFERENCE');});

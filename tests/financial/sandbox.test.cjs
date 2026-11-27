@@ -1,0 +1,55 @@
+'use strict';
+const {test}=require('node:test');const a=require('node:assert/strict');
+const {SandboxFinance}=require('../../financial-sandbox/core.cjs');
+const {createMockProvider}=require('../../financial-sandbox/mock-provider.cjs');
+function fixture(){
+ let time=1000000,seq=0;const clock=()=>time;const provider=createMockProvider({secret:'synthetic-secret-not-used-outside-tests',clock});
+ let status={identity:'verified',sanctions:'clear',risk:'allow',dailyLimitCents:200000};
+ const core=new SandboxFinance({environment:'sandbox',provider,clock,id:()=>String(++seq),policy:()=>status});
+ const quote=(actor='A',amountCents=10000)=>core.quote(actor,{destination:'HN',amountCents,method:'bank'});
+ const create=(actor='A',q=quote(actor),requestId='r1')=>core.create(actor,{quoteId:q.id,requestId,beneficiaryRef:'synthetic-beneficiary'});
+ const receive=(ref,type,id,patch)=>{const e=provider.event(ref,type,id,patch);return core.receive(e.raw,e.signature);};
+ return {core,provider,quote,create,receive,advance:n=>time+=n,setPolicy:p=>status=p};
+}
+async function funded(f){let o=f.create();o=await f.core.submit('A',o.id,'funding');f.receive(o.fundingRef,'funding_confirmed','f1');return f.core.get('A',o.id);}
+test('production construction rejected',()=>a.throws(()=>new SandboxFinance({environment:'production'}),/SANDBOX_ONLY/));
+test('quote exact integer fee, synthetic FX and expiry',()=>{const f=fixture(),q=f.quote();a.equal(q.feeCents,150);a.equal(q.totalCents,10150);a.equal(q.payoutAmountMinor,250000);f.advance(300000);a.throws(()=>f.create('A',q),/QUOTE_UNAVAILABLE/);});
+test('invalid amount or destination rejected',()=>{const f=fixture();for(const n of [99,100001,1.5,NaN])a.throws(()=>f.quote('A',n));a.throws(()=>f.core.quote('A',{destination:'GT',amountCents:1000,method:'bank'}));});
+test('same request stable and changed payload rejected',()=>{const f=fixture(),q=f.quote(),o=f.create('A',q);a.equal(f.create('A',q).id,o.id);a.throws(()=>f.core.create('A',{quoteId:q.id,requestId:'r1',beneficiaryRef:'changed'}),/IDEMPOTENCY_CONFLICT/);a.throws(()=>f.create('A',q,'r2'),/QUOTE_UNAVAILABLE/);});
+test('actor cannot use another quote or read another order',()=>{const f=fixture(),q=f.quote();a.throws(()=>f.create('B',q),/QUOTE_UNAVAILABLE/);const o=f.create('A',q);a.throws(()=>f.core.get('B',o.id),/NOT_FOUND/);});
+test('identity, sanctions, risk and limits fail closed',()=>{const f=fixture();for(const p of [{identity:'pending',sanctions:'clear',risk:'allow',dailyLimitCents:100000},{identity:'verified',sanctions:'unknown',risk:'allow',dailyLimitCents:100000},{identity:'verified',sanctions:'clear',risk:'review',dailyLimitCents:100000}]){f.setPolicy(p);a.throws(()=>f.create(),/COMPLIANCE_HOLD/);}f.setPolicy({identity:'verified',sanctions:'clear',risk:'allow',dailyLimitCents:1000});a.throws(()=>f.create(),/LIMIT_EXCEEDED/);});
+test('daily limit counts reserved amount and fee',()=>{const f=fixture();f.setPolicy({identity:'verified',sanctions:'clear',risk:'allow',dailyLimitCents:20000});f.create();a.throws(()=>f.create('A',f.quote(),'r2'),/LIMIT_EXCEEDED/);});
+test('funding response loss retries same provider reference, no double charge',async()=>{const f=fixture(),o=f.create();f.provider.loseNextResponse();await a.rejects(f.core.submit('A',o.id,'funding'),/RESPONSE_LOSS/);a.equal(f.core.get('A',o.id).state,'funding_pending');const p=await f.core.submit('A',o.id,'funding');a.equal(f.provider.submissions().length,1);a.equal(f.receive(p.fundingRef,'funding_confirmed','f1').state,'funded');a.equal(f.core.reconcile().postings,1);});
+test('concurrent submits blocked synchronously',async()=>{const f=fixture(),o=f.create();const first=f.core.submit('A',o.id,'funding');await a.rejects(f.core.submit('A',o.id,'funding'),/IN_FLIGHT/);await first;});
+test('payout cannot occur before funding',async()=>{const f=fixture(),o=f.create();await a.rejects(f.core.submit('A',o.id,'payout'),/INVALID_TRANSITION/);});
+test('risk changed after funding stops payout',async()=>{const f=fixture(),o=await funded(f);f.setPolicy({identity:'verified',sanctions:'review',risk:'allow',dailyLimitCents:100000});await a.rejects(f.core.submit('A',o.id,'payout'),/COMPLIANCE_HOLD/);});
+test('signed event must match reference, amount and currency',async()=>{const f=fixture(),o=await f.core.submit('A',f.create().id,'funding');for(const patch of [{amountMinor:1},{reference:'other'},{currency:'HNL'}])a.throws(()=>f.receive(o.fundingRef,'funding_confirmed','bad',patch),/EVENT_MISMATCH/);a.equal(f.core.reconcile().postings,0);});
+test('invalid signature and stale event rejected',async()=>{const f=fixture(),o=await f.core.submit('A',f.create().id,'funding');const e=f.provider.event(o.fundingRef,'funding_confirmed','f1');a.throws(()=>f.core.receive(e.raw,'0'.repeat(64)),/INVALID_SIGNATURE/);f.advance(300001);a.throws(()=>f.core.receive(e.raw,e.signature),/EVENT_EXPIRED/);});
+test('duplicate identical event posts once, changed content rejected',async()=>{const f=fixture(),o=await f.core.submit('A',f.create().id,'funding');const e=f.provider.event(o.fundingRef,'funding_confirmed','f1');f.core.receive(e.raw,e.signature);a.equal(f.core.receive(e.raw,e.signature).status,'duplicate');a.throws(()=>f.receive(o.fundingRef,'funding_confirmed','f1',{amountMinor:1}),/EVENT_ID_CONFLICT/);a.throws(()=>f.receive(o.fundingRef,'funding_confirmed','f2'),/UNEXPECTED_EVENT_STATE/);a.equal(f.core.reconcile().postings,1);});
+test('paid order posts balanced cash, payable and fee',async()=>{const f=fixture(),o=await funded(f);const p=await f.core.submit('A',o.id,'payout');f.receive(p.payoutRef,'payout_confirmed','p1');const r=f.core.reconcile();a.deepEqual(r.balances,{provider_cash:150,customer_payable:0,fee_revenue:-150});a.ok(r.balanced&&r.liabilityMatches&&r.revenueMatches);await a.rejects(f.core.submit('A',o.id,'refund'),/INVALID_TRANSITION/);});
+test('failed payout refunds full amount including fee and no revenue',async()=>{const f=fixture(),o=await funded(f);let p=await f.core.submit('A',o.id,'payout');f.receive(p.payoutRef,'payout_failed','p1');p=await f.core.submit('A',o.id,'refund');f.receive(p.refundRef,'refund_confirmed','r1');const r=f.core.reconcile();a.deepEqual(r.balances,{provider_cash:0,customer_payable:0,fee_revenue:0});a.ok(r.balanced&&r.liabilityMatches&&r.revenueMatches);a.equal(f.core.get('A',o.id).state,'refunded');});
+test('unconfirmed refund retains liability',async()=>{const f=fixture(),o=await funded(f);let p=await f.core.submit('A',o.id,'payout');f.receive(p.payoutRef,'payout_failed','p1');f.provider.loseNextResponse();await a.rejects(f.core.submit('A',o.id,'refund'));a.equal(f.core.reconcile().balances.customer_payable,-10150);a.equal(f.core.get('A',o.id).state,'refund_pending');});
+test('funding failure produces no posting',async()=>{const f=fixture(),o=await f.core.submit('A',f.create().id,'funding');f.receive(o.fundingRef,'funding_failed','f1');a.equal(f.core.reconcile().postings,0);a.ok(f.core.reconcile().liabilityMatches);});
+
+
+test('coercible non-string operation kinds cannot change state or submit',async()=>{
+ const f=fixture(),o=f.create();
+ for(const kind of [['funding'],{toString:()=> 'funding'},null,123]){
+  await a.rejects(f.core.submit('A',o.id,kind),/INVALID_ACTION/);
+  a.equal(f.core.get('A',o.id).state,'awaiting_funding');
+  a.equal(f.core.get('A',o.id).fundingRef,null);
+  a.equal(f.provider.submissions().length,0);
+ }
+});
+test('signed non-string event types cannot change ledger state or consume event ID',async()=>{
+ const f=fixture(),o=await f.core.submit('A',f.create().id,'funding');
+ const before=f.core.reconcile();
+ for(const type of [['funding_confirmed'],['funding_failed'],{},null,123]){
+  a.throws(()=>f.receive(o.fundingRef,'funding_confirmed','typed-event',{type}),/EVENT_MISMATCH/);
+  a.equal(f.core.get('A',o.id).state,'funding_pending');
+  a.deepEqual(f.core.reconcile(),before);
+ }
+ a.equal(f.receive(o.fundingRef,'funding_confirmed','typed-event').state,'funded');
+ a.equal(f.core.reconcile().postings,1);
+ a.equal(f.core.reconcile().liabilityMatches,true);
+});

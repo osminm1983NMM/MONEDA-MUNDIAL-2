@@ -1,0 +1,252 @@
+name: Núcleo financiero sandbox
+on:
+  push:
+    branches: [feature/infraestructura-financiera-sandbox-20261126, dev/cierre-android-20261125]
+    paths: ['financial-sandbox/**', 'financial-hosted/**', 'tests/financial/**', '.github/workflows/financial-sandbox.yml']
+  pull_request:
+    paths: ['financial-sandbox/**', 'financial-hosted/**', 'tests/financial/**', '.github/workflows/financial-sandbox.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sandbox:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/financial/*.test.cjs
+  postgres-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: lab
+          POSTGRES_PASSWORD: disposable-ci-only
+          POSTGRES_DB: mwd_financial_sandbox_test
+        options: >-
+          --health-cmd "pg_isready -U lab -d mwd_financial_sandbox_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      recovery:
+        image: postgres:17
+        env:
+          POSTGRES_USER: recovery_admin
+          POSTGRES_PASSWORD: disposable-recovery-ci-only
+        options: >-
+          --health-cmd "pg_isready -U recovery_admin -d postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify database-name guard and run transactional SQL tests
+        env:
+          LAB_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          if docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d postgres < financial-sandbox/postgres-lab.sql; then
+            echo "Expected non-lab database rejection"
+            exit 1
+          fi
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-dispatch-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-dispatch-lab.sql
+          bash tests/financial/postgres-concurrency.sh
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-policy-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-policy-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-incident-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-incident-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-review-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-review-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-reconciliation-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-reconciliation-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-review-evidence-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-review-evidence-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-refund-recovery-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-refund-recovery-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-worker-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-dispatch-monitor-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-ledger-integrity-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-ledger-integrity-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-lifecycle-integrity-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-lifecycle-integrity-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-integrity-hold-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-integrity-hold-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-dispatch-control-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-dispatch-control-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-dispatch-resume-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-dispatch-resume-lab.sql
+          bash tests/financial/postgres-resume-concurrency.sh
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-statement-cut-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-statement-cut-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-cut-evidence-gate-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-final-security-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-submission-gate-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-cut-evidence-gate-lab.sql
+          # Race approval against a newer explicit statement cutoff before worker fixtures.
+          (
+            db=mwd_financial_sandbox_test
+            sql() { docker exec -i "$LAB_CONTAINER" psql -X -qAt -v ON_ERROR_STOP=1 -U lab -d "$db" "$@"; }
+            [[ "$(sql -c 'select current_database()')" == "$db" ]]
+            [[ "$(sql -c 'select count(*) from mwd_financial_lab.reservations')" == 0 ]]
+            tmp=$(mktemp -d)
+            writer=''
+            trap 'if [[ -n "$writer" ]]; then wait "$writer" || true; fi; rm -rf "$tmp"' EXIT
+            [[ "$(sql -c "SET ROLE mwd_lab_safety_service; SELECT mwd_financial_lab.halt_dispatch('operator_emergency');")" == halted ]]
+            halt=$(sql -c 'SELECT max(id) FROM mwd_financial_lab.dispatch_halt_events')
+            old=$(sql -c "SET ROLE mwd_lab_statement_service; SELECT mwd_financial_lab.import_statement_cut('resume-race-old','US-HN:all-funding-payout-refund',clock_timestamp(),0,'[]');")
+            [[ "$halt" =~ ^[0-9]+$ && "$old" =~ ^[0-9a-f-]{36}$ ]]
+            [[ "$(sql -c "SET ROLE mwd_lab_resume_proposer; SELECT mwd_financial_lab.propose_dispatch_resume($halt,'$old','race-first');")" == proposed ]]
+            sql > "$tmp/import" <<'SQL' &
+          BEGIN;
+          SET LOCAL ROLE mwd_lab_statement_service;
+          SELECT mwd_financial_lab.import_statement_cut('resume-race-new','US-HN:all-funding-payout-refund',clock_timestamp(),0,'[]');
+          SELECT pg_advisory_xact_lock(60261126,97);
+          SELECT pg_sleep(5);
+          COMMIT;
+          SQL
+            writer=$!
+            ready=false
+            for _ in $(seq 1 40); do
+              if [[ "$(sql -c 'SELECT pg_try_advisory_lock(60261126,97)')" == f ]]; then ready=true; break; fi
+              sleep 0.1
+            done
+            [[ "$ready" == true ]]
+            if sql -c "SET statement_timeout='20s'; SET ROLE mwd_lab_resume_approver; SELECT mwd_financial_lab.approve_dispatch_resume($halt,'$old','race-second');" > "$tmp/rejected" 2>&1; then
+              echo 'Unsafe resume with superseded explicit cutoff'; exit 1
+            fi
+            grep -q 'RESUME_EVIDENCE_UNAVAILABLE' "$tmp/rejected"
+            wait "$writer"; writer=''
+            new=$(grep -E '^[0-9a-f-]{36}$' "$tmp/import")
+            [[ "$new" =~ ^[0-9a-f-]{36}$ && "$new" != "$old" ]]
+            [[ "$(sql -c 'SELECT halted FROM mwd_financial_lab.dispatch_control_summary')" == t ]]
+            [[ "$(sql -c "SELECT count(*) FROM mwd_financial_lab.dispatch_resume_approvals WHERE halt_id=$halt")" == 0 ]]
+            [[ "$(sql -c "SET ROLE mwd_lab_resume_proposer; SELECT mwd_financial_lab.propose_dispatch_resume($halt,'$new','race-first');")" == proposed ]]
+            [[ "$(sql -c "SET ROLE mwd_lab_resume_approver; SELECT mwd_financial_lab.approve_dispatch_resume($halt,'$new','race-second');")" == resumed ]]
+            [[ "$(sql -c 'SELECT halted FROM mwd_financial_lab.dispatch_control_summary')" == f ]]
+            [[ "$(sql -c "SELECT count(*) FROM mwd_financial_lab.dispatch_resume_approvals WHERE halt_id=$halt AND batch_id='$new'")" == 1 ]]
+            echo 'Concurrent superseding cutoff and safe resume verified'
+          )
+
+      - name: Concurrent statement cut exclusion and idempotent replay
+        env:
+          LAB_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          db=mwd_financial_sandbox_test
+          sql() { docker exec -i "$LAB_CONTAINER" psql -X -qAt -v ON_ERROR_STOP=1 -U lab -d "$db" "$@"; }
+          [[ "$(sql -c 'select current_database()')" == "$db" ]]
+          tmp=$(mktemp -d)
+          writer=''
+          cleanup() { if [[ -n "$writer" ]]; then wait "$writer" || true; fi; rm -rf "$tmp"; }
+          trap cleanup EXIT
+          # A writer holds a real independent table lock before announcing readiness.
+          sql > "$tmp/writer" <<'SQL' &
+          BEGIN;
+          LOCK TABLE mwd_financial_lab.inbox IN ROW EXCLUSIVE MODE;
+          SELECT pg_advisory_xact_lock(60261126,98);
+          SELECT pg_sleep(5);
+          ROLLBACK;
+          SQL
+          writer=$!
+          ready=false
+          for _ in $(seq 1 40); do
+            if [[ "$(sql -c 'SELECT pg_try_advisory_lock(60261126,98)')" == f ]]; then ready=true; break; fi
+            sleep 0.1
+          done
+          [[ "$ready" == true ]]
+          if sql -c "SET ROLE mwd_lab_statement_service; SELECT mwd_financial_lab.import_statement_cut('concurrent-cut-busy','US-HN:all-funding-payout-refund',clock_timestamp(),0,'[]');" > "$tmp/busy" 2>&1; then
+            echo 'Unsafe snapshot taken while inbox writer active'; exit 1
+          fi
+          grep -q 'CUT_EVIDENCE_BUSY' "$tmp/busy"
+          # Both private evidence gates must reject concurrent writers before evaluating IDs.
+          if sql -c "SELECT mwd_financial_lab.check_statement_evidence(0,gen_random_uuid());" > "$tmp/review" 2>&1; then
+            echo 'Unsafe review while inbox writer active'; exit 1
+          fi
+          grep -q 'EVIDENCE_BUSY' "$tmp/review"
+          if sql -c "SELECT mwd_financial_lab.check_refund_recovery(gen_random_uuid(),0,gen_random_uuid());" > "$tmp/refund" 2>&1; then
+            echo 'Unsafe refund decision while inbox writer active'; exit 1
+          fi
+          grep -q 'EVIDENCE_BUSY' "$tmp/refund"
+          [[ "$(sql -c "SELECT count(*) FROM mwd_financial_lab.statement_batches WHERE external_id='concurrent-cut-busy'")" == 0 ]]
+          wait "$writer"; writer=''
+          # Two import sessions race with exactly the same immutable envelope.
+          stamp=$(sql -c 'SELECT clock_timestamp()')
+          sql > "$tmp/first" <<SQL &
+          BEGIN;
+          SET LOCAL ROLE mwd_lab_statement_service;
+          SELECT mwd_financial_lab.import_statement_cut('concurrent-cut-replay','US-HN:all-funding-payout-refund','$stamp',0,'[]');
+          SELECT pg_advisory_xact_lock(60261126,98);
+          SELECT pg_sleep(3);
+          COMMIT;
+          SQL
+          writer=$!
+          ready=false
+          for _ in $(seq 1 40); do
+            if [[ "$(sql -c 'SELECT pg_try_advisory_lock(60261126,98)')" == f ]]; then ready=true; break; fi
+            sleep 0.1
+          done
+          [[ "$ready" == true ]]
+          second=$(sql -c "SET ROLE mwd_lab_statement_service; SELECT mwd_financial_lab.import_statement_cut('concurrent-cut-replay','US-HN:all-funding-payout-refund','$stamp',0,'[]');")
+          wait "$writer"; writer=''
+          first=$(grep -E '^[0-9a-f-]{36}$' "$tmp/first")
+          [[ "$first" == "$second" ]]
+          [[ "$(sql -c "SELECT count(*) FROM mwd_financial_lab.statement_batches b JOIN mwd_financial_lab.statement_cut_metadata m ON m.batch_id=b.id WHERE b.external_id='concurrent-cut-replay'")" == 1 ]]
+          echo 'Concurrent cut writer exclusion and replay verified in disposable database'
+
+      - name: Verify full-size reconciliation and provider recovery
+        env:
+          LAB_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          # Run volume fixtures after the NOWAIT contention tests so cleanup
+          # of rolled-back bulk data cannot interfere with their table locks.
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-reconciliation-volume.sql
+          node tests/financial/postgres-provider-worker.cjs
+
+      - name: Verify transactional USD/HNL ledger and segregated roles
+        env:
+          LAB_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-multicurrency-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-multicurrency-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-multicurrency-bridge-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-multicurrency-bridge-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-order-status-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-order-status-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < financial-sandbox/postgres-status-binding-lab.sql
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-status-binding-lab.sql
+          node tests/financial/postgres-status-service-integration.cjs
+          bash tests/financial/postgres-status-direct-login.sh
+          docker exec -i "$LAB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U lab -d mwd_financial_sandbox_test < tests/financial/postgres-final-security-lab.sql
+
+      - name: Restore financial backup in a separate disposable cluster
+        env:
+          LAB_CONTAINER: ${{ job.services.postgres.id }}
+          RECOVERY_CONTAINER: ${{ job.services.recovery.id }}
+        run: bash tests/financial/postgres-backup-restore.sh
+
+      - name: Verify concurrent daily limits after recovery
+        env:
+          RECOVERY_CONTAINER: ${{ job.services.recovery.id }}
+        run: bash tests/financial/postgres-policy-concurrency.sh
+
+      - name: Verify concurrent multicurrency events after recovery
+        env:
+          RECOVERY_CONTAINER: ${{ job.services.recovery.id }}
+        run: bash tests/financial/postgres-multicurrency-concurrency.sh
