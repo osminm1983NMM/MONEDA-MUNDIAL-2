@@ -1,0 +1,48 @@
+name: Unified LAB dependency security audit
+on:
+  push:
+    branches: [qa/unified-dependency-audit-20261127]
+    paths: ['.github/workflows/unified-dependency-audit.yml']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Audit exact locked runtime dependencies without installing or upgrading
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s package-lock.json
+          sha256sum package-lock.json > "$RUNNER_TEMP/lock.sha256"
+          rc=0
+          npm audit --package-lock-only --omit=dev --audit-level=high --registry=https://registry.npmjs.org --json > "$RUNNER_TEMP/npm-audit.json" || rc=$?
+          export AUDIT_EXIT="$rc"
+          node <<'NODE'
+          const fs=require('node:fs'), path=require('node:path');
+          const report=JSON.parse(fs.readFileSync(path.join(process.env.RUNNER_TEMP,'npm-audit.json'),'utf8'));
+          if(report.error||!report.metadata?.vulnerabilities||!report.vulnerabilities)throw Error('AUDIT_UNAVAILABLE_OR_INVALID');
+          const counts=report.metadata.vulnerabilities;
+          for(const k of ['info','low','moderate','high','critical','total'])if(!Number.isSafeInteger(counts[k])||counts[k]<0)throw Error('AUDIT_INVALID_COUNTS');
+          if(!['0','1'].includes(process.env.AUDIT_EXIT))throw Error('AUDIT_COMMAND_FAILED');
+          console.log(JSON.stringify({counts, findings:Object.entries(report.vulnerabilities).map(([name,v])=>({name,severity:v.severity,direct:v.isDirect,range:v.range,fixAvailable:v.fixAvailable}))},null,2));
+          if(counts.high+counts.critical>0)process.exitCode=1;
+          else if(process.env.AUDIT_EXIT!=='0')throw Error('AUDIT_EXIT_INCONSISTENT');
+          NODE
+          sha256sum -c "$RUNNER_TEMP/lock.sha256"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unified-dependency-audit
+          path: |
+            ${{ runner.temp }}/npm-audit.json
+            ${{ runner.temp }}/lock.sha256
+          if-no-files-found: warn
+          retention-days: 7
