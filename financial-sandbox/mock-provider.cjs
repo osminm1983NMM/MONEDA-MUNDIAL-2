@@ -1,4 +1,5 @@
 'use strict';
+const {parseSyntheticEnvelope}=require('./strict-synthetic-envelope.cjs');
 const {createHmac,timingSafeEqual}=require('node:crypto');
 // This adapter has no network transport and accepts only synthetic events.
 function createMockProvider({secret,clock=Date.now}){
@@ -30,7 +31,7 @@ function createMockProvider({secret,clock=Date.now}){
   verifyEvent(raw,signature){
    if(typeof raw!=='string'||Buffer.byteLength(raw)>16384||typeof signature!=='string'||!/^[0-9a-f]{64}$/.test(signature))throw Error('INVALID_SIGNATURE');
    if(!timingSafeEqual(Buffer.from(sign(raw),'hex'),Buffer.from(signature,'hex')))throw Error('INVALID_SIGNATURE');
-   const e=JSON.parse(raw);
+   const e=parseSyntheticEnvelope(raw);
    const now=clock();if(!Number.isSafeInteger(now)||now<0)throw Error('CLOCK');if(!Number.isSafeInteger(e?.timestamp)||e.timestamp<0||Math.abs(now-e.timestamp)>300000)throw Error('EVENT_EXPIRED');
    return e;
   }

@@ -1,4 +1,5 @@
 'use strict';
+const {parseSyntheticEnvelope}=require('./strict-synthetic-envelope.cjs');
 // Synthetic HMAC envelope for the offline multicurrency ledger. Not a real provider protocol.
 const {createHmac,timingSafeEqual}=require('node:crypto');
 const {openMulticurrencyLedger}=require('./multicurrency-ledger.cjs');
@@ -12,8 +13,7 @@ function openAuthenticatedMulticurrencyLab({environment,path,initialize=false,se
  function receive({raw,signature}={}){
   if(typeof raw!=='string'||Buffer.byteLength(raw)>16384||typeof signature!=='string'||!/^[0-9a-f]{64}$/.test(signature))fail('INVALID_SIGNATURE');
   if(!timingSafeEqual(Buffer.from(sign(raw),'hex'),Buffer.from(signature,'hex')))fail('INVALID_SIGNATURE');
-  let e;
-  try{e=JSON.parse(raw);}catch{fail('INVALID_ENVELOPE');}
+  const e=parseSyntheticEnvelope(raw);
   if(!e||Array.isArray(e)||Object.keys(e).length!==4||!['mode','provider','timestamp','event'].every(k=>own(e,k))||e.mode!=='sandbox'||e.provider!=='mock-multicurrency'||!e.event||typeof e.event!=='object'||Array.isArray(e.event))fail('INVALID_ENVELOPE');
   const now=clock();
   if(!Number.isSafeInteger(now)||now<0)fail('CLOCK');
