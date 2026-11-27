@@ -33,7 +33,10 @@ const hostedArtifacts={
   "financial-hosted/mwd_hosted_authenticated_status.sql": "bf172d3769e8075b35ca742a4f9e2220e14e6a42",
   "financial-hosted/verify_authenticated_status.sql": "2717372105a5eafd9afb7948358271168e5ed32e",
   "financial-sandbox/sql/mwd_lab_session_identity.sql": "53fb1e1648686fdae2a2c7f23c27bc7f8adcc7b3",
-  "financial-sandbox/sql/mwd_lab_wallet_snapshot.sql": "9fe113158f0b22dc049892311a7a4e838928a3d9"
+  "financial-sandbox/sql/mwd_lab_wallet_snapshot.sql": "9fe113158f0b22dc049892311a7a4e838928a3d9",
+  // Exact templates from the independently compiled and physically tested LAB 8549d805.
+  "financial-sandbox/mobile/hosted-lab-entry.jsx": "acaeda96e88fd118866dbc7d5aae9cf155efeffc",
+  "financial-sandbox/mobile/hosted-lab-app.json": "f8c3c7f194730b3d295a0cf6383533fdeea875ef"
 };
 function blobSha(bytes){
  return createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');
@@ -43,7 +46,7 @@ function assertMobileBoundary(tracked,read){
  assert.deepEqual(rootFiles,Object.keys(expected).sort(),'Root mobile inventory changed; review Android baseline');
  const allowedDirectories=new Set(['.github','database','docs','scripts','tests','financial-sandbox']);
  for(const p of tracked.filter(p=>p.includes('/'))){
-  if(p.startsWith('financial-hosted/')||p.startsWith('financial-sandbox/sql/')){
+  if(Object.hasOwn(hostedArtifacts,p)||p.startsWith('financial-hosted/')||p.startsWith('financial-sandbox/sql/')){
    assert.ok(Object.hasOwn(hostedArtifacts,p),'Unreviewed hosted file: '+p);
    assert.equal(blobSha(read(p)),hostedArtifacts[p],'Hosted artifact changed: '+p);
   }else assert.ok(allowedDirectories.has(p.split('/')[0]),'Unreviewed root directory: '+p);
