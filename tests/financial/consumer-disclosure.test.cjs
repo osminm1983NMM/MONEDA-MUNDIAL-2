@@ -68,3 +68,39 @@ test('funding evidence before acceptance and failed funding cannot create a rece
  a.equal(f.finance.getReceipt('alice',o.id),null);
  a.equal(f.finance.reconcile().postings,0);
 });
+
+test('first funding at accepted quote expiry is blocked without an external intent',async()=>{
+ const f=fixture(),o=f.create(f.show().sha256);
+ f.tick(300000);
+ await a.rejects(f.finance.submit('alice',o.id,'funding'),/FUNDING_QUOTE_EXPIRED/);
+ a.equal(f.finance.get('alice',o.id).state,'awaiting_funding');
+ a.equal(f.finance.get('alice',o.id).fundingRef,null);
+ a.equal(f.provider.submissions().length,0);
+ a.equal(f.finance.getReceipt('alice',o.id),null);
+});
+test('pending funding with lost response survives quote expiry using the same provider reference',async()=>{
+ const f=fixture(),o=f.create(f.show().sha256);
+ f.tick(299999);f.provider.loseNextResponse();
+ await a.rejects(f.finance.submit('alice',o.id,'funding'),/SIMULATED_RESPONSE_LOSS/);
+ const original=f.finance.get('alice',o.id).fundingRef;
+ f.tick(10);
+ const pending=await f.finance.submit('alice',o.id,'funding');
+ a.equal(pending.fundingRef,original);
+ a.equal(f.provider.submissions().length,1);
+ const e=f.provider.event(original,'funding_confirmed','late-success');
+ f.finance.receive(e.raw,e.signature);
+ a.equal(f.finance.getReceipt('alice',o.id).fundingStartedAt,1299999);
+ a.equal(f.finance.reconcile().postings,1);
+});
+test('signed funding confirmation between acceptance and first funding intent cannot post',async()=>{
+ const f=fixture(),o=f.create(f.show().sha256);
+ f.tick(1000);
+ const p=await f.finance.submit('alice',o.id,'funding');
+ const early=f.provider.event(p.fundingRef,'funding_confirmed','before-intent',{timestamp:1000500});
+ a.throws(()=>f.finance.receive(early.raw,early.signature),/INVALID_PAYMENT_EVIDENCE/);
+ a.equal(f.finance.getReceipt('alice',o.id),null);
+ a.equal(f.finance.reconcile().postings,0);
+ const valid=f.provider.event(p.fundingRef,'funding_confirmed','after-intent');
+ f.finance.receive(valid.raw,valid.signature);
+ a.equal(f.finance.getReceipt('alice',o.id).paymentAt,1001000);
+});

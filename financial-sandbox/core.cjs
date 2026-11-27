@@ -9,7 +9,7 @@ const copy=x=>structuredClone(x);
 class SandboxFinance {
  #orders=new Map();#quotes=new Map();#requests=new Map();#events=new Map();#journal=[];#used=new Map();
  #clock;#id;#provider;#policy;#busy=new Set();
- #requireDisclosure;#disclosures=new Map();#accepted=new Map();#receipts=new Map();
+ #requireDisclosure;#disclosures=new Map();#accepted=new Map();#receipts=new Map();#fundingStarted=new Map();
  constructor({provider,policy,clock=Date.now,id=randomUUID,environment,requireDisclosure=false}){
   if(environment!=='sandbox'||provider?.mode!=='sandbox'||typeof provider.verifyEvent!=='function'||typeof provider.submit!=='function'||typeof policy!=='function')fail('SANDBOX_ONLY');
   if(typeof requireDisclosure!=='boolean')fail('INVALID_DISCLOSURE_MODE');
@@ -93,6 +93,13 @@ class SandboxFinance {
    const p=this.#policy(actor);if(p?.identity!=='verified'||p?.sanctions!=='clear'||p?.risk!=='allow')fail('COMPLIANCE_HOLD');
   }
   if(this.#busy.has(id))fail('IN_FLIGHT');
+  // Only the initial funding intent must be within the accepted quote window.
+  // A pending intent must remain recoverable even after the quote expires.
+  if(this.#requireDisclosure&&kind==='funding'&&o.state===before){
+   const accepted=this.#accepted.get(o.id),now=this.#now();
+   if(!accepted||now<accepted.acceptedAt||now>=accepted.record.expiresAt)fail('FUNDING_QUOTE_EXPIRED');
+   this.#fundingStarted.set(o.id,now);
+  }
   if(!o[field])o[field]=o.id+'-'+kind;
   o.state=pending;
   this.#busy.add(id);
@@ -123,9 +130,10 @@ class SandboxFinance {
   let receipt=null;
   if(this.#requireDisclosure&&event.type==='funding_confirmed'){
    const accepted=this.#accepted.get(o.id);
-   if(!accepted||!Number.isSafeInteger(event.timestamp)||event.timestamp<accepted.acceptedAt)fail('INVALID_PAYMENT_EVIDENCE');
+   const startedAt=this.#fundingStarted.get(o.id);
+   if(!accepted||!Number.isSafeInteger(startedAt)||!Number.isSafeInteger(event.timestamp)||event.timestamp<startedAt)fail('INVALID_PAYMENT_EVIDENCE');
    receipt={mode:'sandbox',kind:'funding_confirmed_not_payout',orderId:o.id,disclosureSha256:accepted.sha256,
-    disclosure:copy(accepted.record),acceptedAt:accepted.acceptedAt,paymentAt:event.timestamp,
+    disclosure:copy(accepted.record),acceptedAt:accepted.acceptedAt,fundingStartedAt:startedAt,paymentAt:event.timestamp,
     provider:o.provider,paymentReference:event.reference,paymentEventId:event.eventId,paidCurrency:event.currency,paidMinor:event.amountMinor};
   }
   let posting=null;
