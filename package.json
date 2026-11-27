@@ -21,7 +21,25 @@
   "overrides": {
     "metro": "0.83.8",
     "@expo/metro-config": {
-      "postcss": "8.5.23"
+      "postcss": "8.5.23",
+      "glob": "14.0.2"
+    },
+    "@expo/config": {
+      "glob": "14.0.2"
+    },
+    "@expo/config-plugins": {
+      "glob": "14.0.2"
+    },
+    "@expo/fingerprint": {
+      "glob": "14.0.2",
+      "minimatch": "11.0.1"
+    },
+    "@expo/cli": {
+      "glob": "14.0.2",
+      "minimatch": "11.0.1"
+    },
+    "glob@14.0.2": {
+      "minimatch": "11.0.1"
     }
   }
 }
