@@ -7,6 +7,7 @@ INSERT INTO expected_exec VALUES
  ('mwd_lab_order_service','issue_quote(text,text,bigint)'),
  ('mwd_lab_order_service','accept_quote(text,text,uuid,text)'),
  ('mwd_lab_order_service','prepare_authorized(text,uuid,text)'),
+ ('mwd_lab_order_service','read_order_status(text,uuid)'),
  ('mwd_lab_dispatch_service','claim_dispatch(integer)'),
  ('mwd_lab_dispatch_service','acknowledge_dispatch(text,uuid)'),
  ('mwd_lab_dispatch_service','check_dispatch_lease(text,uuid)'),

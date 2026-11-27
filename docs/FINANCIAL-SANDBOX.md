@@ -241,3 +241,7 @@ Los tres verificadores HMAC locales (proveedor mock, proveedor durable y ledger 
 
 ## Sincronización controlada con Android
 La fusión de desarrollo a2885c5 conserva los 199 blobs restantes de la rama financiera y adopta los tres archivos Android de la rama de cierre. El inventario de integridad detectó el cambio deliberado de App.js. Se compararon todos los blobs de raíz con la revisión Android 40fdbaa: identidad exacta y único cambio frente a la referencia antigua en App.js. Se actualiza solo su SHA Git esperado; se conservan inventario y controles negativos. Las pruebas estáticas Android de 40fdbaa aprobaron y APK compiló; smoke-test sigue como puerta independiente. No se afirma aprobación física de la nueva revisión ni se fusiona main.
+
+
+## Consulta privada de estado para integración de cliente (laboratorio)
+`read_order_status` ofrece una proyección de solo lectura de una orden reservada, filtrada por actor y UUID. Devuelve estado contable local, importes enteros USD/HNL separados y momento de aceptación, sin beneficiario, identificadores del proveedor ni datos del diario. Una orden ajena o inexistente devuelve cero filas. El rol de órdenes es un servicio confiable y NO autentica por sí mismo al titular: el futuro servidor debe derivar el actor de una sesión validada, no del cuerpo de la solicitud. El inventario final de permisos comprueba el endpoint y la prueba transaccional se revierte. El estado local no confirma pago real, y el precio sigue siendo sintético. No crea una API pública, no cambia Android ni Supabase y no conecta a Thunes.
