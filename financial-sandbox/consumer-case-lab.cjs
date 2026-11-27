@@ -2,7 +2,8 @@
 // Synthetic case records only. Never authorizes a payment, cancellation or
 // refund; roles, clock and external evidence references are trusted fixtures.
 const {DatabaseSync}=require('node:sqlite');
-const {openSync,closeSync,lstatSync,existsSync,unlinkSync,fsyncSync}=require('node:fs');
+const {openSync,closeSync,lstatSync,existsSync,fsyncSync,mkdtempSync,linkSync,rmSync,constants}=require('node:fs');
+const {dirname,join}=require('node:path');
 const {createHash}=require('node:crypto');
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const id=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(v);
@@ -121,8 +122,10 @@ function openConsumerCaseLab({environment,path,initialize=false,immutablePlans=f
  try{
   db.exec('PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA recursive_triggers=ON;');
   const mode=immutablePlans?'consumer-case-fixture-v2':'consumer-case-fixture-v1';
-  if(initialize)db.exec(("BEGIN IMMEDIATE; CREATE TABLE metadata(mode TEXT PRIMARY KEY CHECK(mode='consumer-case-fixture-v1')) STRICT; INSERT INTO metadata VALUES('consumer-case-fixture-v1'); CREATE TABLE events(sequence INTEGER PRIMARY KEY,event_id TEXT NOT NULL UNIQUE,payload TEXT NOT NULL) STRICT; CREATE TRIGGER meta_no_update BEFORE UPDATE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER meta_no_delete BEFORE DELETE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER event_no_update BEFORE UPDATE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER event_no_delete BEFORE DELETE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER event_no_replace BEFORE INSERT ON events WHEN EXISTS(SELECT 1 FROM events WHERE sequence=NEW.sequence OR event_id=NEW.event_id) BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END;"+(immutablePlans?" CREATE TABLE deadline_plans(sequence INTEGER PRIMARY KEY,case_id TEXT NOT NULL,stage TEXT NOT NULL,payload TEXT NOT NULL,UNIQUE(case_id,stage)) STRICT; CREATE TRIGGER plan_no_update BEFORE UPDATE ON deadline_plans BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER plan_no_delete BEFORE DELETE ON deadline_plans BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER plan_no_replace BEFORE INSERT ON deadline_plans WHEN EXISTS(SELECT 1 FROM deadline_plans WHERE sequence=NEW.sequence OR (case_id=NEW.case_id AND stage=NEW.stage)) BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END;":"")+" COMMIT;").replaceAll('consumer-case-fixture-v1',mode));
-  if(db.prepare('SELECT mode FROM metadata').get()?.mode!==mode)fail('INVALID_LAB');
+  if(initialize)db.exec(("BEGIN IMMEDIATE; CREATE TABLE metadata(mode TEXT PRIMARY KEY CHECK(mode='consumer-case-fixture-v1')) STRICT; INSERT INTO metadata VALUES('consumer-case-fixture-v1'); CREATE TABLE events(sequence INTEGER PRIMARY KEY,event_id TEXT NOT NULL UNIQUE,payload TEXT NOT NULL) STRICT; CREATE TRIGGER meta_no_update BEFORE UPDATE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER meta_no_delete BEFORE DELETE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER meta_no_replace BEFORE INSERT ON metadata WHEN EXISTS(SELECT 1 FROM metadata WHERE mode=NEW.mode) BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER event_no_update BEFORE UPDATE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER event_no_delete BEFORE DELETE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER event_no_replace BEFORE INSERT ON events WHEN EXISTS(SELECT 1 FROM events WHERE sequence=NEW.sequence OR event_id=NEW.event_id) BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END;"+(immutablePlans?" CREATE TABLE deadline_plans(sequence INTEGER PRIMARY KEY,case_id TEXT NOT NULL,stage TEXT NOT NULL,payload TEXT NOT NULL,UNIQUE(case_id,stage)) STRICT; CREATE TRIGGER plan_no_update BEFORE UPDATE ON deadline_plans BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER plan_no_delete BEFORE DELETE ON deadline_plans BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER plan_no_replace BEFORE INSERT ON deadline_plans WHEN EXISTS(SELECT 1 FROM deadline_plans WHERE sequence=NEW.sequence OR (case_id=NEW.case_id AND stage=NEW.stage)) BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END;":"")+" COMMIT;").replaceAll('consumer-case-fixture-v1',mode));
+  db.exec('BEGIN');
+  if(inspectConsumerBackup(db).mode!==mode)fail('INVALID_LAB');
+  db.exec('COMMIT');
  }catch(e){db.close();throw e;}
  const tx=(fn,write=true)=>{
   db.exec(write?'BEGIN IMMEDIATE':'BEGIN');
@@ -185,12 +188,23 @@ function openConsumerCaseLab({environment,path,initialize=false,immutablePlans=f
   backup(destination){
    if(typeof destination!=='string'||!destination.endsWith('.sqlite'))fail('INVALID_BACKUP_PATH');
    const expected=tx(()=>inspectConsumerBackup(db),false);
-   const fd=openSync(destination,'wx',0o600);closeSync(fd);
+   const directory=dirname(destination);
+   if(!lstatSync(directory).isDirectory())fail('INVALID_BACKUP_PATH');
+   const staging=mkdtempSync(join(directory,'.mwd-cases-'));
+   const candidate=join(staging,'candidate.sqlite');
    try{
-    db.prepare('VACUUM INTO ?').run(destination);
-    const synced=openSync(destination,'r');try{fsyncSync(synced);}finally{closeSync(synced);}
-    return verifyConsumerCaseBackup({environment,path:destination,expected});
-   }catch(e){unlinkSync(destination);throw e;}
+    const fd=openSync(candidate,'wx',0o600);closeSync(fd);
+    db.prepare('VACUUM INTO ?').run(candidate);
+    const manifest=verifyConsumerCaseBackup({environment,path:candidate,expected});
+    const synced=openSync(candidate,'r');try{fsyncSync(synced);}finally{closeSync(synced);}
+    linkSync(candidate,destination);
+    return manifest;
+   }finally{
+    // Preserve a published copy even if directory synchronization fails.
+    rmSync(staging,{recursive:true,force:true});
+    const dirfd=openSync(directory,constants.O_RDONLY|constants.O_DIRECTORY|constants.O_NOFOLLOW);
+    try{fsyncSync(dirfd);}finally{closeSync(dirfd);}
+   }
   },
   close(){db.close();}
  };

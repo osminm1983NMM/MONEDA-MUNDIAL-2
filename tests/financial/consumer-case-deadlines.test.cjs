@@ -137,3 +137,35 @@ test('new schemas reject replacement even with recursive triggers disabled; anch
   a.throws(()=>verify({environment:'production',path:copy,expected}),/SANDBOX_ONLY/);
  }finally{lab.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('case archive rejects metadata replacement and publishes verified backups exclusively',()=>{
+ const {DatabaseSync}=require('node:sqlite');
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-case-publication-')),options={environment:'sandbox',path:join(dir,'source.sqlite'),immutablePlans:true},copy=join(dir,'copy.sqlite');
+ const lab=open({...options,initialize:true});
+ try{
+  lab.appendBatch([received]);lab.recordDeadlinePlans(plans);
+  const db=new DatabaseSync(options.path);
+  try{
+   db.exec('PRAGMA recursive_triggers=OFF');
+   a.throws(()=>db.exec('INSERT OR REPLACE INTO metadata SELECT * FROM metadata'),/APPEND_ONLY/);
+  }finally{db.close();}
+  fs.writeFileSync(copy,'existing');
+  a.throws(()=>lab.backup(copy),/EEXIST/);
+  a.equal(fs.readFileSync(copy,'utf8'),'existing');
+  fs.unlinkSync(copy);
+  a.deepEqual(lab.backup(copy),lab.manifest());
+  a.equal(fs.statSync(copy).mode&0o777,0o600);
+  a.equal(fs.readdirSync(dir).some(x=>x.startsWith('.mwd-cases-')),false);
+ }finally{lab.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+test('reopening rejects inconsistent case history or deadline plan linkage',()=>{
+ const {DatabaseSync}=require('node:sqlite');
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-case-reopen-')),options={environment:'sandbox',path:join(dir,'source.sqlite'),immutablePlans:true};
+ const lab=open({...options,initialize:true});
+ try{lab.appendBatch([received]);lab.recordDeadlinePlans(plans);}finally{lab.close();}
+ try{
+  const db=new DatabaseSync(options.path);
+  try{db.exec('DROP TRIGGER event_no_delete; DELETE FROM events');}finally{db.close();}
+  a.throws(()=>open(options),/INVALID_PLAN_BASIS/);
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
