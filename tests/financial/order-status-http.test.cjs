@@ -86,3 +86,28 @@ test('HTTP refuses malformed successful responses before any private fields leav
   a.equal(r.status,503);a.deepEqual(await r.json(),{mode:'sandbox',error:'UNAVAILABLE'});
  }
 });
+
+test('already aborted and cancelled uploads never invoke identity service',{timeout:2000},async()=>{
+ let cancelled=false,calls=0;
+ const handle=createOrderStatusHttp({environment:'sandbox',bodyTimeoutMs:1000,maxActive:1,service:{read(){calls++;return {status:404};}}});
+ const controller=new AbortController();
+ const build=body=>new Request(url,{method:'POST',headers:{authorization:'Bearer t','content-type':'application/json'},body,signal:controller.signal,duplex:'half'});
+ const stream=new ReadableStream({cancel(){cancelled=true;}});
+ const pending=handle(build(stream));controller.abort();
+ a.equal((await pending).status,408);a.equal(cancelled,true);
+ a.equal((await handle(build(JSON.stringify({orderId})))).status,408);
+ a.equal(calls,0);
+ a.equal((await handle(make())).status,404);a.equal(calls,1);
+});
+test('client disconnect during service discards result and retains slot until actual settlement',{timeout:2000},async()=>{
+ let calls=0,complete,started;
+ const ready=new Promise(resolve=>{started=resolve;});
+ const handle=createOrderStatusHttp({environment:'sandbox',serviceTimeoutMs:1000,maxActive:1,service:{read(){if(++calls===1){started();return new Promise(resolve=>{complete=resolve;});}return {status:404};}}});
+ const controller=new AbortController();
+ const request=new Request(make(),{signal:controller.signal});
+ const pending=handle(request);await ready;controller.abort();
+ const r=await pending;a.equal(r.status,408);a.deepEqual(await r.json(),{mode:'sandbox',error:'INVALID_REQUEST'});
+ a.equal((await handle(make())).status,503);a.equal(calls,1);
+ complete({status:200,body:publicStatus});await new Promise(resolve=>setImmediate(resolve));
+ a.equal((await handle(make())).status,404);a.equal(calls,2);
+});

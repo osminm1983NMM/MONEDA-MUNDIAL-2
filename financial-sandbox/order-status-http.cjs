@@ -8,12 +8,17 @@ function respond(status,body,extra={}){
  return new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff',...extra}});
 }
 const error=(status,code,extra)=>respond(status,{mode:'sandbox',error:code},extra);
-function bounded(operation,ms,onTimeout=()=>{}){
- let timer;
- const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{
-  reject(Error('DEADLINE'));onTimeout();
- },ms);});
- return Promise.race([operation,deadline]).finally(()=>clearTimeout(timer));
+function bounded(operation,ms,onTimeout=()=>{},signal){
+ let timer,cancel;
+ const deadline=new Promise((_,reject)=>{
+  cancel=()=>{reject(Error('ABORTED'));onTimeout();};
+  timer=setTimeout(()=>{reject(Error('DEADLINE'));onTimeout();},ms);
+  signal?.addEventListener('abort',cancel,{once:true});
+  if(signal?.aborted)cancel();
+ });
+ return Promise.race([operation,deadline]).finally(()=>{
+  clearTimeout(timer);signal?.removeEventListener('abort',cancel);
+ });
 }
 async function parseBody(request,timeoutMs){
  const reader=request.body?.getReader();
@@ -23,6 +28,7 @@ async function parseBody(request,timeoutMs){
   try{
   while(true){
    const {done,value}=await reader.read();
+   if(request.signal.aborted)throw Error('ABORTED');
    if(done)break;
    length+=value.byteLength;
    if(length>maxBody)throw Error('BODY_TOO_LARGE');
@@ -38,7 +44,7 @@ async function parseBody(request,timeoutMs){
  };
  // Cancelling a Web Streams reader settles pending reads, even if its
  // underlying source takes longer to finish cancellation.
- return bounded(read(),timeoutMs,()=>{void reader.cancel().catch(()=>{});});
+ return bounded(read(),timeoutMs,()=>{void reader.cancel().catch(()=>{});},request.signal);
 }
 function createOrderStatusHttp({environment,service,bodyTimeoutMs=5000,serviceTimeoutMs=8000,maxActive=32}={}){
  if(environment!=='sandbox'||typeof service?.read!=='function')throw Error('SANDBOX_ONLY');
@@ -46,6 +52,7 @@ function createOrderStatusHttp({environment,service,bodyTimeoutMs=5000,serviceTi
  let active=0;
  return async request=>{
   if(!(request instanceof Request))return error(400,'INVALID_REQUEST');
+  if(request.signal.aborted){void request.body?.cancel().catch(()=>{});return error(408,'INVALID_REQUEST');}
   const url=new URL(request.url);
   if(url.pathname!==route)return error(404,'NOT_FOUND');
   if(url.search)return error(400,'INVALID_REQUEST');
@@ -63,18 +70,24 @@ function createOrderStatusHttp({environment,service,bodyTimeoutMs=5000,serviceTi
   let retained=false;
   try{
   let body;
-  try{body=await parseBody(request,bodyTimeoutMs);}catch(e){return e.message==='BODY_TOO_LARGE'?error(413,'BODY_TOO_LARGE'):e.message==='DEADLINE'?error(408,'INVALID_REQUEST'):error(400,'INVALID_REQUEST');}
+  try{body=await parseBody(request,bodyTimeoutMs);}catch(e){return e.message==='BODY_TOO_LARGE'?error(413,'BODY_TOO_LARGE'):['DEADLINE','ABORTED'].includes(e.message)?error(408,'INVALID_REQUEST'):error(400,'INVALID_REQUEST');}
+  if(request.signal.aborted)return error(408,'INVALID_REQUEST');
   if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).length!==1||!Object.hasOwn(body,'orderId')||typeof body.orderId!=='string'||!uuid.test(body.orderId))return error(400,'INVALID_REQUEST');
   try{
    // A timed-out operation keeps its slot until actually settled. A broken
    // adapter cannot generate unbounded concurrent Auth or database calls.
-   const operation=Promise.resolve().then(()=>service.read({sessionToken:token,orderId:body.orderId})).finally(()=>{active--;});
+   const operation=Promise.resolve().then(()=>{
+    if(request.signal.aborted)throw Error('ABORTED');
+    return service.read({sessionToken:token,orderId:body.orderId});
+   }).finally(()=>{active--;});
    retained=true;
-   const result=await bounded(operation,serviceTimeoutMs);
+   const result=await bounded(operation,serviceTimeoutMs,undefined,request.signal);
+   if(request.signal.aborted)return error(408,'INVALID_REQUEST');
    if(result?.status===200&&validOrderStatus(result.body,body.orderId))return respond(200,result.body);
    const allowed={400:'INVALID_REQUEST',401:'AUTH_REQUIRED',404:'NOT_FOUND',503:'UNAVAILABLE'};
    if(result&&Object.hasOwn(allowed,result.status))return error(result.status,allowed[result.status],result.status===401?{'www-authenticate':'Bearer'}:{});
   }catch{}
+  if(request.signal.aborted)return error(408,'INVALID_REQUEST');
   return error(503,'UNAVAILABLE');
   }finally{if(!retained)active--;}
  };
