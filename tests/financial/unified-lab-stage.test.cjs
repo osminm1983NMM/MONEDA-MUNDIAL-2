@@ -24,7 +24,8 @@ test('staging keeps LAB package, Auth redirects and mode selection separate',t=>
  a.equal(read('App.js'),entry);a.equal(read('HostedFinancialLab.jsx'),hosted);
  a.match(read('DemoApp.jsx'),/com\.monedamundial\.unifiedlab:\/\/auth\/reset-password/);
  a.doesNotMatch(read('DemoApp.jsx'),/resetPasswordForEmail\(|com\.monedamundial\.app/);
- a.match(entry,/setMode\(old=>old\?\?'demo'\)/);a.match(entry,/setMode\(old=>old\?\?'financial'\)/);a.doesNotMatch(entry,/setMode\(null\)/);
+ a.match(entry,/const latch=createModeLatch\(\)/);a.match(entry,/useState\(\(\)=>latch.current\(\)\)/);
+ a.match(entry,/choose\('demo'\)/);a.match(entry,/choose\('financial'\)/);a.doesNotMatch(entry,/setMode\(null\)/);
  a.throws(()=>stage(root,revision),/UNEXPECTED_BASE_CONFIG/);
 });
 test('staging rejects wrong target and missing recovery guard before writing',t=>{
@@ -40,4 +41,16 @@ test('staging rejects invalid identity before writing',t=>{
  fs.writeFileSync(p,fs.readFileSync(p,'utf8').replace("const BUILD_COMMIT = 'sin verificar';","const BUILD_COMMIT = 'unexpected';"));
  a.throws(()=>stage(root,revision),/UNEXPECTED_BUILD_IDENTITY/);
  a.equal(fs.existsSync(path.join(root,'DemoApp.jsx')),false);
+});
+
+test('runtime mode latch survives a root remount and rejects switching',()=>{
+ const {createModeLatch}=require('../../financial-sandbox/mobile/unified-mode-latch.cjs');
+ for(const first of ['demo','financial']){
+  const latch=createModeLatch(),other=first==='demo'?'financial':'demo';
+  a.equal(latch.current(),null);a.throws(()=>latch.choose('production'),/INVALID_LAB_MODE/);
+  a.equal(latch.current(),null);a.equal(latch.choose(first),first);
+  a.equal(latch.current(),first);a.equal(latch.choose(other),first);
+  a.throws(()=>latch.choose(null),/INVALID_LAB_MODE/);a.equal(latch.current(),first);
+  a.equal(createModeLatch().current(),null);
+ }
 });
