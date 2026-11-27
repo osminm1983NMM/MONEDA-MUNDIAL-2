@@ -8,7 +8,7 @@ function fixture(t){let time=1000;const dir=mkdtempSync(join(tmpdir(),'mwd-synth
  const open=()=>{const q=new Q({environment:'sandbox',path,clock});handles.add(q);return q;};
  const close=q=>{q.close();handles.delete(q);};
  t.after(()=>{for(const q of handles)q.close();rmSync(dir,{recursive:true,force:true});});
- return {open,close,clock,advance:n=>time+=n};
+ return {open,close,clock,path,advance:n=>time+=n};
 }
 test('sandbox only and strict validated intents',t=>{a.throws(()=>new Q({environment:'production',path:':memory:'}),/SANDBOX_ONLY/);const f=fixture(t),q=f.open();for(const patch of [{mode:'live'},{amountMinor:0},{currency:'HNL'},{kind:'other'}])a.throws(()=>q.enqueue({...intent,...patch}),/INVALID_INTENT/);});
 test('enqueue durable across close/reopen; conflict never overwrites',t=>{const f=fixture(t),q=f.open();q.enqueue(intent);f.close(q);const r=f.open();a.equal(r.enqueue(intent).duplicate,true);a.throws(()=>r.enqueue({...intent,amountMinor:1}),/IDEMPOTENCY_CONFLICT/);a.deepEqual(r.claim().intent,intent);});
@@ -44,4 +44,34 @@ test('worker and local inbox accept 100-character event IDs and reject longer ID
  a.equal(stored[0].eventId,valid);
  a.equal(q.ingest({...event,provider}).status,'recorded_not_applied');
  a.equal(q.counts().inbox,1);
+});
+
+test('corrupted persisted amount or reference cannot be leased or replayed',t=>{
+ const f=fixture(t),q=f.open();q.enqueue(intent);
+ const {DatabaseSync}=require('node:sqlite'),{createHash}=require('node:crypto');
+ const db=new DatabaseSync(f.path);
+ try{
+  const original=db.prepare('SELECT * FROM sandbox_outbox').get();
+  for(const payload of [JSON.stringify(['order1','funding','USD',1]),JSON.stringify(['other','funding','USD',10150])]){
+   db.prepare('UPDATE sandbox_outbox SET payload=?').run(payload);
+   a.throws(()=>q.claim(),/OUTBOX_INTEGRITY/);
+   a.throws(()=>q.enqueue(intent),/OUTBOX_INTEGRITY/);
+   a.equal(db.prepare('SELECT attempts FROM sandbox_outbox').get().attempts,0);
+  }
+  const mismatched=JSON.stringify(['other','funding','USD',10150]);
+  db.prepare('UPDATE sandbox_outbox SET payload=?,fingerprint=?').run(mismatched,createHash('sha256').update(mismatched).digest('hex'));
+  a.throws(()=>q.claim(),/OUTBOX_INTEGRITY/);
+  db.prepare('UPDATE sandbox_outbox SET payload=?,fingerprint=?').run(original.payload,original.fingerprint);
+  a.deepEqual(q.claim().intent,intent);
+ }finally{db.close();}
+});
+test('corruption after leasing prevents acknowledgement and does not advance state',t=>{
+ const f=fixture(t),q=f.open();q.enqueue(intent);const lease=q.claim();
+ const {DatabaseSync}=require('node:sqlite'),db=new DatabaseSync(f.path);
+ try{
+  db.prepare("UPDATE sandbox_outbox SET fingerprint=?").run('0'.repeat(64));
+  a.throws(()=>q.acknowledge(intent.reference,lease.token),/OUTBOX_INTEGRITY/);
+  a.deepEqual(q.counts().outbox.map(x=>[x.state,x.count]),[['leased',1]]);
+  f.advance(30000);a.throws(()=>q.claim(),/OUTBOX_INTEGRITY/);
+ }finally{db.close();}
 });

@@ -12,6 +12,18 @@ function validate(i){
  i.currency!==(i.kind==='payout'?'HNL':'USD')||!Number.isSafeInteger(i.amountMinor)||i.amountMinor<=0)fail('INVALID_INTENT');
  return JSON.stringify([i.orderId,i.kind,i.currency,i.amountMinor]);
 }
+// Validate canonical persisted payload and fingerprint before use.
+function storedIntent(row){
+ try{
+  if(typeof row.payload!=='string'||typeof row.fingerprint!=='string'||hash(row.payload)!==row.fingerprint)fail('OUTBOX_INTEGRITY');
+  const values=JSON.parse(row.payload);
+  if(!Array.isArray(values)||values.length!==4)fail('OUTBOX_INTEGRITY');
+  const [orderId,kind,currency,amountMinor]=values;
+  const intent={reference:row.reference,orderId,kind,currency,amountMinor,mode:'sandbox'};
+  if(validate(intent)!==row.payload)fail('OUTBOX_INTEGRITY');
+  return intent;
+ }catch{fail('OUTBOX_INTEGRITY');}
+}
 class DurableSandboxQueue{
  #db;#clock;
  constructor({environment,path,clock=Date.now}){
@@ -37,8 +49,8 @@ class DurableSandboxQueue{
  enqueue(intent){
   const payload=validate(intent),fp=hash(payload);
   return this.#tx(()=>{
-   const old=this.#db.prepare('SELECT fingerprint,state FROM sandbox_outbox WHERE reference=?').get(intent.reference);
-   if(old){if(old.fingerprint!==fp)fail('IDEMPOTENCY_CONFLICT');return {reference:intent.reference,state:old.state,duplicate:true};}
+   const old=this.#db.prepare('SELECT reference,payload,fingerprint,state FROM sandbox_outbox WHERE reference=?').get(intent.reference);
+   if(old){storedIntent(old);if(old.fingerprint!==fp)fail('IDEMPOTENCY_CONFLICT');return {reference:intent.reference,state:old.state,duplicate:true};}
    this.#db.prepare("INSERT INTO sandbox_outbox(reference,payload,fingerprint,state) VALUES(?,?,?,'queued')").run(intent.reference,payload,fp);
    return {reference:intent.reference,state:'queued',duplicate:false};
   });
@@ -49,16 +61,19 @@ class DurableSandboxQueue{
    const now=this.#now(),until=now+leaseMs;if(!Number.isSafeInteger(until))fail('CLOCK');
    const row=this.#db.prepare("SELECT * FROM sandbox_outbox WHERE state='queued' OR (state='leased' AND lease_until<=?) ORDER BY rowid LIMIT 1").get(now);
    if(!row)return null;
+   const intent=storedIntent(row);
+   if(!Number.isSafeInteger(row.attempts)||row.attempts<0||row.attempts>=Number.MAX_SAFE_INTEGER)fail('OUTBOX_INTEGRITY');
    const token=randomUUID();
    this.#db.prepare("UPDATE sandbox_outbox SET state='leased',lease_token=?,lease_until=?,attempts=attempts+1 WHERE reference=?").run(token,until,row.reference);
-   const [orderId,kind,currency,amountMinor]=JSON.parse(row.payload);
-   return {intent:{reference:row.reference,orderId,kind,currency,amountMinor,mode:'sandbox'},token,leaseUntil:until,attempt:row.attempts+1};
+   return {intent,token,leaseUntil:until,attempt:row.attempts+1};
   });
  }
  acknowledge(reference,token){
   if(!id(reference)||!id(token))fail('INVALID_LEASE');
   return this.#tx(()=>{
    // Evaluate expiry only after acquiring the write lock; waiting on another writer must not extend a lease.
+   const row=this.#db.prepare('SELECT * FROM sandbox_outbox WHERE reference=?').get(reference);
+   if(row)storedIntent(row);
    const result=this.#db.prepare("UPDATE sandbox_outbox SET state='acknowledged',lease_token=NULL,lease_until=NULL WHERE reference=? AND state='leased' AND lease_token=? AND lease_until>?").run(reference,token,this.#now());
    if(result.changes!==1)fail('STALE_LEASE');
    return {reference,state:'acknowledged'};
