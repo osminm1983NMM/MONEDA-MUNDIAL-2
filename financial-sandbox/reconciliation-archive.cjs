@@ -4,8 +4,18 @@ const {DatabaseSync}=require('node:sqlite');
 const {openSync,closeSync,existsSync,lstatSync,unlinkSync,fsyncSync}=require('node:fs');
 const {createHash}=require('node:crypto');
 const {reconcilePagedCut}=require('./reconcile-paged-cut.cjs');
+const {createReconciliationBundle,verifyReconciliationBundle}=require('./reconciliation-evidence-bundle.cjs');
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const digest=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
+function summarizeReceipt(result){
+ const {internal,provider}=result.evidence;
+ const id=digest(['synthetic-receipt-v1',internal.sha256,provider.sha256]);
+ const counts=new Map();
+ for(const i of result.issues)counts.set(i.code,(counts.get(i.code)||0)+1);
+ return {mode:'sandbox',receiptId:id,evidence:result.evidence,clean:result.clean,
+  issueCounts:Object.fromEntries([...counts].sort(([a],[b])=>a<b?-1:a>b?1:0)),
+  matchedConfirmedNetMinor:result.clean?result.matchedConfirmedNetMinor:null};
+}
 
 // Digest the logical archive rather than its physical SQLite page layout.
 // This is local consistency evidence, not authenticity against a privileged attacker.
@@ -71,19 +81,13 @@ function openReconciliationArchive({environment,path,initialize=false}={}){
   db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;');
  }catch(e){db.close();throw e;}
  function tx(fn){db.exec('BEGIN IMMEDIATE');try{const r=fn();db.exec('COMMIT');return r;}catch(e){db.exec('ROLLBACK');throw e;}}
- return {
+ const archive={
   record({internalPages,providerPages}={}){
    // Recompute from validated pages, never accept a caller-supplied clean flag or receipt.
    const result=reconcilePagedCut({environment,internalPages,providerPages});
    if(!result.evidence)return {status:'rejected',issues:result.issues};
    const {internal,provider}=result.evidence;
-   const id=digest(['synthetic-receipt-v1',internal.sha256,provider.sha256]);
-   const counts=new Map();
-   for(const i of result.issues)counts.set(i.code,(counts.get(i.code)||0)+1);
-   const summary={mode:'sandbox',receiptId:id,evidence:result.evidence,clean:result.clean,
-    issueCounts:Object.fromEntries([...counts].sort(([a],[b])=>a<b?-1:a>b?1:0)),
-    // Partial matched totals are not authorization; withhold totals from non-clean receipts.
-    matchedConfirmedNetMinor:result.clean?result.matchedConfirmedNetMinor:null};
+   const summary=summarizeReceipt(result),id=summary.receiptId;
    const encoded=JSON.stringify(summary);
    return tx(()=>{
     for(const s of [internal,provider]){
@@ -99,6 +103,23 @@ function openReconciliationArchive({environment,path,initialize=false}={}){
    });
   },
   get(id){if(typeof id!=='string'||!/^[0-9a-f]{64}$/.test(id))fail('INVALID_RECEIPT_ID');const row=db.prepare('SELECT summary FROM receipts WHERE receipt_id=?').get(id);return row?JSON.parse(row.summary):null;},
+  // Opt-in normalized export: archive only the receipt; caller stores the
+  // bundle separately. A failed validation or archive conflict returns no bundle.
+  recordWithBundle({internalPages,providerPages}={}){
+   const {bundle}=createReconciliationBundle({environment,internalPages,providerPages});
+   const recorded=archive.record({internalPages:bundle.internalPages,providerPages:bundle.providerPages});
+   if(recorded.status!=='recorded'&&recorded.status!=='duplicate')fail('INVALID_BUNDLE');
+   return {...recorded,bundle};
+  },
+  // Read-only check anchored to an existing receipt, not to a supplied hash.
+  verifyArchivedBundle(id,bundle){
+   const receipt=archive.get(id);
+   if(!receipt)fail('RECEIPT_NOT_FOUND');
+   const result=verifyReconciliationBundle({environment,bundle,expectedEvidence:receipt.evidence});
+   const recomputed=summarizeReceipt(result);
+   if(JSON.stringify(recomputed)!==JSON.stringify(receipt))fail('RECEIPT_MISMATCH');
+   return recomputed;
+  },
   counts(){return {snapshots:db.prepare('SELECT count(*) n FROM snapshots').get().n,receipts:db.prepare('SELECT count(*) n FROM receipts').get().n};},
   backup(destination){
    if(typeof destination!=='string'||!destination.endsWith('.sqlite'))fail('INVALID_BACKUP_PATH');
@@ -118,5 +139,6 @@ function openReconciliationArchive({environment,path,initialize=false}={}){
   },
   close(){db.close();}
  };
+ return archive;
 }
 module.exports={openReconciliationArchive,verifyReconciliationBackup};

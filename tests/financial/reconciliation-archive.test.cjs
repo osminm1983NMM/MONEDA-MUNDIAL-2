@@ -84,3 +84,44 @@ test('verification detects missing linked snapshot despite a structurally health
  finally{db.close();}
  a.throws(()=>verifyReconciliationBackup({environment:'sandbox',path:destination,expected:manifest}),/ARCHIVE_CORRUPT/);
 }));
+
+
+test('opt-in export verifies against archived receipt after independent backup and restart',()=>fixture(({store,config,reopen})=>{
+ const x=store.recordWithBundle({internalPages:pages('internal'),providerPages:pages('provider')});
+ a.equal(x.status,'recorded');a.deepEqual(store.verifyArchivedBundle(x.receipt.receiptId,x.bundle),x.receipt);
+ store=reopen();
+ const duplicate=store.recordWithBundle({internalPages:pages('internal',[row('r2'),row('r1')]),providerPages:pages('provider')});
+ a.equal(duplicate.status,'duplicate');a.deepEqual(duplicate.bundle,x.bundle);
+ const backup=config.path+'.export-backup.sqlite',manifest=store.backup(backup);
+ verifyReconciliationBackup({environment:'sandbox',path:backup,expected:manifest});
+ const restored=openReconciliationArchive({...config,path:backup});
+ try{
+  const bundle=JSON.parse(JSON.stringify(x.bundle));
+  a.deepEqual(restored.verifyArchivedBundle(x.receipt.receiptId,bundle),x.receipt);
+  a.deepEqual(restored.counts(),{snapshots:2,receipts:1});
+  bundle.providerPages[0].rows[0].amountMinor=999;
+  a.throws(()=>restored.verifyArchivedBundle(x.receipt.receiptId,bundle),/EVIDENCE_MISMATCH/);
+  a.throws(()=>restored.verifyArchivedBundle('0'.repeat(64),x.bundle),/RECEIPT_NOT_FOUND/);
+  a.deepEqual(restored.counts(),{snapshots:2,receipts:1});
+ }finally{restored.close();}
+}));
+test('export rejects invalid cuts and reused identities without changing archive; disputes remain verifiable',()=>fixture(({store})=>{
+ const invalid=pages('provider');invalid[0].complete=false;
+ a.throws(()=>store.recordWithBundle({internalPages:pages('internal'),providerPages:invalid}),/INVALID_PAGE/);
+ a.deepEqual(store.counts(),{snapshots:0,receipts:0});
+ const x=store.recordWithBundle({internalPages:pages('internal'),providerPages:pages('provider',[row('r1'),row('r2',101)])});
+ a.equal(x.receipt.clean,false);a.equal(x.receipt.matchedConfirmedNetMinor,null);
+ a.deepEqual(store.verifyArchivedBundle(x.receipt.receiptId,x.bundle),x.receipt);
+ a.throws(()=>store.recordWithBundle({internalPages:pages('internal',[row('r1')],'new-internal'),providerPages:pages('provider')}),/SNAPSHOT_ID_CONFLICT/);
+ a.deepEqual(store.counts(),{snapshots:2,receipts:1});
+}));
+test('bundle check detects altered receipt summary even when stored evidence still matches',()=>fixture(({store,config})=>{
+ const x=store.recordWithBundle({internalPages:pages('internal'),providerPages:pages('provider')});
+ const db=new DatabaseSync(config.path);
+ try{
+  db.exec('DROP TRIGGER receipts_no_update');
+  const changed={...x.receipt,matchedConfirmedNetMinor:{USD:'999',HNL:'0'}};
+  db.prepare('UPDATE receipts SET summary=? WHERE receipt_id=?').run(JSON.stringify(changed),x.receipt.receiptId);
+ }finally{db.close();}
+ a.throws(()=>store.verifyArchivedBundle(x.receipt.receiptId,x.bundle),/RECEIPT_MISMATCH/);
+}));
