@@ -1,0 +1,74 @@
+name: Unified LAB targeted dependency remediation
+on:
+  push:
+    branches: [qa/unified-dependency-audit-20261127]
+    paths: ['.github/workflows/unified-targeted-remediation.yml']
+permissions:
+  contents: read
+jobs:
+  trial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Stage isolated LAB and verify candidate package availability
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/targeted"
+          cp package.json "$RUNNER_TEMP/targeted/original-package.json"
+          cp package-lock.json "$RUNNER_TEMP/targeted/original-lock.json"
+          node --test tests/financial/unified-lab-stage.test.cjs
+          node scripts/stage-unified-lab.cjs --disposable-checkout
+          npm view image-size@2.0.3 version --registry=https://registry.npmjs.org
+          npm view postcss@8.5.23 version --registry=https://registry.npmjs.org
+      - name: Resolve only the two vulnerable dependencies
+        run: |
+          set -euo pipefail
+          npm pkg set 'overrides.metro.image-size=2.0.3' 'overrides.@expo/metro-config.postcss=8.5.23'
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org
+          cp package.json "$RUNNER_TEMP/targeted/candidate-package.json"
+          cp package-lock.json "$RUNNER_TEMP/targeted/candidate-lock.json"
+          node <<'NODE'
+          const fs=require('node:fs'),p=process.env.RUNNER_TEMP+'/targeted/';
+          const a=JSON.parse(fs.readFileSync(p+'original-lock.json')),b=JSON.parse(fs.readFileSync(p+'candidate-lock.json'));
+          const changes=[...new Set([...Object.keys(a.packages),...Object.keys(b.packages)])].filter(k=>k&&JSON.stringify(a.packages[k])!==JSON.stringify(b.packages[k])).map(k=>({path:k,before:a.packages[k]?.version,after:b.packages[k]?.version}));
+          console.log(JSON.stringify(changes,null,2));
+          fs.writeFileSync(p+'changes.json',JSON.stringify(changes,null,2));
+          for(const k of Object.keys(a.packages[''].dependencies))if(a.packages['node_modules/'+k]?.version!==b.packages['node_modules/'+k]?.version)throw Error('DIRECT_DEPENDENCY_CHANGED: '+k);
+          for(const x of changes)if(!/(^|\/)node_modules\/(image-size|postcss|picocolors|nanoid|source-map-js|queue)(\/|$)/.test(x.path))throw Error('UNRELATED_CHANGE: '+x.path);
+          NODE
+      - name: Audit exact candidate and block remaining high severity findings
+        run: |
+          set -euo pipefail
+          rc=0
+          npm audit --package-lock-only --omit=dev --audit-level=high --registry=https://registry.npmjs.org --json > "$RUNNER_TEMP/targeted/audit.json" || rc=$?
+          node -e 'const r=require(process.env.RUNNER_TEMP+"/targeted/audit.json");if(r.error||!r.metadata?.vulnerabilities)throw Error("AUDIT_UNAVAILABLE");console.log(r.metadata.vulnerabilities);if(r.metadata.vulnerabilities.high||r.metadata.vulnerabilities.critical)process.exitCode=1'
+          test "$rc" = 0
+      - name: Validate Expo and real Metro asset loading
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npx expo install --check
+          node <<'NODE'
+          const fs=require('node:fs');
+          const path=require('node:path');
+          const {getAssetData}=require('metro/src/Assets');
+          const dir=fs.mkdtempSync(path.join(process.env.RUNNER_TEMP,'metro-asset-'));
+          const png=path.join(dir,'sample.png');
+          fs.writeFileSync(png,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jR2sAAAAASUVORK5CYII=','base64'));
+          (async()=>{const asset=await getAssetData(png,'sample.png',[],null,'/assets');if(asset.width!==1||asset.height!==1)throw Error('METRO_ASSET_DIMENSIONS');console.log('Metro PNG asset dimensions verified');})().catch(e=>{console.error(e);process.exitCode=1});
+          NODE
+          npx expo export --platform android --output-dir "$RUNNER_TEMP/export"
+          cmp package-lock.json "$RUNNER_TEMP/targeted/candidate-lock.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: targeted-dependency-remediation
+          path: ${{ runner.temp }}/targeted/
+          retention-days: 7
+          if-no-files-found: error
