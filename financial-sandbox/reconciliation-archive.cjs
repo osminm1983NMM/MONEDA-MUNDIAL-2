@@ -1,7 +1,8 @@
 'use strict';
 // Local synthetic archive only. No provider credentials, network, or live ledger.
 const {DatabaseSync}=require('node:sqlite');
-const {openSync,closeSync,existsSync,lstatSync,unlinkSync,fsyncSync}=require('node:fs');
+const {openSync,closeSync,existsSync,lstatSync,fsyncSync,mkdtempSync,linkSync,rmSync,constants}=require('node:fs');
+const {dirname,join}=require('node:path');
 const {createHash}=require('node:crypto');
 const {reconcilePagedCut}=require('./reconcile-paged-cut.cjs');
 const {createReconciliationBundle,verifyReconciliationBundle}=require('./reconciliation-evidence-bundle.cjs');
@@ -76,6 +77,11 @@ function openReconciliationArchive({environment,path,initialize=false}={}){
    CREATE TRIGGER snapshots_no_delete BEFORE DELETE ON snapshots BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END;
    CREATE TRIGGER receipts_no_update BEFORE UPDATE ON receipts BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END;
    CREATE TRIGGER receipts_no_delete BEFORE DELETE ON receipts BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END;
+   CREATE TRIGGER snapshots_no_replace BEFORE INSERT ON snapshots WHEN EXISTS(SELECT 1 FROM snapshots WHERE source=NEW.source AND snapshot_id=NEW.snapshot_id) BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END;
+   CREATE TRIGGER receipts_no_replace BEFORE INSERT ON receipts WHEN EXISTS(SELECT 1 FROM receipts WHERE receipt_id=NEW.receipt_id) BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END;
+   CREATE TRIGGER metadata_no_replace BEFORE INSERT ON metadata WHEN EXISTS(SELECT 1 FROM metadata WHERE key=NEW.key) BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END;
+   CREATE TRIGGER metadata_no_update BEFORE UPDATE ON metadata BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END;
+   CREATE TRIGGER metadata_no_delete BEFORE DELETE ON metadata BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END;
    COMMIT;`);
   if(db.prepare("SELECT value FROM metadata WHERE key='mode'").get()?.value!=='synthetic-reconciliation-archive-v1')fail('INVALID_ARCHIVE');
   db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;');
@@ -131,19 +137,27 @@ function openReconciliationArchive({environment,path,initialize=false}={}){
   counts(){return {snapshots:db.prepare('SELECT count(*) n FROM snapshots').get().n,receipts:db.prepare('SELECT count(*) n FROM receipts').get().n};},
   backup(destination){
    if(typeof destination!=='string'||!destination.endsWith('.sqlite'))fail('INVALID_BACKUP_PATH');
-   // Never overwrite an existing file, including the active archive.
-   // Use a trusted local directory; no defense against hostile directory replacement.
-   const fd=openSync(destination,'wx',0o600);closeSync(fd);
+   // Compare with the source logical manifest before exclusive publication.
+   // Writers must be paused; a changed source cut fails verification.
+   const directory=dirname(destination);
+   if(!lstatSync(directory).isDirectory())fail('INVALID_BACKUP_PATH');
+   const expected=tx(()=>inspect(db));
+   const staging=mkdtempSync(join(directory,'.mwd-archive-'));
+   const candidate=join(staging,'candidate.sqlite');
    try{
-    db.prepare('VACUUM INTO ?').run(destination);
-    const output=new DatabaseSync(destination,{readOnly:true});
-    let manifest;
-    try{manifest=inspect(output);}finally{output.close();}
-    const synced=openSync(destination,'r');
+    const fd=openSync(candidate,'wx',0o600);closeSync(fd);
+    db.prepare('VACUUM INTO ?').run(candidate);
+    const manifest=verifyReconciliationBackup({environment,path:candidate,expected});
+    const synced=openSync(candidate,'r');
     try{fsyncSync(synced);}finally{closeSync(synced);}
-    verifyReconciliationBackup({environment,path:destination,expected:manifest});
+    linkSync(candidate,destination);
     return manifest;
-   }catch(e){unlinkSync(destination);throw e;}
+   }finally{
+    // Never unlink the final destination, even after a directory sync failure.
+    rmSync(staging,{recursive:true,force:true});
+    const dirfd=openSync(directory,constants.O_RDONLY|constants.O_DIRECTORY|constants.O_NOFOLLOW);
+    try{fsyncSync(dirfd);}finally{closeSync(dirfd);}
+   }
   },
   close(){db.close();}
  };

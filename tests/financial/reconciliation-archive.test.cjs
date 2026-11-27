@@ -125,3 +125,29 @@ test('bundle check detects altered receipt summary even when stored evidence sti
  }finally{db.close();}
  a.throws(()=>store.verifyArchivedBundle(x.receipt.receiptId,x.bundle),/RECEIPT_MISMATCH/);
 }));
+
+test('new archives reject replacement even with recursive triggers disabled',()=>fixture(({store,config})=>{
+ const x=store.recordWithBundle({internalPages:pages('internal'),providerPages:pages('provider')});
+ const db=new DatabaseSync(config.path);
+ try{
+  db.exec('PRAGMA recursive_triggers=OFF');
+  for(const sql of ['INSERT OR REPLACE INTO snapshots SELECT * FROM snapshots','INSERT OR REPLACE INTO receipts SELECT * FROM receipts','INSERT OR REPLACE INTO metadata SELECT * FROM metadata',"UPDATE metadata SET value='changed'",'DELETE FROM metadata'])
+   a.throws(()=>db.exec(sql),/IMMUTABLE_ARCHIVE/);
+ }finally{db.close();}
+ a.deepEqual(store.verifyArchivedBundle(x.receipt.receiptId,x.bundle),x.receipt);
+}));
+test('backup never publishes an inconsistent source and preserves existing destination bytes',()=>fixture(({store,config})=>{
+ const fs=require('node:fs'),{dirname}=require('node:path');
+ store.record({internalPages:pages('internal'),providerPages:pages('provider')});
+ const destination=config.path+'.backup.sqlite';
+ fs.writeFileSync(destination,'preserve existing');
+ a.throws(()=>store.backup(destination),/EEXIST/);
+ a.equal(fs.readFileSync(destination,'utf8'),'preserve existing');
+ fs.unlinkSync(destination);
+ const db=new DatabaseSync(config.path);
+ try{db.exec("DROP TRIGGER snapshots_no_delete; DELETE FROM snapshots WHERE source='provider'");}
+ finally{db.close();}
+ a.throws(()=>store.backup(destination),/ARCHIVE_CORRUPT/);
+ a.equal(fs.existsSync(destination),false);
+ a.equal(fs.readdirSync(dirname(destination)).some(x=>x.startsWith('.mwd-archive-')),false);
+}));
