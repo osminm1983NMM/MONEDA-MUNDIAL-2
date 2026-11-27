@@ -22,7 +22,7 @@ function normalize(row,orderId){
 function createOrderStatusService({environment,verifySession,query}={}){
  if(environment!=='sandbox'||typeof verifySession!=='function'||typeof query!=='function')throw Error('SANDBOX_ONLY');
  return Object.freeze({
-  async read(request){
+  async read(request,signal){
    // The actor is never accepted from the request. An opaque session token
    // must be validated by a trusted server-side verifier supplied by the host.
    if(!exact(request,['sessionToken','orderId']))return error(400,'INVALID_REQUEST');
@@ -30,12 +30,16 @@ function createOrderStatusService({environment,verifySession,query}={}){
    if(typeof sessionToken!=='string'||!/^[A-Za-z0-9._~-]{1,8192}$/.test(sessionToken))return error(401,'AUTH_REQUIRED');
    // Reject malformed requests before invoking the identity provider.
    if(!uuid(orderId))return error(400,'INVALID_REQUEST');
+   if(signal?.aborted)return error(503,'UNAVAILABLE');
    let session;
    try{session=await verifySession(sessionToken);}catch{return error(503,'UNAVAILABLE');}
+   // Do not start a database read after a cancelled identity check.
+   if(signal?.aborted)return error(503,'UNAVAILABLE');
    if(!exact(session,['environment','actor'])||session.environment!=='sandbox'||!actorId(session.actor))return error(401,'AUTH_REQUIRED');
    const actor=session.actor;
    try{
     const response=await query(SQL,[actor,orderId]);
+    if(signal?.aborted)return error(503,'UNAVAILABLE');
     if(!Array.isArray(response?.rows)||response.rows.length>1)return error(503,'UNAVAILABLE');
     if(response.rows.length===0)return error(404,'NOT_FOUND');
     return result(200,normalize(response.rows[0],orderId));

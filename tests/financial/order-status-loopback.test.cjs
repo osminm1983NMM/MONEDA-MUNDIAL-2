@@ -80,3 +80,31 @@ test('TCP transport through actual status service binds orders to authenticated 
  a.equal((await send('unknown-token')).status,401);
  a.deepEqual(calls,[['owner',orderId],['other',orderId],['owner','00000000-0000-4000-8000-000000000002']]);
 });
+
+test('TCP disconnect propagates cancellation through pending identity check without starting SQL',{timeout:5000},async t=>{
+ const {createOrderStatusService}=require('../../financial-sandbox/order-status-service.cjs');
+ let releaseAuth,entered,observed,finished,queries=0;
+ const started=new Promise(resolve=>{entered=resolve;});
+ const cancelled=new Promise(resolve=>{observed=resolve;});
+ const settled=new Promise(resolve=>{finished=resolve;});
+ const service=createOrderStatusService({environment:'sandbox',
+  verifySession:()=>{entered();return new Promise(resolve=>{releaseAuth=resolve;});},
+  query:async()=>{queries++;return {rows:[]};}});
+ let first=true;
+ const listener=createOrderStatusLoopback({environment:'sandbox',maxActive:1,serviceTimeoutMs:3000,service:{
+  async read(input,signal){
+   if(!first)return {status:404};first=false;
+   signal.addEventListener('abort',observed,{once:true});
+   try{return await service.read(input,signal);}finally{finished();}
+  }
+ }});
+ t.after(()=>{releaseAuth?.(null);return listener.close();});
+ const base=await listener.start();
+ const req=http.request(base+route,{method:'POST',headers:options.headers});
+ req.on('error',()=>{});req.end(options.body);
+ await started;req.destroy();await cancelled;
+ a.equal((await fetch(base+route,options)).status,503);
+ releaseAuth({environment:'sandbox',actor:'owner'});await settled;
+ await new Promise(resolve=>setImmediate(resolve));
+ a.equal(queries,0);a.equal((await fetch(base+route,options)).status,404);
+});

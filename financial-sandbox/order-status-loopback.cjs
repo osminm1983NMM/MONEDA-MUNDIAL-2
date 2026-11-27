@@ -55,10 +55,18 @@ function createOrderStatusLoopback({environment,service,bodyTimeoutMs=5000,servi
     return reply(res,e.message==='BODY_TOO_LARGE'?413:408,e.message==='BODY_TOO_LARGE'?'BODY_TOO_LARGE':'INVALID_REQUEST');
    }
    if(res.destroyed)return;
-   const response=await handle(new Request(origin+route,{method:'POST',headers:{authorization:auth,'content-type':media},body}));
-   if(res.destroyed||res.writableEnded)return;
-   res.writeHead(response.status,{...Object.fromEntries(response.headers),'connection':'close'});
-   res.end(Buffer.from(await response.arrayBuffer()));
+   const controller=new AbortController();
+   const disconnect=()=>{if(!res.writableFinished)controller.abort();};
+   res.once('close',disconnect);
+   try{
+    if(res.destroyed)controller.abort();
+    const response=await handle(new Request(origin+route,{method:'POST',headers:{authorization:auth,'content-type':media},body,signal:controller.signal}));
+    if(controller.signal.aborted||res.destroyed||res.writableEnded)return;
+    const bytes=Buffer.from(await response.arrayBuffer());
+    if(controller.signal.aborted||res.destroyed||res.writableEnded)return;
+    res.writeHead(response.status,{...Object.fromEntries(response.headers),'connection':'close'});
+    res.end(bytes);
+   }finally{res.off('close',disconnect);}
   }catch{return reply(res,503,'UNAVAILABLE');}
  });
  server.maxConnections=maxConnections;server.maxRequestsPerSocket=1;

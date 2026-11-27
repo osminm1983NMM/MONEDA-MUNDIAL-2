@@ -61,3 +61,17 @@ test('database projection uses shared contract without coercing values',async()=
   a.deepEqual(await f.service.read(request),{status:503,body:{mode:'sandbox',error:'UNAVAILABLE'}});
  }
 });
+
+test('cancelled service does not start identity or SQL and rejects a late database result',async()=>{
+ let verified=0;
+ const pre=fixture({verify:async()=>{verified++;return {environment:'sandbox',actor:'fixture-owner'};}});
+ const ctrl=new AbortController();ctrl.abort();
+ a.equal((await pre.service.read(request,ctrl.signal)).status,503);
+ a.equal(verified,0);a.equal(pre.calls.length,0);
+ const mid=new AbortController();
+ const f=fixture({verify:async()=>{mid.abort();return {environment:'sandbox',actor:'fixture-owner'};}});
+ a.equal((await f.service.read(request,mid.signal)).status,503);a.equal(f.calls.length,0);
+ const late=new AbortController();
+ const g=fixture({db:()=>{late.abort();return {rows:[row]};}});
+ a.equal((await g.service.read(request,late.signal)).status,503);a.equal(g.calls.length,1);
+});

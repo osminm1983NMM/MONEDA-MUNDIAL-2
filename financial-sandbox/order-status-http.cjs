@@ -76,12 +76,13 @@ function createOrderStatusHttp({environment,service,bodyTimeoutMs=5000,serviceTi
   try{
    // A timed-out operation keeps its slot until actually settled. A broken
    // adapter cannot generate unbounded concurrent Auth or database calls.
+   const controller=new AbortController();
    const operation=Promise.resolve().then(()=>{
-    if(request.signal.aborted)throw Error('ABORTED');
-    return service.read({sessionToken:token,orderId:body.orderId});
+    if(request.signal.aborted||controller.signal.aborted)throw Error('ABORTED');
+    return service.read({sessionToken:token,orderId:body.orderId},controller.signal);
    }).finally(()=>{active--;});
    retained=true;
-   const result=await bounded(operation,serviceTimeoutMs,undefined,request.signal);
+   const result=await bounded(operation,serviceTimeoutMs,()=>controller.abort(),request.signal);
    if(request.signal.aborted)return error(408,'INVALID_REQUEST');
    if(result?.status===200&&validOrderStatus(result.body,body.orderId))return respond(200,result.body);
    const allowed={400:'INVALID_REQUEST',401:'AUTH_REQUIRED',404:'NOT_FOUND',503:'UNAVAILABLE'};
