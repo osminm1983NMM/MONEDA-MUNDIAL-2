@@ -76,3 +76,8 @@ Captura aportada por el titular del proyecto: pantalla de acceso de Moneda Mundi
 ## Inicio de sesión físico — 26 de noviembre, 21:58 EST
 
 Captura del titular posterior al acceso: compilación visible `6d271511aa6dc3b6a7c383ebf82f451be01b225c`, pantalla Inicio de cuenta DEMO existente, saldo 9,911.00 MWD ficticios, coincidente con el último saldo conciliado documentado. Acceso físico normal aprobado; no constituye una nueva conciliación SQL independiente. No registrar correo ni identificador de billetera. Pendiente cerrar la aplicación sin salir de la cuenta, reabrir y comprobar persistencia; después salida explícita y recuperación PKCE. No repetir operaciones monetarias. Sin cambios en main, Supabase o fondos reales.
+
+
+## Acceso físico de la candidata vigente — 26 de noviembre, 21:58 EST
+
+Captura del usuario: Inicio de Moneda Mundial 2.0, compilación visible 6d271511aa6dc3b6a7c383ebf82f451be01b225c, cuenta DEMO existente y saldo ficticio de 9911.00 MWD, coincidente con el saldo B anteriormente conciliado. Acceso físico y visualización de billetera aprobados; no se realizó consulta nueva al servidor ni se comprobó hash del APK instalado. No conservar correo ni identificador personal de billetera en este registro. Pendiente cerrar la aplicación desde recientes sin usar cerrar sesión y reabrir para verificar persistencia; después salida explícita, recuperación PKCE y cotizador. Sin escrituras en Supabase, cambios de producción o movimientos de saldo.
