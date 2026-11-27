@@ -33,3 +33,12 @@ test('hosted mobile host is opt-in and clears old selection on session changes',
  await host.refresh(orderId,rev);assert.equal(latest.view.state,'ready');assert.equal(calls,1);
  host.setSession(null);await host.refresh(orderId,rev);assert.equal(latest.view.state,'signed_out');assert.equal(calls,1);host.dispose();
 });
+
+test('hosted explicit authorization denial differs from missing order and transport failure',async()=>{
+ for(const [status,code] of [[401,'AUTH_REQUIRED'],[403,'AUTH_REQUIRED'],[404,'NOT_FOUND'],[503,'UNAVAILABLE']]){
+  const c=client(async()=>new Response('private response',{status}));
+  assert.deepEqual(await c.read({sessionToken:token(),orderId}),{ok:false,code});
+ }
+ const isolated=createOrderStatusClient({environment:'sandbox',sandboxOrigin:'https://sandbox.invalid',fetchImpl:async()=>new Response('',{status:403})});
+ assert.deepEqual(await isolated.read({sessionToken:'fixture',orderId}),{ok:false,code:'UNAVAILABLE'});
+});
