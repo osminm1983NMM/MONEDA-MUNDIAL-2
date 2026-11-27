@@ -26,6 +26,33 @@ function readHistory(db){
   return e;
  });
 }
+// Capture JSON-compatible evidence once, without invoking accessors or
+// serialization hooks. Bound traversal to the laboratory's report sizes.
+function snapshotEvidence(value){
+ let nodes=0;
+ function copy(v,depth){
+  if(++nodes>100000||depth>12)fail('INVALID_RECONCILIATION_EVIDENCE');
+  if(v===null||typeof v==='string'||typeof v==='boolean'||Number.isSafeInteger(v))return v;
+  if(!v||typeof v!=='object')fail('INVALID_RECONCILIATION_EVIDENCE');
+  const descriptors=Object.getOwnPropertyDescriptors(v),keys=Reflect.ownKeys(descriptors);
+  if(Array.isArray(v)){
+   const n=descriptors.length.value;
+   if(Object.getPrototypeOf(v)!==Array.prototype||n>10000||keys.length!==n+1)fail('INVALID_RECONCILIATION_EVIDENCE');
+   return Array.from({length:n},(_,i)=>{
+    const d=descriptors[String(i)];
+    if(!d||!d.enumerable||!Object.hasOwn(d,'value'))fail('INVALID_RECONCILIATION_EVIDENCE');
+    return copy(d.value,depth+1);
+   });
+  }
+  if(![Object.prototype,null].includes(Object.getPrototypeOf(v)))fail('INVALID_RECONCILIATION_EVIDENCE');
+  return Object.fromEntries(keys.map(k=>{
+   const d=descriptors[k];
+   if(typeof k!=='string'||!d.enumerable||!Object.hasOwn(d,'value'))fail('INVALID_RECONCILIATION_EVIDENCE');
+   return [k,copy(d.value,depth+1)];
+  }));
+ }
+ return copy(value,0);
+}
 function verifyPriceProofs(events,proofs){
  const quotes=events.filter(e=>e.kind==='quote_created');
  if(!Array.isArray(proofs)||proofs.length!==quotes.length)fail('PRICE_PROOF_REQUIRED');
@@ -168,15 +195,17 @@ function openDigitalCoinLedger({environment,path,initialize=false,seed,requireRe
     // An idempotent replay must not report success over damaged receipt history.
     if(audited(mode)&&!added.length)inspect(db);
     if(gated(mode)&&added.length){
-     if(!evidence||typeof evidence.internalSha256!=='string')fail('RECONCILIATION_REQUIRED');
+     if(!evidence)fail('RECONCILIATION_REQUIRED');
+     const proof=snapshotEvidence(evidence);
+     if(typeof proof.internalSha256!=='string')fail('RECONCILIATION_REQUIRED');
      const manifest=inspect(db);
-     if(evidence.internalSha256!==manifest.sha256)fail('STALE_RECONCILIATION');
-     const result=compareDigitalCoinCut({environment,cutId:evidence.cutId,
-      snapshot:{manifest,projection:project(prior)},reports:evidence.reports});
+     if(proof.internalSha256!==manifest.sha256)fail('STALE_RECONCILIATION');
+     const result=compareDigitalCoinCut({environment,cutId:proof.cutId,
+      snapshot:{manifest,projection:project(prior)},reports:proof.reports});
      if(!result.clean)fail('RECONCILIATION_DISCREPANCY');
-     if(mode===PRICED)verifyPriceProofs(all.slice(prior.length),evidence.priceProofs??[]);
-     if(audited(mode))receiptEvidence=JSON.stringify({cutId:evidence.cutId,internalSha256:evidence.internalSha256,reports:evidence.reports,
-      ...(mode===PRICED?{priceProofs:evidence.priceProofs??[]}: {})});
+     if(mode===PRICED)verifyPriceProofs(all.slice(prior.length),proof.priceProofs??[]);
+     if(audited(mode))receiptEvidence=JSON.stringify({cutId:proof.cutId,internalSha256:proof.internalSha256,reports:proof.reports,
+      ...(mode===PRICED?{priceProofs:proof.priceProofs??[]}: {})});
     }
     const insert=db.prepare('INSERT INTO events(event_id,payload) VALUES(?,?)');
     for(const row of added)insert.run(...row);
