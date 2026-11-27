@@ -318,3 +318,24 @@ El límite HTTP y el cliente comparten la validación de la respuesta de estado:
 - Draft PR [137](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/pull/137) integration run [45989373624](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45989373624): PostgreSQL passed; 270 Node tests passed and the Android byte-pinned boundary test failed on App.js. The merged checkout is not equivalent to the pinned Android baseline. This is a release blocker, not a reason to relax the gate.
 - Android development head observed: `a24b14cd075ff792ee06b0fb7a77acafc1e06f53`. Its Android audit and preflight passed; its APK run [45989217202](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45989217202) was pending at this checkpoint.
 - Keep the financial sandbox and Android branches separate; do not merge PR 137 or refresh the expected mobile blob hashes until the new Android baseline has verified APK provenance, successful emulator gates and an explicit review of the mobile diff. A successful isolated sandbox run does not authorize integration, production or real-money activity.
+
+
+## Preparación de integración controlada — 27 de noviembre de 2026
+
+Referencia Android vigente de la rama financiera: `71ebdef0122338e6c1464bcc2eb548a9233e1164`. Candidata nueva: `a24b14cd075ff792ee06b0fb7a77acafc1e06f53`. Comparación Git de cuatro commits: ocho archivos cambiados, incluidos cuatro fuentes de raíz, tres archivos de pruebas Android y el script de regresión de transferencias. Los nueve archivos de raíz conservan el mismo inventario; cinco tienen blobs idénticos. No cambia package.json, package-lock.json, app.json, eas.json ni PartnerRegistryScreen.js.
+
+| Archivo de raíz cambiado | Blob Git anterior | Blob Git candidato |
+| --- | --- | --- |
+| App.js | dee1c353a588702af312001645ab779048b204f7 | 681559f72409303f28e5b1e6dc2cd14f7032f575 |
+| RemittanceQuoteScreen.js | d848116a082868faee5cbe47d08c54a928b7cf13 | 47b40d49567990e702886f5fe771c2e302261fb2 |
+| auth-storage.js | d6b47a9bf44e30423cf874958939ddf5bf4a4706 | 56c08654c79860615322084e3f6e64af11684263 |
+| remittance-quote.js | 42c515f99961e6bd5bf3a3c6736a04fb91a8e570 | d7643131307fae5b643073317a9178ec4ab4932e |
+
+Estos son identificadores de blob Git observados directamente, no hashes SHA-256 del APK. Los nueve blobs raíz de la rama financiera `f6f05923846fa0015c0f32cf44223d7ff2168182` coinciden aún con la referencia anterior. El inventario de seguridad no se modifica.
+
+Evidencia:
+- Android candidata: [auditoría 45989226166](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45989226166) y [preflight 45989226200](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45989226200) aprobados. [APK 45989217202](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45989217202) en compilación al registrar.
+- Android revisión intermedia 07cc9aa: [APK y smoke-test 45988744543](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45988744543) ambos success. No sustituye la validación del commit nuevo.
+- Finanzas `f6f05923846fa0015c0f32cf44223d7ff2168182`: [push 45989988147](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45989988147), job sandbox success, postgres-lab en curso; integración PR 137 aún bloqueada.
+
+Secuencia de cierre: (1) verificar jobs APK/smoke-test, commit de checkout, manifiestos, firma y hash del APK candidato; (2) revisar los cuatro cambios de raíz y las pruebas correspondientes; (3) confirmar que la rama Android no avanzó durante la compilación; (4) sincronizar en la rama financiera los cambios revisados y actualizar exclusivamente los cuatro blobs esperados en la barrera, sin eliminar controles; (5) verificar que la totalidad de archivos financieros preexistentes se conserva y ejecutar auditoría financiera, PostgreSQL y pruebas de integración PR; (6) aceptar físicamente la candidata exacta sin repetir movimientos normales ya conciliados salvo necesidad de regresión. Si cualquier SHA o inventario difiere, detener integración y revisar nuevamente. No fusionar main, desplegar infraestructura ni activar dinero real. La aprobación de integración técnica no sustituye autorización regulatoria, acceso a proveedor, seguridad independiente o aceptación física.
