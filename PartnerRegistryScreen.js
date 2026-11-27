@@ -1,6 +1,6 @@
 // Registro permanente de candidatos a socios financieros (solo modo demostración).
 // Las llamadas RPC comprueban el rol propietario en Supabase; ocultar esta pantalla no es una barrera de seguridad.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 
 const KIND = [
@@ -42,10 +42,10 @@ function Btn({ title, onPress, secondary, disabled }) {
     onPress={onPress}><Text style={s.buttonText}>{title}</Text></TouchableOpacity>;
 }
 
-function Field({ label, value, onChangeText, placeholder }) {
+function Field({ label, value, onChangeText, placeholder, editable = true }) {
   return <View><Text style={s.text}>{label}</Text><TextInput
     accessibilityLabel={label} style={s.input} value={value} onChangeText={onChangeText}
-    autoCorrect={false} placeholder={placeholder} placeholderTextColor="#b3c5d9" /></View>;
+    autoCorrect={false} editable={editable} placeholder={placeholder} placeholderTextColor="#b3c5d9" /></View>;
 }
 
 export default function PartnerRegistryScreen({ supabase }) {
@@ -61,10 +61,22 @@ export default function PartnerRegistryScreen({ supabase }) {
   const [currency, setCurrency] = useState('USD');
   const [hours, setHours] = useState('');
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const partnersLoadVersionRef = useRef(0);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
   const selected = partners.find(p => p.id === selectedId);
+  function beginBusy() {
+    if (busyRef.current) return false;
+    busyRef.current = true;
+    setBusy(true);
+    return true;
+  }
+  function endBusy() {
+    busyRef.current = false;
+    setBusy(false);
+  }
   async function request(name, params) {
     const { data, error: dbError } = await supabase.rpc(name, params);
     if (dbError) throw dbError;
@@ -75,11 +87,14 @@ export default function PartnerRegistryScreen({ supabase }) {
     setNotice('');
   }
   async function reloadPartners() {
+    const requestVersion = ++partnersLoadVersionRef.current;
     const rows = await request('mwd_owner_partners_demo');
-    setPartners(rows || []);
+    if (requestVersion === partnersLoadVersionRef.current) setPartners(rows || []);
   }
   async function reloadDetails(id) {
-    if (!id) { setLocations([]); setAudit([]); return; }
+    setLocations([]);
+    setAudit([]);
+    if (!id) return;
     const [loc, hist] = await Promise.all([
       request('mwd_owner_partner_locations_demo', { p_partner_id: id }),
       request('mwd_owner_partner_audit_demo', { p_partner_id: id }),
@@ -89,17 +104,20 @@ export default function PartnerRegistryScreen({ supabase }) {
   }
   useEffect(() => {
     let active = true;
+    const requestVersion = ++partnersLoadVersionRef.current;
     supabase.rpc('mwd_owner_partners_demo').then(({ data, error: dbError }) => {
-      if (!active) return;
+      if (!active || requestVersion !== partnersLoadVersionRef.current) return;
       if (dbError) report(dbError);
       else setPartners(data || []);
-    }).catch(err => { if (active) report(err); });
+    }).catch(err => {
+      if (active && requestVersion === partnersLoadVersionRef.current) report(err);
+    });
     return () => { active = false; };
   }, [supabase]);
 
   async function savePartner() {
-    if (busy) return;
-    setError(''); setNotice(''); setBusy(true);
+    if (!beginBusy()) return;
+    setError(''); setNotice('');
     try {
       const result = await request('mwd_owner_partner_save_demo', {
         p_legal_name: name.trim(),
@@ -112,18 +130,19 @@ export default function PartnerRegistryScreen({ supabase }) {
       setName('');
       setNotice('Candidato guardado permanentemente como borrador; sin capacidad de pagar remesas.');
     } catch (err) { report(err); }
-    finally { setBusy(false); }
+    finally { endBusy(); }
   }
   async function choosePartner(id) {
-    if (busy) return;
-    setSelectedId(id); setError(''); setNotice(''); setBusy(true);
+    if (!beginBusy()) return;
+    setSelectedId(id); setError(''); setNotice('');
     try { await reloadDetails(id); }
     catch (err) { report(err); }
-    finally { setBusy(false); }
+    finally { endBusy(); }
   }
   async function setStatus(status) {
     if (!selectedId || busy) return;
-    setError(''); setNotice(''); setBusy(true);
+    if (!beginBusy()) return;
+    setError(''); setNotice('');
     try {
       await request('mwd_owner_partner_set_status_demo', {
         p_partner_id: selectedId, p_new_status: status,
@@ -131,11 +150,12 @@ export default function PartnerRegistryScreen({ supabase }) {
       await reloadPartners(); await reloadDetails(selectedId);
       setNotice('Estado de revisión guardado. No habilita retiros ni pagos reales.');
     } catch (err) { report(err); }
-    finally { setBusy(false); }
+    finally { endBusy(); }
   }
   async function saveLocation() {
     if (!selectedId || busy) return;
-    setError(''); setNotice(''); setBusy(true);
+    if (!beginBusy()) return;
+    setError(''); setNotice('');
     try {
       await request('mwd_owner_partner_location_save_demo', {
         p_partner_id: selectedId,
@@ -148,7 +168,7 @@ export default function PartnerRegistryScreen({ supabase }) {
       setBranchName(''); setCity(''); setHours('');
       setNotice('Sucursal candidata guardada. No es un punto de retiro autorizado.');
     } catch (err) { report(err); }
-    finally { setBusy(false); }
+    finally { endBusy(); }
   }
 
   return <View>
@@ -159,8 +179,8 @@ export default function PartnerRegistryScreen({ supabase }) {
 
     <View style={s.card}>
       <Text style={s.title}>Registrar futuro socio</Text>
-      <Field label="Nombre de la entidad" value={name} onChangeText={setName} placeholder="Nombre legal de ejemplo o candidato" />
-      <Field label="País (código de 2 letras)" value={country} onChangeText={setCountry} placeholder="NI, CR, HN..." />
+      <Field label="Nombre de la entidad" value={name} onChangeText={setName} placeholder="Nombre legal de ejemplo o candidato" editable={!busy} />
+      <Field label="País (código de 2 letras)" value={country} onChangeText={setCountry} placeholder="NI, CR, HN..." editable={!busy} />
       <Text style={s.text}>Tipo de entidad</Text>
       {KIND.map(([value, label]) => <Btn key={value}
         title={kind === value ? '✓ ' + label : label}
@@ -175,9 +195,10 @@ export default function PartnerRegistryScreen({ supabase }) {
         title={(selectedId === p.id ? '✓ ' : '') + p.legal_name + ' · ' + p.country_code + '\n' + (LABELS[p.review_status] || p.review_status)}
         secondary={selectedId !== p.id} disabled={busy} onPress={() => choosePartner(p.id)} />)}
       <Btn title="Actualizar listado" secondary disabled={busy} onPress={async () => {
-        setBusy(true); setError('');
+        if (!beginBusy()) return;
+        setError('');
         try { await reloadPartners(); } catch (err) { report(err); }
-        finally { setBusy(false); }
+        finally { endBusy(); }
       }} />
     </View>
 
@@ -192,10 +213,10 @@ export default function PartnerRegistryScreen({ supabase }) {
       {locations.map(l => <Text key={l.id} style={s.text}>
         {l.display_name} — {l.city} — {l.currency_code} · Borrador
       </Text>)}
-      <Field label="Nombre de sucursal" value={branchName} onChangeText={setBranchName} />
-      <Field label="Ciudad" value={city} onChangeText={setCity} />
-      <Field label="Moneda de referencia (3 letras)" value={currency} onChangeText={setCurrency} />
-      <Field label="Horario orientativo (opcional)" value={hours} onChangeText={setHours} />
+      <Field label="Nombre de sucursal" value={branchName} onChangeText={setBranchName} editable={!busy} />
+      <Field label="Ciudad" value={city} onChangeText={setCity} editable={!busy} />
+      <Field label="Moneda de referencia (3 letras)" value={currency} onChangeText={setCurrency} editable={!busy} />
+      <Field label="Horario orientativo (opcional)" value={hours} onChangeText={setHours} editable={!busy} />
       <Btn title="Guardar sucursal candidata" disabled={busy || !branchName.trim() || !city.trim()}
         onPress={saveLocation} />
 

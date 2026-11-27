@@ -1,0 +1,143 @@
+name: APK Android de demostración (Gradle)
+on:
+  push:
+    branches: [fix/eas-build-current-ref-20261121, dev/cierre-android-20261125]
+    paths: ['.github/workflows/apk-demo-gradle.yml', 'App.js', 'RemittanceQuoteScreen.js', 'remittance-quote.js', 'auth-storage.js', 'PartnerRegistryScreen.js', 'app.json', 'package.json', 'package-lock.json', 'scripts/probar-apk-samsung.sh', 'scripts/test-*.cjs', 'scripts/audit-*.cjs', 'scripts/preflight-release-local.js', 'tests/android/**']
+  workflow_dispatch:
+concurrency:
+  group: mwd-lab-apk-${{ github.ref }}
+  # Finish the running candidate; queue the integrated one instead of discarding it.
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install and preserve exact dependency resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund
+          else
+            npm install --package-lock --no-audit --no-fund
+          fi
+          test -s package-lock.json
+          cp package-lock.json "$RUNNER_TEMP/mwd-package-lock.json"
+          node --version > "$RUNNER_TEMP/mwd-toolchain.txt"
+          npm --version >> "$RUNNER_TEMP/mwd-toolchain.txt"
+          java -version >> "$RUNNER_TEMP/mwd-toolchain.txt" 2>&1
+      - run: node --test tests/android/*.test.cjs
+      - name: Auditoría integral antes de compilar
+        run: |
+          node scripts/preflight-release-local.js
+          node scripts/audit-demo-static.cjs
+          node scripts/audit-regression-safety.cjs
+          node --test scripts/test-transfer-recovery.cjs scripts/test-conversion-retiro.cjs scripts/test-demo-sql-runner.cjs
+          node scripts/test-password-recovery.cjs
+      - run: npx expo install --check
+      - name: Configurar aplicación independiente para Samsung
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const config = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+          config.expo.name = 'Moneda Mundial LAB';
+          config.expo.android.package = 'com.monedamundial.lab.samsung';
+          config.expo.scheme = 'com.monedamundial.lab.samsung';
+          fs.writeFileSync('app.json', JSON.stringify(config, null, 2));
+          const app = fs.readFileSync('App.js', 'utf8');
+          const commit = process.env.GITHUB_SHA;
+          if (!/^[0-9a-f]{40}$/.test(commit || '')) throw new Error('Commit de compilación inválido');
+          const marker = "const BUILD_COMMIT = 'sin verificar';";
+          if (app.split(marker).length !== 2) throw new Error('Marcador de compilación ausente o duplicado');
+          fs.writeFileSync('App.js', app.replaceAll('com.monedamundial.app:', 'com.monedamundial.lab.samsung:').replace(marker, "const BUILD_COMMIT = '" + commit + "';"));
+          NODE
+      - name: Validar recuperación con el esquema LAB efectivo
+        run: node scripts/test-password-recovery.cjs --lab
+      - run: npx expo prebuild --platform android --no-install
+      - name: Compilar con JavaScript incluido y firma de desarrollo
+        working-directory: android
+        run: bash gradlew :app:assembleRelease --max-workers=2 -PreactNativeArchitectures=arm64-v8a,x86_64
+      - name: Preparar descarga
+        run: |
+          apk=android/app/build/outputs/apk/release/app-release.apk
+          sdk_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          "$sdk_tools/apksigner" verify --verbose "$apk"
+          "$sdk_tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/apk-info"
+          grep -F "package: name='com.monedamundial.lab.samsung'" "$RUNNER_TEMP/apk-info"
+          grep '^native-code:' "$RUNNER_TEMP/apk-info" | grep -F "'arm64-v8a'" | grep -F "'x86_64'"
+          mkdir entrega
+          cp android/app/build/outputs/apk/release/app-release.apk entrega/MonedaMundial-LAB.apk
+          cd entrega
+          sha256sum MonedaMundial-LAB.apk > SHA256.txt
+          echo "$GITHUB_SHA" > COMMIT.txt
+          cmp "$RUNNER_TEMP/mwd-package-lock.json" ../package-lock.json
+          cp "$RUNNER_TEMP/mwd-package-lock.json" package-lock.json
+          cp "$RUNNER_TEMP/mwd-toolchain.txt" TOOLCHAIN.txt
+          sha256sum package-lock.json TOOLCHAIN.txt > DEPENDENCIES-SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MonedaMundial-LAB-Samsung
+          path: entrega/
+          retention-days: 7
+
+  smoke-test:
+    needs: apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: MonedaMundial-LAB-Samsung
+          path: ${{ runner.temp }}/apk
+      - name: Verify APK provenance
+        run: |
+          cd "$RUNNER_TEMP/apk"
+          sha256sum -c SHA256.txt
+          sha256sum -c DEPENDENCIES-SHA256.txt
+          test "$(cat COMMIT.txt)" = "$GITHUB_SHA"
+      - name: Install and launch Android 35
+        run: |
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          sudo chmod 666 /dev/kvm
+          image='system-images;android-35;google_apis;x86_64'
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install 'emulator' 'platform-tools' "$image"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/android-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          printf 'no\n' | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n mwd -k "$image" --force
+          "$ANDROID_HOME/emulator/emulator" -list-avds | grep -Fx mwd
+          "$ANDROID_HOME/emulator/emulator" -avd mwd -no-window -no-audio -no-snapshot -gpu swiftshader_indirect -no-boot-anim >"$RUNNER_TEMP/emulator.log" 2>&1 &
+          bash scripts/probar-apk-samsung.sh "$RUNNER_TEMP/apk/MonedaMundial-LAB.apk" || { status=$?; tail -50 "$RUNNER_TEMP/emulator.log"; exit "$status"; }
+          grep -F "$GITHUB_SHA" "$RUNNER_TEMP/mwd-ui.xml" >/dev/null || { echo "La pantalla no identifica el commit del APK"; exit 1; }
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: MonedaMundial-diagnostico-Android
+          path: |
+            ${{ runner.temp }}/mwd-failure.png
+            ${{ runner.temp }}/mwd-ui-failure.xml
+            ${{ runner.temp }}/mwd-logcat-failure.txt
+            ${{ runner.temp }}/emulator.log
+          if-no-files-found: warn
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: MonedaMundial-inicio-Android
+          path: ${{ runner.temp }}/inicio.png
+          retention-days: 7

@@ -1,0 +1,755 @@
+{
+  "purpose": "Read-only catalog definitions absent from recorded migration CREATE statements. Not a runnable migration. No table rows, credentials, or auth records. Review dependency order and later alterations before replay.",
+  "date": "2026-11-26",
+  "relations": [
+    {
+      "schema": "mwd_finance_private",
+      "name": "demo_ledger_backfill_readiness_v1",
+      "relkind": "v",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false,
+      "relacl": "{postgres=arwdDxtm/postgres}",
+      "columns": [
+        {
+          "name": "operation_id",
+          "type": "uuid",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "request_id",
+          "type": "uuid",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "amount_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "readiness",
+          "type": "text",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": null,
+      "indexes": null,
+      "view_definition": " SELECT id AS operation_id,\n    request_id,\n    amount_cents,\n        CASE\n            WHEN kind <> 'transfer'::text THEN 'not_transfer'::text\n            WHEN amount_cents <= 0 OR source_user_id IS NULL OR destination_user_id IS NULL OR source_user_id = destination_user_id THEN 'invalid'::text\n            WHEN (EXISTS ( SELECT 1\n               FROM mwd_finance_private.ledger_transactions t\n              WHERE t.external_reference = ('mwd-demo-transfer:'::text || o.id::text))) THEN 'already_in_ledger'::text\n            WHEN (EXISTS ( SELECT 1\n               FROM mwd_operations x\n              WHERE x.id <> o.id AND x.request_id = o.request_id AND x.kind = 'transfer'::text)) THEN 'duplicate_request_review'::text\n            ELSE 'ready_for_backfill'::text\n        END AS readiness\n   FROM mwd_operations o\n  WHERE kind = 'transfer'::text;"
+    },
+    {
+      "schema": "mwd_finance_private",
+      "name": "demo_operations_audit_v1",
+      "relkind": "v",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false,
+      "relacl": "{postgres=arwdDxtm/postgres}",
+      "columns": [
+        {
+          "name": "operation_id",
+          "type": "uuid",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "kind",
+          "type": "text",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "amount_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "audit_status",
+          "type": "text",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": null,
+      "indexes": null,
+      "view_definition": " SELECT id AS operation_id,\n    kind,\n    created_at,\n    amount_cents,\n        CASE\n            WHEN amount_cents <= 0 OR actor_id IS NULL OR request_id IS NULL THEN 'invalid_basic'::text\n            WHEN kind = 'transfer'::text AND (source_user_id IS NULL OR destination_user_id IS NULL OR source_user_id = destination_user_id) THEN 'invalid_transfer'::text\n            WHEN kind = 'transfer'::text THEN 'transfer_ready_for_ledger'::text\n            WHEN kind = 'contribution'::text THEN 'contribution_requires_accounting_policy'::text\n            ELSE 'unsupported_kind'::text\n        END AS audit_status\n   FROM mwd_operations o;"
+    },
+    {
+      "schema": "mwd_finance_private",
+      "name": "demo_transfer_reconciliation_v1",
+      "relkind": "v",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false,
+      "relacl": "{postgres=arwdDxtm/postgres}",
+      "columns": [
+        {
+          "name": "operation_id",
+          "type": "uuid",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "amount_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "source_user_id",
+          "type": "uuid",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "destination_user_id",
+          "type": "uuid",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "structurally_valid",
+          "type": "boolean",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "debit_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "credit_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "difference_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": null,
+      "indexes": null,
+      "view_definition": " SELECT id AS operation_id,\n    created_at,\n    amount_cents,\n    source_user_id,\n    destination_user_id,\n        CASE\n            WHEN source_user_id IS NOT NULL AND destination_user_id IS NOT NULL AND source_user_id <> destination_user_id AND amount_cents > 0 THEN true\n            ELSE false\n        END AS structurally_valid,\n    amount_cents AS debit_cents,\n    amount_cents AS credit_cents,\n    amount_cents - amount_cents AS difference_cents\n   FROM mwd_operations o\n  WHERE kind = 'transfer'::text;"
+    },
+    {
+      "schema": "mwd_finance_private",
+      "name": "demo_wallet_alerts_v1",
+      "relkind": "v",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false,
+      "relacl": "{postgres=arwdDxtm/postgres}",
+      "columns": [
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "balance_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "net_recorded_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "implied_opening_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "difference_from_default_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "alert_status",
+          "type": "text",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": null,
+      "indexes": null,
+      "view_definition": " SELECT user_id,\n    balance_cents,\n    net_recorded_cents,\n    implied_opening_cents,\n    difference_from_default_cents,\n        CASE\n            WHEN difference_from_default_cents <> 0 THEN 'balance_mismatch'::text\n            ELSE 'ok'::text\n        END AS alert_status\n   FROM mwd_finance_private.demo_wallet_opening_audit_v1;"
+    },
+    {
+      "schema": "mwd_finance_private",
+      "name": "demo_wallet_opening_audit_v1",
+      "relkind": "v",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false,
+      "relacl": "{postgres=arwdDxtm/postgres}",
+      "columns": [
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "balance_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "net_recorded_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "implied_opening_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "configured_default_opening_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "difference_from_default_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "audit_status",
+          "type": "text",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": null,
+      "indexes": null,
+      "view_definition": " SELECT user_id,\n    balance_cents,\n    net_recorded_cents,\n    implied_opening_cents,\n    1000000::bigint AS configured_default_opening_cents,\n    implied_opening_cents - 1000000 AS difference_from_default_cents,\n        CASE\n            WHEN implied_opening_cents = 1000000 THEN 'matches_configured_default'::text\n            ELSE 'review_required'::text\n        END AS audit_status\n   FROM mwd_finance_private.demo_wallet_reconciliation_v1 r;"
+    },
+    {
+      "schema": "mwd_finance_private",
+      "name": "demo_wallet_reconciliation_v1",
+      "relkind": "v",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false,
+      "relacl": "{postgres=arwdDxtm/postgres}",
+      "columns": [
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "balance_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "net_recorded_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "implied_opening_cents",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "reconciliation_status",
+          "type": "text",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": null,
+      "indexes": null,
+      "view_definition": " WITH movement AS (\n         SELECT mwd_operations.source_user_id AS user_id,\n            - mwd_operations.amount_cents AS delta\n           FROM mwd_operations\n          WHERE mwd_operations.kind = 'transfer'::text AND mwd_operations.source_user_id IS NOT NULL\n        UNION ALL\n         SELECT mwd_operations.destination_user_id,\n            mwd_operations.amount_cents\n           FROM mwd_operations\n          WHERE mwd_operations.kind = 'transfer'::text AND mwd_operations.destination_user_id IS NOT NULL\n        UNION ALL\n         SELECT mwd_operations.source_user_id,\n            - mwd_operations.amount_cents\n           FROM mwd_operations\n          WHERE mwd_operations.kind = 'contribution'::text AND mwd_operations.source_user_id IS NOT NULL\n        ), totals AS (\n         SELECT movement.user_id,\n            sum(movement.delta)::bigint AS net_recorded_cents\n           FROM movement\n          GROUP BY movement.user_id\n        )\n SELECT w.user_id,\n    w.balance_cents,\n    COALESCE(t.net_recorded_cents, 0::bigint) AS net_recorded_cents,\n    w.balance_cents - COALESCE(t.net_recorded_cents, 0::bigint) AS implied_opening_cents,\n    'opening_balance_not_independently_verified'::text AS reconciliation_status\n   FROM mwd_wallets w\n     LEFT JOIN totals t ON t.user_id = w.user_id;"
+    },
+    {
+      "schema": "mwd_finance_private",
+      "name": "ledger_accounts",
+      "relkind": "r",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false,
+      "relacl": null,
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": "gen_random_uuid()",
+          "notnull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "account_code",
+          "type": "text",
+          "default": null,
+          "notnull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "owner_user_id",
+          "type": "uuid",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "currency_code",
+          "type": "text",
+          "default": null,
+          "notnull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "account_type",
+          "type": "text",
+          "default": null,
+          "notnull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "notnull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "name": "ledger_accounts_account_code_key",
+          "definition": "UNIQUE (account_code)"
+        },
+        {
+          "name": "ledger_accounts_account_type_check",
+          "definition": "CHECK ((account_type = ANY (ARRAY['customer_liability'::text, 'provider_clearing'::text, 'fee_revenue'::text, 'suspense'::text])))"
+        },
+        {
+          "name": "ledger_accounts_currency_code_check",
+          "definition": "CHECK ((currency_code ~ '^[A-Z]{3}$'::text))"
+        },
+        {
+          "name": "ledger_accounts_pkey",
+          "definition": "PRIMARY KEY (id)"
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX ledger_accounts_pkey ON mwd_finance_private.ledger_accounts USING btree (id)",
+        "CREATE UNIQUE INDEX ledger_accounts_account_code_key ON mwd_finance_private.ledger_accounts USING btree (account_code)"
+      ],
+      "view_definition": null
+    },
+    {
+      "schema": "mwd_finance_private",
+      "name": "ledger_balance_check",
+      "relkind": "v",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false,
+      "relacl": null,
+      "columns": [
+        {
+          "name": "transaction_id",
+          "type": "uuid",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "currency_code",
+          "type": "text",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "total_debits",
+          "type": "numeric",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "total_credits",
+          "type": "numeric",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "entry_count",
+          "type": "bigint",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": null,
+      "indexes": null,
+      "view_definition": " SELECT t.id AS transaction_id,\n    t.status,\n    t.currency_code,\n    COALESCE(sum(\n        CASE\n            WHEN e.entry_side = 'debit'::text THEN e.amount_minor\n            ELSE 0::bigint\n        END), 0::numeric) AS total_debits,\n    COALESCE(sum(\n        CASE\n            WHEN e.entry_side = 'credit'::text THEN e.amount_minor\n            ELSE 0::bigint\n        END), 0::numeric) AS total_credits,\n    count(e.id) AS entry_count\n   FROM mwd_finance_private.ledger_transactions t\n     LEFT JOIN mwd_finance_private.ledger_entries e ON e.transaction_id = t.id\n  GROUP BY t.id, t.status, t.currency_code;"
+    },
+    {
+      "schema": "mwd_finance_private",
+      "name": "ledger_entries",
+      "relkind": "r",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false,
+      "relacl": null,
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": "gen_random_uuid()",
+          "notnull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "transaction_id",
+          "type": "uuid",
+          "default": null,
+          "notnull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "account_id",
+          "type": "uuid",
+          "default": null,
+          "notnull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "entry_side",
+          "type": "text",
+          "default": null,
+          "notnull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "amount_minor",
+          "type": "bigint",
+          "default": null,
+          "notnull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "notnull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "name": "ledger_entries_account_id_fkey",
+          "definition": "FOREIGN KEY (account_id) REFERENCES mwd_finance_private.ledger_accounts(id)"
+        },
+        {
+          "name": "ledger_entries_amount_minor_check",
+          "definition": "CHECK ((amount_minor > 0))"
+        },
+        {
+          "name": "ledger_entries_entry_side_check",
+          "definition": "CHECK ((entry_side = ANY (ARRAY['debit'::text, 'credit'::text])))"
+        },
+        {
+          "name": "ledger_entries_pkey",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "name": "ledger_entries_transaction_id_fkey",
+          "definition": "FOREIGN KEY (transaction_id) REFERENCES mwd_finance_private.ledger_transactions(id)"
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX ledger_entries_pkey ON mwd_finance_private.ledger_entries USING btree (id)",
+        "CREATE INDEX mwd_le_account_id_idx ON mwd_finance_private.ledger_entries USING btree (account_id)",
+        "CREATE INDEX mwd_le_transaction_id_idx ON mwd_finance_private.ledger_entries USING btree (transaction_id)"
+      ],
+      "view_definition": null
+    },
+    {
+      "schema": "mwd_finance_private",
+      "name": "ledger_transactions",
+      "relkind": "r",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false,
+      "relacl": null,
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": "gen_random_uuid()",
+          "notnull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "external_reference",
+          "type": "text",
+          "default": null,
+          "notnull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "transaction_kind",
+          "type": "text",
+          "default": null,
+          "notnull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "currency_code",
+          "type": "text",
+          "default": null,
+          "notnull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "default": "'draft'::text",
+          "notnull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "notnull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "name": "ledger_transactions_currency_code_check",
+          "definition": "CHECK ((currency_code ~ '^[A-Z]{3}$'::text))"
+        },
+        {
+          "name": "ledger_transactions_external_reference_key",
+          "definition": "UNIQUE (external_reference)"
+        },
+        {
+          "name": "ledger_transactions_pkey",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "name": "ledger_transactions_status_check",
+          "definition": "CHECK ((status = ANY (ARRAY['draft'::text, 'posted'::text, 'void'::text])))"
+        },
+        {
+          "name": "ledger_transactions_transaction_kind_check",
+          "definition": "CHECK ((transaction_kind = ANY (ARRAY['deposit'::text, 'withdrawal'::text, 'wallet_transfer'::text, 'direct_transfer'::text, 'fee'::text, 'reversal'::text, 'demo_contribution'::text])))"
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX ledger_transactions_pkey ON mwd_finance_private.ledger_transactions USING btree (id)",
+        "CREATE UNIQUE INDEX ledger_transactions_external_reference_key ON mwd_finance_private.ledger_transactions USING btree (external_reference)"
+      ],
+      "view_definition": null
+    }
+  ],
+  "functions": [
+    {
+      "schema": "mwd_finance_private",
+      "name": "enforce_posted_balance",
+      "args": "",
+      "proacl": null,
+      "definition": "CREATE OR REPLACE FUNCTION mwd_finance_private.enforce_posted_balance()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$ DECLARE v_debits numeric; v_credits numeric; v_count bigint; BEGIN IF OLD.status='posted' THEN RAISE EXCEPTION 'Una transaccion contabilizada no puede modificarse'; END IF; IF NEW.status='posted' THEN SELECT COALESCE(SUM(amount_minor) FILTER (WHERE entry_side='debit'),0), COALESCE(SUM(amount_minor) FILTER (WHERE entry_side='credit'),0),COUNT(*) INTO v_debits,v_credits,v_count FROM mwd_finance_private.ledger_entries WHERE transaction_id=NEW.id; IF v_count<2 OR v_debits=0 OR v_debits<>v_credits THEN RAISE EXCEPTION 'Asiento no equilibrado'; END IF; END IF; RETURN NEW; END $function$\n"
+    },
+    {
+      "schema": "mwd_finance_private",
+      "name": "post_demo_transfer_ledger_v1",
+      "args": "",
+      "proacl": "{postgres=X/postgres}",
+      "definition": "CREATE OR REPLACE FUNCTION mwd_finance_private.post_demo_transfer_ledger_v1()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare v_tx uuid; v_source uuid; v_destination uuid;\nbegin\n if new.kind <> 'transfer' then return new; end if;\n if new.amount_cents is null or new.amount_cents<=0 or new.source_user_id is null or new.destination_user_id is null or new.source_user_id=new.destination_user_id then\n raise exception 'Transferencia demo invalida para contabilidad' using errcode='23514';\n end if;\n insert into mwd_finance_private.ledger_accounts(account_code,owner_user_id,currency_code,account_type)\n values ('MWD-DEMO-USER-'||new.source_user_id::text,new.source_user_id,'MWD','customer_liability')\n on conflict(account_code) do nothing;\n insert into mwd_finance_private.ledger_accounts(account_code,owner_user_id,currency_code,account_type)\n values ('MWD-DEMO-USER-'||new.destination_user_id::text,new.destination_user_id,'MWD','customer_liability')\n on conflict(account_code) do nothing;\n select id into v_source from mwd_finance_private.ledger_accounts where account_code='MWD-DEMO-USER-'||new.source_user_id::text and owner_user_id=new.source_user_id and currency_code='MWD' for update;\n select id into v_destination from mwd_finance_private.ledger_accounts where account_code='MWD-DEMO-USER-'||new.destination_user_id::text and owner_user_id=new.destination_user_id and currency_code='MWD' for update;\n if v_source is null or v_destination is null then raise exception 'Cuenta contable demo no valida'; end if;\n insert into mwd_finance_private.ledger_transactions(external_reference,transaction_kind,currency_code,status)\n values ('mwd-demo-transfer:'||new.id::text,'wallet_transfer','MWD','draft') returning id into v_tx;\n insert into mwd_finance_private.ledger_entries(transaction_id,account_id,entry_side,amount_minor)\n values (v_tx,v_source,'debit',new.amount_cents),(v_tx,v_destination,'credit',new.amount_cents);\n update mwd_finance_private.ledger_transactions set status='posted' where id=v_tx;\n return new;\nend $function$\n"
+    },
+    {
+      "schema": "mwd_finance_private",
+      "name": "protect_posted_entries",
+      "args": "",
+      "proacl": null,
+      "definition": "CREATE OR REPLACE FUNCTION mwd_finance_private.protect_posted_entries()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$ DECLARE v_status text; BEGIN SELECT status INTO v_status FROM mwd_finance_private.ledger_transactions WHERE id=COALESCE(NEW.transaction_id,OLD.transaction_id) FOR UPDATE; IF v_status='posted' THEN RAISE EXCEPTION 'No se pueden modificar asientos contabilizados'; END IF; IF TG_OP='UPDATE' AND NEW.transaction_id<>OLD.transaction_id THEN RAISE EXCEPTION 'No se permite mover un asiento entre transacciones'; END IF; IF TG_OP='DELETE' THEN RETURN OLD; END IF; RETURN NEW; END $function$\n"
+    },
+    {
+      "schema": "mwd_finance_private",
+      "name": "protect_posted_transactions",
+      "args": "",
+      "proacl": null,
+      "definition": "CREATE OR REPLACE FUNCTION mwd_finance_private.protect_posted_transactions()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$ BEGIN IF OLD.status='posted' THEN RAISE EXCEPTION 'No se puede eliminar o modificar una transaccion contabilizada'; END IF; IF TG_OP='DELETE' THEN RETURN OLD; END IF; IF NEW.id<>OLD.id THEN RAISE EXCEPTION 'No se puede cambiar el identificador de una transaccion'; END IF; RETURN NEW; END $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "mwd_owner_accounting_alerts_demo",
+      "args": "",
+      "proacl": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "definition": "CREATE OR REPLACE FUNCTION public.mwd_owner_accounting_alerts_demo()\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare v_wallet_issues bigint; v_ledger_issues bigint; v_wallet_ok bigint; v_ledger_ok bigint;\nbegin\n perform mwd_partners_private.assert_owner();\n select count(*) filter(where alert_status<>'ok'),count(*) filter(where alert_status='ok')\n into v_wallet_issues,v_wallet_ok from mwd_finance_private.demo_wallet_alerts_v1;\n select count(*) filter(where alert_status<>'ok'),count(*) filter(where alert_status='ok')\n into v_ledger_issues,v_ledger_ok from mwd_finance_private.demo_ledger_alerts_v1;\n return jsonb_build_object('mode','sandbox_only','realPaymentsEnabled',false,\n 'walletsChecked',v_wallet_ok+v_wallet_issues,'walletAlerts',v_wallet_issues,\n 'transfersChecked',v_ledger_ok+v_ledger_issues,'ledgerAlerts',v_ledger_issues,\n 'status',case when v_wallet_issues+v_ledger_issues=0 then 'ok' else 'review_required' end);\nend $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "mwd_pending_recipient_check_demo",
+      "args": "p_request_id uuid, p_recipient_code text",
+      "proacl": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "definition": "CREATE OR REPLACE FUNCTION public.mwd_pending_recipient_check_demo(p_request_id uuid, p_recipient_code text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$ declare v_actor uuid := auth.uid(); v_operation public.mwd_operations%rowtype; v_exists boolean; begin if v_actor is null then raise exception 'Se requiere sesion autenticada' using errcode='42501'; end if; if p_request_id is null or p_recipient_code is null or p_recipient_code !~ '^MWD-[A-F0-9]{16}$' then raise exception 'Referencia invalida' using errcode='22023'; end if; select * into v_operation from public.mwd_operations where actor_id=v_actor and request_id=p_request_id; if found then return jsonb_build_object('status','processed','operationId',v_operation.id); end if; select exists(select 1 from public.mwd_wallets where account_code=p_recipient_code) into v_exists; if not v_exists then return jsonb_build_object('status','invalid_recipient'); end if; return jsonb_build_object('status','unconfirmed'); end $function$\n"
+    }
+  ],
+  "triggers": [
+    {
+      "schema": "mwd_finance_private",
+      "relation": "ledger_entries",
+      "name": "mwd_protect_posted_entries",
+      "definition": "CREATE TRIGGER mwd_protect_posted_entries BEFORE INSERT OR DELETE OR UPDATE ON mwd_finance_private.ledger_entries FOR EACH ROW EXECUTE FUNCTION mwd_finance_private.protect_posted_entries()"
+    },
+    {
+      "schema": "mwd_finance_private",
+      "relation": "ledger_transactions",
+      "name": "mwd_enforce_posted_balance",
+      "definition": "CREATE TRIGGER mwd_enforce_posted_balance BEFORE UPDATE OF status ON mwd_finance_private.ledger_transactions FOR EACH ROW EXECUTE FUNCTION mwd_finance_private.enforce_posted_balance()"
+    },
+    {
+      "schema": "mwd_finance_private",
+      "relation": "ledger_transactions",
+      "name": "mwd_protect_posted_transactions",
+      "definition": "CREATE TRIGGER mwd_protect_posted_transactions BEFORE DELETE OR UPDATE ON mwd_finance_private.ledger_transactions FOR EACH ROW EXECUTE FUNCTION mwd_finance_private.protect_posted_transactions()"
+    },
+    {
+      "schema": "public",
+      "relation": "mwd_operations",
+      "name": "mwd_auto_ledger_transfer_v1",
+      "definition": "CREATE TRIGGER mwd_auto_ledger_transfer_v1 AFTER INSERT ON public.mwd_operations FOR EACH ROW EXECUTE FUNCTION mwd_finance_private.post_demo_transfer_ledger_v1()"
+    }
+  ]
+}

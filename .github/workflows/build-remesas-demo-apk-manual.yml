@@ -13,16 +13,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      # Use the exact ref selected when this workflow is manually dispatched.
       - uses: actions/checkout@v4
         with:
-          ref: pruebas-concurrencia-remesas
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
-      - name: Run demo safety tests
-        run: npm run test:demo
+        run: |
+          test -s package-lock.json
+          npm ci --no-audit --no-fund
+          git diff --exit-code -- package.json package-lock.json
+      - name: Run no-cost local preflight
+        run: node scripts/preflight-release-local.js
       - name: Validate Expo config
         run: npx expo config --type public
       - name: Confirm EAS token is configured
@@ -39,4 +43,53 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
       - name: Build internal Android APK
-        run: eas build --platform android --profile preview --non-interactive --wait
+        id: eas-build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          eas build --platform android --profile preview --non-interactive --wait --json > "$RUNNER_TEMP/eas-build.json"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const result = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/eas-build.json', 'utf8'));
+          const builds = Array.isArray(result) ? result : (result.builds || [result]);
+          const build = builds.find(item => item && item.id);
+          if (!build) throw new Error('EAS did not return a build ID.');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'build_id=' + build.id + '\n');
+          NODE
+      - name: Download APK from EAS
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          BUILD_ID: ${{ steps.eas-build.outputs.build_id }}
+        run: |
+          eas build:download --build-id "$BUILD_ID" --json > "$RUNNER_TEMP/eas-download.json"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const result = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/eas-download.json', 'utf8'));
+          if (!result.path || !fs.existsSync(result.path)) {
+            throw new Error('EAS did not return a downloadable APK path.');
+          }
+          fs.mkdirSync('artifacts', { recursive: true });
+          fs.copyFileSync(result.path, path.join('artifacts', 'MonedaMundial-demo.apk'));
+          NODE
+      - name: Record APK provenance
+        env:
+          BUILD_ID: ${{ steps.eas-build.outputs.build_id }}
+        run: |
+          APK_SHA256=$(sha256sum artifacts/MonedaMundial-demo.apk | cut -d ' ' -f 1)
+          {
+            echo "repository=$GITHUB_REPOSITORY"
+            echo "ref=$GITHUB_REF"
+            echo "commit=$GITHUB_SHA"
+            echo "eas_build_id=$BUILD_ID"
+            echo "apk_sha256=$APK_SHA256"
+          } > artifacts/BUILD-INFO.txt
+      - name: Upload APK and build information
+        uses: actions/upload-artifact@v4
+        with:
+          name: MonedaMundial-demo-apk
+          path: |
+            artifacts/MonedaMundial-demo.apk
+            artifacts/BUILD-INFO.txt
+          if-no-files-found: error
+          retention-days: 7

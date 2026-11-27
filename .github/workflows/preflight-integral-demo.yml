@@ -1,0 +1,45 @@
+name: Preflight integral DEMO (manual y PR)
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'App.js'
+      - 'RemittanceQuoteScreen.js'
+      - 'remittance-quote.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'auth-storage.js'
+      - 'PartnerRegistryScreen.js'
+      - 'app.json'
+      - 'eas.json'
+      - 'scripts/**'
+      - 'tests/auth/**'
+      - '.github/workflows/preflight-integral-demo.yml'
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias Expo
+        run: |
+          test -s package-lock.json
+          npm ci --no-audit --no-fund
+          git diff --exit-code -- package.json package-lock.json
+      - name: Verificar recuperación PKCE con el SDK fijado
+        run: node --test tests/auth/*.test.cjs
+      - name: Validar bundle JavaScript Android
+        run: npx expo export --platform android --output-dir /tmp/mwd-demo-bundle
+      - name: Auditoría estática de demostración
+        run: node scripts/audit-demo-static.cjs
+      - name: Regresiones de seguridad
+        run: node scripts/audit-regression-safety.cjs
+      - name: Configuración Android y secretos evidentes
+        run: node scripts/preflight-release-local.js

@@ -1,0 +1,30 @@
+BEGIN;
+DO $gate$
+DECLARE a uuid; bal bigint; req uuid:=gen_random_uuid(); x jsonb; y jsonb; oid uuid;
+BEGIN
+ SELECT user_id,balance_cents INTO a,bal FROM public.mwd_wallets WHERE balance_cents>=1 ORDER BY user_id LIMIT 1;
+ IF a IS NULL THEN RAISE EXCEPTION 'Missing demo wallet'; END IF;
+ PERFORM set_config('request.jwt.claim.sub',a::text,true);
+ PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',a,'role','authenticated')::text,true);
+ SET LOCAL ROLE authenticated;
+ x:=public.mwd_contribute_demo(1,req);
+ y:=public.mwd_contribute_demo(1,req);
+ IF x->>'status' IS DISTINCT FROM 'ok' OR y->>'status' IS DISTINCT FROM 'already_processed' OR x->>'operation_id' IS DISTINCT FROM y->>'operation_id' THEN RAISE EXCEPTION 'Contribution retry failed'; END IF;
+ RESET ROLE;
+ IF (SELECT balance_cents FROM public.mwd_wallets WHERE user_id=a) IS DISTINCT FROM bal-1 THEN RAISE EXCEPTION 'Contribution balance mismatch'; END IF;
+ IF (SELECT count(*) FROM public.mwd_operations WHERE actor_id=a AND request_id=req)<>1 THEN RAISE EXCEPTION 'Duplicate contribution'; END IF;
+ SELECT w.user_id INTO a FROM public.mwd_wallets w WHERE (SELECT count(*) FROM mwd_pickup_private.demo_orders o WHERE o.sender_user_id=w.user_id AND o.created_at>clock_timestamp()-interval '1 hour')<5 LIMIT 1;
+ IF a IS NULL THEN RAISE EXCEPTION 'No eligible demo wallet'; END IF;
+ PERFORM set_config('request.jwt.claim.sub',a::text,true);
+ PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',a,'role','authenticated')::text,true);
+ SET LOCAL ROLE authenticated;
+ req:=gen_random_uuid();
+ x:=public.mwd_pickup_create_demo('HN',100,req);
+ oid:=(x->>'orderId')::uuid;
+ y:=public.mwd_pickup_create_demo('HN',100,req);
+ IF x->>'status' IS DISTINCT FROM 'created' OR x->>'isFunded' IS DISTINCT FROM 'false' OR x->>'canPayOut' IS DISTINCT FROM 'false' OR y->>'status' IS DISTINCT FROM 'already_created' OR y->>'orderId' IS DISTINCT FROM oid::text OR y->>'pickupCode' IS NOT NULL THEN RAISE EXCEPTION 'Pickup retry failure'; END IF;
+ IF public.mwd_pickup_cancel_demo(oid)->>'status' IS DISTINCT FROM 'cancelled' THEN RAISE EXCEPTION 'Cancellation failed'; END IF;
+ IF public.mwd_pickup_cancel_demo(oid)->>'status' IS DISTINCT FROM 'already_cancelled' THEN RAISE EXCEPTION 'Cancellation retry failed'; END IF;
+ RESET ROLE;
+END $gate$;
+ROLLBACK;

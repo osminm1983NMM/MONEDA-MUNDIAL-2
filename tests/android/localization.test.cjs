@@ -1,0 +1,15 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const source=fs.readFileSync('App.js','utf8');
+const start=source.indexOf('function pickupStatusLabel(');
+const end=source.indexOf('function pendingOperationStorageKey(',start);
+assert.ok(start>=0 && end>start);
+const ctx=vm.createContext({});
+vm.runInContext(source.slice(start,end),ctx);
+for(const [status,label] of [['pending','Pendiente'],['cancelled','Cancelada'],['expired','Vencida'],['simulated_collected','Retirada (simulación)'],['unexpected','Estado no reconocido'],[null,'Estado no reconocido']]) test('Estado '+status,()=>assert.equal(ctx.pickupStatusLabel(status),label));
+for(const message of ['TypeError: Network request failed','Network request failed','Failed to fetch','NetworkError when attempting to fetch resource.']) test('Red: '+message,()=>assert.match(ctx.syncErrorMessage({message}),/desactualizados/));
+test('No oculta errores de permisos',()=>assert.equal(ctx.syncErrorMessage({message:'Acceso denegado'}),'Acceso denegado'));
+test('Error vacío',()=>assert.equal(ctx.syncErrorMessage(null),'No se pudo consultar Supabase.'));
+test('Presentación no modifica condición interna',()=>{assert.ok(source.includes('Estado: {pickupStatusLabel(order.status)}'));assert.ok(source.includes("order.status === 'pending'"));assert.ok(source.includes(': syncErrorMessage(error));'));});

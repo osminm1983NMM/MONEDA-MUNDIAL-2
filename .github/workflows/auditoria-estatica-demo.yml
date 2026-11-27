@@ -1,0 +1,54 @@
+name: Auditoría y regresiones DEMO sin base de datos
+on:
+  push:
+    branches: [dev/cierre-android-20261125]
+    paths: ['App.js', 'RemittanceQuoteScreen.js', 'remittance-quote.js', 'auth-storage.js', 'PartnerRegistryScreen.js', 'package.json', 'app.json', 'eas.json', 'database/mwd_secure_partner_registry_demo.sql', 'scripts/*.cjs', 'scripts/preflight-release-local.js', 'tests/android/**', '.github/workflows/auditoria-estatica-demo.yml']
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'App.js'
+      - 'RemittanceQuoteScreen.js'
+      - 'remittance-quote.js'
+      - 'auth-storage.js'
+      - 'PartnerRegistryScreen.js'
+      - 'eas.json'
+      - 'database/mwd_secure_partner_registry_demo.sql'
+      - 'tests/android/**'
+      - 'scripts/preflight-release-local.js'
+      - 'package.json'
+      - 'app.json'
+      - 'scripts/audit-demo-static.cjs'
+      - 'scripts/audit-regression-safety.cjs'
+      - 'scripts/test-*.cjs'
+      - '.github/workflows/auditoria-estatica-demo.yml'
+permissions:
+  contents: read
+jobs:
+  auditoria:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Revisar configuración y barreras básicas
+        run: |
+          node scripts/audit-demo-static.cjs
+          node scripts/audit-regression-safety.cjs
+          node scripts/preflight-release-local.js
+          node --test tests/android/*.test.cjs
+          node --test scripts/test-transfer-recovery.cjs scripts/test-conversion-retiro.cjs scripts/test-demo-sql-runner.cjs
+          node scripts/test-password-recovery.cjs
+      - name: Probar recuperación con esquema Samsung LAB sin modificar archivos
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const {run} = require('./scripts/test-password-recovery.cjs');
+          const scheme = 'com.monedamundial.lab.samsung';
+          const source = fs.readFileSync('App.js','utf8').replaceAll('com.monedamundial.app:', scheme + ':');
+          run(source, URL, scheme).then(n => console.log('PASS ' + n + ' LAB scenarios')).catch(e => { console.error(e); process.exitCode = 1; });
+          NODE
+
