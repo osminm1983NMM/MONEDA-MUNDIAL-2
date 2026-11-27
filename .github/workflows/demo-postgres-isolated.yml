@@ -12,6 +12,10 @@ on:
       - 'scripts/merchant-concurrency-local.cjs'
       - 'tests/sql/**'
       - 'scripts/run-demo-sql-gates.cjs'
+  pull_request:
+    branches: [dev/cierre-android-20261125]
+    paths:
+      - '.github/workflows/demo-postgres-isolated.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,6 +24,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   isolated-postgres:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 12
     services:
