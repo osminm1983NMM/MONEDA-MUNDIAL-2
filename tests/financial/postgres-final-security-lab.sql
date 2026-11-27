@@ -8,6 +8,8 @@ INSERT INTO expected_exec VALUES
  ('mwd_lab_order_service','accept_quote(text,text,uuid,text)'),
  ('mwd_lab_order_service','prepare_authorized(text,uuid,text)'),
  ('mwd_lab_order_service','read_order_status(text,uuid)'),
+ ('mwd_lab_status_service','read_bound_order_status(text,uuid)'),
+ ('mwd_lab_status_service','resolve_status_binding(uuid)'),
  ('mwd_lab_dispatch_service','claim_dispatch(integer)'),
  ('mwd_lab_dispatch_service','acknowledge_dispatch(text,uuid)'),
  ('mwd_lab_dispatch_service','check_dispatch_lease(text,uuid)'),
@@ -34,7 +36,7 @@ DO $$
 DECLARE r record; f record; t record; n oid; permitted boolean; expected boolean; p text;
 BEGIN
  SELECT oid INTO STRICT n FROM pg_namespace WHERE nspname='mwd_financial_lab';
- IF (SELECT count(*) FROM pg_roles WHERE rolname LIKE 'mwd_lab_%')<>12 THEN RAISE EXCEPTION 'unexpected service roles'; END IF;
+ IF (SELECT count(*) FROM pg_roles WHERE rolname LIKE 'mwd_lab_%')<>13 THEN RAISE EXCEPTION 'unexpected service roles'; END IF;
  IF EXISTS(SELECT FROM expected_exec WHERE to_regprocedure(signature) IS NULL) THEN RAISE EXCEPTION 'missing expected endpoint'; END IF;
  IF EXISTS(SELECT FROM expected_audit WHERE to_regclass(name) IS NULL) THEN RAISE EXCEPTION 'missing audit view'; END IF;
  IF EXISTS(SELECT FROM pg_namespace s CROSS JOIN LATERAL aclexplode(coalesce(s.nspacl,acldefault('n',s.nspowner))) a WHERE s.oid=n AND a.grantee=0)

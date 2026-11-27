@@ -10,7 +10,7 @@ const integer=v=>typeof v==='string'&&/^(0|[1-9][0-9]{0,18})$/.test(v);
 const result=(status,body)=>({status,body});
 const error=(status,code)=>result(status,{mode:'sandbox',error:code});
 // Cast int8 to text before decoding to avoid an adapter's number conversion.
-const SQL="SELECT order_id::text,status,principal_minor::text,fee_minor::text,total_minor::text,source_currency,payout_minor::text,payout_currency,to_char(accepted_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') AS accepted_at FROM mwd_financial_lab.read_order_status($1::text,$2::uuid)";
+const SQL="SELECT order_id::text,status,principal_minor::text,fee_minor::text,total_minor::text,source_currency,payout_minor::text,payout_currency,to_char(accepted_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') AS accepted_at FROM mwd_financial_lab.read_bound_order_status($1::text,$2::uuid)";
 function normalize(row,orderId){
  const keys=['order_id','status','principal_minor','fee_minor','total_minor','source_currency','payout_minor','payout_currency','accepted_at'];
  if(!exact(row,keys)||row.order_id!==orderId||!states.has(row.status)||row.source_currency!=='USD'||row.payout_currency!=='HNL'||

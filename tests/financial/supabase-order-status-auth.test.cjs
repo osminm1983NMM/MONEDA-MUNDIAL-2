@@ -36,3 +36,13 @@ test('broken identity source, mismatched binding and upstream failure stop befor
  }
  a.throws(()=>create({environment:'production',authClient:{auth:{getUser(){}}},resolveBinding(){},query(){}}),/SANDBOX_ONLY/);
 });
+
+test('default registry adapter uses a bound UUID and read-only status contract',async()=>{
+ const calls=[];
+ const service=create({environment:'sandbox',authClient:{auth:{getUser:async()=>({data:{user},error:null})}},
+ query:async(sql,params)=>{calls.push({sql,params});return {rows:calls.length===1?[binding]:[]};}});
+ a.equal((await service.read(request)).status,404);
+ a.match(calls[0].sql,/resolve_status_binding\(\$1::uuid\)/);
+ a.deepEqual(calls[0].params,[id]);a.match(calls[1].sql,/read_bound_order_status\(\$1::text,\$2::uuid\)/);
+ a.deepEqual(calls[1].params,[id,orderId]);
+});

@@ -13,7 +13,7 @@ function fixture({session={environment:'sandbox',actor:'fixture-owner'},rows=[ro
 test('status uses verified actor and a bound SQL query, returns only public sandbox fields',async()=>{
  const f=fixture(),r=await f.service.read(request);
  a.equal(r.status,200);a.deepEqual(f.calls[0].params,['fixture-owner',orderId]);
- a.match(f.calls[0].sql,/read_order_status\(\$1::text,\$2::uuid\)/);
+ a.match(f.calls[0].sql,/read_bound_order_status\(\$1::text,\$2::uuid\)/);
  a.ok(!f.calls[0].sql.includes('fixture-owner'));a.ok(!f.calls[0].sql.includes(orderId));
  a.deepEqual(r.body,{mode:'sandbox',orderId,status:'funding_pending',source:{currency:'USD',principalMinor:'10000',feeMinor:'150',totalMinor:'10150'},destination:{currency:'HNL',amountMinor:'250000'},acceptedAt:row.accepted_at});
 });
