@@ -76,3 +76,31 @@ test('client rejects ambiguous compact response JSON even when last duplicate va
   a.deepEqual(await client.read(req),{ok:false,code:'UNAVAILABLE'});
  }
 });
+
+test('client admission remains bounded after timeout until actual transport settlement', {timeout:2000}, async()=>{
+ let calls=0,complete;
+ const client=create({environment:'sandbox',sandboxOrigin:'https://sandbox.invalid',maxActive:1,timeoutMs:20,fetchImpl:()=>{
+  calls++;
+  if(calls===1)return new Promise(resolve=>{complete=resolve;});
+  return response(value);
+ }});
+ const first=client.read(req);
+ a.deepEqual(await client.read(req),{ok:false,code:'UNAVAILABLE'});
+ a.deepEqual(await first,{ok:false,code:'UNAVAILABLE'});
+ for(let i=0;i<20;i++)a.deepEqual(await client.read(req),{ok:false,code:'UNAVAILABLE'});
+ a.equal(calls,1);
+ complete(response(value));
+ await new Promise(resolve=>setImmediate(resolve));
+ a.deepEqual(await client.read(req),{ok:true,value});
+ a.equal(calls,2);
+});
+test('client admission rejects invalid capacity and releases capacity on transport rejection',async()=>{
+ for(const maxActive of [0,33,1.5,NaN,'1'])a.throws(()=>create({environment:'sandbox',sandboxOrigin:'https://sandbox.invalid',maxActive}));
+ let calls=0;
+ const client=create({environment:'sandbox',sandboxOrigin:'https://sandbox.invalid',maxActive:1,fetchImpl:()=>{
+  if(++calls===1)throw Error('transport failure');
+  return response(value);
+ }});
+ a.deepEqual(await client.read(req),{ok:false,code:'UNAVAILABLE'});
+ a.deepEqual(await client.read(req),{ok:true,value});
+});

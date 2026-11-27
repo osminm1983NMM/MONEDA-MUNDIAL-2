@@ -29,14 +29,19 @@ async function readJson(response,signal){
  if(JSON.stringify(parsed)!==ascii)throw Error('INVALID_RESPONSE');
  return parsed;
 }
-function createOrderStatusClient({environment,sandboxOrigin,fetchImpl=globalThis.fetch,timeoutMs=10000}={}){
- if(environment!=='sandbox'||typeof fetchImpl!=='function'||typeof sandboxOrigin!=='string'||!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>30000)throw Error('SANDBOX_ONLY');
+function createOrderStatusClient({environment,sandboxOrigin,fetchImpl=globalThis.fetch,timeoutMs=10000,maxActive=8}={}){
+ if(environment!=='sandbox'||typeof fetchImpl!=='function'||typeof sandboxOrigin!=='string'||!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>30000||!Number.isInteger(maxActive)||maxActive<1||maxActive>32)throw Error('SANDBOX_ONLY');
  const origin=new URL(sandboxOrigin);
  if(origin.protocol!=='https:'||origin.username||origin.password||origin.href!==origin.origin+'/')throw Error('INVALID_ORIGIN');
  const endpoint=origin.origin+route;
+ let active=0;
  return Object.freeze({async read({sessionToken,orderId}={}){
   if(typeof sessionToken!=='string'||!/^[A-Za-z0-9._~-]{1,8192}$/.test(sessionToken))return fail('AUTH_REQUIRED');
   if(typeof orderId!=='string'||!uuid.test(orderId))return fail('INVALID_REQUEST');
+  // Retain capacity until the underlying transport actually settles, not
+  // merely until the caller's deadline. A stuck transport cannot grow without bound.
+  if(active>=maxActive)return fail('UNAVAILABLE');
+  active++;
   const controller=new AbortController();
   // Bound the caller's wait even if the injected transport ignores abort.
   // The losing operation remains observed by Promise.race; a late response
@@ -62,7 +67,7 @@ function createOrderStatusClient({environment,sandboxOrigin,fetchImpl=globalThis
    const value=await readJson(response,controller.signal);
    return !controller.signal.aborted&&validOrderStatus(value,orderId)?{ok:true,value}:fail('UNAVAILABLE');
   }catch{return fail('UNAVAILABLE');}};
-  try{return await Promise.race([operation(),deadline]);}finally{clearTimeout(timer);}
+  try{return await Promise.race([operation().finally(()=>{active--;}),deadline]);}finally{clearTimeout(timer);}
  }});
 }
 module.exports={createOrderStatusClient};
