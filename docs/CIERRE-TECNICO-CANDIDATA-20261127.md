@@ -48,3 +48,33 @@ Captura a las 6:39 (hora visible), indicador de modo avión activo. Tras la actu
 ### Recuperación de conexión — Samsung, 27 noviembre 2026
 
 Captura de seguimiento a las 6:40 (hora visible): indicador 5G activo, botón Actualizar saldo e historial habilitado y mensaje «Saldo e historial actualizados correctamente». Aprobada evidencia visual de recuperación de la actualización tras la prueba de modo avión inmediatamente anterior, sin reinicio reportado. No acredita por sí sola importes consultados ni recuperación de operaciones monetarias en vuelo. Siguiente prueba: cotización internacional DEMO a Honduras, sin enviar ni confirmar fondos. Sin cambios de código, datos o producción.
+
+
+## Consolidación del laboratorio y plan de cierre — 27 noviembre 2026
+
+La decisión posterior del titular es terminar primero el desarrollo técnico y reservar pruebas físicas restantes para una etapa conjunta. Esto sustituye las indicaciones anteriores de probar una cotización normal o instalar inmediatamente otra APK. No repetir pruebas de transferencias, conversiones y otros recorridos ordinarios ya registrados salvo defecto reproducido o cambio que afecte el recorrido. Mantener las pruebas automáticas de cada cambio.
+
+### Evidencia acumulada por revisión (no sumar ejecuciones duplicadas)
+
+| Revisión funcional | Alcance adicional | Evidencia de CI |
+| --- | --- | --- |
+| 7f573de2bfbe368e59f5171c375c406579bf7a11 | Cancelación TCP y servicio de estado | [push 45992800966](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45992800966), [PR 45992808393](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45992808393): ambos jobs success |
+| 417e8f2b8dc814a25b1d4ebabadaae65910c131d | Integridad de metadatos Digital/Coin | [push 45992936570](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45992936570), [PR 45992944730](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45992944730): ambos jobs success |
+| d8e26636174b9aa92ed537d4c99e9aa74728ad61 | Respaldo de conciliación | [push 45993278084](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45993278084), [PR 45993287415](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45993287415): ambos jobs success |
+| 12ef69187c2b32b5f337659df2e848c831cbb00f | Aislamiento de selección móvil | [push 45993566553](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45993566553), [PR 45993573815](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45993573815): ambos jobs success |
+| c3d1fa71e26d0cda7e3f70902b5f36dfd44e5f65 | Entrega, seguimiento y contabilidad PostgreSQL | [push 45993708328](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45993708328), [PR 45993717818](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45993717818): ambos jobs success |
+| cda0f5ba464fe9cd5612e37d3dc3579888014d1f | Recuperación verificable USD/HNL | [push 45993883197](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45993883197), [PR 45993889033](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45993889033): ambos jobs success |
+| 19d9081b42b80c9154dc31ecd997aa143cbe8ce9 | Devolución, replay y seguimiento | [push 45994000366](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45994000366), [PR 45994009998](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45994009998): ambos jobs success |
+| 453b2287e7757b405f89415ee61ceec4dfe0ad5d | Eventos firmados sintéticos integrados | [push 45994170425](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45994170425), [PR 45994179284](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45994179284): sandbox success en ambos; PostgreSQL en curso al registrar. Log job 140489260701: 287 tests, 287 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo |
+
+### Próximas puertas, en orden de utilidad
+
+1. Verificar conclusión PostgreSQL de la última revisión exacta; corregir únicamente fallos concretos. No presentar una prueba escrita como prueba aprobada.
+2. Preparar integración real únicamente contra contrato autorizado: configuración privada de servidor, Auth y base aislados, roles mínimos, TLS, límites de consulta, protección de secretos, monitoreo, manejo de incidentes y recuperación independiente. El transporte loopback y las respuestas Auth ficticias no son un despliegue. No usar producción como sandbox.
+3. Obtener respuesta escrita al borrador de incorporación de proveedor; confirmar corredor, métodos y responsabilidades. No elegir identidad contractual, pagador, tarifas ni endpoint activo por inferencia. Documento THUNES-ONBOARDING-GATES-20261126.md.
+4. Definir con asesoría y titular las reglas de emisión/redención, reserva, custodia, liquidez, precisión, red y precio de Digital/Coin. El ledger SQLite no es motor de activos productivo ni modelo legal aprobado. Documento DIGITAL-ASSETS-ARCHITECTURE.md.
+5. Tras contar con entorno autorizado, implementar adaptadores reales y unir interfaz nativa a servicios aprobados en una rama de desarrollo revisada. No mezclar saldo MWD ficticio con fondos reales. PR 137 sigue borrador y no se fusiona.
+6. Etapa física conjunta: pendientes específicos de cancelación de cotización durante consulta, aislamiento de sesión, casos negativos de recuperación y pérdida de respuesta tras commit cuando proceda. No repetir apertura, identidad visible, actualización, fallo de red y recuperación ya observados para candidata a24b14c. No afirmar aceptación física de cambios que no están en esa APK.
+7. Diseño visual definitivo, aceptación de seguridad y contabilidad independientes, requisitos regulatorios y autorización explícita antes de lanzamiento.
+
+Rama principal comprobada sin cambio: 3f2fbdb7ffb5d6c75b8c56d41b4d1fa98ef64ffc. Base Android de PR 137: a24b14cd075ff792ee06b0fb7a77acafc1e06f53, borrador mergeable en la revisión observada. Ninguna nueva APK, credencial, contacto con proveedor, aprobación, despliegue o movimiento de dinero se deriva de este registro. No mantener ciclos indefinidos de mejoras marginales a fixtures como sustituto de las dependencias de integración oficial.
