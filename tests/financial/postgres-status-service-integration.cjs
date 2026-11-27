@@ -45,7 +45,9 @@ async function main(){
    "INSERT INTO actor_policy VALUES ("+literal(owner)+",'verified','clear','allow',50000),("+literal(other)+",'verified','clear','allow',50000);\n"+
    "INSERT INTO beneficiaries VALUES ("+literal(owner)+",'beneficiary','verified');\n"+
    "INSERT INTO status_bindings VALUES ("+literal(owner)+","+literal(owner)+",true),("+literal(other)+","+literal(other)+",true);\nSET LOCAL ROLE mwd_lab_order_service;");
-  const [orderId]=await run("SELECT accept_quote("+literal(owner)+",'integration-status',q.quote_id,'sandbox-disclosure-v1') FROM issue_quote("+literal(owner)+",'beneficiary',10000) q;");
+  const [quoteId]=await run("SELECT quote_id FROM issue_quote("+literal(owner)+",'beneficiary',10000);");
+  assert.match(quoteId,uuid);
+  const [orderId]=await run("SELECT accept_quote("+literal(owner)+",'integration-status',"+literal(quoteId)+"::uuid,'sandbox-disclosure-v1');");
   assert.match(orderId,uuid);
   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_status_service;');
   const service=createSupabaseOrderStatus({environment:'sandbox',authClient:{auth:{async getUser(token){
