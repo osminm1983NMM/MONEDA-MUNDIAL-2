@@ -5,6 +5,7 @@ const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const assert=require('node:assert/strict');
 const {createSupabaseOrderStatus}=require('../../financial-sandbox/supabase-order-status-auth.cjs');
+const {createOrderStatusHttp,route}=require('../../financial-sandbox/order-status-http.cjs');
 const container=process.env.LAB_CONTAINER;
 if(!/^[a-f0-9]{12,64}$/.test(container||''))throw Error('CI_LAB_REQUIRED');
 const owner='00000000-0000-4000-8000-000000000071',other='00000000-0000-4000-8000-000000000072';
@@ -54,7 +55,12 @@ async function main(){
    const id=token==='owner-token'?owner:token==='other-token'?other:null;
    return id?{data:{user:{id,role:'authenticated',is_anonymous:false}},error:null}:{error:{status:401}};
   }}},query});
-  const read=sessionToken=>service.read({sessionToken,orderId});
+  const handle=createOrderStatusHttp({environment:'sandbox',service});
+  const read=async sessionToken=>{
+   const response=await handle(new Request('https://sandbox.invalid'+route,{method:'POST',headers:{authorization:'Bearer '+sessionToken,'content-type':'application/json'},body:JSON.stringify({orderId})}));
+   assert.equal(response.headers.get('cache-control'),'no-store');
+   return {status:response.status,body:await response.json()};
+  };
   const r=await read('owner-token');
   assert.equal(r.status,200);assert.equal(r.body.status,'funding_pending');
   assert.deepEqual(r.body.source,{currency:'USD',principalMinor:'10000',feeMinor:'150',totalMinor:'10150'});
