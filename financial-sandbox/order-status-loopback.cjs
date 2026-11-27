@@ -37,7 +37,12 @@ function createOrderStatusLoopback({environment,service,bodyTimeoutMs=5000,servi
    // Raw duplicate detection, before Node's normalized header map can hide one.
    const counts=Object.create(null);
    for(let i=0;i<req.rawHeaders.length;i+=2){const key=req.rawHeaders[i].toLowerCase();counts[key]=(counts[key]??0)+1;}
-   if(['authorization','content-type','content-length','transfer-encoding'].some(k=>counts[k]>1))return reply(res,400,'INVALID_REQUEST');
+   if(['host','origin','authorization','content-type','content-length','transfer-encoding'].some(k=>counts[k]>1))return reply(res,400,'INVALID_REQUEST');
+   // Bind both the TCP listener and HTTP authority to the same loopback
+   // endpoint; reject cross-origin browser requests and DNS rebinding hosts.
+   const authority='127.0.0.1:'+req.socket.localPort;
+   if(req.headers.host!==authority)return reply(res,400,'INVALID_REQUEST');
+   if(req.headers.origin!==undefined&&req.headers.origin!==('http://'+authority))return reply(res,403,'ORIGIN_NOT_ALLOWED');
    const auth=req.headers.authorization;
    if(typeof auth!=='string'||!/^Bearer [A-Za-z0-9._~-]{1,8192}$/i.test(auth))return reply(res,401,'AUTH_REQUIRED',{'www-authenticate':'Bearer'});
    const media=req.headers['content-type'];

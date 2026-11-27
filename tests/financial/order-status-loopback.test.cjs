@@ -44,3 +44,19 @@ test('listener requires sandbox mode and bounded configuration',()=>{
  a.throws(()=>createOrderStatusLoopback({environment:'production',service:{read(){}}}),/SANDBOX_ONLY/);
  a.throws(()=>createOrderStatusLoopback({environment:'sandbox',service:{read(){}},maxConnections:0}),/INVALID_CONNECTION_LIMIT/);
 });
+
+test('wire transport rejects foreign HTTP authority and browser origin',{timeout:5000},async t=>{
+ const {base,calls}=await fixture(t);
+ const send=headers=>new Promise((resolve,reject)=>{
+  const req=http.request(base+route,{method:'POST',headers:{...options.headers,...headers}},res=>{res.resume();res.on('end',()=>resolve(res.statusCode));});
+  req.on('error',reject);req.end(options.body);
+ });
+ a.equal(await send({host:'untrusted.example'}),400);
+ a.equal(await send({host:'127.0.0.1:1'}),400);
+ a.equal(await send({origin:'https://untrusted.example'}),403);
+ a.equal(await send({origin:'null'}),403);
+ a.equal(calls.length,0);
+ a.equal(await send({origin:base}),200);
+ a.equal(await send({}),200);
+ a.equal(calls.length,2);
+});
