@@ -1,0 +1,67 @@
+# Moneda Mundial — arquitectura de activos digitales (propuesta para revisión)
+Estado: diseño técnico previo a implementación; 26 de noviembre de 2026.
+No es autorización de emisión, oferta, custodia, conversión real, contrato, clasificación jurídica ni decisión de red. No desplegar. No cambiar Android DEMO, main, ni base compartida.
+
+## 1. Separación de productos y patrimonio
+| Producto | Naturaleza prevista | Regla de separación |
+| --- | --- | --- |
+| MWD DEMO | Crédito ficticio de pruebas | No convertible a activos reales, no migrar saldos a producción ni reconocerlos como pasivos USD. |
+| Moneda Mundial Digital | Activo que aspira a mantener paridad 1:1 con USD | Emisión/redención y reservas elegibles sujetas a aprobación; paridad objetivo no garantiza precio de mercado ni redención inmediata. |
+| Moneda Mundial Coin | Activo con precio variable | Diario de unidades independiente. No prometer retorno, precio fijo, reservas USD ni convertibilidad ilimitada. |
+| Remesas fiat | Obligación de financiar y entregar por corredor autorizado | No usar fondos de clientes de remesas como respaldo de Digital, inventario de Coin ni financiación operativa. |
+Los identificadores definitivos, decimales, blockchain, red, suministro, precio inicial, reglas de transferibilidad y modelo de custodia están pendientes. No crear contratos inteligentes ni claves hasta resolverlos. Los identificadores de producto son internos, no símbolos comerciales registrados.
+
+## 2. Arquitectura y límites de confianza
+- Aplicación móvil: muestra cotizaciones, saldos disponibles/reservados y estados; nunca decide precio, crédito, emisión, transferencia final ni autorización. Las claves privadas de custodia no se distribuyen con la app.
+- Servicio de identidad y riesgo: actor derivado de sesión autenticada; elegibilidad, beneficiario, límites, detección de abuso y revisión humana de operaciones. No aceptar parámetros de identidad o veredictos de riesgo del cliente como autoridad.
+- Servicio de cotización: precio, origen, instante, caducidad, cantidad, comisión y deslizamiento máximo explícitos; conversiones consumen cotizaciones una sola vez. Si no hay precio válido o liquidez, no operar.
+- Motor de órdenes: idempotencia por actor/operación/solicitud, reserva transaccional, diario inmutable de doble partida, outbox e inbox deduplicados. No usar una transferencia de la DEMO como orden real.
+- Adaptadores de custodia, banco, proveedor de precios y red: segregados; autorizaciones y verificación de eventos específicos del contrato. La identidad de firmante y controles de retiros requieren diseño del modelo de custodia aprobado.
+- Servicio de conciliación independiente: compara submayor, custodia/red, saldos de reserva y movimientos bancarios con ventanas y evidencia verificables. Sin credenciales de escritura en el diario.
+- Estado inicial de todos los productos reales: deshabilitados. Cada producto tiene barreras independientes; activar remesas no activa Digital/Coin y viceversa.
+
+## 3. Modelo de datos propuesto
+asset_registry: asset_id, environment, precision, lifecycle, policy_version; registro inmutable por versión.
+accounts: account_id, legal_entity, asset_id, category, owner_reference; identificar fondos propios vs clientes; datos personales fuera del diario.
+orders: order_id, actor_reference, kind, request_id, request_fingerprint, policy_version, quote_id, state, created_at.
+postings: journal_id, account_id, asset_id, signed_minor; exactitud de enteros, ningún float; signo positivo débito/negativo crédito. Aprobación contable define plan de cuentas, no reutilizar cuentas de MWD ficticio.
+external_events: source, event_id, digest, reference, finality, observed_at, received_at; vínculo único a aplicación contable.
+reserve_snapshots: cut_id, eligible_assets_minor, outstanding_digital_minor, restrictions, evidence_refs, verification_status. Evidencia de titularidad, disponibilidad y ausencia de doble conteo; no aceptar una cifra declarada por el usuario.
+quotes: quote_id, input_asset, output_asset, amounts_minor, fee_asset, fee_minor, price_source, valid_until, policy_version; inmutable.
+Incidentes, revisiones y autorizaciones: referencias al evento/orden; identidad autenticada de revisores distintos, motivo y evidencia. Evitar incorporar secretos, llaves, documentos de identidad o códigos de cobro a logs.
+
+## 4. Invariantes previos al diseño del esquema
+1. Cada asiento se equilibra dentro de cada activo. Nunca sumar centavos USD y unidades Coin como si fueran equivalentes. La valoración contable en USD es un proceso separado sujeto a política.
+2. No gastar unidades reservadas, bloqueadas, pendientes de confirmación o en otra cuenta. Reservas y débitos deben serializarse, incluidos procesos concurrentes.
+3. Cada efecto externo se aplica una sola vez; misma solicitud y misma huella devuelve el mismo resultado; reutilización con otra huella se rechaza.
+4. El suministro emitido, las unidades en custodia, en circulación y pendientes se concilian según el modelo de red elegido. No contar dos veces una unidad en tránsito.
+5. Para Digital, política propuesta de cobertura mínima: valor elegible disponible en USD >= obligaciones Digital redimibles en USD, sin contar fondos de remesas, Coin, garantías ya comprometidas ni activos sin confirmación. Incluir obligaciones de redención pendientes según política contable; no reducirlas solo por una petición del cliente. Falta definir elegibilidad, valoración, horizonte de liquidez, titularidad y procedimiento ante déficit. No afirmar respaldo efectivo sin evidencia.
+6. Si falta evidencia, hay discrepancias de suministro/reservas, precios caducados, custodia incierta o eventos contradictorios: bloquear nuevas operaciones que aumenten exposición y escalar; las redenciones/devoluciones y obligaciones existentes requieren procedimiento autorizado, no cancelación automática.
+7. Nunca liberar una reserva por timeout si la operación externa pudo ejecutarse. Consultar estado, conciliar y mantener obligación hasta resolución definitiva.
+8. Los ajustes contables son asientos compensatorios aprobados y trazables, nunca edición ni borrado de eventos históricos.
+
+## 5. Ciclos de vida a implementar tras aprobación
+| Flujo | Secuencia de referencia | Regla de fallo |
+| --- | --- | --- |
+| Emisión Digital | solicitud → identidad/controles → fondos elegibles confirmados → autorización → emisión confirmada → disponible | No acreditar antes de confirmar; reconciliar emisión incierta. |
+| Redención Digital | solicitud → reserva de unidades → autorización → retirada de circulación confirmada → pago USD confirmado → cierre | Conservar obligación de pago hasta confirmación; no restaurar unidades automáticamente tras respuesta ambigua. |
+| Compra/venta Coin | cotización válida → reserva → orden → ejecución externa o interna autorizada → conciliación → entrega | No inventar precio ni liquidez. Política para ejecución parcial, expiración y deslizamiento. |
+| Conversión Digital/Coin | cotización → reservar entrada → ejecución única → contabilización por ambos activos → liberar resultado disponible | Si los dos tramos no son atómicos, persistir exposición intermedia, recuperar y conciliar; no declarar éxito por un solo tramo. |
+| Transferencia externa | reserva → validación destino/red → revisión → firma autorizada → difusión → confirmación/finalidad → cierre | Red equivocada, reorganización o respuesta incierta se escalan sin segundo envío automático. |
+El orden exacto de emisión/redención y las cuentas de compensación dependen del contrato, custodia, red y revisión contable. No afirmar atomicidad entre una cadena y un banco.
+
+## 6. Plan de aceptación técnica
+- Contabilidad: comprobar balances por activo, conservación del suministro, fondos restringidos, cobertura, conciliación con fuentes independientes, diferencias y reversos.
+- Concurrencia: dos débitos sobre saldo único, consumo simultáneo de cotización, reservas duplicadas, doble emisión y reintentos.
+- Recuperación: pérdida de respuesta después de ejecución externa, reinicios, restauración independiente, duplicación y eventos fuera de orden.
+- Precios: decimales exactos, unidades máximas, precio ausente/caducado, comisión incorrecta, ejecución parcial y discrepancia.
+- Seguridad: permisos por servicio, separación de revisores, custodia y rotación de claves, recuperación de acceso y protección de datos; pruebas independientes antes de cualquier lanzamiento.
+- Casos externos: simular y posteriormente verificar en el entorno oficial de cada proveedor/cadena, con datos de prueba; no usar fondos de clientes ni publicar contratos reales.
+- Lanzamiento: aprobación independiente legal, financiera, de seguridad y del titular del proyecto, activación gradual por producto y corredor, monitoreo y procedimientos de incidente y restitución.
+
+## 7. Decisiones pendientes y dependencia del siguiente paso
+- Titular del proyecto y asesoría especializada: alcance inicial, jurisdicción, estructura de entidad, términos y derechos de tenedores, política de emisión/redención, disponibilidad por país.
+- Especialistas financiero/contable: elegibilidad y segregación de reservas, liquidez, plan de cuentas, obligaciones, tratamiento de comisiones/costos y conciliación.
+- Arquitectura y seguridad: custodia propia o proveedor especializado, red/activo nativo o registro interno, autoridad de emisión, límites, precisiones y finalidades, evaluación de proveedores y amenaza.
+- Titular y especialistas: política de oferta y distribución de Coin; suministro y precio no quedan aprobados por este documento.
+- Implementación técnica solo después de fijar esas dependencias: esquema privado y motor de órdenes, pruebas de invariantes, adaptadores oficiales, revisión independiente. No se selecciona red, custodio ni proveedor y no se crea token por este documento.
