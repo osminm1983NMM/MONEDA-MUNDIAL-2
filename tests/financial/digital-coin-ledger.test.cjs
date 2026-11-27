@@ -80,3 +80,25 @@ test('new ledgers reject SQL replacement of metadata or events even with recursi
  a.deepEqual(f.reopen().manifest(),expected);
  a.equal(f.ledger.appendBatch([accept()]).status,'applied');
 }));
+
+test('open handles reject durable seed or gate-mode drift before reads or writes',()=>fixture(f=>{
+ const second=open(f.options);
+ const {DatabaseSync}=require('node:sqlite'),db=new DatabaseSync(f.options.path);
+ const original=db.prepare('SELECT mode,seed FROM metadata WHERE id=1').get();
+ try{
+  f.ledger.appendBatch([quote()]);
+  // Privileged fault injection deliberately removes a protection trigger.
+  db.exec('DROP TRIGGER metadata_no_update');
+  for(const [mode,seedValue] of [[original.mode,JSON.stringify({...seed,capMinor:'2000'})],['synthetic-digital-coin-gated-v1',original.seed]]){
+   db.prepare('UPDATE metadata SET mode=?,seed=? WHERE id=1').run(mode,seedValue);
+   for(const handle of [f.ledger,second]){
+    for(const action of [()=>handle.get(),()=>handle.counts(),()=>handle.manifest(),()=>handle.reconciliationSnapshot(),()=>handle.appendBatch([accept()]),()=>handle.appendBatch([quote()])])
+     a.throws(action,/LEDGER_METADATA_CHANGED/);
+   }
+   a.equal(db.prepare('SELECT count(*) AS n FROM events').get().n,1);
+   db.prepare('UPDATE metadata SET mode=?,seed=? WHERE id=1').run(original.mode,original.seed);
+  }
+  a.equal(second.appendBatch([accept()]).status,'applied');
+  a.equal(f.ledger.get().quotes[0].state,'reserved');
+ }finally{db.close();second.close();}
+}));

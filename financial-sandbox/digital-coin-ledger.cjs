@@ -101,7 +101,7 @@ function openDigitalCoinLedger({environment,path,initialize=false,seed,requireRe
   if(!existsSync(path)||!lstatSync(path).isFile())fail('LEDGER_MISSING');
  }
  const db=new DatabaseSync(path);
- let base,mode;
+ let base,mode,seedBytes;
  try{
   db.exec('PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON; PRAGMA recursive_triggers=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;');
   if(initialize){
@@ -117,7 +117,8 @@ function openDigitalCoinLedger({environment,path,initialize=false,seed,requireRe
   const row=db.prepare('SELECT mode,seed FROM metadata WHERE id=1').get();
   if(!validMode(row?.mode))fail('INVALID_LEDGER');
   mode=row.mode;
-  base=JSON.parse(row.seed);
+  seedBytes=row.seed;
+  base=JSON.parse(seedBytes);
   if(!base||Object.keys(base).length!==3||!['capMinor','digitalEvents','coinEvents'].every(k=>Object.hasOwn(base,k)))fail('INVALID_SEED');
   // Validate the complete committed history and all required receipts before
   // exposing a recovered ledger. Closing on error rolls back the read transaction.
@@ -125,9 +126,15 @@ function openDigitalCoinLedger({environment,path,initialize=false,seed,requireRe
   db.exec('COMMIT');
  }catch(e){db.close();throw e;}
  const project=events=>projectDigitalCoinSwaps({environment,...base,events});
+ // An already-open handle must not combine a changed durable seed/mode
+ // with its cached projection. This detects drift, not privileged tamper proofing.
+ function assertMetadata(){
+  const row=db.prepare('SELECT id,mode,seed FROM metadata ORDER BY id LIMIT 2').all();
+  if(row.length!==1||row[0].id!==1||row[0].mode!==mode||row[0].seed!==seedBytes)fail('LEDGER_METADATA_CHANGED');
+ }
  function tx(fn,write=true){
   db.exec(write?'BEGIN IMMEDIATE':'BEGIN');
-  try{const result=fn();db.exec('COMMIT');return result;}catch(e){db.exec('ROLLBACK');throw e;}
+  try{assertMetadata();const result=fn();db.exec('COMMIT');return result;}catch(e){db.exec('ROLLBACK');throw e;}
  }
  function history(){return readHistory(db);}
  return {
