@@ -27,7 +27,7 @@ function projectDigitalReserve({environment,events}={}){
   journal.push({eventId,asset,entries:entries.map(([account,amount])=>({account,signedMinor:String(amount)}))});
  };
  for(const e of events){
-  if(!e||typeof e!=='object'||Array.isArray(e)||!id(e.eventId)||!Object.hasOwn(fields,e.kind))fail('INVALID_EVENT');
+  if(!e||typeof e!=='object'||Array.isArray(e)||!id(e.eventId)||typeof e.kind!=='string'||!Object.hasOwn(fields,e.kind))fail('INVALID_EVENT');
   const keys=fields[e.kind];
   if(Object.keys(e).length!==keys.length||keys.some(k=>!Object.hasOwn(e,k)))fail('INVALID_EVENT');
   if(keys.includes('amountMinor')&&!positive(e.amountMinor))fail('INVALID_AMOUNT');

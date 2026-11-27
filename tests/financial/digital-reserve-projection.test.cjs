@@ -46,3 +46,12 @@ test('amounts are exact above JS safe integer and malformed data/production reje
  a.throws(()=>run({...fund(),extra:true}),/INVALID_EVENT/);
  a.throws(()=>project({environment:'production',events:[]}),/SANDBOX_ONLY/);
 });
+
+test('non-string event kinds cannot turn cancellation into a payout or alter the journal',()=>{
+ const base=[fund(),issue(),hold(),event('burn_confirmed','b')];
+ for(const kind of [['payout_confirmed'],['redemption_cancelled'],['burn_confirmed'],null,1,{toString:()=> 'payout_confirmed'}]){
+  a.throws(()=>run(...base,event(kind,'bad')),/INVALID_EVENT/);
+ }
+ a.equal(run(...base).redemptionPayableUsdMinor,'400');
+ a.equal(run(...base).reserveUsdMinor,'1000');
+});

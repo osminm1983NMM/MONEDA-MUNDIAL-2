@@ -48,3 +48,12 @@ test('exact integer unit quantities, explicit fixture cap and environment guard'
  a.throws(()=>project({environment:'sandbox',events:[]}),/INVALID_FIXTURE_CAP/);
  a.throws(()=>project({environment:'production',capMinor:'1000',events:[]}),/SANDBOX_ONLY/);
 });
+
+test('non-string cancellation or confirmation cannot release or transfer reserved Coin',()=>{
+ const base=[mint(),hold()];
+ for(const kind of [['transfer_cancelled'],['transfer_confirmed'],null,1,{toString:()=> 'transfer_confirmed'}]){
+  a.throws(()=>run(...base,transition(kind,'bad')),/INVALID_EVENT/);
+ }
+ a.equal(run(...base).transfers[0].state,'reserved');
+ a.equal(run(...base).nonTreasuryMinor,'0');
+});

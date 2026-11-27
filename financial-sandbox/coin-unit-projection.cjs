@@ -26,7 +26,7 @@ function projectCoinUnits({environment,capMinor,events}={}){
   journal.push({eventId,asset:'COIN_TEST',entries:entries.map(([account,n])=>({account,signedMinor:String(n)}))});
  }
  for(const e of events){
-  if(!e||typeof e!=='object'||Array.isArray(e)||!id(e.eventId)||!Object.hasOwn(shape,e.kind))fail('INVALID_EVENT');
+  if(!e||typeof e!=='object'||Array.isArray(e)||!id(e.eventId)||typeof e.kind!=='string'||!Object.hasOwn(shape,e.kind))fail('INVALID_EVENT');
   const keys=shape[e.kind];
   if(Object.keys(e).length!==keys.length||keys.some(k=>!Object.hasOwn(e,k)))fail('INVALID_EVENT');
   if(keys.includes('amountMinor')&&!positive(e.amountMinor))fail('INVALID_AMOUNT');

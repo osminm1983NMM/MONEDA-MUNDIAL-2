@@ -25,7 +25,7 @@ function projectDigitalCoinSwaps({environment,capMinor,digitalEvents=[],coinEven
  projectCoinUnits({environment,capMinor,events:coin});
  let last=-1;
  for(const e of events){
-  if(!e||typeof e!=='object'||Array.isArray(e)||!id(e.eventId)||!id(e.quoteId)||!Object.hasOwn(shapes,e.kind)||!time(e.at))fail('INVALID_SWAP_EVENT');
+  if(!e||typeof e!=='object'||Array.isArray(e)||!id(e.eventId)||!id(e.quoteId)||typeof e.kind!=='string'||!Object.hasOwn(shapes,e.kind)||!time(e.at))fail('INVALID_SWAP_EVENT');
   const keys=shapes[e.kind];
   if(Object.keys(e).length!==keys.length||keys.some(k=>!Object.hasOwn(e,k)))fail('INVALID_SWAP_EVENT');
   const fp=JSON.stringify(keys.map(k=>e[k]));

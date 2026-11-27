@@ -57,3 +57,14 @@ test('reserve deficit, invalid namespace, invalid units and production are rejec
  a.throws(()=>run([quote('q','digital_to_coin',10,{owner:'treasury'})]),/INVALID_QUOTE/);
  a.throws(()=>run([],{environment:'production'}),/SANDBOX_ONLY/);
 });
+
+test('non-string swap transitions are rejected, never interpreted as cancellations',()=>{
+ const base=[quote(),accept()];
+ for(const kind of [['swap_confirmed'],['swap_cancelled'],null,1,{toString:()=> 'swap_cancelled'}]){
+  a.throws(()=>run([...base,finish('q',12,kind)]),/INVALID_SWAP_EVENT/);
+ }
+ const x=run(base);
+ a.equal(x.quotes[0].state,'reserved');
+ a.equal(bal(x.digital,'alice').reserved,'200');
+ a.equal(bal(x.coin,'treasury').reserved,'300');
+});
