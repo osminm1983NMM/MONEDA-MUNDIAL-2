@@ -70,3 +70,35 @@ test('explicit isolated creation and ordinary append-only controls',()=>fixture(
  finally{db.close();}
  a.equal(store.get(order.id).state,'funded');
 }));
+
+test('independent backup retains converted failure, exact balances and event replay',()=>fixture(({store,config})=>{
+ const {verifyMulticurrencyBackup:verify}=require('../../financial-sandbox/multicurrency-ledger.cjs');
+ const fs=require('node:fs'),destination=config.path+'.backup.sqlite';
+ store.create(order);for(const e of [funding,fx,failed])store.append(order.id,e);
+ const before=store.get(order.id),expected=store.manifest();
+ a.deepEqual(expected.stateCounts,{payout_failed_converted:1});
+ fs.writeFileSync(destination,'preserve');
+ a.throws(()=>store.backup(destination),/EEXIST/);a.equal(fs.readFileSync(destination,'utf8'),'preserve');fs.unlinkSync(destination);
+ a.deepEqual(store.backup(destination),expected);
+ a.deepEqual(verify({environment:'sandbox',path:destination,expected}),expected);
+ const restored=openMulticurrencyLedger({...config,path:destination});
+ try{
+  a.deepEqual(restored.get(order.id),before);
+  a.equal(restored.append(order.id,funding).status,'duplicate');
+  restored.append(order.id,unwind);
+  a.equal(restored.append(order.id,refund).projection.state,'refunded');
+  a.throws(()=>verify({environment:'sandbox',path:destination,expected}),/BACKUP_MISMATCH/);
+ }finally{restored.close();}
+}));
+test('new ledger blocks replacement and recovery rejects missing event sequence',()=>fixture(({store,config})=>{
+ store.create(order);store.append(order.id,funding);store.append(order.id,fx);
+ const db=new DatabaseSync(config.path);
+ try{
+  db.exec('PRAGMA recursive_triggers=OFF');
+  for(const sql of ['INSERT OR REPLACE INTO orders SELECT * FROM orders','INSERT OR REPLACE INTO events SELECT * FROM events','INSERT OR REPLACE INTO metadata SELECT * FROM metadata'])
+   a.throws(()=>db.exec(sql),/APPEND_ONLY/);
+  db.exec('DROP TRIGGER events_no_delete; DELETE FROM events WHERE sequence=1');
+ }finally{db.close();}
+ a.throws(()=>store.manifest(),/LEDGER_CORRUPT/);
+ a.throws(()=>openMulticurrencyLedger(config),/LEDGER_CORRUPT/);
+}));

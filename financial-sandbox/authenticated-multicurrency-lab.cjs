@@ -27,6 +27,8 @@ function openAuthenticatedMulticurrencyLab({environment,path,initialize=false,se
   receive,
   get:orderId=>ledger.get(orderId),
   counts:()=>ledger.counts(),
+  manifest:()=>ledger.manifest(),
+  backup:destination=>ledger.backup(destination),
   close:()=>ledger.close()
  });
 }
