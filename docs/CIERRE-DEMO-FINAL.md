@@ -1,8 +1,11 @@
 # Moneda Mundial 2.0 — cierre integrado DEMO
 
-## Candidata vigente para aceptación física (26 de noviembre)
+## Candidata Android y aceptación física — actualización 26 de noviembre
 
-**Única APK vigente:** revisión `6d271511aa6dc3b6a7c383ebf82f451be01b225c`, [compilación y smoke-test aprobados](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45887015473). [Descargar artefacto MonedaMundial-LAB-Samsung](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45887015473/artifacts/15149971884), caduca el 3 de diciembre de 2026 a las 19:59:21 UTC (14:59:21 EST). La revisión incorpora la corrección PKCE. Las referencias a e9db291 y ed15a7c y sus hashes/artefactos son históricas; NO instalar esos candidatos para la aceptación final. Verificar la compilación visible `6d271511`, actualizar sin desinstalar ni borrar datos, comprobar acceso, persistencia, salida, recuperación de contraseña en el teléfono (incluido rechazo del enlace usado) y cotizador. No repetir movimientos ya aceptados. No compartir contraseña, token ni enlace de recuperación. Si falla la actualización, conservar la instalación y registrar el mensaje. La aceptación física y autorización explícita de fusión siguen pendientes. Esta corrección documental no modifica el APK ni certifica pruebas físicas. Metadatos directos de GitHub confirmados: artefacto 15149971884, MonedaMundial-LAB-Samsung, expired=false al corte, 16 322 589 bytes, ZIP digest SHA-256 ac52ed67b3987fa4e014b3bed67f26915f61f44076f6a87ff7436749897020d6, workflow 45887015473, head 6d271511aa6dc3b6a7c383ebf82f451be01b225c. El digest publicado corresponde al ZIP, no al APK; no se descargó ni verificó el binario nuevamente.
+- Última APK construida: revisión `40fdbaaec69a241118c620633e052c6ab94fdd75`. [CI 45931938088](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45931938088): job apk success; instalación y arranque en emulador Android 35 todavía en validación al corte de este registro. No promover a candidata física definitiva antes de confirmar smoke-test.
+- [Artefacto 15168714752](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45931938088/artifacts/15168714752): ZIP, 16,322,543 bytes, SHA256 `c0b0512543df8ee25a16ae47fe09ceb87fb366b3a66c20fd996882b69cb6d407` según metadatos GitHub; vence 2026-12-04T03:10:37Z. No se realizó extracción local independiente de esta revisión ni comprobación del hash del APK instalado.
+- La revisión física anterior `6d271511aa6dc3b6a7c383ebf82f451be01b225c` conserva evidencia de apertura, acceso y capturas compatibles con persistencia y salida. [CI anterior 45887015473](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45887015473) apk y smoke-test success. Artefacto histórico 15149971884. Su digest ZIP y tamaño proceden de metadatos GitHub; no presentar como verificación independiente de extracción, hashes internos, certificado o archivo APK entregado sin conservar evidencia reproducible de dicha comprobación. La verificación de CI es distinta de la inspección del dispositivo.
+- No pedir instalación todavía. Tras aprobación de la nueva compilación, agrupar comprobación visual de interfaz, recuperación PKCE (incluido rechazo del enlace consumido) y cotizador. Mantener evidencia previa y no repetir movimientos, conversiones ni aportaciones por rutina. Actualizar sin desinstalar ni borrar datos; no compartir secretos. Fusión requiere autorización expresa.
 
 Fecha de corte: 26 de noviembre de 2026. Alcance: Android LAB, créditos ficticios; no distribución pública ni dinero real.
 
@@ -16,8 +19,8 @@ Fecha de corte: 26 de noviembre de 2026. Alcance: Android LAB, créditos fictici
 | Interfaz Samsung | APK 46adc7b, CI 45853329867 y captura física del 26 nov: áreas seguras corregidas, sesión y saldo visibles conservados. |
 | Sesiones cifradas | Código e9db2912eb7bf4fa64e2eba6f604a3d176975bd6; CI estático 45857215847 aprobado. CI Android 45857215779 aprobó pruebas Node, Expo, prebuild y recuperación LAB; Gradle en curso al corte. |
  
-## Bloqueos de esta entrega (actualizados)
-1. Compilación y smoke-test de 6d271511 aprobados; lockfile versionado. No sustituir la APK comprobada por otra no verificada. La aceptación física es el siguiente paso.
+## Únicos bloqueos de esta entrega
+1. **Compilación nueva aprobada; smoke-test pendiente al corte:** APK 40fdbaa, lockfile versionado y CI 45931938088. Verificar resultado de arranque y procedencia por CI. No reconstruir por rutina ni instalar candidatas históricas.
 2. Validación física agrupada, únicamente por el cambio de almacenamiento: actualizar sin desinstalar; nuevo acceso con cuenta existente; cerrar y reabrir para confirmar persistencia; cerrar sesión y comprobar ausencia de sesión antigua; recuperación de contraseña PKCE con correo accesible, usando enlace válido en el mismo teléfono y rechazo de enlace reutilizado. No solicitar contraseña, token ni enlace. Si se observa un fallo, corregir ese componente y su regresión. No repetir transferencias, actualización de historial o conversiones por rutina.
 3. Revisión final del diff integrado y autorización expresa antes de fusionar main. Mantener un solo candidato activo y las ramas anteriores como historial; no cerrar ni eliminar ramas sin revisar.
 4. El fallo físico por pérdida de respuesta *después* del commit no está certificado. No confundir pruebas de concurrencia/recuperación simulada con esa evidencia. Registrar como limitación de DEMO; antes de dinero real, exigir un entorno controlado de prueba de red.
@@ -66,3 +69,32 @@ Registrar modelo de Samsung, versión de Android, compilación visible y resulta
 ## Corrección del tipo de sesión PKCE
 
 El formulario de cambio de contraseña exige que el SDK devuelva el tipo `recovery` y que la sesión corresponda al usuario observado por el callback de autenticación. La regresión reproduce un acceso PKCE normal enviado al enlace de recuperación y comprueba que permanece en Inicio y que el formulario no puede cambiar la contraseña. Como el cambio afecta al código de la app, la aceptación física final se hará con la compilación actualizada una vez aprobadas la construcción y la prueba en emulador. La entrega `ed15a7c` conserva su evidencia histórica.
+
+
+## Apertura física de la candidata vigente — 26 de noviembre, 21:57 EST
+
+Captura aportada por el titular del proyecto: pantalla de acceso de Moneda Mundial 2.0 en Samsung, compilación visible completa `6d271511aa6dc3b6a7c383ebf82f451be01b225c`, coincidente con la candidata vigente de CI 45887015473. Aviso «SOLO DEMOSTRACIÓN • SIN DINERO REAL», campos de correo y contraseña, botones de inicio de sesión y recuperación visibles. Se aprueba identidad visible y apertura física de esta candidata. La captura no demuestra hash del APK instalado, conservación de datos tras actualización, autenticación, persistencia de sesión o recuperación efectiva. Se observa texto de ayuda de contraseña recortado horizontalmente; revisar legibilidad con tamaño de fuente del dispositivo en la próxima revisión sin reconstruir por rutina. Siguiente prueba: iniciar sesión con cuenta DEMO existente, cerrar y reabrir la aplicación sin cerrar sesión y comprobar persistencia; luego salida explícita, recuperación PKCE y cotizador. No repetir transferencias ni conversiones previamente aprobadas. No solicitar contraseñas, códigos o enlaces privados. Sin cambios en producción, main, Supabase o fondos reales.
+
+
+## Inicio de sesión físico — 26 de noviembre, 21:58 EST
+
+Captura del titular posterior al acceso: compilación visible `6d271511aa6dc3b6a7c383ebf82f451be01b225c`, pantalla Inicio de cuenta DEMO existente, saldo 9,911.00 MWD ficticios, coincidente con el último saldo conciliado documentado. Acceso físico normal aprobado; no constituye una nueva conciliación SQL independiente. No registrar correo ni identificador de billetera. Pendiente cerrar la aplicación sin salir de la cuenta, reabrir y comprobar persistencia; después salida explícita y recuperación PKCE. No repetir operaciones monetarias. Sin cambios en main, Supabase o fondos reales.
+
+
+## Acceso físico de la candidata vigente — 26 de noviembre, 21:58 EST
+
+Captura del usuario: Inicio de Moneda Mundial 2.0, compilación visible 6d271511aa6dc3b6a7c383ebf82f451be01b225c, cuenta DEMO existente y saldo ficticio de 9911.00 MWD, coincidente con el saldo B anteriormente conciliado. Acceso físico y visualización de billetera aprobados; no se realizó consulta nueva al servidor ni se comprobó hash del APK instalado. No conservar correo ni identificador personal de billetera en este registro. Pendiente cerrar la aplicación desde recientes sin usar cerrar sesión y reabrir para verificar persistencia; después salida explícita, recuperación PKCE y cotizador. Sin escrituras en Supabase, cambios de producción o movimientos de saldo.
+
+
+## Persistencia de sesión física — 26 de noviembre
+
+Segunda captura aportada en respuesta a la instrucción de cerrar desde recientes y reabrir sin cerrar sesión: misma compilación 6d271511aa6dc3b6a7c383ebf82f451be01b225c, cuenta DEMO activa y saldo 9911.00 MWD. Evidencia visual consistente con persistencia de sesión; el cierre del proceso y la ausencia de nuevo ingreso de credenciales se infieren de la secuencia de prueba, no se observaron independientemente. Pendiente salida explícita, reapertura sin sesión, recuperación PKCE y cotizador. Sin datos personales en este registro ni cambios de saldo o producción.
+
+
+## Cierre de sesión físico — 26 de noviembre, 21:59 EST
+
+Captura aportada después de la instrucción de cerrar sesión y reabrir la app: formulario de acceso con campos vacíos, botones Iniciar sesión, Olvidé mi contraseña y Crear cuenta de prueba. No aparecen cuenta ni saldo. Evidencia visual consistente con salida correcta; la reapertura y la identidad de compilación se infieren de la secuencia, no se observan independientemente en esta captura. Se conserva como observación menor el recorte del placeholder de contraseña. Siguiente prueba: solicitar recuperación con el correo de prueba existente desde este Samsung, verificar recepción y apertura del enlace sin compartir enlaces ni códigos privados; después comprobar cotizador. Sin cambios de código, producción, Supabase o saldos.
+
+
+## Corrección de interfaz posterior a aceptación parcial
+Las capturas del Samsung de la candidata 6d271511 muestran el placeholder de contraseña truncado y el formulario de acceso desplazado tras salir de la cuenta. La revisión acorta el placeholder, conserva el requisito de ocho caracteres como texto independiente y reinicia el contenedor de desplazamiento al cambiar de cuenta o pantalla. Se agregan dos controles de regresión estáticos y de identidad de vista. No cambia la autenticación, contabilidad, RPC, dependencias ni datos. La evidencia previa de 6d271511 se conserva; la nueva revisión requiere su CI y comprobación física agrupada de interfaz antes de declararla candidata final. No solicitar repetir transferencias ni conversiones ya aprobadas. No se fusiona main ni se habilitan fondos.

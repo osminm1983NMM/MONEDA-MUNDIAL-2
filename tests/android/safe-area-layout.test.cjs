@@ -21,3 +21,24 @@ test('all screens and scrolling content are enclosed by safe system edges', () =
   assert.match(app, /scroll: \{ flex: 1 \}/);
   assert.match(app, /<StatusBar barStyle="light-content" \/>/);
 });
+
+
+test('scroll position is reset on account and screen transitions, not normal balance updates', () => {
+  const declaration = app.match(/const scrollKey = ([^;]+);/);
+  assert.ok(declaration);
+  const key = new Function('userId', 'screen', 'return ' + declaration[1]);
+  assert.notEqual(key('A','Inicio'), key(null,'Inicio'));
+  assert.notEqual(key('A','Inicio'), key('B','Inicio'));
+  assert.notEqual(key('A','Inicio'), key('A','Historial'));
+  assert.notEqual(key('A','Inicio'), key('A','CambiarContraseña'));
+  assert.equal(key(null,'Inicio'), key(null,'Historial'));
+  assert.equal(key('A','Inicio'), key('A','Inicio'));
+  assert.match(app, /<ScrollView style=\{styles\.scroll\} key=\{scrollKey\}/);
+});
+
+test('login password requirement remains readable independently of the input placeholder', () => {
+  assert.match(app, /placeholder="Contraseña" accessibilityLabel="Contraseña"/);
+  assert.match(app, /<Text style=\{styles\.muted\}>Mínimo 8 caracteres\.<\/Text>/);
+  assert.doesNotMatch(app, /placeholder="Contraseña \(8 caracteres mínimo\)"/);
+  assert.match(app, /placeholder="Correo electrónico" accessibilityLabel="Correo electrónico"/);
+});
