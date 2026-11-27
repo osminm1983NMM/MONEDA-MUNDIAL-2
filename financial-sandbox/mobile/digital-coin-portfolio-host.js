@@ -3,12 +3,12 @@
 // except through the injected sandbox client. Not mounted in the Android app yet.
 const {validPortfolio}=require('../digital-coin-portfolio-contract.cjs');
 const tokenOk=v=>typeof v==='string'&&/^[A-Za-z0-9._~-]{1,8192}$/.test(v);
-function createPortfolioHost({environment,enabled=false,client,onChange}={}){
- if(environment!=='sandbox'||typeof enabled!=='boolean'||typeof onChange!=='function'||(enabled&&typeof client?.read!=='function'))throw Error('INVALID_HOST');
+function createPortfolioHost({environment,enabled=false,client,onChange,requireSnapshot=false}={}){
+ if(environment!=='sandbox'||typeof enabled!=='boolean'||typeof requireSnapshot!=='boolean'||typeof onChange!=='function'||(enabled&&typeof client?.read!=='function'))throw Error('INVALID_HOST');
  let disposed=false,token=null,revision=0,active=null,state='signed_out';
- function publish(next,value,code){
+ function publish(next,value,code,snapshot){
   state=next;
-  onChange({enabled:enabled&&!disposed&&token!==null,revision,state:next,...(value===undefined?{}:{value}),...(code===undefined?{}:{code})});
+  onChange({enabled:enabled&&!disposed&&token!==null,revision,state:next,...(value===undefined?{}:{value}),...(code===undefined?{}:{code}),...(snapshot===undefined?{}:{snapshot})});
  }
  function invalidate(){revision++;const old=active;active=null;old?.abort();}
  function setSession(next){
@@ -31,7 +31,9 @@ function createPortfolioHost({environment,enabled=false,client,onChange}={}){
    if(result?.ok===true){
     // Publish a detached, validated JSON value, not a mutable transport reference.
     const value=JSON.parse(JSON.stringify(result.value));
-    if(validPortfolio(value)){publish('ready',value);return;}
+    const snapshot=result.snapshot===undefined?undefined:JSON.parse(JSON.stringify(result.snapshot));
+    const dated=snapshot&&Object.keys(snapshot).length===2&&snapshot.kind==='immutable_wallet_snapshot'&&typeof snapshot.exportedAt==='string'&&Number.isFinite(Date.parse(snapshot.exportedAt))&&new Date(snapshot.exportedAt).toISOString()===snapshot.exportedAt;
+    if(validPortfolio(value)&&(requireSnapshot?dated:snapshot===undefined)){publish('ready',value,undefined,snapshot);return;}
    }
   }catch{}
   if(result?.ok===false&&result.code==='AUTH_REQUIRED'){
