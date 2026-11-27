@@ -10,6 +10,7 @@ const {createRemittanceStatusPanel}=require('./financial-sandbox/mobile/remittan
 const {createOrderStatusClient}=require('./financial-sandbox/order-status-client.cjs');
 const {createExpoPortfolio}=require('./financial-sandbox/mobile/digital-coin-portfolio-expo.js');
 const {createPortfolioClient}=require('./financial-sandbox/digital-coin-portfolio-client.cjs');
+const {createHostedSessionFence}=require('./financial-sandbox/mobile/hosted-session-fence.js');
 const Native=require('react-native');
 const Panel=createRemittanceStatusPanel(React,Native);
 const origin='https://tfamyuqqpenilnovqjpp.supabase.co';
@@ -33,12 +34,21 @@ function Lab(){
  const [state,setState]=useState(initial),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[order,setOrder]=useState('');
  const [signed,setSigned]=useState(false),[busy,setBusy]=useState(false),[info,setInfo]=useState('');
  const [,setWalletView]=useState(null);
- const wallet=useRef(null),host=useRef(null),auth=useRef(null),revision=useRef(0),pending=useRef(false),mounted=useRef(false);
+ const wallet=useRef(null),host=useRef(null),auth=useRef(null),revision=useRef(0),pending=useRef(false),mounted=useRef(false),fence=useRef(null);
  useEffect(()=>{
   mounted.current=true;
-  host.current=createRemittanceStatusHost({environment:'sandbox',enabled:true,sandboxOrigin:origin,transport:'hosted-rpc',publishableKey,expoFetch,locale:'es',onChange:next=>{if(mounted.current)setState(next);}});
-  wallet.current=createExpoPortfolio({React,Native,environment:'sandbox',enabled:true,sandboxOrigin:origin,transport:'hosted-snapshot',publishableKey,expoFetch,onChange:next=>{if(mounted.current)setWalletView(next);}});
-  return ()=>{mounted.current=false;wallet.current?.dispose();wallet.current=null;revision.current++;pending.current=false;host.current?.dispose();host.current=null;const old=auth.current;auth.current=null;if(old)void old.auth.signOut({scope:'local'}).catch(()=>{});};
+  fence.current=createHostedSessionFence(()=>{
+   if(!mounted.current)return;
+   revision.current++;pending.current=false;
+   const old=auth.current;auth.current=null;
+   host.current?.setSession(null);wallet.current?.setSession(null);
+   setSigned(false);setBusy(false);setOrder('');setPassword('');
+   setInfo('No se pudo autorizar una consulta de laboratorio. Inicia sesión nuevamente.');
+   if(old)void old.auth.signOut({scope:'local'}).catch(()=>{});
+  });
+  host.current=createRemittanceStatusHost({environment:'sandbox',enabled:true,sandboxOrigin:origin,transport:'hosted-rpc',publishableKey,expoFetch,locale:'es',onChange:next=>{if(mounted.current){setState(next);fence.current?.observe('remittance',next.view);}}});
+  wallet.current=createExpoPortfolio({React,Native,environment:'sandbox',enabled:true,sandboxOrigin:origin,transport:'hosted-snapshot',publishableKey,expoFetch,onChange:next=>{if(mounted.current){setWalletView(next);fence.current?.observe('wallet',next);}}});
+  return ()=>{mounted.current=false;fence.current?.disarm();fence.current=null;wallet.current?.dispose();wallet.current=null;revision.current++;pending.current=false;host.current?.dispose();host.current=null;const old=auth.current;auth.current=null;if(old)void old.auth.signOut({scope:'local'}).catch(()=>{});};
  },[]);
  async function login(){
   if(pending.current||!host.current||!wallet.current||signed||!email.trim()||!password)return;
@@ -51,13 +61,15 @@ function Lab(){
    const {data,error}=await authDeadline(()=>client.auth.signInWithPassword({email:email.trim(),password:secret}),()=>client.auth.signOut({scope:'local'}));
    if(!mounted.current||revision.current!==request){void client.auth.signOut({scope:'local'}).catch(()=>{});return;}
    const token=data?.session?.access_token;
-   if(error||typeof token!=='string'||data?.user?.is_anonymous!==false){auth.current=null;host.current.setSession(null);wallet.current?.setSession(null);setInfo('No se pudo iniciar sesión. Utiliza una cuenta autorizada del laboratorio.');void client.auth.signOut({scope:'local'}).catch(()=>{});return;}
-   host.current.setSession(token);wallet.current.setSession(token);setSigned(true);setInfo('Sesión de laboratorio iniciada. Introduce el identificador de tu remesa de prueba.');
-  }catch(error){if(mounted.current&&revision.current===request){auth.current=null;host.current?.setSession(null);wallet.current?.setSession(null);setInfo(error?.message==='AUTH_DEADLINE'?'El laboratorio no respondió a tiempo. Intenta nuevamente.':'No se pudo conectar al laboratorio.');if(client&&error?.message!=='AUTH_DEADLINE')void client.auth.signOut({scope:'local'}).catch(()=>{});}}
+   if(error||typeof token!=='string'||!/^[A-Za-z0-9._~-]{1,8192}$/.test(token)||data?.user?.is_anonymous!==false){auth.current=null;host.current.setSession(null);wallet.current?.setSession(null);setInfo('No se pudo iniciar sesión. Utiliza una cuenta autorizada del laboratorio.');void client.auth.signOut({scope:'local'}).catch(()=>{});return;}
+   fence.current?.arm();host.current.setSession(token);wallet.current.setSession(token);
+   if(revision.current!==request)return;
+   setSigned(true);setInfo('Sesión de laboratorio iniciada. Introduce el identificador de tu remesa de prueba.');
+  }catch(error){if(mounted.current&&revision.current===request){fence.current?.disarm();auth.current=null;host.current?.setSession(null);wallet.current?.setSession(null);setInfo(error?.message==='AUTH_DEADLINE'?'El laboratorio no respondió a tiempo. Intenta nuevamente.':'No se pudo conectar al laboratorio.');if(client&&error?.message!=='AUTH_DEADLINE')void client.auth.signOut({scope:'local'}).catch(()=>{});}}
   finally{if(mounted.current&&revision.current===request){pending.current=false;setBusy(false);}}
  }
  async function logout(){
-  const request=++revision.current,old=auth.current;auth.current=null;pending.current=false;
+  const request=++revision.current,old=auth.current;fence.current?.disarm();auth.current=null;pending.current=false;
   host.current?.setSession(null);wallet.current?.setSession(null);setSigned(false);setBusy(false);setOrder('');setPassword('');setInfo('Sesión local cerrada.');
   if(old){try{const {error}=await authDeadline(()=>old.auth.signOut({scope:'local'}));if(error&&mounted.current&&revision.current===request)setInfo('Sesión local cerrada. No se pudo confirmar la revocación remota.');}catch{if(mounted.current&&revision.current===request)setInfo('Sesión local cerrada. No se pudo confirmar la revocación remota.');}}
  }
@@ -81,7 +93,7 @@ function Lab(){
    }
   }catch{}
   if(!current())return;
-  auth.current=null;host.current?.setSession(null);wallet.current?.setSession(null);setSigned(false);setOrder('');setPassword('');
+  fence.current?.disarm();auth.current=null;host.current?.setSession(null);wallet.current?.setSession(null);setSigned(false);setOrder('');setPassword('');
   try{
    const {error}=await authDeadline(()=>old.auth.signOut({scope:'local'}));
    if(!error&&positive&&walletPositive&&current()){
