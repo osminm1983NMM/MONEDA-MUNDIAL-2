@@ -102,14 +102,14 @@ function openDigitalCoinLedger({environment,path,initialize=false,seed,requireRe
  const db=new DatabaseSync(path);
  let base,mode;
  try{
-  db.exec('PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;');
+  db.exec('PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON; PRAGMA recursive_triggers=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;');
   if(initialize){
    db.exec('BEGIN IMMEDIATE;');
    try{
     db.exec("CREATE TABLE metadata(id INTEGER PRIMARY KEY CHECK(id=1),mode TEXT NOT NULL,seed TEXT NOT NULL) STRICT; CREATE TABLE events(sequence INTEGER PRIMARY KEY,event_id TEXT NOT NULL UNIQUE,payload TEXT NOT NULL) STRICT;");
     db.prepare('INSERT INTO metadata VALUES(1,?,?)').run(requireVerifiedPricing===true?PRICED:requireReconciliation===true?AUDITED:LEGACY,JSON.stringify(seed));
-    if(requireReconciliation===true)db.exec("CREATE TABLE reconciliation_receipts(start_sequence INTEGER PRIMARY KEY,end_sequence INTEGER NOT NULL,evidence TEXT NOT NULL) STRICT; CREATE TRIGGER receipts_no_update BEFORE UPDATE ON reconciliation_receipts BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER receipts_no_delete BEFORE DELETE ON reconciliation_receipts BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END;");
-    db.exec("CREATE TRIGGER metadata_no_update BEFORE UPDATE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER metadata_no_delete BEFORE DELETE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER events_no_update BEFORE UPDATE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER events_no_delete BEFORE DELETE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; COMMIT;");
+    if(requireReconciliation===true)db.exec("CREATE TABLE reconciliation_receipts(start_sequence INTEGER PRIMARY KEY,end_sequence INTEGER NOT NULL,evidence TEXT NOT NULL) STRICT; CREATE TRIGGER receipts_no_update BEFORE UPDATE ON reconciliation_receipts BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER receipts_no_delete BEFORE DELETE ON reconciliation_receipts BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER receipts_no_replace BEFORE INSERT ON reconciliation_receipts WHEN EXISTS(SELECT 1 FROM reconciliation_receipts WHERE start_sequence=NEW.start_sequence) BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END;");
+    db.exec("CREATE TRIGGER metadata_no_update BEFORE UPDATE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER metadata_no_delete BEFORE DELETE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER events_no_update BEFORE UPDATE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER events_no_delete BEFORE DELETE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER metadata_no_replace BEFORE INSERT ON metadata WHEN EXISTS(SELECT 1 FROM metadata WHERE id=NEW.id) BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER events_no_replace BEFORE INSERT ON events WHEN EXISTS(SELECT 1 FROM events WHERE sequence=NEW.sequence OR event_id=NEW.event_id) BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; COMMIT;");
    }catch(e){db.exec('ROLLBACK');throw e;}
   }
   const row=db.prepare('SELECT mode,seed FROM metadata WHERE id=1').get();

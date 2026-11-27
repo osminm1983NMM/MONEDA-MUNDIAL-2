@@ -65,3 +65,18 @@ test('immutable seed, exclusive file, append-only ordinary SQL and sandbox guard
  }finally{db.close();}
  a.equal(f.reopen().get().quotes[0].state,'quoted');
 }));
+
+
+test('new ledgers reject SQL replacement of metadata or events even with recursive triggers off',()=>fixture(f=>{
+ f.ledger.appendBatch([quote()]);const expected=f.ledger.manifest();
+ const {DatabaseSync}=require('node:sqlite'),db=new DatabaseSync(f.options.path);
+ try{
+  db.exec('PRAGMA recursive_triggers=OFF');
+  a.throws(()=>db.exec("INSERT OR REPLACE INTO metadata SELECT id,mode,seed FROM metadata"),/APPEND_ONLY/);
+  a.throws(()=>db.exec("INSERT OR REPLACE INTO events SELECT sequence,event_id,payload FROM events"),/APPEND_ONLY/);
+  a.throws(()=>db.exec("INSERT OR REPLACE INTO events SELECT sequence+1,event_id,payload FROM events"),/APPEND_ONLY/);
+  a.throws(()=>db.exec("INSERT OR REPLACE INTO events SELECT sequence,'other',payload FROM events"),/APPEND_ONLY/);
+ }finally{db.close();}
+ a.deepEqual(f.reopen().manifest(),expected);
+ a.equal(f.ledger.appendBatch([accept()]).status,'applied');
+}));

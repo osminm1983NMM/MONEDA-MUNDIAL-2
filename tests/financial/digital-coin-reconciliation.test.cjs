@@ -185,3 +185,22 @@ test('inconsistent internal coverage or Coin issuance totals fail closed even wi
  }
  a.equal(run().clean,true);
 }));
+
+
+test('new audited ledger rejects replacement of committed reconciliation receipt',()=>{
+ const {DatabaseSync}=require('node:sqlite');
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-receipt-replace-')),options={environment:'sandbox',path:join(dir,'ledger.sqlite')};
+ const ledger=open({...options,initialize:true,seed,requireReconciliation:true});
+ try{
+  const initial=reports();
+  initial.digital.balances=[{owner:'alice',totalMinor:'1000'},{owner:'treasury',totalMinor:'1000'}];
+  initial.coin.balances=[{owner:'treasury',totalMinor:'1000'}];
+  ledger.appendBatch(events,{cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:initial});
+  const before=ledger.auditReconciliation(),db=new DatabaseSync(options.path);
+  try{
+   db.exec('PRAGMA recursive_triggers=OFF');
+   a.throws(()=>db.exec("INSERT OR REPLACE INTO reconciliation_receipts SELECT start_sequence,end_sequence,evidence FROM reconciliation_receipts"),/APPEND_ONLY/);
+  }finally{db.close();}
+  a.deepEqual(ledger.auditReconciliation(),before);
+ }finally{ledger.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
