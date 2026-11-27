@@ -2,7 +2,8 @@
 // Private disposable SQLite laboratory; the two asset projections derive from
 // one append-only conversion history. No production, network or live assets.
 const {DatabaseSync}=require('node:sqlite');
-const {openSync,closeSync,lstatSync,existsSync,unlinkSync,fsyncSync}=require('node:fs');
+const {openSync,closeSync,lstatSync,existsSync,fsyncSync,mkdtempSync,linkSync,rmSync,constants}=require('node:fs');
+const {dirname,join}=require('node:path');
 const {createHash}=require('node:crypto');
 const {projectDigitalCoinSwaps}=require('./digital-coin-swap-projection.cjs');
 const {compareDigitalCoinCut}=require('./digital-coin-reconciliation.cjs');
@@ -183,17 +184,30 @@ function openDigitalCoinLedger({environment,path,initialize=false,seed,requireRe
   counts(){return tx(()=>({events:history().length}),false);},
   manifest(){return tx(()=>inspect(db),false);},
   reconciliationSnapshot(){return tx(()=>({manifest:inspect(db),projection:project(history())}),false);},
-  // Writers should be paused. If a write races the snapshot and changes its
-  // contents, independent manifest verification fails and removes the copy.
+  // Local POSIX laboratory, trusted private directory, writers paused.
+  // Never expose an incomplete backup at its final name. A process crash
+  // before publication may leave a private staging directory for inspection.
   backup(destination){
    if(typeof destination!=='string'||!destination.endsWith('.sqlite'))fail('INVALID_BACKUP_PATH');
+   const directory=dirname(destination);
+   if(!lstatSync(directory).isDirectory())fail('INVALID_BACKUP_PATH');
    const expected=tx(()=>inspect(db),false);
-   const fd=openSync(destination,'wx',0o600);closeSync(fd);
+   const staging=mkdtempSync(join(directory,'.mwd-backup-'));
+   const candidate=join(staging,'candidate.sqlite');
    try{
-    db.prepare('VACUUM INTO ?').run(destination);
-    const synced=openSync(destination,'r');try{fsyncSync(synced);}finally{closeSync(synced);}
-    return verifyDigitalCoinBackup({environment,path:destination,expected});
-   }catch(e){unlinkSync(destination);throw e;}
+    const fd=openSync(candidate,'wx',0o600);closeSync(fd);
+    db.prepare('VACUUM INTO ?').run(candidate);
+    const verified=verifyDigitalCoinBackup({environment,path:candidate,expected});
+    const synced=openSync(candidate,'r');try{fsyncSync(synced);}finally{closeSync(synced);}
+    // Atomic, exclusive publication on the same filesystem; no replacement.
+    linkSync(candidate,destination);
+    return verified;
+   }finally{
+    // Never remove the published destination, even if directory sync fails.
+    rmSync(staging,{recursive:true,force:true});
+    const dirfd=openSync(directory,constants.O_RDONLY|constants.O_DIRECTORY|constants.O_NOFOLLOW);
+    try{fsyncSync(dirfd);}finally{closeSync(dirfd);}
+   }
   },
   close(){db.close();}
  };

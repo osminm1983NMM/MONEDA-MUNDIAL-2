@@ -58,3 +58,33 @@ test('reopening a copy with an invalid event sequence fails before returning a l
  a.throws(()=>open({environment:'sandbox',path:f.copy}),/LEDGER_CORRUPT/);
  a.deepEqual(f.ledger.counts(),{events:3});
 }));
+
+
+test('verified backup is published exclusively with private permissions and no staging residue',()=>fixture(f=>{
+ f.ledger.appendBatch(events);
+ const expected=f.ledger.backup(f.copy),original=fs.readFileSync(f.copy);
+ a.equal(fs.statSync(f.copy).mode&0o777,0o600);
+ a.throws(()=>f.ledger.backup(f.copy),/EEXIST/);
+ a.deepEqual(fs.readFileSync(f.copy),original);
+ a.equal(fs.readdirSync(require('node:path').dirname(f.copy)).some(n=>n.startsWith('.mwd-backup-')),false);
+ a.deepEqual(verify({environment:'sandbox',path:f.copy,expected}),expected);
+}));
+
+test('abrupt exit after staging a backup cannot publish an unverified destination',()=>fixture(f=>{
+ f.ledger.appendBatch(events);const expected=f.ledger.manifest();
+ const modulePath=require.resolve('../../financial-sandbox/digital-coin-ledger.cjs');
+ const script=[
+  "const [mod,source,destination]=process.argv.slice(1);",
+  "const {DatabaseSync}=require('node:sqlite');",
+  "const prepare=DatabaseSync.prototype.prepare;",
+  "DatabaseSync.prototype.prepare=function(sql){const statement=prepare.call(this,sql);if(sql==='VACUUM INTO ?')return {run(...args){statement.run(...args);process.exit(76);}};return statement;};",
+  "const ledger=require(mod).openDigitalCoinLedger({environment:'sandbox',path:source});",
+  "ledger.backup(destination);process.exit(77);"
+ ].join('\n');
+ const child=require('node:child_process').spawnSync(process.execPath,['-e',script,modulePath,f.options.path,f.copy],{timeout:10000,encoding:'utf8'});
+ a.equal(child.status,76,child.stderr);
+ a.equal(fs.existsSync(f.copy),false);
+ a.equal(fs.readdirSync(require('node:path').dirname(f.copy)).filter(n=>n.startsWith('.mwd-backup-')).length,1);
+ a.deepEqual(f.ledger.backup(f.copy),expected);
+ a.deepEqual(verify({environment:'sandbox',path:f.copy,expected}),expected);
+}));
