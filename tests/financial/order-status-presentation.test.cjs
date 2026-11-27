@@ -29,3 +29,15 @@ test('new query, clear and dispose prevent stale or private values from being di
  const third=ui.read(orderId);ui.clear();requests[2]({ok:true,value});await third;a.deepEqual(states.at(-1),{state:'idle'});
  const fourth=ui.read(orderId);ui.dispose();const count=states.length;requests[3]({ok:true,value});await fourth;a.equal(states.length,count);
 });
+
+test('synchronous invalidation during loading prevents transport with a stale token',async()=>{
+ for(const action of [ui=>ui.setSession(null),ui=>ui.setSession('new-token'),ui=>ui.clear(),ui=>ui.dispose()]){
+  let calls=0;const states=[];
+  const ui=createStatusPresentation({
+   onChange:s=>{states.push(s);if(s.state==='loading')action(ui);},
+   client:{read:async()=>{calls++;return {ok:true,value};}}
+  });
+  ui.setSession('old-token');await ui.read(orderId);
+  a.equal(calls,0);a.ok(!states.some(s=>s.state==='ready'));
+ }
+});
