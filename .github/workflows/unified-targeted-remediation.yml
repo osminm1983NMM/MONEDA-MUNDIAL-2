@@ -40,8 +40,12 @@ jobs:
           console.log(JSON.stringify(changes,null,2));
           fs.writeFileSync(p+'changes.json',JSON.stringify(changes,null,2));
           for(const k of Object.keys(a.packages[''].dependencies))if(a.packages['node_modules/'+k]?.version!==b.packages['node_modules/'+k]?.version)throw Error('DIRECT_DEPENDENCY_CHANGED: '+k);
-          for(const x of changes)if(!/(^|\/)node_modules\/(metro(?:-[a-z-]+)?|image-size|postcss|picocolors|nanoid|source-map-js|queue)(\/|$)/.test(x.path))throw Error('UNRELATED_CHANGE: '+x.path);
+          for(const x of changes){
+            if(x.path==='node_modules/content-type'&&!x.before&&x.after==='2.1.0'&&b.packages['node_modules/metro/node_modules/negotiator']?.dependencies?.['content-type']==='^2.1.0')continue;
+            if(!/(^|\/)node_modules\/(metro(?:-[a-z-]+)?|image-size|postcss|picocolors|nanoid|source-map-js|queue)(\/|$)/.test(x.path))throw Error('UNRELATED_CHANGE: '+x.path);
+          }
           NODE
+          echo '3962eeee930022e112ec65bbef5dbf55291587008f55434574642fb4dcf11c86  package-lock.json' | sha256sum -c -
       - name: Audit exact candidate and block remaining high severity findings
         run: |
           set -euo pipefail
