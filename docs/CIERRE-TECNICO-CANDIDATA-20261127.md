@@ -78,3 +78,10 @@ La decisión posterior del titular es terminar primero el desarrollo técnico y 
 7. Diseño visual definitivo, aceptación de seguridad y contabilidad independientes, requisitos regulatorios y autorización explícita antes de lanzamiento.
 
 Rama principal comprobada sin cambio: 3f2fbdb7ffb5d6c75b8c56d41b4d1fa98ef64ffc. Base Android de PR 137: a24b14cd075ff792ee06b0fb7a77acafc1e06f53, borrador mergeable en la revisión observada. Ninguna nueva APK, credencial, contacto con proveedor, aprobación, despliegue o movimiento de dinero se deriva de este registro. No mantener ciclos indefinidos de mejoras marginales a fixtures como sustituto de las dependencias de integración oficial.
+
+
+## Cierre de consultas financieras aisladas — revisión 5f297387
+
+- [CI push 45995409215](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45995409215) y [CI PR 45995424616](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45995424616): jobs sandbox y postgres-lab completados con success para `5f297387ca057a3afca40fba649d6f1f9aec045b`. Log Node del job 140493504569: 299 pruebas, 299 aprobadas, 0 fallos, cancelaciones, omisiones o todo. No sumar las ejecuciones duplicadas.
+- Verificadas las cuatro regresiones de cancelación: evitar búsqueda de vínculo después de Auth cancelado, propagar cancelación a registro, no comenzar transacción tras adquisición tardía y rollback antes de consulta de estado. No implica cancelación física de una operación que el driver ya inició.
+- La composición de servidor local y la consulta PostgreSQL restringida tienen evidencia de laboratorio. El servicio oficial autenticado y el transporte TLS remoto siguen sin desplegar. No usar la rama Supabase principal como laboratorio financiero ni crear recursos con costo sin autorización. La verificación física restante se conserva para la etapa conjunta; no regenerar APK por este cambio aislado.
