@@ -96,3 +96,44 @@ test('immutable plan schema rejects replacement and deletion, and v1 cannot reco
   try{a.throws(()=>old.recordDeadlinePlans(plans),/IMMUTABLE_PLANS_REQUIRED/);}finally{old.close();}
  }finally{lab.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('case and original deadlines restore from independently verified backup',()=>{
+ const {verifyConsumerCaseBackup:verify}=require('../../financial-sandbox/consumer-case-lab.cjs');
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-case-backup-')),options={environment:'sandbox',path:join(dir,'source.sqlite'),immutablePlans:true},copy=join(dir,'copy.sqlite');
+ let lab=open({...options,initialize:true});
+ try{
+  lab.appendBatch(full.slice(0,4));lab.recordDeadlinePlans(plans);
+  const expected=lab.manifest(),before=lab.deadlineReview({asOf:205,warningMs:10});
+  a.equal(expected.plans,3);a.deepEqual(lab.backup(copy),expected);
+  a.throws(()=>lab.backup(copy),/EEXIST/);
+  a.throws(()=>lab.backup(options.path),/EEXIST/);
+  a.deepEqual(verify({environment:'sandbox',path:copy,expected}),expected);
+  lab.close();lab=null;fs.unlinkSync(options.path);
+  lab=open({...options,path:copy});
+  a.deepEqual(lab.deadlineReview({asOf:205,warningMs:10}),before);
+  lab.appendBatch(full.slice(4));
+  a.equal(lab.deadlineReview({asOf:300,warningMs:10}).items[2].status,'completed_late');
+  a.equal(lab.recordDeadlinePlans(plans).status,'duplicate');
+  a.throws(()=>verify({environment:'sandbox',path:copy,expected}),/BACKUP_MISMATCH/);
+ }finally{lab?.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+test('new schemas reject replacement even with recursive triggers disabled; anchor detects privileged truncation',()=>{
+ const {DatabaseSync}=require('node:sqlite');
+ const {verifyConsumerCaseBackup:verify}=require('../../financial-sandbox/consumer-case-lab.cjs');
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-case-replace-')),options={environment:'sandbox',path:join(dir,'source.sqlite'),immutablePlans:true},copy=join(dir,'copy.sqlite');
+ const lab=open({...options,initialize:true});
+ try{
+  lab.appendBatch([received]);lab.recordDeadlinePlans(plans);
+  const raw=new DatabaseSync(options.path);
+  try{
+   raw.exec('PRAGMA recursive_triggers=OFF');
+   a.throws(()=>raw.exec('INSERT OR REPLACE INTO events SELECT * FROM events'),/APPEND_ONLY/);
+   a.throws(()=>raw.exec('INSERT OR REPLACE INTO deadline_plans SELECT * FROM deadline_plans'),/APPEND_ONLY/);
+  }finally{raw.close();}
+  const expected=lab.backup(copy);
+  const corrupt=new DatabaseSync(copy);
+  try{corrupt.exec('DROP TRIGGER plan_no_delete; DELETE FROM deadline_plans WHERE sequence=3');}finally{corrupt.close();}
+  a.throws(()=>verify({environment:'sandbox',path:copy,expected}),/BACKUP_MISMATCH/);
+  a.throws(()=>verify({environment:'production',path:copy,expected}),/SANDBOX_ONLY/);
+ }finally{lab.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
