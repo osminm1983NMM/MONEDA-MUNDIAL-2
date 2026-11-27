@@ -2,9 +2,10 @@
 const {test}=require('node:test'),a=require('node:assert/strict');
 const {createOrderStatusHttp,route}=require('../../financial-sandbox/order-status-http.cjs');
 const orderId='00000000-0000-4000-8000-000000000001';
+const publicStatus={mode:'sandbox',orderId,status:'funding_pending',source:{currency:'USD',principalMinor:'10000',feeMinor:'150',totalMinor:'10150'},destination:{currency:'HNL',amountMinor:'250000'},acceptedAt:'2026-11-26T15:00:00.000Z'};
 const url='https://sandbox.invalid'+route;
 const make=(opts={})=>new Request(opts.url??url,{method:opts.method??'POST',headers:opts.headers??{'authorization':'Bearer fixture-token','content-type':'application/json'},...((opts.method??'POST')==='GET'?{}:{body:opts.body??JSON.stringify({orderId})})});
-function fixture(result={status:200,body:{mode:'sandbox',orderId,status:'funding_pending'}}){
+function fixture(result={status:200,body:publicStatus}){
  const calls=[];return {calls,handle:createOrderStatusHttp({environment:'sandbox',service:{async read(request){calls.push(request);if(result instanceof Error)throw result;return result;}}})};
 }
 test('HTTP exposes only the explicit sandbox query and prevents caching',async()=>{
@@ -71,4 +72,17 @@ test('single-field wire contract rejects duplicate keys and escaped aliases befo
  a.equal(f.calls.length,0);
  a.equal((await f.handle(make({body:' \n { "orderId" : "'+orderId+'" }\t'}))).status,200);
  a.equal(f.calls.length,1);
+});
+
+test('HTTP refuses malformed successful responses before any private fields leave the server',async()=>{
+ for(const body of [
+  {...publicStatus,privateToken:'fixture-secret'},
+  {...publicStatus,source:{...publicStatus.source,privateAccount:'fixture-secret'}},
+  {...publicStatus,orderId:'00000000-0000-4000-8000-000000000002'},
+  {...publicStatus,status:'unknown'},
+  {...publicStatus,source:{...publicStatus.source,totalMinor:'10149'}}
+ ]){
+  const r=await fixture({status:200,body}).handle(make());
+  a.equal(r.status,503);a.deepEqual(await r.json(),{mode:'sandbox',error:'UNAVAILABLE'});
+ }
 });

@@ -1,6 +1,7 @@
 'use strict';
 // Fetch-compatible, read-only sandbox boundary. Does not start a server.
 const {route}=require('./order-status-route.cjs');
+const {validOrderStatus}=require('./order-status-contract.cjs');
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const maxBody=1024;
 function respond(status,body,extra={}){
@@ -70,7 +71,7 @@ function createOrderStatusHttp({environment,service,bodyTimeoutMs=5000,serviceTi
    const operation=Promise.resolve().then(()=>service.read({sessionToken:token,orderId:body.orderId})).finally(()=>{active--;});
    retained=true;
    const result=await bounded(operation,serviceTimeoutMs);
-   if(result?.status===200&&result.body?.mode==='sandbox')return respond(200,result.body);
+   if(result?.status===200&&validOrderStatus(result.body,body.orderId))return respond(200,result.body);
    const allowed={400:'INVALID_REQUEST',401:'AUTH_REQUIRED',404:'NOT_FOUND',503:'UNAVAILABLE'};
    if(result&&Object.hasOwn(allowed,result.status))return error(result.status,allowed[result.status],result.status===401?{'www-authenticate':'Bearer'}:{});
   }catch{}

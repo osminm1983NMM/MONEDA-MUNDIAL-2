@@ -68,3 +68,11 @@ test('late rejection after a deadline remains observed', {timeout:1000}, async()
  rejectLate(Error('late transport failure'));
  await new Promise(resolve=>setImmediate(resolve));
 });
+
+test('client rejects ambiguous compact response JSON even when last duplicate value is valid',async()=>{
+ const raw=JSON.stringify(value);
+ for(const body of [raw.replace('"mode":"sandbox"','"mode":"production","mode":"sandbox"'),raw.replace('"totalMinor":"10150"','"totalMinor":"0","totalMinor":"10150"'),JSON.stringify(value,null,2)]){
+  const client=make(()=>new Response(body,{headers:{'content-type':'application/json','cache-control':'no-store'}}));
+  a.deepEqual(await client.read(req),{ok:false,code:'UNAVAILABLE'});
+ }
+});

@@ -2,20 +2,8 @@
 // Client contract for an explicitly approved sandbox server, not wired to Android.
 const {route}=require('./order-status-route.cjs');
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
-const states=new Set(['funding_pending','funding_failed','funded','payout_pending','payout_failed','paid','refund_pending','refunded']);
-const exact=(x,keys)=>x!==null&&typeof x==='object'&&!Array.isArray(x)&&Object.keys(x).length===keys.length&&keys.every(k=>Object.hasOwn(x,k));
-const amount=x=>typeof x==='string'&&/^(0|[1-9][0-9]{0,18})$/.test(x)&&BigInt(x)<=9223372036854775807n;
+const {validOrderStatus}=require('./order-status-contract.cjs');
 const fail=code=>({ok:false,code});
-function valid(x,id){
- if(!exact(x,['mode','orderId','status','source','destination','acceptedAt'])||x.mode!=='sandbox'||x.orderId!==id||!states.has(x.status)||
- !exact(x.source,['currency','principalMinor','feeMinor','totalMinor'])||x.source.currency!=='USD'||
- !exact(x.destination,['currency','amountMinor'])||x.destination.currency!=='HNL')return false;
- const {principalMinor:p,feeMinor:f,totalMinor:t}=x.source,d=x.destination.amountMinor;
- if(![p,f,t,d].every(amount)||p==='0'||d==='0'||BigInt(p)+BigInt(f)!==BigInt(t))return false;
- if(typeof x.acceptedAt!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(x.acceptedAt))return false;
- const date=new Date(x.acceptedAt);
- return Number.isFinite(date.getTime())&&date.toISOString()===x.acceptedAt;
-}
 async function readJson(response,signal){
  const reader=response.body?.getReader();
  if(!reader)throw Error('INVALID_RESPONSE');
@@ -36,7 +24,10 @@ async function readJson(response,signal){
   }
  }catch(e){cancel();throw e;}
  finally{signal.removeEventListener('abort',cancel);reader.releaseLock();}
- return JSON.parse(ascii);
+ const parsed=JSON.parse(ascii);
+ // This internal server emits compact JSON; reject duplicate keys or escaped aliases.
+ if(JSON.stringify(parsed)!==ascii)throw Error('INVALID_RESPONSE');
+ return parsed;
 }
 function createOrderStatusClient({environment,sandboxOrigin,fetchImpl=globalThis.fetch,timeoutMs=10000}={}){
  if(environment!=='sandbox'||typeof fetchImpl!=='function'||typeof sandboxOrigin!=='string'||!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>30000)throw Error('SANDBOX_ONLY');
@@ -69,7 +60,7 @@ function createOrderStatusClient({environment,sandboxOrigin,fetchImpl=globalThis
     void response.body?.cancel().catch(()=>{});return fail('UNAVAILABLE');
    }
    const value=await readJson(response,controller.signal);
-   return !controller.signal.aborted&&valid(value,orderId)?{ok:true,value}:fail('UNAVAILABLE');
+   return !controller.signal.aborted&&validOrderStatus(value,orderId)?{ok:true,value}:fail('UNAVAILABLE');
   }catch{return fail('UNAVAILABLE');}};
   try{return await Promise.race([operation(),deadline]);}finally{clearTimeout(timer);}
  }});

@@ -3,10 +3,11 @@ const {test}=require('node:test'),a=require('node:assert/strict'),http=require('
 const {createOrderStatusLoopback}=require('../../financial-sandbox/order-status-loopback.cjs');
 const {route}=require('../../financial-sandbox/order-status-http.cjs');
 const orderId='00000000-0000-4000-8000-000000000001';
+const publicStatus={mode:'sandbox',orderId,status:'funding_pending',source:{currency:'USD',principalMinor:'10000',feeMinor:'150',totalMinor:'10150'},destination:{currency:'HNL',amountMinor:'250000'},acceptedAt:'2026-11-26T15:00:00.000Z'};
 const options={method:'POST',headers:{authorization:'Bearer fixture-token','content-type':'application/json'},body:JSON.stringify({orderId})};
 async function fixture(t,extra={}){
  const calls=[];
- const listener=createOrderStatusLoopback({environment:'sandbox',service:{async read(value){calls.push(value);return {status:200,body:{mode:'sandbox',orderId}};}},...extra});
+ const listener=createOrderStatusLoopback({environment:'sandbox',service:{async read(value){calls.push(value);return {status:200,body:publicStatus};}},...extra});
  t.after(()=>listener.close());return {base:await listener.start(),calls};
 }
 test('real TCP loopback serves only the authenticated sandbox query',async t=>{
@@ -14,7 +15,7 @@ test('real TCP loopback serves only the authenticated sandbox query',async t=>{
  a.equal(new URL(base).hostname,'127.0.0.1');
  const r=await fetch(base+route,options);
  a.equal(r.status,200);a.equal(r.headers.get('cache-control'),'no-store');
- a.deepEqual(await r.json(),{mode:'sandbox',orderId});
+ a.deepEqual(await r.json(),publicStatus);
  a.deepEqual(calls,[{sessionToken:'fixture-token',orderId}]);
  a.equal((await fetch(base+route+'?actor=other',options)).status,400);
  a.equal((await fetch(base+'/other',options)).status,404);
