@@ -86,3 +86,8 @@ Captura del usuario: Inicio de Moneda Mundial 2.0, compilación visible 6d271511
 ## Persistencia de sesión física — 26 de noviembre
 
 Segunda captura aportada en respuesta a la instrucción de cerrar desde recientes y reabrir sin cerrar sesión: misma compilación 6d271511aa6dc3b6a7c383ebf82f451be01b225c, cuenta DEMO activa y saldo 9911.00 MWD. Evidencia visual consistente con persistencia de sesión; el cierre del proceso y la ausencia de nuevo ingreso de credenciales se infieren de la secuencia de prueba, no se observaron independientemente. Pendiente salida explícita, reapertura sin sesión, recuperación PKCE y cotizador. Sin datos personales en este registro ni cambios de saldo o producción.
+
+
+## Cierre de sesión físico — 26 de noviembre, 21:59 EST
+
+Captura aportada después de la instrucción de cerrar sesión y reabrir la app: formulario de acceso con campos vacíos, botones Iniciar sesión, Olvidé mi contraseña y Crear cuenta de prueba. No aparecen cuenta ni saldo. Evidencia visual consistente con salida correcta; la reapertura y la identidad de compilación se infieren de la secuencia, no se observan independientemente en esta captura. Se conserva como observación menor el recorte del placeholder de contraseña. Siguiente prueba: solicitar recuperación con el correo de prueba existente desde este Samsung, verificar recepción y apertura del enlace sin compartir enlaces ni códigos privados; después comprobar cotizador. Sin cambios de código, producción, Supabase o saldos.
