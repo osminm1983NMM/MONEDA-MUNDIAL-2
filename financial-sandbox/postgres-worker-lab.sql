@@ -77,12 +77,15 @@ CREATE VIEW dispatch_attention AS
   ELSE 'awaiting_provider' END
  WHEN x.kind<>'refund' AND (pol.identity IS DISTINCT FROM 'verified' OR pol.sanctions IS DISTINCT FROM 'clear'
  OR pol.risk IS DISTINCT FROM 'allow' OR b.status IS DISTINCT FROM 'verified') THEN 'policy_hold'
+ -- Expiry does not establish absence of a remote payment: require review.
+ WHEN x.kind='funding' AND q.expires_at<=statement_timestamp() THEN 'funding_quote_expired_review'
  WHEN d.attempts>=3 AND (d.state='queued' OR d.lease_until<=statement_timestamp()) THEN 'retry_budget_exhausted'
  WHEN d.state='leased' THEN CASE WHEN d.lease_until<=statement_timestamp() THEN 'lease_expired' ELSE 'leased' END
  WHEN d.queued_at<=statement_timestamp()-interval '5 minutes' THEN 'queued_overdue'
  ELSE 'queued' END AS reason
  FROM dispatch d JOIN outbox x ON x.reference=d.reference
  JOIN orders o ON o.id=x.order_id JOIN reservations z ON z.order_id=o.id AND z.actor=o.actor
+ JOIN quotes q ON q.id=z.quote_id AND q.actor=z.actor
  LEFT JOIN actor_policy pol ON pol.actor=o.actor
  LEFT JOIN beneficiaries b ON b.actor=o.actor AND b.reference=o.beneficiary_ref
  WHERE o.state=CASE x.kind WHEN 'funding' THEN 'funding_pending' WHEN 'payout' THEN 'payout_pending' WHEN 'refund' THEN 'refund_pending' END)

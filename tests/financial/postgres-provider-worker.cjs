@@ -250,6 +250,7 @@ async function main(){
  }
  assert.equal((await worker.tick()).status,'idle');
  assert.equal(sql('SELECT count(*) FROM '+schema+'.journal WHERE order_id='+lit(overdue)+'::uuid'),'0');
+ assert.equal(sql('SELECT operations FROM '+schema+".dispatch_attention WHERE kind='funding' AND reason='funding_quote_expired_review'",'audit'),'1');
  // An accepted remote operation must still be recoverable after expiry.
  const recovered=openOrder('workerAcceptedBeforeExpiry');
  const recoveredRef=recovered+'-funding';
@@ -261,6 +262,7 @@ async function main(){
  assert.equal(state(recovered),'funding_pending');
  const recoveredEvent=p.event(recoveredRef,'funding_confirmed','worker-expiry-recovered');
  assert.equal(await worker.receive(recoveredEvent.raw,recoveredEvent.signature),'funded');
+ assert.equal(sql('SELECT operations FROM '+schema+".dispatch_attention WHERE kind='funding' AND reason='funding_quote_expired_review'",'audit'),'1');
  console.log('Expired first funding held; previously accepted funding recovered without resubmission');
  console.log('Sandbox worker: signed funding, payout, refund and PostgreSQL/provider restart recovery verified');
  }finally{if(p)p.close();rmSync(dir,{recursive:true,force:true});}
