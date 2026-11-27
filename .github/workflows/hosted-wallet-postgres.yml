@@ -1,0 +1,111 @@
+name: LAB wallet - exact PostgreSQL migration checks
+on:
+  pull_request:
+    paths: ['.github/workflows/hosted-wallet-postgres.yml', 'financial-sandbox/sql/**', 'financial-hosted/mwd_hosted_private_boundary.sql', 'financial-hosted/mwd_hosted_authenticated_status.sql']
+permissions:
+  contents: read
+jobs:
+  hosted-wallet-sql:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feature/infraestructura-financiera-sandbox-20261126'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      wallet:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-wallet-ci-only
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Execute reviewed SQL on disposable PostgreSQL only
+        env:
+          WALLET_CONTAINER: ${{ job.services.wallet.id }}
+        run: |
+          set -euo pipefail
+          [[ -n "$WALLET_CONTAINER" ]]
+          sql() { docker exec -i "$WALLET_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres "$@"; }
+          # Minimal Auth catalog solely for disposable SQL policy testing.
+          # No Supabase network, JWT signing, credentials or real accounts.
+          sql <<'SQL'
+          CREATE ROLE anon NOLOGIN;
+          CREATE ROLE authenticated NOLOGIN;
+          CREATE ROLE service_role NOLOGIN BYPASSRLS;
+          CREATE SCHEMA auth;
+          CREATE TABLE auth.users(id uuid PRIMARY KEY, is_anonymous boolean NOT NULL, deleted_at timestamptz, banned_until timestamptz);
+          CREATE TABLE auth.sessions(id uuid PRIMARY KEY, user_id uuid NOT NULL REFERENCES auth.users(id), not_after timestamptz);
+          CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$
+            SELECT COALESCE(NULLIF(current_setting('request.jwt.claims',true),''),'{}')::jsonb
+          $$;
+          CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
+            SELECT (auth.jwt()->>'sub')::uuid
+          $$;
+          GRANT USAGE ON SCHEMA auth TO anon,authenticated,service_role;
+          SQL
+          sql < financial-hosted/mwd_hosted_private_boundary.sql
+          sql < financial-hosted/mwd_hosted_authenticated_status.sql
+          sql < financial-sandbox/sql/mwd_lab_session_identity.sql
+          sql < financial-sandbox/sql/mwd_lab_wallet_snapshot.sql
+          sql <<'SQL'
+          BEGIN;
+          INSERT INTO auth.users(id,is_anonymous) VALUES
+           ('00000000-0000-4000-8000-000000000071',false),
+           ('00000000-0000-4000-8000-000000000072',false);
+          INSERT INTO auth.sessions(id,user_id,not_after) VALUES
+           ('00000000-0000-4000-8000-000000000091','00000000-0000-4000-8000-000000000071',now()+interval '10 minutes'),
+           ('00000000-0000-4000-8000-000000000092','00000000-0000-4000-8000-000000000072',now()+interval '10 minutes'),
+           ('00000000-0000-4000-8000-000000000093','00000000-0000-4000-8000-000000000071',now()-interval '1 minute');
+          INSERT INTO mwd_financial_hosted.status_bindings(user_id,active) SELECT id,true FROM auth.users;
+          INSERT INTO mwd_financial_hosted.wallet_snapshot(user_id,exported_at,source_manifest_sha256,source_event_count,portfolio)
+          SELECT id,'2026-11-27T12:00:00Z',repeat('a',64),0,
+           jsonb_build_object('mode','sandbox','assets',jsonb_build_array(jsonb_build_object('asset','DIGITAL_TEST','availableMinor',amount,'reservedMinor','0','totalMinor',amount),jsonb_build_object('asset','COIN_TEST','availableMinor','0','reservedMinor','0','totalMinor','0')),'pendingRedemptionUsdMinor','0','conversions','[]'::jsonb)
+          FROM (VALUES ('00000000-0000-4000-8000-000000000071'::uuid,'700'),('00000000-0000-4000-8000-000000000072'::uuid,'100')) f(id,amount);
+          DO $$ BEGIN
+           IF has_function_privilege('anon','public.mwd_lab_read_wallet_snapshot()','EXECUTE') OR has_function_privilege('service_role','public.mwd_lab_read_wallet_snapshot()','EXECUTE') OR has_function_privilege('anon','public.mwd_lab_session_identity()','EXECUTE') OR has_function_privilege('service_role','public.mwd_lab_session_identity()','EXECUTE') THEN RAISE EXCEPTION 'PUBLIC_RPC_GRANT'; END IF;
+           IF has_column_privilege('authenticated','mwd_financial_hosted.wallet_snapshot','source_manifest_sha256','SELECT') THEN RAISE EXCEPTION 'PRIVATE_METADATA_EXPOSED'; END IF;
+           IF NOT EXISTS(SELECT 1 FROM pg_class WHERE oid='mwd_financial_hosted.wallet_snapshot'::regclass AND relrowsecurity AND relforcerowsecurity) THEN RAISE EXCEPTION 'RLS_NOT_FORCED'; END IF;
+           BEGIN UPDATE mwd_financial_hosted.wallet_snapshot SET source_event_count=1; RAISE EXCEPTION 'UPDATE_SUCCEEDED'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'IMMUTABLE_WALLET_SNAPSHOT' THEN RAISE; END IF; END;
+           BEGIN DELETE FROM mwd_financial_hosted.wallet_snapshot; RAISE EXCEPTION 'DELETE_SUCCEEDED'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'IMMUTABLE_WALLET_SNAPSHOT' THEN RAISE; END IF; END;
+           BEGIN TRUNCATE mwd_financial_hosted.wallet_snapshot; RAISE EXCEPTION 'TRUNCATE_SUCCEEDED'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'IMMUTABLE_WALLET_SNAPSHOT' THEN RAISE; END IF; END;
+          END $$;
+          SET LOCAL ROLE authenticated;
+          DO $$ DECLARE result jsonb; BEGIN
+           PERFORM set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000071","role":"authenticated","session_id":"00000000-0000-4000-8000-000000000091","is_anonymous":false}',true);
+           result:=public.mwd_lab_read_wallet_snapshot();
+           IF result#>>'{portfolio,assets,0,availableMinor}' IS DISTINCT FROM '700' OR result->>'kind' IS DISTINCT FROM 'immutable_wallet_snapshot' OR result->>'exportedAt' IS DISTINCT FROM '2026-11-27T12:00:00.000Z' THEN RAISE EXCEPTION 'OWNER_A_FAILED'; END IF;
+           IF public.mwd_lab_session_identity()->>'actor' IS DISTINCT FROM '00000000-0000-4000-8000-000000000071' THEN RAISE EXCEPTION 'IDENTITY_A_FAILED'; END IF;
+           IF EXISTS(SELECT user_id FROM mwd_financial_hosted.wallet_snapshot WHERE user_id='00000000-0000-4000-8000-000000000072') THEN RAISE EXCEPTION 'CROSS_USER'; END IF;
+           BEGIN UPDATE mwd_financial_hosted.wallet_snapshot SET portfolio='{}'; RAISE EXCEPTION 'CLIENT_WRITE_ALLOWED'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+           BEGIN PERFORM source_manifest_sha256 FROM mwd_financial_hosted.wallet_snapshot; RAISE EXCEPTION 'METADATA_EXPOSED'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+           PERFORM set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000072","role":"authenticated","session_id":"00000000-0000-4000-8000-000000000092","is_anonymous":false}',true);
+           IF public.mwd_lab_read_wallet_snapshot()#>>'{portfolio,assets,0,availableMinor}' IS DISTINCT FROM '100' THEN RAISE EXCEPTION 'OWNER_B_FAILED'; END IF;
+           IF EXISTS(SELECT user_id FROM mwd_financial_hosted.wallet_snapshot WHERE user_id='00000000-0000-4000-8000-000000000071') THEN RAISE EXCEPTION 'CROSS_USER'; END IF;
+           PERFORM set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000071","role":"authenticated","session_id":"00000000-0000-4000-8000-000000000092","is_anonymous":false}',true);
+           IF public.mwd_lab_read_wallet_snapshot() IS NOT NULL OR public.mwd_lab_session_identity() IS NOT NULL THEN RAISE EXCEPTION 'WRONG_SESSION'; END IF;
+           PERFORM set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000071","role":"authenticated","session_id":"00000000-0000-4000-8000-000000000093","is_anonymous":false}',true);
+           IF public.mwd_lab_read_wallet_snapshot() IS NOT NULL OR public.mwd_lab_session_identity() IS NOT NULL THEN RAISE EXCEPTION 'EXPIRED_SESSION'; END IF;
+           PERFORM set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000071","role":"authenticated","session_id":"00000000-0000-4000-8000-000000000091","is_anonymous":true}',true);
+           IF public.mwd_lab_read_wallet_snapshot() IS NOT NULL OR public.mwd_lab_session_identity() IS NOT NULL THEN RAISE EXCEPTION 'ANONYMOUS_SESSION'; END IF;
+          END $$;
+          RESET ROLE;
+          DELETE FROM auth.sessions WHERE id='00000000-0000-4000-8000-000000000091';
+          UPDATE mwd_financial_hosted.status_bindings SET active=false WHERE user_id='00000000-0000-4000-8000-000000000072';
+          SET LOCAL ROLE authenticated;
+          DO $$ BEGIN
+           PERFORM set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000071","role":"authenticated","session_id":"00000000-0000-4000-8000-000000000091","is_anonymous":false}',true);
+           IF public.mwd_lab_read_wallet_snapshot() IS NOT NULL OR public.mwd_lab_session_identity() IS NOT NULL THEN RAISE EXCEPTION 'REVOKED_SESSION'; END IF;
+           PERFORM set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000072","role":"authenticated","session_id":"00000000-0000-4000-8000-000000000092","is_anonymous":false}',true);
+           IF public.mwd_lab_read_wallet_snapshot() IS NOT NULL OR public.mwd_lab_session_identity() IS NOT NULL THEN RAISE EXCEPTION 'DISABLED_BINDING'; END IF;
+          END $$;
+          RESET ROLE;
+          ROLLBACK;
+          SELECT 'PASS hosted wallet SQL: owner isolation, read-only privileges, immutable data, expiry, revocation and disabled enrollment' AS result;
+          SQL
