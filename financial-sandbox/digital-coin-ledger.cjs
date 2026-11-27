@@ -2,10 +2,47 @@
 // Private disposable SQLite laboratory; the two asset projections derive from
 // one append-only conversion history. No production, network or live assets.
 const {DatabaseSync}=require('node:sqlite');
-const {openSync,closeSync,lstatSync,existsSync}=require('node:fs');
+const {openSync,closeSync,lstatSync,existsSync,unlinkSync,fsyncSync}=require('node:fs');
+const {createHash}=require('node:crypto');
 const {projectDigitalCoinSwaps}=require('./digital-coin-swap-projection.cjs');
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const ordered=e=>JSON.stringify(Object.fromEntries(Object.keys(e).sort().map(k=>[k,e[k]])));
+// Inspect a single read transaction. The manifest is independently retained
+// evidence of the logical history, not protection against a privileged attacker.
+function readHistory(db){
+ const rows=db.prepare('SELECT sequence,event_id,payload FROM events ORDER BY sequence LIMIT 2001').all();
+ if(rows.length>2000)fail('INVALID_HISTORY');
+ return rows.map((r,i)=>{
+  const e=JSON.parse(r.payload);
+  if(r.sequence!==i+1||!e||e.eventId!==r.event_id||ordered(e)!==r.payload)fail('LEDGER_CORRUPT');
+  return e;
+ });
+}
+function inspect(db){
+ if(db.prepare('PRAGMA quick_check').all().some(r=>Object.values(r)[0]!=='ok'))fail('LEDGER_CORRUPT');
+ const row=db.prepare('SELECT mode,seed FROM metadata WHERE id=1').get();
+ if(row?.mode!=='synthetic-digital-coin-v1')fail('INVALID_LEDGER');
+ const base=JSON.parse(row.seed);
+ if(!base||Object.keys(base).length!==3||!['capMinor','digitalEvents','coinEvents'].every(k=>Object.hasOwn(base,k)))fail('INVALID_SEED');
+ const events=readHistory(db);
+ const projection=projectDigitalCoinSwaps({environment:'sandbox',...base,events});
+ const sha256=createHash('sha256').update(JSON.stringify([row.mode,row.seed,events.map(ordered)])).digest('hex');
+ return {format:'synthetic-digital-coin-manifest-v1',events:events.length,sha256,
+  reserveUsdMinor:projection.digital.reserveUsdMinor,obligationsUsdMinor:projection.digital.obligationsUsdMinor,
+  coinOutstandingMinor:projection.coin.outstandingMinor};
+}
+function verifyDigitalCoinBackup({environment,path,expected}={}){
+ if(environment!=='sandbox')fail('SANDBOX_ONLY');
+ if(typeof path!=='string'||!path.endsWith('.sqlite')||!existsSync(path)||!lstatSync(path).isFile())fail('INVALID_BACKUP_PATH');
+ if(!expected||expected.format!=='synthetic-digital-coin-manifest-v1'||!Number.isSafeInteger(expected.events)||
+ expected.events<0||expected.events>2000||typeof expected.sha256!=='string'||!/^[a-f0-9]{64}$/.test(expected.sha256))fail('INVALID_MANIFEST');
+ const db=new DatabaseSync(path,{readOnly:true});
+ try{
+  db.exec('BEGIN');const actual=inspect(db);
+  if(Object.keys(actual).some(k=>actual[k]!==expected[k]))fail('BACKUP_MISMATCH');
+  db.exec('COMMIT');return actual;
+ }finally{db.close();}
+}
 function openDigitalCoinLedger({environment,path,initialize=false,seed}={}){
  if(environment!=='sandbox')fail('SANDBOX_ONLY');
  if(typeof path!=='string'||!path.endsWith('.sqlite')||typeof initialize!=='boolean')fail('INVALID_LEDGER_PATH');
@@ -40,15 +77,7 @@ function openDigitalCoinLedger({environment,path,initialize=false,seed}={}){
   db.exec(write?'BEGIN IMMEDIATE':'BEGIN');
   try{const result=fn();db.exec('COMMIT');return result;}catch(e){db.exec('ROLLBACK');throw e;}
  }
- function history(){
-  const rows=db.prepare('SELECT sequence,event_id,payload FROM events ORDER BY sequence LIMIT 2001').all();
-  if(rows.length>2000)fail('INVALID_HISTORY');
-  return rows.map((r,i)=>{
-   const e=JSON.parse(r.payload);
-   if(r.sequence!==i+1||!e||e.eventId!==r.event_id||ordered(e)!==r.payload)fail('LEDGER_CORRUPT');
-   return e;
-  });
- }
+ function history(){return readHistory(db);}
  return {
   appendBatch(events){
    if(!Array.isArray(events)||events.length<1||events.length>100)fail('INVALID_BATCH');
@@ -76,7 +105,20 @@ function openDigitalCoinLedger({environment,path,initialize=false,seed}={}){
   },
   get(){return tx(()=>project(history()),false);},
   counts(){return tx(()=>({events:history().length}),false);},
+  manifest(){return tx(()=>inspect(db),false);},
+  // Writers should be paused. If a write races the snapshot and changes its
+  // contents, independent manifest verification fails and removes the copy.
+  backup(destination){
+   if(typeof destination!=='string'||!destination.endsWith('.sqlite'))fail('INVALID_BACKUP_PATH');
+   const expected=tx(()=>inspect(db),false);
+   const fd=openSync(destination,'wx',0o600);closeSync(fd);
+   try{
+    db.prepare('VACUUM INTO ?').run(destination);
+    const synced=openSync(destination,'r');try{fsyncSync(synced);}finally{closeSync(synced);}
+    return verifyDigitalCoinBackup({environment,path:destination,expected});
+   }catch(e){unlinkSync(destination);throw e;}
+  },
   close(){db.close();}
  };
 }
-module.exports={openDigitalCoinLedger};
+module.exports={openDigitalCoinLedger,verifyDigitalCoinBackup};
