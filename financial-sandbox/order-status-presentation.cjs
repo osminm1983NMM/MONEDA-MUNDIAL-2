@@ -37,8 +37,11 @@ function createStatusPresentation({client,locale='es',onChange}={}){
  const publish=state=>onChange(state);
  function setSession(next){
   if(closed)return;
-  if(next!==null&&(typeof next!=='string'||!/^[A-Za-z0-9._~-]{1,8192}$/.test(next)))throw Error('INVALID_SESSION');
-  invalidate();token=next;publish({state:next?'idle':'signed_out'});
+  // Invalid replacement credentials must revoke the previous presentation
+  // session as well; never leave an old token or private order visible.
+  const valid=next===null||typeof next==='string'&&/^[A-Za-z0-9._~-]{1,8192}$/.test(next);
+  invalidate();token=valid?next:null;publish({state:token?'idle':'signed_out'});
+  if(!valid)throw Error('INVALID_SESSION');
  }
  async function read(orderId){
   if(closed||!token)return;

@@ -78,3 +78,18 @@ test('session change, selection clear, superseding query and disposal cancel obs
   if(next){a.equal(requests[1].signal.aborted,false);requests[1].resolve({ok:true,value});await next;a.equal(states.at(-1).state,'ready');}
  }
 });
+
+test('invalid replacement session revokes prior data and cancels pending reads',async()=>{
+ for(const invalid of [undefined,'','bad token',123,{}]){
+  const states=[],requests=[];
+  const ui=createStatusPresentation({onChange:s=>states.push(s),client:{read:(_,signal)=>new Promise(resolve=>requests.push({resolve,signal}))}});
+  ui.setSession('old-token');
+  const ready=ui.read(orderId);requests[0].resolve({ok:true,value});await ready;
+  a.equal(states.at(-1).state,'ready');
+  const pending=ui.read(orderId);
+  a.throws(()=>ui.setSession(invalid),/INVALID_SESSION/);
+  a.equal(requests[1].signal.aborted,true);a.deepEqual(states.at(-1),{state:'signed_out'});
+  requests[1].resolve({ok:true,value});await pending;
+  await ui.read(orderId);a.equal(requests.length,2);a.deepEqual(states.at(-1),{state:'signed_out'});
+ }
+});

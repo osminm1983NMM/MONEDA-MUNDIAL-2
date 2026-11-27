@@ -310,3 +310,11 @@ La petición de consulta acepta solamente el campo ASCII orderId con un UUID, pe
 
 ## Contrato compartido de respuesta
 El límite HTTP y el cliente comparten la validación de la respuesta de estado: modo, UUID consultado, estado permitido, monedas, importes exactos y fecha UTC. Un resultado 200 con campos privados adicionales, importes incoherentes o identificador ajeno se convierte en 503 genérico antes de salir del manejador. El cliente exige además JSON compacto producido por el servidor interno, para descartar claves duplicadas y alias escapados. Esta restricción corresponde solamente al protocolo interno sandbox, no a contratos de proveedores externos. Pruebas de regresión añadidas; pendiente CI. Sin cambios al candidato Android raíz ni despliegue.
+
+
+## Integration checkpoint — 2026-11-27
+
+- Sandbox push run [45989363907](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45989363907) for `9c6293ea2d8012f2c8ae4b90f5bd225850c4e3b5`: sandbox and PostgreSQL jobs passed.
+- Draft PR [137](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/pull/137) integration run [45989373624](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45989373624): PostgreSQL passed; 270 Node tests passed and the Android byte-pinned boundary test failed on App.js. The merged checkout is not equivalent to the pinned Android baseline. This is a release blocker, not a reason to relax the gate.
+- Android development head observed: `a24b14cd075ff792ee06b0fb7a77acafc1e06f53`. Its Android audit and preflight passed; its APK run [45989217202](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45989217202) was pending at this checkpoint.
+- Keep the financial sandbox and Android branches separate; do not merge PR 137 or refresh the expected mobile blob hashes until the new Android baseline has verified APK provenance, successful emulator gates and an explicit review of the mobile diff. A successful isolated sandbox run does not authorize integration, production or real-money activity.
