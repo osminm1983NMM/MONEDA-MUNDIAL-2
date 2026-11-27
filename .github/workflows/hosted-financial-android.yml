@@ -1,0 +1,43 @@
+name: Android LAB financiero alojado
+on:
+  pull_request:
+    branches: [feature/infraestructura-financiera-sandbox-20261126]
+    paths: ['App.js', 'app.json', '.github/workflows/hosted-financial-android.yml']
+permissions:
+  contents: read
+jobs:
+  apk:
+    if: github.event.pull_request.head.ref == 'dev/hosted-financial-android-20261127' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - run: npx expo install --check
+      - run: npx expo prebuild --platform android --no-install
+      - name: Build standalone development-signed APK
+        run: |
+          cd android
+          ./gradlew :app:assembleRelease --no-daemon
+      - name: Collect APK and revision
+        run: |
+          mkdir -p hosted-artifact
+          cp android/app/build/outputs/apk/release/app-release.apk hosted-artifact/MonedaMundial-LAB-Financiero.apk
+          git rev-parse HEAD > hosted-artifact/revision.txt
+          (cd hosted-artifact && sha256sum MonedaMundial-LAB-Financiero.apk > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MonedaMundial-LAB-Financiero
+          path: hosted-artifact/
+          retention-days: 7
+          if-no-files-found: error

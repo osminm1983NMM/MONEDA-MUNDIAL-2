@@ -1,22 +1,13 @@
 {
   "expo": {
-    "name": "Moneda Mundial 2.0",
-    "slug": "moneda-mundial-20",
-    "scheme": "com.monedamundial.app",
+    "name": "Moneda Mundial LAB Financiero",
+    "slug": "moneda-mundial-hosted-financial-lab",
+    "scheme": "com.monedamundial.financiallab",
     "version": "2.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "android": {
-      "package": "com.monedamundial.app"
-    },
-    "owner": "12051983",
-    "extra": {
-      "eas": {
-        "projectId": "93c31760-4d1e-49f3-888b-9b5845c31e53"
-      }
-    },
-    "plugins": [
-      "expo-secure-store"
-    ]
+      "package": "com.monedamundial.financiallab"
+    }
   }
 }
