@@ -1,6 +1,7 @@
 'use strict';
 // Pure, portable UI projection of a validated sandbox client response.
 // No React Native dependency, network, storage or production activation.
+const {validOrderStatus}=require('./order-status-contract.cjs');
 const labels={
  funding_pending:['Financiación pendiente','Funding pending'],
  funding_failed:['Financiación no completada','Funding not completed'],
@@ -19,7 +20,7 @@ const money=(v,currency,locale)=>{
  return whole+(locale==='es'?',':'.')+digits.slice(-2)+' '+currency;
 };
 function presentStatus(value,locale='es'){
- if(!['es','en'].includes(locale)||value?.mode!=='sandbox'||typeof value.orderId!=='string'||!uuid.test(value.orderId)||!Object.hasOwn(labels,value.status)||value.source?.currency!=='USD'||value.destination?.currency!=='HNL')throw Error('INVALID_STATUS');
+ if(!['es','en'].includes(locale)||typeof value?.orderId!=='string'||!uuid.test(value.orderId)||!validOrderStatus(value,value.orderId))throw Error('INVALID_STATUS');
  const en=locale==='en';
  return {mode:'sandbox',orderId:value.orderId,statusLabel:labels[value.status][en?1:0],
  warning:en?'TEST ONLY — NO REAL MONEY':'PRUEBA — SIN DINERO REAL',

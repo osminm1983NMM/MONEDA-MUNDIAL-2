@@ -8,7 +8,7 @@ test('all states are visibly synthetic; formatting never converts financial amou
   const v=presentStatus({...value,status},'es');a.match(v.warning,/SIN DINERO REAL/);a.equal(v.total,'101,50 USD');a.equal(v.destination,'2.500,00 HNL');
  }
  a.equal(presentStatus(value,'en').statusLabel,'Payout confirmed in test');
- a.equal(presentStatus({...value,source:{...value.source,principalMinor:'9007199254740993'}},'en').principal,'90,071,992,547,409.93 USD');
+ a.equal(presentStatus({...value,source:{...value.source,principalMinor:'9007199254740993',totalMinor:'9007199254741143'}},'en').principal,'90,071,992,547,409.93 USD');
  a.throws(()=>presentStatus({...value,mode:'production'}));
 });
 test('switching session or signing out clears screen and ignores delayed response',async()=>{
@@ -39,5 +39,25 @@ test('synchronous invalidation during loading prevents transport with a stale to
   });
   ui.setSession('old-token');await ui.read(orderId);
   a.equal(calls,0);a.ok(!states.some(s=>s.state==='ready'));
+ }
+});
+
+test('presentation independently rejects inconsistent or noncanonical financial responses',async()=>{
+ const invalid=[
+  {...value,source:{...value.source,totalMinor:'10149'}},
+  {...value,source:{...value.source,principalMinor:'0',totalMinor:'150'}},
+  {...value,destination:{...value.destination,amountMinor:'0'}},
+  {...value,acceptedAt:'2026-02-30T15:00:00.000Z'},
+  {...value,acceptedAt:'2026-11-26'},
+  {...value,privateField:'unexpected'},
+  {...value,status:'unknown'}
+ ];
+ for(const bad of invalid){
+  a.throws(()=>presentStatus(bad));
+  const states=[];
+  const ui=createStatusPresentation({onChange:s=>states.push(s),client:{read:async()=>({ok:true,value:bad})}});
+  ui.setSession('token');await ui.read(orderId);
+  a.deepEqual(states.at(-1),{state:'error',code:'UNAVAILABLE'});
+  a.ok(!states.some(s=>s.state==='ready'));
  }
 });
