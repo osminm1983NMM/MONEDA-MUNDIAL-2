@@ -5,7 +5,7 @@
 | Área | Revisión y evidencia | Resultado |
 |---|---|---|
 | Android | a24b14cd075ff792ee06b0fb7a77acafc1e06f53, [CI 45989217202](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45989217202) | 136 pruebas Android, 27 regresiones, Gradle, firma e instalación/apertura Android 35 aprobadas |
-| Integración financiera | 1a4ab9bcae6ee6d2cc768af493af32743cee072a, [CI 46009942094](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/46009942094) | 304/304 pruebas Node, cero fallos, cancelaciones, omisiones o todo; PostgreSQL success. Evidencia solo LAB |
+| Integración financiera | de968fd68d19bb364a4644137871a13a4ee8778a, [CI 46011498636](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/46011498636) | 306/306 pruebas Node, cero fallos, cancelaciones, omisiones o todo; PostgreSQL success. Evidencia solo LAB |
 | Rama principal | 3f2fbdb7ffb5d6c75b8c56d41b4d1fa98ef64ffc | Sin modificaciones en la integración |
 
 ## Entrega Android
@@ -31,7 +31,7 @@
 
 ## Regla de continuidad
 
-Congelar la candidata para aceptación física y evitar nuevas compilaciones o cambios marginales sin defecto reproducido o requisito concreto. La siguiente intervención del propietario es instalar y enviar captura de Inicio; las demás pruebas físicas se hacen consecutivamente según evidencia. La siguiente dependencia externa, independiente de la prueba física, es la consulta informativa a proveedor autorizado ya preparada en docs/THUNES-ONBOARDING-GATES-20261126.md; no se ha enviado ni firmado nada. Consultar también docs/DIGITAL-ASSETS-ARCHITECTURE.md y docs/REMITTANCE-CONSUMER-PROTECTION-GATES.md. Este documento no certifica preparación para dinero real.
+Congelar la candidata para aceptación física y evitar nuevas compilaciones o cambios marginales sin defecto reproducido o requisito concreto. La instalación, Inicio, identidad visible y recuperación de actualización ya cuentan con evidencia física posterior; reservar únicamente los casos restantes para la etapa conjunta. Según el registro de incorporación docs/THUNES-ONBOARDING-GATES-20261126.md, el formulario comercial a Thunes fue recibido el 27 de noviembre; no reenviar. Pendientes respuesta escrita, elegibilidad y acceso oficial; no hay contrato ni activación acreditados. Consultar también docs/DIGITAL-ASSETS-ARCHITECTURE.md y docs/REMITTANCE-CONSUMER-PROTECTION-GATES.md. Este documento no certifica preparación para dinero real.
 
 ## Evidencia física inicial — 27 noviembre 2026
 
@@ -69,7 +69,7 @@ La decisión posterior del titular es terminar primero el desarrollo técnico y 
 
 ### Próximas puertas, en orden de utilidad
 
-1. CI de la revisión financiera 1a4ab9b confirmada: ambos jobs success; cerrar esta puerta LAB, corregir únicamente fallos concretos. No presentar una prueba escrita como prueba aprobada.
+1. CI de la revisión financiera de968fd confirmada: ambos jobs success y 306/306 pruebas Node; cerrar esta puerta LAB, corregir únicamente fallos concretos. No presentar una prueba escrita como prueba aprobada.
 2. Preparar integración real únicamente contra contrato autorizado: configuración privada de servidor, Auth y base aislados, roles mínimos, TLS, límites de consulta, protección de secretos, monitoreo, manejo de incidentes y recuperación independiente. El transporte loopback y las respuestas Auth ficticias no son un despliegue. No usar producción como sandbox.
 3. Obtener respuesta escrita al borrador de incorporación de proveedor; confirmar corredor, métodos y responsabilidades. No elegir identidad contractual, pagador, tarifas ni endpoint activo por inferencia. Documento THUNES-ONBOARDING-GATES-20261126.md.
 4. Definir con asesoría y titular las reglas de emisión/redención, reserva, custodia, liquidez, precisión, red y precio de Digital/Coin. El ledger SQLite no es motor de activos productivo ni modelo legal aprobado. Documento DIGITAL-ASSETS-ARCHITECTURE.md.
@@ -97,3 +97,10 @@ El cierre de este requisito de laboratorio no sustituye la respuesta escrita y e
 ## Punto de control vigente — revisión 1a4ab9b, 27 noviembre
 
 [CI 46009942094](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/46009942094): verificados directamente los jobs sandbox y postgres-lab completados con success y el resumen del log 140542578569 (304 tests, 304 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo). La revisión incorpora captura única de datos de eventos Digital/Coin y rechaza accesores, campos ocultos y transiciones malformadas antes de persistencia. No acredita identidad, cotización, custodia ni liquidación externa. El artefacto Android 15193786859 sigue no expirado según listado de GitHub; vence 4 diciembre 11:27:57 UTC. Conservar candidata y evidencia física previa. No iniciar nuevas simulaciones ni compilaciones sin defecto concreto; quedan acceso oficial del proveedor, entorno aislado autorizado y aceptación física conjunta. Estado de recepción de la solicitud del proveedor no verificado mediante correo en esta revisión. Sin cambio de código funcional, producción ni fondos.
+
+
+## Puerta de conexión móvil y proveedor — estado operativo
+
+Revisión funcional `de968fd68d19bb364a4644137871a13a4ee8778a`, [CI 46011498636](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/46011498636): Node 306/306 y PostgreSQL success. Incluye captura única de evidencia contable y de precio, recuperación y rechazo sin escritura de comprobantes mutables. Las pruebas y componentes `mobile/remittance-status-host.js`, `mobile/remittance-status-panel.js`, `mobile/order-status-expo.js`, `order-status-client.cjs` ya cubren composición de seguimiento de solo lectura en laboratorio; no sustituirlos por otra simulación equivalente. La interfaz no se importa en App.js.
+
+Orden de integración una vez autorizada: (1) verificar identidad y alcance de proveedor, método bancario HNL y acceso de prueba, sin asumir disponibilidad de efectivo; (2) provisionar entorno de Auth y PostgreSQL aislados autorizado, origen HTTPS y credenciales de servidor de alcance mínimo, no incorporar secretos al cliente; (3) enlazar únicamente la consulta de estado existente POST `/v1/sandbox/remittances/status` con actor derivado de sesión verificada y UUID autorizado; (4) integrar el host Expo en rama de desarrollo con estado desactivado por defecto, token de sesión del entorno aislado, selección invalidada en cada cambio de identidad y sin credenciales del proveedor en el móvil; (5) comprobar transporte nativo, aislamiento de usuarios, redirecciones, timeout, cancelación y recuperación con datos sintéticos en el entorno oficial; (6) conectar creación/confirmación y liquidación solo tras contrato de estados, idempotencia, conciliación, financiación y devolución. El seguimiento no autoriza pagos. No publicar un endpoint de loopback ni desplegar SQL LAB directamente. No iniciar compilación, gasto o recurso remoto en esta revisión. La respuesta al formulario se mantiene pendiente según el registro del proyecto; no se accedió al buzón para verificarla. No fusionar main ni habilitar dinero real.
