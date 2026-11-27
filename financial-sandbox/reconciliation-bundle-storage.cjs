@@ -67,4 +67,36 @@ function saveStoredBundle(options={}){
   if(created)fs.unlinkSync(temp);
  }
 }
-module.exports={saveStoredBundle,readStoredBundle};
+// Run only while archive and bundle writers are paused. This is a coverage
+// report, not a snapshot across two stores or permission to release funds.
+function auditStoredBundles({environment,directory,archive,limit=1000}={}){
+ if(environment!=='sandbox')fail('SANDBOX_ONLY');
+ if(typeof directory!=='string'||!directory||typeof archive?.listReceiptIds!=='function'||
+ typeof archive?.verifyArchivedBundle!=='function')fail('INVALID_STORAGE_CONFIG');
+ if(!Number.isSafeInteger(limit)||limit<1||limit>10000)fail('INVALID_INVENTORY_LIMIT');
+ if(!fs.lstatSync(directory).isDirectory())fail('INVALID_STORAGE_DIRECTORY');
+ const ids=archive.listReceiptIds({limit}),expected=new Set(ids);
+ const files=new Set(),pending=[],unexpected=[];
+ const dir=fs.opendirSync(directory);let count=0;
+ try{
+  let entry;
+  while((entry=dir.readSync())!==null){
+   if(++count>limit)fail('INVENTORY_LIMIT_EXCEEDED');
+   const name=entry.name;
+   if(/^[a-f0-9]{64}\.json$/.test(name))files.add(name.slice(0,-5));
+   else if(/^\.pending-[a-f0-9-]{36}$/.test(name))pending.push(name);
+   else unexpected.push(name);
+  }
+ }finally{dir.closeSync();}
+ const missing=ids.filter(id=>!files.has(id)),orphaned=[...files].filter(id=>!expected.has(id)).sort();
+ const verified=[],invalid=[];
+ for(const receiptId of ids){
+  if(!files.has(receiptId))continue;
+  try{readStoredBundle({environment,directory,archive,receiptId});verified.push(receiptId);}
+  catch(e){invalid.push({receiptId,code:typeof e.code==='string'?e.code:'BUNDLE_READ_FAILED'});}
+ }
+ return {mode:'sandbox',completeCoverage:missing.length===0&&orphaned.length===0&&
+  invalid.length===0&&pending.length===0&&unexpected.length===0,
+  receipts:ids.length,verified,missing,orphaned,invalid,pending:pending.sort(),unexpected:unexpected.sort()};
+}
+module.exports={saveStoredBundle,readStoredBundle,auditStoredBundles};

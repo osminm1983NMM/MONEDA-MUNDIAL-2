@@ -120,6 +120,14 @@ function openReconciliationArchive({environment,path,initialize=false}={}){
    if(JSON.stringify(recomputed)!==JSON.stringify(receipt))fail('RECEIPT_MISMATCH');
    return recomputed;
   },
+  // Bounded, read-only inventory for offline recovery checks.
+  listReceiptIds({limit=1000}={}){
+   if(!Number.isSafeInteger(limit)||limit<1||limit>10000)fail('INVALID_INVENTORY_LIMIT');
+   const rows=db.prepare('SELECT receipt_id FROM receipts ORDER BY receipt_id LIMIT ?').all(limit+1);
+   if(rows.length>limit)fail('INVENTORY_LIMIT_EXCEEDED');
+   if(rows.some(r=>!/^[a-f0-9]{64}$/.test(r.receipt_id)))fail('ARCHIVE_CORRUPT');
+   return rows.map(r=>r.receipt_id);
+  },
   counts(){return {snapshots:db.prepare('SELECT count(*) n FROM snapshots').get().n,receipts:db.prepare('SELECT count(*) n FROM receipts').get().n};},
   backup(destination){
    if(typeof destination!=='string'||!destination.endsWith('.sqlite'))fail('INVALID_BACKUP_PATH');

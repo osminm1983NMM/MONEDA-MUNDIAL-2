@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const {join}=require('node:path');
 const {tmpdir}=require('node:os');
 const {openReconciliationArchive}=require('../../financial-sandbox/reconciliation-archive.cjs');
-const {saveStoredBundle:save,readStoredBundle:read}=require('../../financial-sandbox/reconciliation-bundle-storage.cjs');
+const {saveStoredBundle:save,readStoredBundle:read,auditStoredBundles:audit}=require('../../financial-sandbox/reconciliation-bundle-storage.cjs');
 const page=source=>[{mode:'sandbox',source,snapshotId:source+'-1',scope:'US-HN:all-funding-payout-refund',
  start:'2026-11-26T00:00:00.000Z',end:'2026-11-27T00:00:00.000Z',capturedAt:'2026-11-27T00:01:00.000Z',
  declaredCount:1,pageCount:1,index:0,cursor:null,nextCursor:null,complete:true,
@@ -58,4 +58,36 @@ test('refuse symbolic link target and unexpected extra fields on disk',()=>fixtu
  const b=structuredClone(options.bundle);b.internalPages[0].rows[0].extra='unexpected';
  fs.writeFileSync(path,JSON.stringify(b));
  a.throws(()=>read(options),/NONCANONICAL_BUNDLE_FILE/);
+}));
+
+test('offline audit reports missing legacy receipts, orphan files, pending writes and invalid bundles without mutation',()=>fixture(({options,x,path})=>{
+ const legacy=page('provider');legacy[0].snapshotId='provider-legacy';
+ const old=options.archive.record({internalPages:page('internal'),providerPages:legacy});
+ save(options);
+ const orphan='0'.repeat(64),pending='.pending-12345678-1234-1234-1234-123456789abc';
+ fs.writeFileSync(join(options.directory,orphan+'.json'),'orphan');
+ fs.writeFileSync(join(options.directory,pending),'partial');
+ fs.writeFileSync(join(options.directory,'unexpected.txt'),'keep');
+ const result=audit(options);
+ a.equal(result.completeCoverage,false);
+ a.deepEqual(result.verified,[x.receipt.receiptId]);
+ a.deepEqual(result.missing,[old.receipt.receiptId]);
+ a.deepEqual(result.orphaned,[orphan]);
+ a.deepEqual(result.pending,[pending]);a.deepEqual(result.unexpected,['unexpected.txt']);
+ const before=fs.readdirSync(options.directory).sort();
+ fs.writeFileSync(path,'corrupt');
+ const again=audit(options);
+ a.deepEqual(again.invalid,[{receiptId:x.receipt.receiptId,code:'INVALID_BUNDLE_FILE'}]);
+ a.deepEqual(fs.readdirSync(options.directory).sort(),before);
+ a.deepEqual(options.archive.counts(),{snapshots:3,receipts:2});
+}));
+test('offline coverage passes for complete verified inventory after restart and refuses incomplete scan',()=>fixture(({options,x,reopen})=>{
+ a.deepEqual(audit(options).missing,[x.receipt.receiptId]);
+ save(options);reopen();
+ a.equal(audit(options).completeCoverage,true);
+ a.deepEqual(audit(options).verified,[x.receipt.receiptId]);
+ fs.writeFileSync(join(options.directory,'extra'),'keep');
+ a.throws(()=>audit({...options,limit:1}),/INVENTORY_LIMIT_EXCEEDED/);
+ a.throws(()=>audit({...options,limit:0}),/INVALID_INVENTORY_LIMIT/);
+ a.throws(()=>audit({...options,environment:'production'}),/SANDBOX_ONLY/);
 }));
