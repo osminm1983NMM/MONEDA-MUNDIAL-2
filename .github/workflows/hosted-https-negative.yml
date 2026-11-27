@@ -1,0 +1,34 @@
+name: LAB HTTPS - acceso no autenticado
+on:
+  pull_request:
+    paths: ['.github/workflows/hosted-https-negative.yml']
+  workflow_dispatch:
+permissions: {}
+jobs:
+  negative-https:
+    if: github.repository == 'osminm1983NMM/MONEDA-MUNDIAL-2' && ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feature/infraestructura-financiera-sandbox-20261126') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/feature/infraestructura-financiera-sandbox-20261126'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Read-only denial checks against independent sandbox
+        shell: bash
+        env:
+          LAB_URL: https://tfamyuqqpenilnovqjpp.supabase.co/rest/v1/rpc/mwd_lab_read_status
+          LAB_PUBLIC_KEY: sb_publishable_NesVIbsf44Dhb41k1CzRkA_il-cO3Fe
+        run: |
+          set -euo pipefail
+          # Public client key only, no sessions, no customer information or funds.
+          # Query a known synthetic remittance, never log the response body.
+          body='{"p_order":"00000000-0000-4000-8000-000000000181"}'
+          probe() {
+            local label="$1"
+            shift
+            local code
+            code=$(curl --silent --show-error --proto '=https' --max-time 15 --connect-timeout 5 --output /dev/null --write-out '%{http_code}' --request POST --header 'Content-Type: application/json' --data "$body" "$@" "$LAB_URL")
+            printf '%s: HTTP %s\n' "$label" "$code"
+            case "$code" in 401|403) ;; *) echo "Expected explicit authorization denial (401/403)"; return 1;; esac
+          }
+          probe 'No API key'
+          probe 'Public key, no user session' --header "apikey: $LAB_PUBLIC_KEY"
+          probe 'Public key, invalid bearer' --header "apikey: $LAB_PUBLIC_KEY" --header 'Authorization: Bearer invalid-test-token'
+          echo 'PASS: all three unauthenticated or invalid requests denied; revocation replay not covered.'
