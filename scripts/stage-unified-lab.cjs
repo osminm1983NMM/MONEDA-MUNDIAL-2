@@ -13,7 +13,10 @@ function stage(root){
  if(['DemoApp.jsx','HostedFinancialLab.jsx'].some(p=>fs.existsSync(target(p))))throw Error('ALREADY_STAGED');
  // Never send a recovery email that targets the installed standalone DEMO.
  // This package's redirect has not been authorized in the test Auth service.
- const isolatedDemo=demo.replaceAll('com.monedamundial.app',scheme).replace('  async function requestPasswordReset() {','  async function requestPasswordReset() {\n    return message("Recuperar contraseña", "Utiliza la DEMO independiente para recuperación. Este LAB no tiene redirección autorizada.");\n  }\n  async function requestPasswordResetDisabledInUnifiedLab() {');
+ const start=demo.indexOf('  async function requestPasswordReset() {'),end=demo.indexOf('  async function saveNewPassword() {',start);
+ if(end<=start||demo.indexOf('  async function requestPasswordReset() {',start+1)!==-1)throw Error('UNEXPECTED_RECOVERY_BOUNDARY');
+ const isolatedDemo=(demo.slice(0,start)+'  async function requestPasswordReset() {\n    return message("Recuperar contraseña", "Utiliza la DEMO independiente para recuperación. Este LAB no tiene redirección autorizada.");\n  }\n\n'+demo.slice(end)).replaceAll('com.monedamundial.app',scheme);
+ if(isolatedDemo.includes('resetPasswordForEmail('))throw Error('RECOVERY_SEND_NOT_DISABLED');
  const expo={name:'Moneda Mundial LAB Unificado',slug:'moneda-mundial-unified-lab',scheme,version:config.expo.version,orientation:'portrait',userInterfaceStyle:'automatic',android:{package:scheme},plugins:config.expo.plugins};
  fs.writeFileSync(target('DemoApp.jsx'),isolatedDemo,{flag:'wx'});
  fs.writeFileSync(target('HostedFinancialLab.jsx'),hosted,{flag:'wx'});
