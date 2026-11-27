@@ -32,4 +32,16 @@ function makeRequestGate(){
  let generation=0, busy=false;
  return {begin(){if(busy)return null;busy=true;return ++generation;},isLatest(token){return busy&&token===generation;},finish(token){if(busy&&token===generation){busy=false;return true;}return false;},invalidate(){generation++;busy=false;}};
 }
-module.exports={centsFromInput,parseCountries,parseQuote,makeRequestGate};
+// A non-cooperative read must not leave the quote screen locked indefinitely.
+// The losing promise stays observed; it cannot publish a late response.
+async function withQuoteDeadline(request,timeoutMs=15000){
+ if(typeof request!=='function'||!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>60000)throw Error('Invalid quote deadline');
+ const controller=new AbortController();
+ let timer;
+ const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{
+  reject(Error('QUOTE_TIMEOUT'));controller.abort();
+ },timeoutMs);});
+ try{return await Promise.race([Promise.resolve().then(()=>request(controller.signal)),deadline]);}
+ finally{clearTimeout(timer);}
+}
+module.exports={centsFromInput,parseCountries,parseQuote,makeRequestGate,withQuoteDeadline};

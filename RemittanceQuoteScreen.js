@@ -1,6 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {View,Text,TextInput,TouchableOpacity,StyleSheet} from 'react-native';
-import {centsFromInput,parseCountries,parseQuote,makeRequestGate} from './remittance-quote';
+import {centsFromInput,parseCountries,parseQuote,makeRequestGate,withQuoteDeadline} from './remittance-quote';
 
 const usd=cents=>(cents/100).toFixed(2)+' USD';
 function Button({label,onPress,disabled=false,selected=false}){
@@ -22,7 +22,7 @@ export default function RemittanceQuoteScreen({supabase,isActive}){
   const token=gate.begin();if(token===null)return;
   setBusy(true);setError('');setQuote(null);setCountries([]);
   try{
-   const {data,error}=await supabase.rpc('mwd_world_countries_demo');
+   const {data,error}=await withQuoteDeadline(signal=>supabase.rpc('mwd_world_countries_demo').abortSignal(signal));
    if(!valid(token))return;
    if(error)throw error;
    const available=parseCountries(data);setCountries(available);
@@ -40,7 +40,7 @@ export default function RemittanceQuoteScreen({supabase,isActive}){
   const expected={country,method,cents};
   setBusy(true);setQuote(null);setError('');
   try{
-   const {data,error}=await supabase.rpc('mwd_quote_international_demo',{p_destination_country:country,p_amount_cents:cents,p_method:method});
+   const {data,error}=await withQuoteDeadline(signal=>supabase.rpc('mwd_quote_international_demo',{p_destination_country:country,p_amount_cents:cents,p_method:method}).abortSignal(signal));
    if(!valid(token))return;
    if(error)throw error;
    setQuote(parseQuote(data,expected));
