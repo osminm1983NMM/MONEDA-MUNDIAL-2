@@ -1,6 +1,6 @@
 'use strict';
 // Fetch-compatible, read-only sandbox boundary. Does not start a server.
-const route='/v1/sandbox/remittances/status';
+const {route}=require('./order-status-route.cjs');
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const maxBody=1024;
 function respond(status,body,extra={}){

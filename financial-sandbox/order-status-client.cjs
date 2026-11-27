@@ -1,6 +1,6 @@
 'use strict';
 // Client contract for an explicitly approved sandbox server, not wired to Android.
-const {route}=require('./order-status-http.cjs');
+const {route}=require('./order-status-route.cjs');
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const states=new Set(['funding_pending','funding_failed','funded','payout_pending','payout_failed','paid','refund_pending','refunded']);
 const exact=(x,keys)=>x!==null&&typeof x==='object'&&!Array.isArray(x)&&Object.keys(x).length===keys.length&&keys.every(k=>Object.hasOwn(x,k));
@@ -19,17 +19,20 @@ function valid(x,id){
 async function readJson(response){
  const reader=response.body?.getReader();
  if(!reader)throw Error('INVALID_RESPONSE');
- let size=0;const parts=[];
+ let size=0;let ascii='';
  try{
   while(true){
    const {done,value}=await reader.read();
    if(done)break;
    size+=value.byteLength;if(size>8192)throw Error('INVALID_RESPONSE');
-   parts.push(value);
+   // The entire status wire schema consists of ASCII identifiers, dates and amounts.
+   // Reject other bytes and bound decoding before constructing the JSON value.
+   if(!(value instanceof Uint8Array))throw Error('INVALID_RESPONSE');
+   for(const byte of value){if(byte>127)throw Error('INVALID_RESPONSE');ascii+=String.fromCharCode(byte);}
   }
  }catch(e){void reader.cancel().catch(()=>{});throw e;}
  finally{reader.releaseLock();}
- return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(parts)));
+ return JSON.parse(ascii);
 }
 function createOrderStatusClient({environment,sandboxOrigin,fetchImpl=globalThis.fetch,timeoutMs=10000}={}){
  if(environment!=='sandbox'||typeof fetchImpl!=='function'||typeof sandboxOrigin!=='string'||!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>30000)throw Error('SANDBOX_ONLY');
@@ -39,9 +42,11 @@ function createOrderStatusClient({environment,sandboxOrigin,fetchImpl=globalThis
  return Object.freeze({async read({sessionToken,orderId}={}){
   if(typeof sessionToken!=='string'||!/^[A-Za-z0-9._~-]{1,8192}$/.test(sessionToken))return fail('AUTH_REQUIRED');
   if(typeof orderId!=='string'||!uuid.test(orderId))return fail('INVALID_REQUEST');
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
   try{
    const response=await fetchImpl(endpoint,{method:'POST',redirect:'error',cache:'no-store',credentials:'omit',
-    headers:{authorization:'Bearer '+sessionToken,'content-type':'application/json'},body:JSON.stringify({orderId}),signal:AbortSignal.timeout(timeoutMs)});
+    headers:{authorization:'Bearer '+sessionToken,'content-type':'application/json'},body:JSON.stringify({orderId}),signal:controller.signal});
    if(response.redirected||(response.url&&response.url!==endpoint))return fail('UNAVAILABLE');
    if(response.status!==200){
     void response.body?.cancel().catch(()=>{});
@@ -52,8 +57,8 @@ function createOrderStatusClient({environment,sandboxOrigin,fetchImpl=globalThis
     void response.body?.cancel().catch(()=>{});return fail('UNAVAILABLE');
    }
    const value=await readJson(response);
-   return valid(value,orderId)?{ok:true,value}:fail('UNAVAILABLE');
-  }catch{return fail('UNAVAILABLE');}
+   return !controller.signal.aborted&&valid(value,orderId)?{ok:true,value}:fail('UNAVAILABLE');
+  }catch{return fail('UNAVAILABLE');}finally{clearTimeout(timer);}
  }});
 }
 module.exports={createOrderStatusClient};
