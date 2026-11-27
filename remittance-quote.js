@@ -29,19 +29,40 @@ function parseQuote(q,expected){
  return {country:expected.country,method:expected.method,amountCents:q.amountCents,feeCents:q.feeCents,totalPayCents:q.totalPayCents,destinationCurrency:q.destinationCurrency,receiverAmountCents:q.receiverAmountCents};
 }
 function makeRequestGate(){
- let generation=0, busy=false;
- return {begin(){if(busy)return null;busy=true;return ++generation;},isLatest(token){return busy&&token===generation;},finish(token){if(busy&&token===generation){busy=false;return true;}return false;},invalidate(){generation++;busy=false;}};
+ let generation=0,controller=null;
+ const current=token=>controller!==null&&token===generation;
+ return {
+  begin(){if(controller)return null;controller=new AbortController();return ++generation;},
+  isLatest:current,
+  signal(token){if(!current(token))throw Error('QUOTE_CANCELLED');return controller.signal;},
+  finish(token){if(!current(token))return false;controller=null;return true;},
+  invalidate(){const old=controller;generation++;controller=null;old?.abort();}
+ };
 }
-// A non-cooperative read must not leave the quote screen locked indefinitely.
-// The losing promise stays observed; it cannot publish a late response.
-async function withQuoteDeadline(request,timeoutMs=15000){
- if(typeof request!=='function'||!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>60000)throw Error('Invalid quote deadline');
- const controller=new AbortController();
- let timer;
- const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{
-  reject(Error('QUOTE_TIMEOUT'));controller.abort();
- },timeoutMs);});
- try{return await Promise.race([Promise.resolve().then(()=>request(controller.signal)),deadline]);}
- finally{clearTimeout(timer);}
+// Share bounded read capacity across screen mounts. A timed-out transport
+// retains its slot until it actually settles, even if it ignores cancellation.
+function createQuoteReader(maxActive=4){
+ if(!Number.isInteger(maxActive)||maxActive<1||maxActive>16)throw Error('Invalid quote capacity');
+ let active=0;
+ return async function withQuoteDeadline(request,timeoutMs=15000,externalSignal){
+  if(typeof request!=='function'||!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>60000)throw Error('Invalid quote deadline');
+  if(externalSignal?.aborted)throw Error('QUOTE_CANCELLED');
+  if(active>=maxActive)throw Error('QUOTE_BUSY');
+  const controller=new AbortController();
+  let timer,cancel;
+  const deadline=new Promise((_,reject)=>{
+   cancel=()=>{reject(Error('QUOTE_CANCELLED'));controller.abort();};
+   timer=setTimeout(()=>{reject(Error('QUOTE_TIMEOUT'));controller.abort();},timeoutMs);
+  });
+  externalSignal?.addEventListener('abort',cancel,{once:true});
+  active++;
+  const operation=Promise.resolve().then(()=>{
+   if(controller.signal.aborted)throw Error('QUOTE_CANCELLED');
+   return request(controller.signal);
+  }).finally(()=>{active--;});
+  try{return await Promise.race([operation,deadline]);}
+  finally{clearTimeout(timer);externalSignal?.removeEventListener('abort',cancel);}
+ };
 }
-module.exports={centsFromInput,parseCountries,parseQuote,makeRequestGate,withQuoteDeadline};
+const withQuoteDeadline=createQuoteReader();
+module.exports={centsFromInput,parseCountries,parseQuote,makeRequestGate,withQuoteDeadline,createQuoteReader};

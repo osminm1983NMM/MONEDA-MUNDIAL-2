@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test');const a=require('node:assert/strict');const fs=require('node:fs');
-const {centsFromInput,parseCountries,parseQuote,makeRequestGate,withQuoteDeadline}=require('../../remittance-quote');
+const {centsFromInput,parseCountries,parseQuote,makeRequestGate,withQuoteDeadline,createQuoteReader}=require('../../remittance-quote');
 const c={code:'HN',name:'Honduras',demoAvailable:true,realPaymentsEnabled:false};
 const expected={country:'HN',method:'bank',cents:10000};
 const q={status:'simulation_only',realPaymentsEnabled:false,origin:'US',destination:'HN',sourceCurrency:'USD',destinationCurrency:'HNL',method:'bank',amountCents:10000,feeCents:100,totalPayCents:10100,fxRate:null,receiverAmountCents:null};
@@ -37,4 +37,36 @@ test('both read-only RPCs use the bounded request wrapper and abort signal',()=>
  const s=fs.readFileSync('RemittanceQuoteScreen.js','utf8');
  a.equal((s.match(/await withQuoteDeadline\(signal=>supabase\.rpc\(/g)||[]).length,2);
  a.equal((s.match(/\.abortSignal\(signal\)/g)||[]).length,2);
+});
+
+test('screen invalidation cancels active quote promptly without publishing stale data', {timeout:1000},async()=>{
+ const read=createQuoteReader(),gate=makeRequestGate(),token=gate.begin();
+ let signal,complete;
+ const pending=read(s=>{signal=s;return new Promise(resolve=>{complete=resolve;});},10000,gate.signal(token));
+ await Promise.resolve();
+ gate.invalidate();
+ await a.rejects(pending,/QUOTE_CANCELLED/);
+ a.equal(signal.aborted,true);a.equal(gate.isLatest(token),false);
+ const next=gate.begin();complete({data:q});
+ await new Promise(resolve=>setImmediate(resolve));
+ a.equal(gate.isLatest(next),true);
+});
+test('quote admission stays bounded after timeout and recovers after transport settles',{timeout:2000},async()=>{
+ const read=createQuoteReader(1);
+ let calls=0,complete;
+ const stuck=()=>{calls++;return new Promise(resolve=>{complete=resolve;});};
+ await a.rejects(read(stuck,10),/QUOTE_TIMEOUT/);
+ for(let i=0;i<10;i++)await a.rejects(read(stuck,10),/QUOTE_BUSY/);
+ a.equal(calls,1);
+ complete({data:q});await new Promise(resolve=>setImmediate(resolve));
+ a.deepEqual(await read(()=>({data:q}),1000),{data:q});
+});
+test('already cancelled or invalidated before transport starts never sends request',async()=>{
+ const read=createQuoteReader(),gate=makeRequestGate(),token=gate.begin();
+ const signal=gate.signal(token);let calls=0;
+ const pending=read(()=>{calls++;},1000,signal);
+ gate.invalidate();await a.rejects(pending,/QUOTE_CANCELLED/);
+ await a.rejects(read(()=>{calls++;},1000,signal),/QUOTE_CANCELLED/);
+ a.equal(calls,0);
+ a.match(fs.readFileSync('RemittanceQuoteScreen.js','utf8'),/abortSignal\(signal\),15000,gate\.signal\(token\)/);
 });
