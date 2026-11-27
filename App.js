@@ -18,6 +18,10 @@ import { createAuthStorage, createMemoryAuthStorage } from './auth-storage';
 import { createClient } from '@supabase/supabase-js';
 import PartnerRegistryScreen from './PartnerRegistryScreen';
 import RemittanceQuoteScreen from './RemittanceQuoteScreen';
+import { createQuoteReader } from './remittance-quote';
+
+// Separate capacity for wallet reads; remittance quotes cannot consume it.
+const readAccountWithDeadline = createQuoteReader(2);
 
 // Solo referencias de operaciones DEMO: orden FIFO por clave, incluso si cambia la sesión.
 // Las claves de autenticación de Supabase conservan su almacenamiento original.
@@ -420,19 +424,21 @@ export default function App() {
     const requestVersion = ++refreshAccountVersionRef.current;
     setSyncing(true);
     setSyncNotice('Actualizando...');
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
     try {
-      const [w, h, a] = await Promise.all([
+      const [w, h, a] = await readAccountWithDeadline(async signal => {
+        // Retain the transport slot until every read settles, even after a rejection.
+        const settled = await Promise.allSettled([
         supabase.from('mwd_wallets')
           .select('user_id,account_code,balance_cents')
-          .eq('user_id', id).abortSignal(controller.signal).single(),
+          .eq('user_id', id).abortSignal(signal).single(),
         supabase.from('mwd_operations')
           .select('id,kind,source_user_id,destination_user_id,amount_cents,created_at')
           .or(`source_user_id.eq.${id},destination_user_id.eq.${id}`)
-          .order('created_at', { ascending: false }).limit(50).abortSignal(controller.signal),
-        supabase.from('mwd_admin_roles').select('role').eq('user_id', id).abortSignal(controller.signal).maybeSingle(),
-      ]);
+          .order('created_at', { ascending: false }).limit(50).abortSignal(signal),
+        supabase.from('mwd_admin_roles').select('role').eq('user_id', id).abortSignal(signal).maybeSingle(),
+        ]);
+        return settled.map(item => { if (item.status === 'rejected') throw item.reason; return item.value; });
+      });
       if (id !== currentUserRef.current || requestVersion !== refreshAccountVersionRef.current) return;
       if (w.error) throw w.error;
       if (h.error) throw h.error;
@@ -445,13 +451,12 @@ export default function App() {
     } catch (error) {
       if (id === currentUserRef.current && requestVersion === refreshAccountVersionRef.current) {
         setSyncNotice('No se pudo actualizar. Revisa el mensaje de error.');
-        message('Sincronización', controller.signal.aborted
+        message('Sincronización', error?.message === 'QUOTE_TIMEOUT' || error?.message === 'QUOTE_BUSY'
           ? 'La consulta tardó demasiado. Vuelve a pulsar Actualizar saldo e historial.'
           : syncErrorMessage(error));
         return false;
       }
     } finally {
-      clearTimeout(timeout);
       if (id === currentUserRef.current && requestVersion === refreshAccountVersionRef.current) {
         setSyncing(false);
       }

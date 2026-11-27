@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const test = require('node:test');
+const { createQuoteReader } = require('../remittance-quote');
 
 const app = fs.readFileSync(require.resolve('../App.js'), 'utf8');
 function section(start, end) {
@@ -109,18 +110,21 @@ test('confirmed transfer followed by a failed refresh stays confirmed with balan
     return { data: { status: 'processed', kind: 'transfer', recipientCode: recipient, amountCents: 100 } };
   });
   let notice;
+  let reads = 0;
   const failedRead = Promise.resolve({ error: { message: 'Disconnected' } });
   const table = {
     select() { return this; }, eq() { return this; }, or() { return this; }, order() { return this; },
     abortSignal() { return this; }, single() { return failedRead; }, maybeSingle() { return failedRead; },
     limit() { return this; }, then(resolve) { return failedRead.then(resolve); },
   };
-  appContext.supabase.from = () => table;
+  appContext.supabase.from = () => { reads++; return table; };
   appContext.setSyncNotice = value => { notice = value; };
   appContext.setSyncing = () => {};
   appContext.refreshAccountVersionRef = { current: 0 };
+  appContext.readAccountWithDeadline = createQuoteReader(2);
   vm.runInContext(section('async function refreshAccount', 'async function authenticate'), appContext);
   await appContext.recoverPendingOperation();
+  assert.equal(reads, 3, 'The actual account read must run');
   assert.equal(notice, 'Operación confirmada. Saldo e historial pendientes de actualizar.');
   assert.equal(storage.size, 0);
   assert.equal(appContext.pendingRef.current, null);
@@ -145,7 +149,6 @@ for (const [status, code, reason, keepReference] of [
 }
 
 test('una consulta sin respuesta libera el botón y permite actualizar la cuenta siguiente', async () => {
-  let expire;
   let syncing;
   let wallet;
   let hanging = true;
@@ -166,14 +169,13 @@ test('una consulta sin respuesta libera el botón y permite actualizar la cuenta
     isCurrentUser: id => id === ctx.currentUserRef.current,
     setSyncing: value => { syncing = value; }, setWallet: value => { wallet = value; },
     setSyncNotice: noop, setOperations: noop, setAdminRole: noop, message: noop,
-    setTimeout: callback => { expire = callback; }, clearTimeout: noop,
+    readAccountWithDeadline: (() => { const read = createQuoteReader(2); return fn => read(fn, 50); })(),
     supabase: { from: () => Object.create(query) },
   });
   vm.runInContext(section('function syncErrorMessage', 'function pendingOperationStorageKey') + '\n' + section('async function refreshAccount', 'async function authenticate'), ctx);
   const first = ctx.refreshAccount('A');
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(syncing, true);
-  expire();
   assert.equal(await first, false);
   assert.equal(syncing, false);
   assert.equal(signals.length, 3);

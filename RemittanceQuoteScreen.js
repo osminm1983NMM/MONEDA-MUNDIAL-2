@@ -22,7 +22,7 @@ export default function RemittanceQuoteScreen({supabase,isActive}){
   const token=gate.begin();if(token===null)return;
   setBusy(true);setError('');setQuote(null);setCountries([]);
   try{
-   const {data,error}=await withQuoteDeadline(signal=>supabase.rpc('mwd_world_countries_demo').abortSignal(signal));
+   const {data,error}=await withQuoteDeadline(signal=>supabase.rpc('mwd_world_countries_demo').abortSignal(signal),15000,gate.signal(token));
    if(!valid(token))return;
    if(error)throw error;
    const available=parseCountries(data);setCountries(available);
@@ -40,7 +40,7 @@ export default function RemittanceQuoteScreen({supabase,isActive}){
   const expected={country,method,cents};
   setBusy(true);setQuote(null);setError('');
   try{
-   const {data,error}=await withQuoteDeadline(signal=>supabase.rpc('mwd_quote_international_demo',{p_destination_country:country,p_amount_cents:cents,p_method:method}).abortSignal(signal));
+   const {data,error}=await withQuoteDeadline(signal=>supabase.rpc('mwd_quote_international_demo',{p_destination_country:country,p_amount_cents:cents,p_method:method}).abortSignal(signal),15000,gate.signal(token));
    if(!valid(token))return;
    if(error)throw error;
    setQuote(parseQuote(data,expected));

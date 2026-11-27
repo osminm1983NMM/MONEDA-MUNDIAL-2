@@ -1,6 +1,6 @@
 'use strict';
 // This sandbox-only gate pins the root mobile sources/config/dependency lock to
-// the reviewed Android build 71ebdef (APK and emulator gates passed; physical acceptance partial).
+// the reviewed Android build a24b14c (APK and emulator gates passed; physical acceptance pending).
 // A deliberate Android update requires
 // a reviewed new baseline, not silently changing these expected blob IDs.
 const {test}=require('node:test');
@@ -11,15 +11,15 @@ const fs=require('node:fs');
 const path=require('node:path');
 const root=path.resolve(__dirname,'../..');
 const expected={
-  "App.js": "dee1c353a588702af312001645ab779048b204f7",
+  "App.js": "681559f72409303f28e5b1e6dc2cd14f7032f575",
   "PartnerRegistryScreen.js": "30ced7d02450f08c26512fa06d630e0db6a070c0",
-  "RemittanceQuoteScreen.js": "d848116a082868faee5cbe47d08c54a928b7cf13",
+  "RemittanceQuoteScreen.js": "47b40d49567990e702886f5fe771c2e302261fb2",
   "app.json": "ca7d5498f8e7831f4553074f6a8683d57881fb9c",
-  "auth-storage.js": "d6b47a9bf44e30423cf874958939ddf5bf4a4706",
+  "auth-storage.js": "56c08654c79860615322084e3f6e64af11684263",
   "eas.json": "d338997611e261bc328d9055db9eb387d60721dd",
   "package-lock.json": "67afcc4fbd90946ca985bc7d7dabd6b15da38d77",
   "package.json": "375a3aaca4d646315cfb0dbe35a49a564f62bdba",
-  "remittance-quote.js": "42c515f99961e6bd5bf3a3c6736a04fb91a8e570"
+  "remittance-quote.js": "d7643131307fae5b643073317a9178ec4ab4932e"
 };
 function blobSha(bytes){
  return createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');

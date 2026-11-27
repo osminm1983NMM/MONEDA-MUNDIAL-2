@@ -49,7 +49,11 @@ function createAuthStorage(secure, legacy, authKey) {
   }
   async function eraseSlot(base,slot){
     const n=await readCount(base,slot);
-    for(let i=0;i<n;i++)await secure.deleteItemAsync(chunk(base,slot,i));
+    let failed=false;
+    // Attempt all remaining chunks even when one native deletion fails.
+    // Keep the count until every chunk is gone so cleanup can be retried.
+    for(let i=0;i<n;i++)try{await secure.deleteItemAsync(chunk(base,slot,i));}catch{failed=true;}
+    if(failed)throw Error('Secure auth cleanup incomplete');
     await secure.deleteItemAsync(meta(base,slot));
   }
   function partition(value){
@@ -82,7 +86,11 @@ function createAuthStorage(secure, legacy, authKey) {
     removeItem:key=>serial(key,async base=>{
       // Remove pointer first: no stale value can be read even if cleanup fails.
       await secure.deleteItemAsync(ptr(base));
-      await eraseSlot(base,'0');await eraseSlot(base,'1');
+      let failed=false;
+      // Independent cleanup of both slots: an old damaged slot must not
+      // prevent deletion of the most recently committed encrypted session.
+      for(const slot of ['0','1'])try{await eraseSlot(base,slot);}catch{failed=true;}
+      if(failed)throw Error('Secure auth cleanup incomplete');
     })
   };
 }
