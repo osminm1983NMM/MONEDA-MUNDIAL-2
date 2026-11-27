@@ -81,3 +81,8 @@ Captura del titular posterior al acceso: compilación visible `6d271511aa6dc3b6a
 ## Acceso físico de la candidata vigente — 26 de noviembre, 21:58 EST
 
 Captura del usuario: Inicio de Moneda Mundial 2.0, compilación visible 6d271511aa6dc3b6a7c383ebf82f451be01b225c, cuenta DEMO existente y saldo ficticio de 9911.00 MWD, coincidente con el saldo B anteriormente conciliado. Acceso físico y visualización de billetera aprobados; no se realizó consulta nueva al servidor ni se comprobó hash del APK instalado. No conservar correo ni identificador personal de billetera en este registro. Pendiente cerrar la aplicación desde recientes sin usar cerrar sesión y reabrir para verificar persistencia; después salida explícita, recuperación PKCE y cotizador. Sin escrituras en Supabase, cambios de producción o movimientos de saldo.
+
+
+## Persistencia de sesión física — 26 de noviembre
+
+Segunda captura aportada en respuesta a la instrucción de cerrar desde recientes y reabrir sin cerrar sesión: misma compilación 6d271511aa6dc3b6a7c383ebf82f451be01b225c, cuenta DEMO activa y saldo 9911.00 MWD. Evidencia visual consistente con persistencia de sesión; el cierre del proceso y la ausencia de nuevo ingreso de credenciales se infieren de la secuencia de prueba, no se observaron independientemente. Pendiente salida explícita, reapertura sin sesión, recuperación PKCE y cotizador. Sin datos personales en este registro ni cambios de saldo o producción.
