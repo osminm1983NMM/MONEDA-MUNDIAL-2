@@ -44,3 +44,7 @@ Captura de seguimiento a las 6:39 (hora visible): conexión 5G indicada, botón 
 ### Pérdida de conexión — Samsung, 27 noviembre 2026
 
 Captura a las 6:39 (hora visible), indicador de modo avión activo. Tras la actualización manual aparece diálogo Sincronización: no hay conexión con el servidor, revisar Internet y volver a pulsar Actualizar saldo e historial, con advertencia explícita de datos potencialmente desactualizados. Aprobada evidencia visual de detección de fallo de red y mensaje localizado, sin cierre inesperado de aplicación observado. No se acredita duración exacta de la espera, transporte no cooperativo ni rehabilitación del botón hasta cerrar diálogo y reintentar. Próximo paso: pulsar OK, desactivar modo avión, recuperar conexión y actualizar saldo e historial. No se solicitan operaciones monetarias. Sin modificaciones de código, datos o producción.
+
+### Recuperación de conexión — Samsung, 27 noviembre 2026
+
+Captura de seguimiento a las 6:40 (hora visible): indicador 5G activo, botón Actualizar saldo e historial habilitado y mensaje «Saldo e historial actualizados correctamente». Aprobada evidencia visual de recuperación de la actualización tras la prueba de modo avión inmediatamente anterior, sin reinicio reportado. No acredita por sí sola importes consultados ni recuperación de operaciones monetarias en vuelo. Siguiente prueba: cotización internacional DEMO a Honduras, sin enviar ni confirmar fondos. Sin cambios de código, datos o producción.
