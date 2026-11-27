@@ -1,0 +1,80 @@
+name: Unified LAB existing APK smoke
+on:
+  push:
+    branches: [qa/unified-lab-smoke-20261127]
+    paths: ['.github/workflows/unified-lab-smoke.yml', 'scripts/smoke-unified-lab.py']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: unified-lab-smoke-46075257898
+  cancel-in-progress: false
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      SOURCE_RUN: '46075257898'
+      EXPECTED_REVISION: f99938990342dfe3ca0a45f7b08be4027b5544d8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify test syntax
+        run: python3 -m py_compile scripts/smoke-unified-lab.py
+      - name: Retrieve exact existing build without rebuilding
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 100); do
+            meta=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN")
+            test "$(jq -r .head_sha <<< "$meta")" = "$EXPECTED_REVISION"
+            test "$(jq -r .head_branch <<< "$meta")" = dev/unified-lab-20261127
+            test "$(jq -r .path <<< "$meta")" = .github/workflows/unified-lab-preflight.yml
+            if [[ "$(jq -r .status <<< "$meta")" == completed ]]; then
+              test "$(jq -r .conclusion <<< "$meta")" = success
+              gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name MonedaMundial-LAB-Unificado --dir "$RUNNER_TEMP/unified-apk"
+              cd "$RUNNER_TEMP/unified-apk"
+              test "$(cat revision.txt)" = "$EXPECTED_REVISION"
+              sha256sum -c SHA256SUMS
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Source build did not finish within bounded polling window" >&2
+          exit 1
+      - name: Verify Android package, ABI and signature independently
+        run: |
+          set -euo pipefail
+          apk="$RUNNER_TEMP/unified-apk/MonedaMundial-LAB-Unificado.apk"
+          tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          "$tools/apksigner" verify --verbose "$apk"
+          "$tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/unified-badging.txt"
+          grep -F "package: name='com.monedamundial.unifiedlab'" "$RUNNER_TEMP/unified-badging.txt"
+          grep '^native-code:' "$RUNNER_TEMP/unified-badging.txt" | grep -F "'x86_64'" | grep -F "'arm64-v8a'"
+      - name: Boot disposable emulator and test both entry screens
+        run: |
+          set -euo pipefail
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          sudo chmod 666 /dev/kvm
+          image='system-images;android-35;google_apis;x86_64'
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install emulator platform-tools "$image"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/unified-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          printf 'no\n' | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n unifiedlab -k "$image" --force
+          "$ANDROID_HOME/emulator/emulator" -avd unifiedlab -port 5554 -no-window -no-audio -no-snapshot -gpu swiftshader_indirect -no-boot-anim >"$RUNNER_TEMP/unified-emulator.log" 2>&1 &
+          trap 'adb -s emulator-5554 emu kill || true' EXIT
+          timeout 480 adb -s emulator-5554 wait-for-device
+          timeout 600 bash -c 'until adb -s emulator-5554 shell getprop sys.boot_completed | tr -d "\r" | grep -qx 1; do sleep 3; done'
+          python3 scripts/smoke-unified-lab.py --serial emulator-5554 --artifact "$RUNNER_TEMP/unified-apk" --revision "$EXPECTED_REVISION"
+      - name: Collect emulator diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unified-emulator-diagnostics
+          path: |
+            ${{ runner.temp }}/unified-emulator.log
+            ${{ runner.temp }}/unified-badging.txt
+          if-no-files-found: ignore
+          retention-days: 7
