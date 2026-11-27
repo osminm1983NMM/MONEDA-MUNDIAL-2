@@ -8,6 +8,8 @@ const {createSupabaseOrderStatus}=require('../../financial-sandbox/supabase-orde
 const {createOrderStatusHttp,route}=require('../../financial-sandbox/order-status-http.cjs');
 const {createOrderStatusClient}=require('../../financial-sandbox/order-status-client.cjs');
 const {presentStatus}=require('../../financial-sandbox/order-status-presentation.cjs');
+const {createRemittanceStatusHost}=require('../../financial-sandbox/mobile/remittance-status-host.js');
+const {createRemittanceStatusPanel}=require('../../financial-sandbox/mobile/remittance-status-panel.js');
 const container=process.env.LAB_CONTAINER;
 if(!/^[a-f0-9]{12,64}$/.test(container||''))throw Error('CI_LAB_REQUIRED');
 const owner='00000000-0000-4000-8000-000000000071',other='00000000-0000-4000-8000-000000000072';
@@ -79,6 +81,60 @@ async function main(){
   assert.equal(display.destination,'2.500,00 HNL');
   assert.equal(display.warning,'PRUEBA — SIN DINERO REAL');
   assert.deepEqual(await client.read({sessionToken:'other-token',orderId}),{ok:false,code:'NOT_FOUND'});
+  // Exercise the actual mobile composition across real lab database states.
+  // Synthetic trusted events enter through the existing restricted event role.
+  // This harness does not assert that an external provider has signed anything.
+  let mobile;
+  const host=createRemittanceStatusHost({environment:'sandbox',enabled:true,sandboxOrigin:'https://sandbox.invalid',
+   expoFetch:(url,init)=>handle(new Request(url,init)),onChange:state=>{mobile=state;}});
+  const Panel=createRemittanceStatusPanel({createElement:(type,props,...children)=>({type,props,children})},
+   {View:'View',Text:'Text',TouchableOpacity:'TouchableOpacity'});
+  const text=node=>typeof node==='string'?node:node?.children?.map(text).join(' ')||'';
+  const refresh=async(label)=>{
+   await host.refresh(orderId,mobile.selectionRevision);
+   assert.equal(mobile.view.state,'ready');
+   assert.equal(mobile.view.value.statusLabel,label);
+   assert.equal(mobile.view.value.total,'101,50 USD');
+   assert.equal(mobile.view.value.destination,'2.500,00 HNL');
+   assert.ok(text(Panel({...mobile,onRefresh:host.refresh})).includes(label));
+  };
+  const counts=async()=>{
+   await run('RESET ROLE;');
+   const rows=await run("SELECT (SELECT count(*) FROM orders WHERE id="+literal(orderId)+"::uuid),"+
+    "(SELECT count(*) FROM outbox WHERE order_id="+literal(orderId)+"::uuid),"+
+    "(SELECT count(*) FROM journal WHERE order_id="+literal(orderId)+"::uuid);");
+   await run('SET LOCAL ROLE mwd_lab_status_service;');
+   return rows;
+  };
+  try{
+   host.setSession('owner-token');host.selectOrder(orderId);
+   const initial=await counts();
+   assert.deepEqual(initial,['1|1|0']);
+   await refresh('Financiación pendiente');
+   assert.deepEqual(await counts(),initial);
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_event_service;');
+   assert.deepEqual(await run("SELECT record_verified_event('mock-remittance','status-integration-funding',"+literal(orderId)+"||'-funding','confirmed','USD',10150);"),['funded']);
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_status_service;');
+   await refresh('Financiación confirmada en prueba');
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_order_service;');
+   await run("SELECT prepare_authorized("+literal(owner)+","+literal(orderId)+"::uuid,'payout');");
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_status_service;');
+   await refresh('Entrega pendiente');
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_event_service;');
+   assert.deepEqual(await run("SELECT record_verified_event('mock-remittance','status-integration-payout',"+literal(orderId)+"||'-payout','confirmed','HNL',250000);"),['paid']);
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_status_service;');
+   await refresh('Entrega confirmada en prueba');
+   const settled=await counts();
+   assert.deepEqual(settled,['1|2|2']);
+   const obsoleteRevision=mobile.selectionRevision;
+   host.setSession('other-token');host.selectOrder(orderId);
+   await host.refresh(orderId,obsoleteRevision);
+   assert.equal(mobile.view.state,'idle');
+   await host.refresh(orderId,mobile.selectionRevision);
+   assert.deepEqual(mobile.view,{state:'error',code:'NOT_FOUND'});
+   assert.ok(!text(Panel({...mobile,onRefresh:host.refresh})).includes('101,50 USD'));
+   assert.deepEqual(await counts(),settled);
+  }finally{host.dispose();}
   // Disable after identity resolution but before the actual status query.
   let revoked=false;
   const racing=createSupabaseOrderStatus({environment:'sandbox',authClient:{auth:{getUser:async()=>({data:{user:{id:owner,role:'authenticated',is_anonymous:false}},error:null})}},
@@ -92,10 +148,11 @@ async function main(){
   assert.equal(revoked,true);assert.equal((await read('owner-token')).status,401);
   await run('RESET ROLE;');
   assert.deepEqual(await run('SELECT count(*) FROM orders WHERE actor='+literal(owner)+';'),['1']);
-  assert.deepEqual(await run('SELECT count(*) FROM journal WHERE order_id='+literal(orderId)+';'),['0']);
+  assert.deepEqual(await run('SELECT count(*) FROM journal WHERE order_id='+literal(orderId)+';'),['2']);
+  assert.deepEqual(await run('SELECT sum(cash),sum(payable),sum(revenue) FROM journal WHERE order_id='+literal(orderId)+';'),['150|0|-150']);
   await run('ROLLBACK;');
   assert.deepEqual(await run('SELECT count(*) FROM mwd_financial_lab.actor_policy WHERE actor='+literal(owner)+';'),['0']);
-  console.log('Integrated Auth fixture, restricted PostgreSQL role, exact status projection and revocation verified');
+  console.log('Integrated Auth fixture, restricted PostgreSQL roles, mobile lifecycle, read-only invariants, settlement and revocation verified');
  }finally{
   if(!closed)child.stdin.end('\\q\n');
   const code=await finished;

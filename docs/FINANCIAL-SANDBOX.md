@@ -352,3 +352,7 @@ Secuencia de cierre: (1) verificar jobs APK/smoke-test, commit de checkout, mani
 
 ## Aislamiento de acciones de seguimiento móvil (27 noviembre 2026)
 El host y panel aislados de seguimiento vinculan cada pulsación a una revisión de selección además del UUID de orden. Cambio de sesión, selección o disposición invalida las acciones de render anteriores; se rechazan llamadas sin revisión válida. Pruebas de contrato cubren reelección del mismo UUID tras cambio de sesión y selección, y botón deshabilitado sin revisión. No incorpora el panel a App.js ni habilita red oficial; requiere integración nativa y pruebas de aceptación posteriores. CI pendiente al registrar.
+
+
+## Aceptación integrada de seguimiento y contabilidad (27 noviembre 2026)
+Se amplía el arnés PostgreSQL desechable para conectar host y panel móvil aislados al handler existente, con identidad sintética, consultas preparadas y roles restringidos. Recorre financiación pendiente, financiada, entrega pendiente y pagada a través de eventos sintéticos explícitos y operaciones de laboratorio; verifica etiquetas, importes, invariancia del diario/outbox durante lecturas y ausencia de datos tras cambio de identidad, así como liquidación contable. Toda la transacción se revierte al finalizar. No cambia API de Supabase, bases compartidas, proveedor, App.js ni APK; no prueba firma real, red nativa ni operación oficial. Pendiente resultado CI.
