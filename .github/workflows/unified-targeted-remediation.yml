@@ -24,12 +24,12 @@ jobs:
           cp package-lock.json "$RUNNER_TEMP/targeted/original-lock.json"
           node --test tests/financial/unified-lab-stage.test.cjs
           node scripts/stage-unified-lab.cjs --disposable-checkout
-          npm view image-size@2.0.3 version --registry=https://registry.npmjs.org
+          npm view metro@0.83.8 version --registry=https://registry.npmjs.org
           npm view postcss@8.5.23 version --registry=https://registry.npmjs.org
       - name: Resolve only the two vulnerable dependencies
         run: |
           set -euo pipefail
-          npm pkg set 'overrides.metro.image-size=2.0.3' 'overrides.@expo/metro-config.postcss=8.5.23'
+          npm pkg set 'overrides.metro=0.83.8' 'overrides.@expo/metro-config.postcss=8.5.23'
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org
           cp package.json "$RUNNER_TEMP/targeted/candidate-package.json"
           cp package-lock.json "$RUNNER_TEMP/targeted/candidate-lock.json"
@@ -40,7 +40,7 @@ jobs:
           console.log(JSON.stringify(changes,null,2));
           fs.writeFileSync(p+'changes.json',JSON.stringify(changes,null,2));
           for(const k of Object.keys(a.packages[''].dependencies))if(a.packages['node_modules/'+k]?.version!==b.packages['node_modules/'+k]?.version)throw Error('DIRECT_DEPENDENCY_CHANGED: '+k);
-          for(const x of changes)if(!/(^|\/)node_modules\/(image-size|postcss|picocolors|nanoid|source-map-js|queue)(\/|$)/.test(x.path))throw Error('UNRELATED_CHANGE: '+x.path);
+          for(const x of changes)if(!/(^|\/)node_modules\/(metro(?:-[a-z-]+)?|image-size|postcss|picocolors|nanoid|source-map-js|queue)(\/|$)/.test(x.path))throw Error('UNRELATED_CHANGE: '+x.path);
           NODE
       - name: Audit exact candidate and block remaining high severity findings
         run: |
