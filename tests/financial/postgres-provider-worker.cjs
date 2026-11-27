@@ -22,6 +22,7 @@ function store(){
  return {
   claim(){const r=sql('SELECT row_to_json(t) FROM '+schema+'.claim_dispatch(30) t','dispatch');if(!r)return null;const x=JSON.parse(r);return {intent:{mode:'sandbox',orderId:x.order_id,reference:x.reference,kind:x.kind,currency:x.currency,amountMinor:Number(x.amount_minor)},token:x.token,attempt:Number(x.attempts)};},
   checkLease(ref,token){return sql('SELECT '+schema+'.check_dispatch_lease('+lit(ref)+','+lit(token)+'::uuid)','dispatch')==='t';},
+  checkSubmission(ref,token){return sql('SELECT '+schema+'.check_dispatch_submission('+lit(ref)+','+lit(token)+'::uuid)','dispatch')==='t';},
   ack(ref,token){sql('SELECT '+schema+'.acknowledge_dispatch('+lit(ref)+','+lit(token)+'::uuid)','dispatch');},
   record(e){return sql('SELECT '+schema+'.record_verified_event('+[e.provider,e.eventId,e.reference,e.outcome,e.currency].map(lit).join(',')+','+e.amountMinor+')','event');}
  };
@@ -235,6 +236,32 @@ async function main(){
  assert.equal(sql('SELECT sum(payable) FROM '+schema+'.journal WHERE order_id IN ('+lit(order)+'::uuid,'+lit(refund)+'::uuid)'),'0');
  assert.equal(sql('SELECT sum(revenue) FROM '+schema+'.journal WHERE order_id IN ('+lit(order)+'::uuid,'+lit(refund)+'::uuid)'),'-150');
  await assertConcurrentQuarantine();
+ // A locally accepted quote can expire before the first provider submission.
+ // Use the real database clock, preserving accepted_at < expires_at.
+ const overdue=openOrder('workerExpiredFunding');
+ const overdueRef=overdue+'-funding';
+ const expireQuote=order=>sql("UPDATE "+schema+".quotes q SET expires_at=z.accepted_at+interval '1 millisecond' FROM "+schema+".reservations z WHERE q.id=z.quote_id AND z.order_id="+lit(order)+"::uuid");
+ expireQuote(overdue);
+ for(let i=0;i<3;i++){
+  assert.equal((await worker.tick()).status,'held');
+  assert.equal((await p.lookup(overdueRef)).status,'absent');
+  assert.equal(state(overdue),'funding_pending');
+  sql("UPDATE "+schema+".dispatch SET lease_until=clock_timestamp()-interval '1 second' WHERE reference="+lit(overdueRef));
+ }
+ assert.equal((await worker.tick()).status,'idle');
+ assert.equal(sql('SELECT count(*) FROM '+schema+'.journal WHERE order_id='+lit(overdue)+'::uuid'),'0');
+ // An accepted remote operation must still be recoverable after expiry.
+ const recovered=openOrder('workerAcceptedBeforeExpiry');
+ const recoveredRef=recovered+'-funding';
+ const recoveredIntent={mode:'sandbox',reference:recoveredRef,orderId:recovered,kind:'funding',currency:'USD',amountMinor:10150};
+ await p.submit(recoveredIntent);
+ expireQuote(recovered);
+ assert.equal((await worker.tick()).status,'transport_acknowledged');
+ assert.equal(p.submissions().filter(i=>i.reference===recoveredRef).length,1);
+ assert.equal(state(recovered),'funding_pending');
+ const recoveredEvent=p.event(recoveredRef,'funding_confirmed','worker-expiry-recovered');
+ assert.equal(await worker.receive(recoveredEvent.raw,recoveredEvent.signature),'funded');
+ console.log('Expired first funding held; previously accepted funding recovered without resubmission');
  console.log('Sandbox worker: signed funding, payout, refund and PostgreSQL/provider restart recovery verified');
  }finally{if(p)p.close();rmSync(dir,{recursive:true,force:true});}
 }

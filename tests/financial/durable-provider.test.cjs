@@ -24,6 +24,7 @@ test('worker recovers both payout response losses across provider restarts', asy
  const store={
   claim:()=>({intent:payout,token:'test-token',attempt:1}),
   checkLease:()=>true,
+  checkSubmission:()=>true,
   ack:()=>{acks++;},
   record:()=>{records++;}
  };

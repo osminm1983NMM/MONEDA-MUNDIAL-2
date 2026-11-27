@@ -6,7 +6,7 @@ function fixture(){
  const provider=createMockProvider({secret:'synthetic-worker-test-secret-only-12345'});
  const intent={mode:'sandbox',orderId:'order1',reference:'order1-funding',kind:'funding',currency:'USD',amountMinor:10150};
  let acks=0,records=0;
- const store={claim:()=>({intent,token:'test-token',attempt:1}),checkLease:()=>true,ack:()=>{acks++},record:()=>{records++;return 'funded'}};
+ const store={claim:()=>({intent,token:'test-token',attempt:1}),checkLease:()=>true,checkSubmission:()=>true,ack:()=>{acks++},record:()=>{records++;return 'funded'}};
  return {provider,intent,store,worker:()=>createWorker({environment:'sandbox',provider,store}),counts:()=>({acks,records,submissions:provider.submissions().length})};
 }
 test('unknown provider lookup never sends',async()=>{const f=fixture();f.provider.lookup=async()=>({status:'unknown'});a.equal((await f.worker().tick()).status,'provider_uncertain');a.deepEqual(f.counts(),{acks:0,records:0,submissions:0});});
@@ -89,4 +89,18 @@ test('contradictory absent lookup fails closed before lease check, submit or ack
   a.equal(checks,0);
   a.deepEqual(f.counts(),{acks:0,records:0,submissions:0});
  }
+});
+
+test('new submission requires explicit boolean authorization; accepted recovery does not re-submit',async()=>{
+ for(const result of [false,null,undefined,1,'true']){
+  const f=fixture();f.store.checkSubmission=()=>result;
+  a.equal((await f.worker().tick()).status,'held');
+  a.deepEqual(f.counts(),{acks:0,records:0,submissions:0});
+ }
+ const f=fixture();await f.provider.submit(f.intent);
+ f.store.checkSubmission=()=>a.fail('accepted recovery is not a new submission');
+ a.equal((await f.worker().tick()).status,'transport_acknowledged');
+ a.deepEqual(f.counts(),{acks:1,records:0,submissions:1});
+ delete f.store.checkSubmission;
+ a.throws(()=>f.worker(),/SANDBOX_ONLY/);
 });

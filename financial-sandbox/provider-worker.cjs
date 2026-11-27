@@ -7,7 +7,7 @@ const types=new Set(['funding','payout','refund']);
 function intentOk(i){return i&&i.mode==='sandbox'&&id(i.orderId)&&id(i.reference)&&types.has(i.kind)&&i.reference===i.orderId+'-'+i.kind&&i.currency===(i.kind==='payout'?'HNL':'USD')&&Number.isSafeInteger(i.amountMinor)&&i.amountMinor>0;}
 function same(a,b){return intentOk(a)&&intentOk(b)&&['orderId','reference','kind','currency','amountMinor'].every(k=>a[k]===b[k]);}
 function createWorker({environment,store,provider}){
- if(environment!=='sandbox'||provider?.mode!=='sandbox'||provider.id!=='mock-remittance'||!['claim','checkLease','ack','record'].every(k=>typeof store?.[k]==='function')||!['lookup','submit','verifyEvent'].every(k=>typeof provider[k]==='function'))fail('SANDBOX_ONLY');
+ if(environment!=='sandbox'||provider?.mode!=='sandbox'||provider.id!=='mock-remittance'||!['claim','checkLease','checkSubmission','ack','record'].every(k=>typeof store?.[k]==='function')||!['lookup','submit','verifyEvent'].every(k=>typeof provider[k]==='function'))fail('SANDBOX_ONLY');
  return {
   async tick(){
    const lease=await store.claim();if(!lease)return {status:'idle'};
@@ -29,6 +29,9 @@ function createWorker({environment,store,provider}){
    if(needsConfirmation&&(intent.kind!=='payout'||typeof provider.confirmPayout!=='function'))fail('INVALID_LOOKUP');
    if((await store.checkLease(intent.reference,token))!==true)return {status:'held'};
    if(status==='absent'){
+    // A new submission requires its own authorization. Recovery of an already
+    // accepted reference deliberately does not reapply a quote-expiry rule.
+    if((await store.checkSubmission(intent.reference,token))!==true)return {status:'held'};
     const response=await provider.submit(intent);
     if(response?.reference!==intent.reference)fail('AMBIGUOUS_ACK');
     needsConfirmation=response.status==='awaiting_confirmation';
