@@ -28,7 +28,7 @@ test('worker and local inbox accept 100-character event IDs and reject longer ID
  const provider=createMockProvider({secret:'synthetic-secret-for-event-limits-only',clock:f.clock});
  const stored=[];
  const worker=createWorker({environment:'sandbox',provider,store:{
-  claim(){},checkLease(){},ack(){},record(event){stored.push(event);}
+  claim(){},checkLease(){},checkSubmission(){return false;},ack(){},record(event){stored.push(event);}
  }});
  await provider.submit(intent);
  const valid='x'.repeat(100);
