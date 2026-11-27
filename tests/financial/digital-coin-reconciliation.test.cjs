@@ -55,3 +55,42 @@ test('incomplete or different cuts, duplicate owners and invalid amounts fail cl
  const bad=reports();bad.reserve.eligibleMinor=2000;a.throws(()=>run(bad),/INVALID_AMOUNT/);
  a.throws(()=>run(reports(),{environment:'production'}),/SANDBOX_ONLY/);
 }));
+
+
+test('gated ledger requires a clean current cut, rejects stale evidence, preserves mode across restart',()=>{
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-asset-gate-')),options={environment:'sandbox',path:join(dir,'ledger.sqlite')};
+ let ledger=open({...options,initialize:true,seed,requireReconciliation:true});
+ try{
+  const initial=reports();
+  initial.digital.balances=[{owner:'alice',totalMinor:'1000'},{owner:'treasury',totalMinor:'1000'}];
+  initial.coin.balances=[{owner:'treasury',totalMinor:'1000'}];
+  const proof={cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:initial};
+  a.equal(ledger.reconciliationRequired(),true);
+  a.throws(()=>ledger.appendBatch(events),/RECONCILIATION_REQUIRED/);
+  const bad=structuredClone(proof);bad.reports.reserve.eligibleMinor='1999';
+  a.throws(()=>ledger.appendBatch(events,bad),/RECONCILIATION_DISCREPANCY/);
+  const incomplete=structuredClone(proof);incomplete.reports.coin.complete=false;
+  a.throws(()=>ledger.appendBatch(events,incomplete),/INCOMPLETE_OR_MISMATCHED_REPORT/);
+  a.deepEqual(ledger.counts(),{events:0});
+  const other=open(options);
+  try{
+   a.equal(other.appendBatch(events,proof).status,'applied');
+   const next={...events[0],eventId:'q2',quoteId:'q2',at:20,expiresAt:100};
+   a.throws(()=>ledger.appendBatch([next],proof),/STALE_RECONCILIATION/);
+   a.equal(ledger.appendBatch(events).status,'duplicate');
+   ledger.close();ledger=open(options);a.equal(ledger.reconciliationRequired(),true);
+   a.throws(()=>open({...options,requireReconciliation:false}),/INVALID_GATE_CONFIGURATION/);
+   a.throws(()=>ledger.appendBatch([next]),/RECONCILIATION_REQUIRED/);
+   const current={cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:reports()};
+   a.equal(ledger.appendBatch([next],current).status,'applied');
+   a.deepEqual(ledger.counts(),{events:4});
+   const copy=join(dir,'copy.sqlite');ledger.backup(copy);
+   const restored=open({...options,path:copy});
+   try{a.equal(restored.reconciliationRequired(),true);a.deepEqual(restored.counts(),{events:4});}
+   finally{restored.close();}
+  }finally{other.close();}
+ }finally{ledger.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+test('legacy fixture remains explicitly ungated for isolated tests',()=>fixture(({ledger})=>{
+ a.equal(ledger.reconciliationRequired(),false);
+}));
