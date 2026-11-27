@@ -60,3 +60,39 @@ test('deadline inventory from persisted history is reproducible after reopening 
   lab.appendBatch(full.slice(4));a.equal(lab.deadlineReview({plans,asOf:300,warningMs:10}).items[2].status,'completed_late');
  }finally{lab.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('immutable deadline plans survive reopening; conflicts cannot hide historical lateness',()=>{
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-consumer-plan-')),options={environment:'sandbox',path:join(dir,'cases.sqlite'),immutablePlans:true};
+ let lab=open({...options,initialize:true});
+ try{
+  lab.appendBatch([received]);
+  a.deepEqual(lab.recordDeadlinePlans([plans[0]]),{status:'applied',added:1});
+  a.deepEqual(lab.recordDeadlinePlans([plans[0]]),{status:'duplicate',added:0});
+  a.throws(()=>lab.recordDeadlinePlans([plans[1],{...plans[0],dueAt:999}]),/DEADLINE_PLAN_CONFLICT/);
+  a.deepEqual(lab.audit().deadlinePlans,[plans[0]]);
+  a.throws(()=>lab.deadlineReview({plans:[],asOf:160,warningMs:10}),/DEADLINE_OVERRIDE_FORBIDDEN/);
+  a.equal(lab.deadlineReview({asOf:160,warningMs:10}).items[0].status,'overdue');
+  lab.appendBatch(full.slice(1));
+  lab.recordDeadlinePlans(plans.slice(1));
+  lab.close();
+  a.throws(()=>open({environment:'sandbox',path:options.path}),/INVALID_LAB/);
+  lab=open(options);
+  a.deepEqual(lab.deadlineReview({asOf:300,warningMs:10}).items.map(i=>i.status),['completed_late','completed_on_time','completed_late']);
+ }finally{lab.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+test('immutable plan schema rejects replacement and deletion, and v1 cannot record plans',()=>{
+ const {DatabaseSync}=require('node:sqlite');
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-consumer-plan-db-')),options={environment:'sandbox',path:join(dir,'cases.sqlite'),immutablePlans:true};
+ const lab=open({...options,initialize:true});
+ try{
+  lab.appendBatch([received]);lab.recordDeadlinePlans([plans[0]]);
+  a.throws(()=>lab.recordDeadlinePlans([{...plans[0],caseId:'unknown'}]),/INVALID_PLAN_BASIS/);
+  const raw=new DatabaseSync(options.path);
+  try{
+   a.throws(()=>raw.exec("UPDATE deadline_plans SET payload='{}'"),/APPEND_ONLY/);
+   a.throws(()=>raw.exec("DELETE FROM deadline_plans"),/APPEND_ONLY/);
+  }finally{raw.close();}
+  const old=open({environment:'sandbox',path:join(dir,'old.sqlite'),initialize:true});
+  try{a.throws(()=>old.recordDeadlinePlans(plans),/IMMUTABLE_PLANS_REQUIRED/);}finally{old.close();}
+ }finally{lab.close();fs.rmSync(dir,{recursive:true,force:true});}
+});

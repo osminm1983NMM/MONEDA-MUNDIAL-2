@@ -71,16 +71,17 @@ function projectConsumerCases(events){
  }
  return [...cases.values()];
 }
-function openConsumerCaseLab({environment,path,initialize=false}={}){
+function openConsumerCaseLab({environment,path,initialize=false,immutablePlans=false}={}){
  if(environment!=='sandbox')fail('SANDBOX_ONLY');
- if(typeof path!=='string'||!path.endsWith('.sqlite')||typeof initialize!=='boolean')fail('INVALID_LAB_PATH');
+ if(typeof path!=='string'||!path.endsWith('.sqlite')||typeof initialize!=='boolean'||typeof immutablePlans!=='boolean')fail('INVALID_LAB_PATH');
  if(initialize){const fd=openSync(path,'wx',0o600);closeSync(fd);}
  else if(!existsSync(path)||!lstatSync(path).isFile())fail('LAB_MISSING');
  const db=new DatabaseSync(path);
  try{
   db.exec('PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;');
-  if(initialize)db.exec("BEGIN IMMEDIATE; CREATE TABLE metadata(mode TEXT PRIMARY KEY CHECK(mode='consumer-case-fixture-v1')) STRICT; INSERT INTO metadata VALUES('consumer-case-fixture-v1'); CREATE TABLE events(sequence INTEGER PRIMARY KEY,event_id TEXT NOT NULL UNIQUE,payload TEXT NOT NULL) STRICT; CREATE TRIGGER meta_no_update BEFORE UPDATE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER meta_no_delete BEFORE DELETE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER event_no_update BEFORE UPDATE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER event_no_delete BEFORE DELETE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; COMMIT;");
-  if(db.prepare('SELECT mode FROM metadata').get()?.mode!=='consumer-case-fixture-v1')fail('INVALID_LAB');
+  const mode=immutablePlans?'consumer-case-fixture-v2':'consumer-case-fixture-v1';
+  if(initialize)db.exec(("BEGIN IMMEDIATE; CREATE TABLE metadata(mode TEXT PRIMARY KEY CHECK(mode='consumer-case-fixture-v1')) STRICT; INSERT INTO metadata VALUES('consumer-case-fixture-v1'); CREATE TABLE events(sequence INTEGER PRIMARY KEY,event_id TEXT NOT NULL UNIQUE,payload TEXT NOT NULL) STRICT; CREATE TRIGGER meta_no_update BEFORE UPDATE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER meta_no_delete BEFORE DELETE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER event_no_update BEFORE UPDATE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER event_no_delete BEFORE DELETE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END;"+(immutablePlans?" CREATE TABLE deadline_plans(sequence INTEGER PRIMARY KEY,case_id TEXT NOT NULL,stage TEXT NOT NULL,payload TEXT NOT NULL,UNIQUE(case_id,stage)) STRICT; CREATE TRIGGER plan_no_update BEFORE UPDATE ON deadline_plans BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER plan_no_delete BEFORE DELETE ON deadline_plans BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END;":"")+" COMMIT;").replaceAll('consumer-case-fixture-v1',mode));
+  if(db.prepare('SELECT mode FROM metadata').get()?.mode!==mode)fail('INVALID_LAB');
  }catch(e){db.close();throw e;}
  const tx=(fn,write=true)=>{
   db.exec(write?'BEGIN IMMEDIATE':'BEGIN');
@@ -95,7 +96,39 @@ function openConsumerCaseLab({environment,path,initialize=false}={}){
    return e;
   });
  }
+ function storedPlans(){
+  if(!immutablePlans)fail('IMMUTABLE_PLANS_REQUIRED');
+  const rows=db.prepare('SELECT sequence,case_id,stage,payload FROM deadline_plans ORDER BY sequence LIMIT 30001').all();
+  if(rows.length>30000)fail('INVALID_PLANS');
+  return rows.map((r,i)=>{
+   const p=JSON.parse(r.payload);
+   if(r.sequence!==i+1||p.caseId!==r.case_id||p.stage!==r.stage||ordered(p)!==r.payload)fail('LAB_CORRUPT');
+   return p;
+  });
+ }
+ const review=(events,plans,asOf,warningMs)=>require('./consumer-case-deadlines.cjs').reviewCaseDeadlines({environment,events,plans,asOf,warningMs});
  return {
+  recordDeadlinePlans(plans){
+   if(!immutablePlans)fail('IMMUTABLE_PLANS_REQUIRED');
+   if(!Array.isArray(plans)||plans.length<1||plans.length>100)fail('INVALID_BATCH');
+   return tx(()=>{
+    const events=history(),prior=storedPlans(),all=[...prior],added=[];
+    const key=p=>JSON.stringify([p.caseId,p.stage]);
+    const known=new Map(prior.map(p=>[key(p),ordered(p)]));
+    // Validate before deduplication; malformed duplicate inputs never bypass checks.
+    const asOf=events.reduce((m,e)=>Math.max(m,e.at),0);
+    for(const p of plans){
+     review(events,[p],asOf,0);
+     const k=key(p),fp=ordered(p);
+     if(known.has(k)){if(known.get(k)!==fp)fail('DEADLINE_PLAN_CONFLICT');continue;}
+     known.set(k,fp);all.push(p);added.push(p);
+    }
+    review(events,all,asOf,0);
+    const insert=db.prepare('INSERT INTO deadline_plans(case_id,stage,payload) VALUES(?,?,?)');
+    for(const p of added)insert.run(p.caseId,p.stage,ordered(p));
+    return {status:added.length?'applied':'duplicate',added:added.length};
+   });
+  },
   appendBatch(events){
    if(!Array.isArray(events)||events.length<1||events.length>100)fail('INVALID_BATCH');
    return tx(()=>{
@@ -119,8 +152,11 @@ function openConsumerCaseLab({environment,path,initialize=false}={}){
     caseId:c.caseId,caseType:c.caseType,receivedAt:c.receivedAt,lastAt:c.lastAt,state:c.state,locale:c.locale
    })),false);
   },
-  deadlineReview({plans,asOf,warningMs}={}){return tx(()=>require('./consumer-case-deadlines.cjs').reviewCaseDeadlines({environment,events:history(),plans,asOf,warningMs}),false);},
-  audit(){return tx(()=>{const events=history();return {events,cases:projectConsumerCases(events)};},false);},
+  deadlineReview({plans,asOf,warningMs}={}){
+   if(immutablePlans&&plans!==undefined)fail('DEADLINE_OVERRIDE_FORBIDDEN');
+   return tx(()=>review(history(),immutablePlans?storedPlans():plans,asOf,warningMs),false);
+  },
+  audit(){return tx(()=>{const events=history();return {events,cases:projectConsumerCases(events),...(immutablePlans?{deadlinePlans:storedPlans()}: {})};},false);},
   close(){db.close();}
  };
 }
