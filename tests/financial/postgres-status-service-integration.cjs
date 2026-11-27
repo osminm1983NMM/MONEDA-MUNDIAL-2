@@ -6,6 +6,8 @@ const {createInterface}=require('node:readline');
 const assert=require('node:assert/strict');
 const {createSupabaseOrderStatus}=require('../../financial-sandbox/supabase-order-status-auth.cjs');
 const {createOrderStatusHttp,route}=require('../../financial-sandbox/order-status-http.cjs');
+const {createOrderStatusClient}=require('../../financial-sandbox/order-status-client.cjs');
+const {presentStatus}=require('../../financial-sandbox/order-status-presentation.cjs');
 const container=process.env.LAB_CONTAINER;
 if(!/^[a-f0-9]{12,64}$/.test(container||''))throw Error('CI_LAB_REQUIRED');
 const owner='00000000-0000-4000-8000-000000000071',other='00000000-0000-4000-8000-000000000072';
@@ -68,6 +70,15 @@ async function main(){
   assert.match(r.body.acceptedAt,/Z$/);
   assert.equal((await read('other-token')).status,404);
   assert.equal((await read('invalid-token')).status,401);
+  const client=createOrderStatusClient({environment:'sandbox',sandboxOrigin:'https://sandbox.invalid',
+   fetchImpl:(url,init)=>handle(new Request(url,init))});
+  const result=await client.read({sessionToken:'owner-token',orderId});
+  assert.equal(result.ok,true);
+  const display=presentStatus(result.value,'es');
+  assert.equal(display.total,'101,50 USD');
+  assert.equal(display.destination,'2.500,00 HNL');
+  assert.equal(display.warning,'PRUEBA — SIN DINERO REAL');
+  assert.deepEqual(await client.read({sessionToken:'other-token',orderId}),{ok:false,code:'NOT_FOUND'});
   // Disable after identity resolution but before the actual status query.
   let revoked=false;
   const racing=createSupabaseOrderStatus({environment:'sandbox',authClient:{auth:{getUser:async()=>({data:{user:{id:owner,role:'authenticated',is_anonymous:false}},error:null})}},
