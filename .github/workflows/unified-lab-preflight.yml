@@ -16,9 +16,9 @@ jobs:
         with:
           node-version: '22'
       - run: node --test tests/financial/unified-lab-stage.test.cjs
-      - run: npm ci
-      - run: npx expo install --check
       - name: Stage isolated LAB in disposable checkout
         run: node scripts/stage-unified-lab.cjs --disposable-checkout
+      - run: npm ci
+      - run: npx expo install --check
       - name: Verify Android JavaScript bundle
         run: npx expo export --platform android --output-dir /tmp/mwd-unified-export
