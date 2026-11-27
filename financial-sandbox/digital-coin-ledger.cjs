@@ -112,12 +112,16 @@ function openDigitalCoinLedger({environment,path,initialize=false,seed,requireRe
     db.exec("CREATE TRIGGER metadata_no_update BEFORE UPDATE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER metadata_no_delete BEFORE DELETE ON metadata BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER events_no_update BEFORE UPDATE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER events_no_delete BEFORE DELETE ON events BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER metadata_no_replace BEFORE INSERT ON metadata WHEN EXISTS(SELECT 1 FROM metadata WHERE id=NEW.id) BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; CREATE TRIGGER events_no_replace BEFORE INSERT ON events WHEN EXISTS(SELECT 1 FROM events WHERE sequence=NEW.sequence OR event_id=NEW.event_id) BEGIN SELECT RAISE(ABORT,'APPEND_ONLY'); END; COMMIT;");
    }catch(e){db.exec('ROLLBACK');throw e;}
   }
+  db.exec('BEGIN');
   const row=db.prepare('SELECT mode,seed FROM metadata WHERE id=1').get();
   if(!validMode(row?.mode))fail('INVALID_LEDGER');
   mode=row.mode;
   base=JSON.parse(row.seed);
   if(!base||Object.keys(base).length!==3||!['capMinor','digitalEvents','coinEvents'].every(k=>Object.hasOwn(base,k)))fail('INVALID_SEED');
-  projectDigitalCoinSwaps({environment,...base,events:[]});
+  // Validate the complete committed history and all required receipts before
+  // exposing a recovered ledger. Closing on error rolls back the read transaction.
+  inspect(db);
+  db.exec('COMMIT');
  }catch(e){db.close();throw e;}
  const project=events=>projectDigitalCoinSwaps({environment,...base,events});
  function tx(fn,write=true){
@@ -148,6 +152,8 @@ function openDigitalCoinLedger({environment,path,initialize=false,seed,requireRe
     // The mode is durable and cannot be disabled on reopen. Exact replays
     // have no new financial effect. New events require a fresh matching cut.
     let receiptEvidence;
+    // An idempotent replay must not report success over damaged receipt history.
+    if(audited(mode)&&!added.length)inspect(db);
     if(gated(mode)&&added.length){
      if(!evidence||typeof evidence.internalSha256!=='string')fail('RECONCILIATION_REQUIRED');
      const manifest=inspect(db);
@@ -173,7 +179,7 @@ function openDigitalCoinLedger({environment,path,initialize=false,seed,requireRe
    const receipts=db.prepare('SELECT start_sequence,end_sequence FROM reconciliation_receipts ORDER BY start_sequence').all();
    return {manifest,receipts:receipts.map(r=>({startSequence:r.start_sequence,endSequence:r.end_sequence}))};
   },false);},
-  get(){return tx(()=>project(history()),false);},
+  get(){return tx(()=>{if(audited(mode))inspect(db);return project(history());},false);},
   counts(){return tx(()=>({events:history().length}),false);},
   manifest(){return tx(()=>inspect(db),false);},
   reconciliationSnapshot(){return tx(()=>({manifest:inspect(db),projection:project(history())}),false);},

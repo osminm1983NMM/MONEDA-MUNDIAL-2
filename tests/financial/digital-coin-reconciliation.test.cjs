@@ -204,3 +204,25 @@ test('new audited ledger rejects replacement of committed reconciliation receipt
   a.deepEqual(ledger.auditReconciliation(),before);
  }finally{ledger.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+
+test('audited recovery and duplicate replay refuse missing reconciliation evidence',()=>{
+ const {DatabaseSync}=require('node:sqlite');
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-receipt-recovery-')),options={environment:'sandbox',path:join(dir,'ledger.sqlite')};
+ const ledger=open({...options,initialize:true,seed,requireReconciliation:true});
+ try{
+  const initial=reports();
+  initial.digital.balances=[{owner:'alice',totalMinor:'1000'},{owner:'treasury',totalMinor:'1000'}];
+  initial.coin.balances=[{owner:'treasury',totalMinor:'1000'}];
+  ledger.appendBatch(events,{cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:initial});
+  const copy=join(dir,'copy.sqlite');ledger.backup(copy);
+  const db=new DatabaseSync(copy);
+  try{db.exec('DROP TRIGGER receipts_no_delete; DELETE FROM reconciliation_receipts');}finally{db.close();}
+  a.throws(()=>open({...options,path:copy}),/RECEIPT_COVERAGE_MISMATCH/);
+  const active=new DatabaseSync(options.path);
+  try{active.exec('DROP TRIGGER receipts_no_delete; DELETE FROM reconciliation_receipts');}finally{active.close();}
+  a.throws(()=>ledger.get(),/RECEIPT_COVERAGE_MISMATCH/);
+  a.throws(()=>ledger.appendBatch(events),/RECEIPT_COVERAGE_MISMATCH/);
+  a.deepEqual(ledger.counts(),{events:3});
+ }finally{ledger.close();fs.rmSync(dir,{recursive:true,force:true});}
+});

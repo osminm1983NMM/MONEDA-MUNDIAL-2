@@ -49,3 +49,12 @@ test('never overwrite source or existing backup; reject wrong manifest and produ
  a.throws(()=>verify({environment:'production',path:f.copy,expected}),/SANDBOX_ONLY/);
  a.deepEqual(verify({environment:'sandbox',path:f.copy,expected}),expected);
 }));
+
+
+test('reopening a copy with an invalid event sequence fails before returning a ledger',()=>fixture(f=>{
+ f.ledger.appendBatch(events);f.ledger.backup(f.copy);
+ const db=new DatabaseSync(f.copy);
+ try{db.exec('DROP TRIGGER events_no_delete; DELETE FROM events WHERE sequence=2');}finally{db.close();}
+ a.throws(()=>open({environment:'sandbox',path:f.copy}),/LEDGER_CORRUPT/);
+ a.deepEqual(f.ledger.counts(),{events:3});
+}));
