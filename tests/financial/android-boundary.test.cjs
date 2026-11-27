@@ -1,6 +1,7 @@
 'use strict';
 // This sandbox-only gate pins the root mobile sources/config/dependency lock to
-// the accepted automated Android build. A deliberate Android update requires
+// the reviewed Android build 40fdbaa (APK build success; emulator gate separate).
+// A deliberate Android update requires
 // a reviewed new baseline, not silently changing these expected blob IDs.
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
@@ -10,7 +11,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const root=path.resolve(__dirname,'../..');
 const expected={
-  "App.js": "96bcabfce5294253cc8a1a4be49c4e86e80042f3",
+  "App.js": "dee1c353a588702af312001645ab779048b204f7",
   "PartnerRegistryScreen.js": "30ced7d02450f08c26512fa06d630e0db6a070c0",
   "RemittanceQuoteScreen.js": "3a80aea01b5c2987913bca4d7d93748e37d7d0bc",
   "app.json": "ca7d5498f8e7831f4553074f6a8683d57881fb9c",
