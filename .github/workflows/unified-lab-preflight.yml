@@ -1,0 +1,24 @@
+name: Unified LAB preflight
+on:
+  push:
+    branches: [dev/unified-lab-20261127]
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/financial/unified-lab-stage.test.cjs
+      - run: npm ci
+      - run: npx expo install --check
+      - name: Stage isolated LAB in disposable checkout
+        run: node scripts/stage-unified-lab.cjs --disposable-checkout
+      - name: Verify Android JavaScript bundle
+        run: npx expo export --platform android --output-dir /tmp/mwd-unified-export
