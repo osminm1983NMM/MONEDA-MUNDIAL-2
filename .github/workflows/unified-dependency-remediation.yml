@@ -1,0 +1,65 @@
+name: Unified LAB dependency remediation trial
+on:
+  push:
+    branches: [qa/unified-dependency-audit-20261127]
+    paths: ['.github/workflows/unified-dependency-remediation.yml']
+permissions:
+  contents: read
+jobs:
+  trial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test non-forced security updates in disposable checkout
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/remediation"
+          cp package-lock.json "$RUNNER_TEMP/remediation/original-lock.json"
+          cp package.json "$RUNNER_TEMP/remediation/original-package.json"
+          rc=0
+          npm audit fix --package-lock-only --ignore-scripts --omit=dev --registry=https://registry.npmjs.org --json > "$RUNNER_TEMP/remediation/fix.json" || rc=$?
+          echo "npm audit fix exit: $rc"
+          cp package-lock.json "$RUNNER_TEMP/remediation/candidate-lock.json"
+          cp package.json "$RUNNER_TEMP/remediation/candidate-package.json"
+          cmp package.json "$RUNNER_TEMP/remediation/original-package.json"
+          node <<'NODE'
+          const fs=require('node:fs'),p=process.env.RUNNER_TEMP+'/remediation/';
+          const a=JSON.parse(fs.readFileSync(p+'original-lock.json')), b=JSON.parse(fs.readFileSync(p+'candidate-lock.json'));
+          const direct=Object.keys(a.packages[''].dependencies);
+          const changes=[...new Set([...Object.keys(a.packages),...Object.keys(b.packages)])].filter(k=>JSON.stringify(a.packages[k])!==JSON.stringify(b.packages[k])).map(k=>({path:k,before:a.packages[k]?.version,after:b.packages[k]?.version}));
+          fs.writeFileSync(p+'changes.json',JSON.stringify(changes,null,2));
+          console.log(JSON.stringify(changes,null,2));
+          for(const name of direct)if(a.packages['node_modules/'+name]?.version!==b.packages['node_modules/'+name]?.version)throw Error('DIRECT_DEPENDENCY_CHANGED: '+name);
+          NODE
+      - name: Require no high or critical findings after trial
+        run: |
+          set -euo pipefail
+          rc=0
+          npm audit --package-lock-only --omit=dev --audit-level=high --registry=https://registry.npmjs.org --json > "$RUNNER_TEMP/remediation/after-audit.json" || rc=$?
+          node -e 'const r=require(process.env.RUNNER_TEMP+"/remediation/after-audit.json");if(r.error||!r.metadata?.vulnerabilities)throw Error("AUDIT_UNAVAILABLE"); console.log(r.metadata.vulnerabilities);if(r.metadata.vulnerabilities.high||r.metadata.vulnerabilities.critical)process.exitCode=1'
+          test "$rc" = 0
+      - name: Install exact candidate and validate Android export
+        run: |
+          set -euo pipefail
+          # Staging requires a clean checkout; stage in a separate git-clean workspace
+          git show HEAD:package-lock.json > package-lock.json
+          node --test tests/financial/unified-lab-stage.test.cjs
+          node scripts/stage-unified-lab.cjs --disposable-checkout
+          cp "$RUNNER_TEMP/remediation/candidate-lock.json" package-lock.json
+          npm ci --no-audit --no-fund
+          npx expo install --check
+          npx expo export --platform android --output-dir "$RUNNER_TEMP/export"
+          cmp package-lock.json "$RUNNER_TEMP/remediation/candidate-lock.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-remediation-trial
+          path: ${{ runner.temp }}/remediation/
+          if-no-files-found: error
+          retention-days: 7
