@@ -1,0 +1,40 @@
+BEGIN;
+SET LOCAL search_path=mwd_financial_hosted,pg_catalog,pg_temp;
+INSERT INTO auth.users(id,role,is_anonymous) VALUES ('00000000-0000-4000-8000-000000000071','authenticated',false),('00000000-0000-4000-8000-000000000072','authenticated',false);
+INSERT INTO status_bindings(user_id,active) VALUES ('00000000-0000-4000-8000-000000000071',true),('00000000-0000-4000-8000-000000000072',true);
+DO $$
+DECLARE a uuid:='00000000-0000-4000-8000-000000000071'; b uuid:='00000000-0000-4000-8000-000000000072'; x uuid:='00000000-0000-4000-8000-000000000081'; y uuid:='00000000-0000-4000-8000-000000000082';
+BEGIN
+ IF hosted_register_synthetic_order(x,a,10000,150,250000)<>'created' THEN RAISE EXCEPTION 'CREATE_FAILED'; END IF;
+ IF hosted_register_synthetic_order(x,a,10000,150,250000)<>'duplicate' THEN RAISE EXCEPTION 'RETRY_FAILED'; END IF;
+ BEGIN PERFORM hosted_register_synthetic_order(x,b,10000,150,250000); RAISE EXCEPTION 'EXPECTED_REJECTION'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'ORDER_OWNER_CONFLICT' THEN RAISE; END IF; END;
+ PERFORM hosted_register_synthetic_order(y,b,10000,150,250000);
+ BEGIN UPDATE order_status_projection SET status='paid' WHERE order_id=x; RAISE EXCEPTION 'EXPECTED_REJECTION'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'PROJECTION_LEDGER_MISMATCH' THEN RAISE; END IF; END;
+ BEGIN UPDATE order_status_projection SET user_id=b WHERE order_id=x; RAISE EXCEPTION 'EXPECTED_REJECTION'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'PROJECTION_IDENTITY_IMMUTABLE' THEN RAISE; END IF; END;
+ PERFORM multi_apply(x::text,'hosted-f1','funding_confirmed',10150,NULL,NULL);
+ IF (SELECT status FROM order_status_projection WHERE order_id=x)<>'funded' THEN RAISE EXCEPTION 'FUNDING_PROJECTION'; END IF;
+ PERFORM multi_apply(x::text,'hosted-fx1','fx_acquired',10000,250000,40);
+ IF (SELECT status FROM order_status_projection WHERE order_id=x)<>'funded' THEN RAISE EXCEPTION 'FX_PROJECTION'; END IF;
+ BEGIN PERFORM multi_apply(x::text,'hosted-invalid','payout_confirmed',NULL,250001,NULL); RAISE EXCEPTION 'EXPECTED_REJECTION'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'AMOUNT_MISMATCH' THEN RAISE; END IF; END;
+ IF (SELECT status FROM order_status_projection WHERE order_id=x)<>'funded' OR EXISTS(SELECT 1 FROM multi_events WHERE id='hosted-invalid') THEN RAISE EXCEPTION 'ATOMICITY_FAILURE'; END IF;
+ PERFORM multi_apply(x::text,'hosted-p1','payout_confirmed',NULL,250000,NULL);
+ IF (SELECT status FROM order_status_projection WHERE order_id=x)<>'paid' THEN RAISE EXCEPTION 'PAYOUT_PROJECTION'; END IF;
+ PERFORM multi_apply(y::text,'hosted-f2','funding_confirmed',10150,NULL,NULL);
+ PERFORM multi_apply(y::text,'hosted-fx2','fx_acquired',10000,250000,40);
+ PERFORM multi_apply(y::text,'hosted-fail2','payout_failed',NULL,NULL,NULL);
+ IF (SELECT status FROM order_status_projection WHERE order_id=y)<>'payout_failed' THEN RAISE EXCEPTION 'FAILURE_PROJECTION'; END IF;
+ PERFORM multi_apply(y::text,'hosted-unwind2','fx_unwound',10000,250000,20);
+ PERFORM multi_apply(y::text,'hosted-refund2','refund_confirmed',10150,NULL,NULL);
+ IF (SELECT status FROM order_status_projection WHERE order_id=y)<>'refunded' THEN RAISE EXCEPTION 'REFUND_PROJECTION'; END IF;
+ IF (SELECT count(*) FROM multi_journal)<>11 THEN RAISE EXCEPTION 'JOURNAL_COUNT'; END IF;
+END $$;
+SET LOCAL ROLE mwd_hosted_status_reader;
+DO $$ BEGIN
+ PERFORM set_config('mwd.verified_actor','00000000-0000-4000-8000-000000000071',true);
+ IF (SELECT count(*) FROM read_bound_order_status('00000000-0000-4000-8000-000000000071','00000000-0000-4000-8000-000000000081') WHERE status='paid' AND total_minor=10150)<>1 THEN RAISE EXCEPTION 'OWNER_READ_FAILED'; END IF;
+ IF EXISTS(SELECT 1 FROM read_bound_order_status('00000000-0000-4000-8000-000000000072','00000000-0000-4000-8000-000000000082')) THEN RAISE EXCEPTION 'CROSS_USER_EXPOSED'; END IF;
+ BEGIN PERFORM multi_apply('00000000-0000-4000-8000-000000000081','blocked','funding_confirmed',10150,NULL,NULL); RAISE EXCEPTION 'EXPECTED_REJECTION'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $$;
+RESET ROLE;
+ROLLBACK;
+SELECT 'ledger/status synchronization, paid/refunded, failed event atomicity, ownership, reader isolation; rollback verified' AS result;
