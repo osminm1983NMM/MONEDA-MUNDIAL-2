@@ -34,7 +34,14 @@ const hostedArtifacts={
   "financial-hosted/verify_authenticated_status.sql": "2717372105a5eafd9afb7948358271168e5ed32e",
   "financial-sandbox/sql/mwd_lab_session_identity.sql": "53fb1e1648686fdae2a2c7f23c27bc7f8adcc7b3",
   "financial-sandbox/sql/mwd_lab_wallet_snapshot.sql": "9fe113158f0b22dc049892311a7a4e838928a3d9",
-  // Exact templates from the independently compiled and physically tested LAB 8549d805.
+  // Exact LAB mobile files shared by financial revision 9f38ad7 and compiled LAB revision 8549d805.
+  "financial-sandbox/mobile/digital-coin-portfolio-expo.js": "6c107f094442f4acec1fbccb2dae754ac4896827",
+  "financial-sandbox/mobile/digital-coin-portfolio-host.js": "e297764007626bbd6fcec82b5ff7758dcae9aadd",
+  "financial-sandbox/mobile/digital-coin-portfolio-panel.js": "255b71c3ed20fa21d10c464e0ef7a52023646215",
+  "financial-sandbox/mobile/hosted-session-fence.js": "31492ddc83979001204152f70b6808a223a3d89e",
+  "financial-sandbox/mobile/order-status-expo.js": "c2dada5b657872302cf25f261d2caa9a86a630ce",
+  "financial-sandbox/mobile/remittance-status-host.js": "d97486e4f41c711a2f0e8d8a865b8c81a9af828f",
+  "financial-sandbox/mobile/remittance-status-panel.js": "fbe6241c6b660ce564f6f2dfa7c7efc1114ced7d",
   "financial-sandbox/mobile/hosted-lab-entry.jsx": "acaeda96e88fd118866dbc7d5aae9cf155efeffc",
   "financial-sandbox/mobile/hosted-lab-app.json": "f8c3c7f194730b3d295a0cf6383533fdeea875ef"
 };
@@ -46,7 +53,7 @@ function assertMobileBoundary(tracked,read){
  assert.deepEqual(rootFiles,Object.keys(expected).sort(),'Root mobile inventory changed; review Android baseline');
  const allowedDirectories=new Set(['.github','database','docs','scripts','tests','financial-sandbox']);
  for(const p of tracked.filter(p=>p.includes('/'))){
-  if(Object.hasOwn(hostedArtifacts,p)||p.startsWith('financial-hosted/')||p.startsWith('financial-sandbox/sql/')){
+  if(Object.hasOwn(hostedArtifacts,p)||p.startsWith('financial-hosted/')||p.startsWith('financial-sandbox/sql/')||p.startsWith('financial-sandbox/mobile/')){
    assert.ok(Object.hasOwn(hostedArtifacts,p),'Unreviewed hosted file: '+p);
    assert.equal(blobSha(read(p)),hostedArtifacts[p],'Hosted artifact changed: '+p);
   }else assert.ok(allowedDirectories.has(p.split('/')[0]),'Unreviewed root directory: '+p);
@@ -74,6 +81,7 @@ test('boundary rejects changed source and unreviewed new root paths',()=>{
  assert.throws(()=>assertMobileBoundary([...paths,'financial-hosted/index.js'],read),/Unreviewed hosted file/);
  assert.throws(()=>assertMobileBoundary([...paths,'financial-hosted/unreviewed.sql'],read),/Unreviewed hosted file/);
  assert.throws(()=>assertMobileBoundary([...paths,'financial-sandbox/sql/unreviewed.sql'],read),/Unreviewed hosted file/);
+ assert.throws(()=>assertMobileBoundary([...paths,'financial-sandbox/mobile/unreviewed.js'],read),/Unreviewed hosted file/);
  for(const file of Object.keys(hostedArtifacts)){
   assert.throws(()=>assertMobileBoundary(paths.filter(p=>p!==file),read),/Reviewed hosted artifact missing/);
   assert.throws(()=>assertMobileBoundary(paths,p=>p===file?Buffer.concat([read(p),Buffer.from(' ')]):read(p)),/Hosted artifact changed/);
