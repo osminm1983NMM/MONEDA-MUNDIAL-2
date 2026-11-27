@@ -4,17 +4,6 @@ DO $$ BEGIN
  IF current_database()<>'mwd_financial_sandbox_test' THEN RAISE EXCEPTION 'ISOLATED_DATABASE_REQUIRED'; END IF;
 END $$;
 SET LOCAL search_path=pg_catalog,mwd_financial_lab,pg_temp;
--- A separate guard for a new transport submission, not for lookup/ack recovery.
--- Synthetic quote policy only; never infer real provider terms from this rule.
-CREATE FUNCTION check_dispatch_submission(p_ref text,p_token uuid) RETURNS boolean
-LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog,mwd_financial_lab,pg_temp AS $submission$
- SELECT check_dispatch_lease(p_ref,p_token) AND EXISTS(
- SELECT FROM outbox x JOIN reservations z ON z.order_id=x.order_id
- JOIN quotes q ON q.id=z.quote_id AND q.actor=z.actor
- WHERE x.reference=p_ref AND (x.kind<>'funding' OR q.expires_at>clock_timestamp()));
-$submission$;
-REVOKE ALL ON FUNCTION check_dispatch_submission(text,uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION check_dispatch_submission(text,uuid) TO mwd_lab_dispatch_service;
 -- Explicitly put the trusted catalog and schema before the session temporary schema.
 DO $$ DECLARE f record;
 BEGIN
