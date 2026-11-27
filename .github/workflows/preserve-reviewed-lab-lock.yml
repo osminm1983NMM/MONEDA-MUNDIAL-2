@@ -1,0 +1,46 @@
+name: Preserve reviewed LAB lock
+on:
+  push:
+    branches: [qa/unified-dependency-audit-20261127]
+    paths: ['.github/workflows/preserve-reviewed-lab-lock.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  preserve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/unified-lab-secure-lock-20261127
+          fetch-depth: 1
+      - uses: actions/download-artifact@v4
+        with:
+          name: targeted-dependency-remediation
+          run-id: 46081854196
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/reviewed
+      - name: Preserve exactly reviewed manifest and lock in isolated branch
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 80c72976e69e0a064a9708841d0aaae01749fba3
+          test "$(git branch --show-current)" = dev/unified-lab-secure-lock-20261127
+          test -z "$(git status --porcelain)"
+          echo '67f9a7902904fc228e7a75c06e860561e0c00046ed44cb26241f798331ba22d5  package.json' | sha256sum -c -
+          echo '37b19f7d4ae9eddaaa18cbe1a1c2277dce212bcab46df0e6ba325cbdef31159e  package-lock.json' | sha256sum -c -
+          cd "$RUNNER_TEMP/reviewed"
+          echo '3628669bbf8d74963029e9a4fdcb0f9c0b981302be004dfc59b2147e579074d5  candidate-package.json' | sha256sum -c -
+          echo '3962eeee930022e112ec65bbef5dbf55291587008f55434574642fb4dcf11c86  candidate-lock.json' | sha256sum -c -
+          cd "$GITHUB_WORKSPACE"
+          cp "$RUNNER_TEMP/reviewed/candidate-package.json" package.json
+          cp "$RUNNER_TEMP/reviewed/candidate-lock.json" package-lock.json
+          git add -- package.json package-lock.json
+          test "$(git diff --cached --name-only | sort | paste -sd, -)" = package-lock.json,package.json
+          git diff --cached --stat
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix(security): preserve reviewed Metro and PostCSS dependency lock'
+          git push origin HEAD:refs/heads/dev/unified-lab-secure-lock-20261127
+          git rev-parse HEAD
