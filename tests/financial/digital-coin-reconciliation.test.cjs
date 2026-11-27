@@ -128,3 +128,46 @@ test('audited gate stores proof with each committed batch, verifies history and 
   a.throws(()=>verifyDigitalCoinBackup({environment:'sandbox',path:copy,expected:audit.manifest}),/RECEIPT_COVERAGE_MISMATCH/);
  }finally{ledger.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+
+test('priced mode requires reproducible quote amounts and persists price proof with reconciliation',()=>{
+ const dir=fs.mkdtempSync(join(tmpdir(),'mwd-asset-price-gate-')),options={environment:'sandbox',path:join(dir,'ledger.sqlite')};
+ let ledger=open({...options,initialize:true,seed,requireReconciliation:true,requireVerifiedPricing:true});
+ try{
+  const initial=reports();
+  initial.digital.balances=[{owner:'alice',totalMinor:'1000'},{owner:'treasury',totalMinor:'1000'}];
+  initial.coin.balances=[{owner:'treasury',totalMinor:'1000'}];
+  const evidence={cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:initial};
+  const price={mode:'sandbox',source:'synthetic-price-fixture',priceId:'p1',digitalMinor:'2',coinMinor:'3',observedAt:0,validUntil:100};
+  const request={eventId:'q',quoteId:'q',owner:'alice',direction:'digital_to_coin',inputMinor:'200',minimumOutputMinor:'300',ttlMs:90};
+  const proof={...evidence,priceProofs:[{price,request}]};
+  a.equal(ledger.verifiedPricingRequired(),true);
+  a.throws(()=>ledger.appendBatch(events,evidence),/PRICE_PROOF_REQUIRED/);
+  const altered=[{...events[0],coinMinor:'301'},...events.slice(1)];
+  a.throws(()=>ledger.appendBatch(altered,proof),/PRICE_QUOTE_MISMATCH/);
+  a.throws(()=>ledger.appendBatch(events,{...proof,priceProofs:[{price:{...price,observedAt:11},request}]}),/STALE_PRICE/);
+  a.deepEqual(ledger.counts(),{events:0});
+  ledger.appendBatch(events.slice(0,1),proof);
+  // Settlement uses the already stored quote; no second price proof required.
+  const next={cutId:'cut-1',internalSha256:ledger.manifest().sha256,reports:initial};
+  ledger.appendBatch(events.slice(1),next);
+  a.equal(ledger.appendBatch(events).status,'duplicate');
+  const audit=ledger.auditReconciliation();a.deepEqual(audit.receipts,[{startSequence:1,endSequence:1},{startSequence:2,endSequence:3}]);
+  const copy=join(dir,'copy.sqlite');ledger.backup(copy);
+  const restored=open({...options,path:copy});
+  try{a.equal(restored.verifiedPricingRequired(),true);a.deepEqual(restored.auditReconciliation(),audit);}
+  finally{restored.close();}
+  ledger.close();ledger=open(options);
+  a.equal(ledger.verifiedPricingRequired(),true);
+  a.throws(()=>open({...options,requireVerifiedPricing:false}),/INVALID_PRICING_CONFIGURATION/);
+  const {DatabaseSync}=require('node:sqlite'),db=new DatabaseSync(copy);
+  try{
+   db.exec('DROP TRIGGER receipts_no_update');
+   const row=db.prepare('SELECT evidence FROM reconciliation_receipts WHERE start_sequence=1').get();
+   const saved=JSON.parse(row.evidence);saved.priceProofs[0].request.inputMinor='201';
+   db.prepare('UPDATE reconciliation_receipts SET evidence=? WHERE start_sequence=1').run(JSON.stringify(saved));
+  }finally{db.close();}
+  const {verifyDigitalCoinBackup}=require('../../financial-sandbox/digital-coin-ledger.cjs');
+  a.throws(()=>verifyDigitalCoinBackup({environment:'sandbox',path:copy,expected:audit.manifest}),/PRICE_QUOTE_MISMATCH/);
+ }finally{ledger.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
