@@ -20,10 +20,10 @@ function fixture(){
  const refreshR=()=>remittance.refresh(id,r.selectionRevision),refreshW=()=>wallet.refresh(w.revision);
  return {signIn,refreshR,refreshW,remittance,wallet,fence,lost:()=>lost,r:()=>r,w:()=>w,replyR:x=>{rReply=x;},replyW:x=>{wReply=x;}};
 }
-for(const source of ['remittance','wallet'])test(source+' authorization failure clears both ready views once',async()=>{
+for(const [source,httpStatus] of [['remittance',401],['remittance',403],['wallet',401],['wallet',403]])test(source+' HTTP '+httpStatus+' authorization failure clears both ready views once',async()=>{
  const f=fixture();f.signIn();await f.refreshR();await f.refreshW();a.equal(f.r().view.state,'ready');a.equal(f.w().state,'ready');
- if(source==='remittance'){f.replyR(()=>new Response('',{status:401}));await f.refreshR();}
- else{f.replyW(()=>new Response('',{status:403}));await f.refreshW();}
+ if(source==='remittance'){f.replyR(()=>new Response('',{status:httpStatus}));await f.refreshR();}
+ else{f.replyW(()=>new Response('',{status:httpStatus}));await f.refreshW();}
  a.equal(f.lost(),1);a.equal(f.r().view.state,'signed_out');a.equal(f.r().orderId,null);a.equal(f.w().state,'signed_out');a.equal(f.w().value,undefined);
  f.replyR(()=>json(status));f.replyW(()=>json(snapshot));f.signIn();await f.refreshR();await f.refreshW();a.equal(f.r().view.state,'ready');a.equal(f.w().state,'ready');
  f.fence.disarm();f.remittance.dispose();f.wallet.dispose();a.equal(f.lost(),1);
