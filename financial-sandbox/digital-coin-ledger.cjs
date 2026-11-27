@@ -253,4 +253,30 @@ function openDigitalCoinLedger({environment,path,initialize=false,seed,requireRe
   close(){db.close();}
  };
 }
-module.exports={openDigitalCoinLedger,verifyDigitalCoinBackup};
+// Serve a previously audited immutable LAB backup using an OS read-only handle.
+// Expected manifest must be retained separately by the trusted operator.
+function openDigitalCoinWalletSnapshot({environment,path,expected}={}){
+ if(environment!=='sandbox')fail('SANDBOX_ONLY');
+ if(!expected||expected.format!=='synthetic-digital-coin-manifest-v1'||!Number.isSafeInteger(expected.events)||expected.events<0||expected.events>2000||typeof expected.sha256!=='string'||!/^[a-f0-9]{64}$/.test(expected.sha256))fail('INVALID_MANIFEST');
+ const pinned=Object.freeze({...expected});
+ if(typeof path!=='string'||!path.endsWith('.sqlite')||!existsSync(path)||!lstatSync(path).isFile())fail('INVALID_BACKUP_PATH');
+ const db=new DatabaseSync(path,{readOnly:true});
+ let closed=false;
+ function snapshot(){
+  if(closed)fail('LEDGER_CLOSED');
+  db.exec('BEGIN');
+  try{
+   const row=db.prepare('SELECT mode,seed FROM metadata WHERE id=1').get();
+   if(row?.mode!==PRICED)fail('VERIFIED_PRICING_REQUIRED');
+   const manifest=inspect(db);
+   if(Object.keys(manifest).some(k=>manifest[k]!==pinned[k]))fail('BACKUP_MISMATCH');
+   const projection=projectDigitalCoinSwaps({environment,...JSON.parse(row.seed),events:readHistory(db)});
+   db.exec('COMMIT');return {manifest,projection};
+  }catch(e){db.exec('ROLLBACK');throw e;}
+ }
+ try{db.exec('PRAGMA query_only=ON; PRAGMA busy_timeout=1000;');snapshot();}
+ catch(e){db.close();throw e;}
+ return Object.freeze({reconciliationRequired:()=>true,verifiedPricingRequired:()=>true,reconciliationSnapshot:snapshot,
+  close(){if(!closed){closed=true;db.close();}}});
+}
+module.exports={openDigitalCoinLedger,verifyDigitalCoinBackup,openDigitalCoinWalletSnapshot};
