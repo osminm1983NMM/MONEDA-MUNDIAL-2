@@ -44,3 +44,20 @@ test('bad projection, extra columns, invalid timestamp and unsafe numeric values
  const large={...row,principal_minor:'9007199254740993',fee_minor:'1',total_minor:'9007199254740994'};
  a.equal((await fixture({rows:[large]}).service.read(request)).body.source.principalMinor,'9007199254740993');
 });
+
+test('malformed request never reaches identity verifier or database',async()=>{
+ let authCalls=0;
+ const f=fixture({verify:async()=>{authCalls++;return {environment:'sandbox',actor:'fixture-owner'};}});
+ for(const token of ['','bad token','bad\u0000token','bad/token','bad+token','é','a'.repeat(8193),null,123])
+  a.equal((await f.service.read({...request,sessionToken:token})).status,401);
+ for(const id of ['invalid',orderId.toUpperCase().replace('0','A'),null,123])
+  a.equal((await f.service.read({...request,orderId:id})).status,400);
+ a.equal(authCalls,0);a.equal(f.calls.length,0);
+ a.equal((await f.service.read(request)).status,200);a.equal(authCalls,1);
+});
+test('database projection uses shared contract without coercing values',async()=>{
+ for(const patch of [{fee_minor:'00'},{principal_minor:'0',total_minor:'150'},{payout_minor:'0'},{accepted_at:'2026-11-26'},{source_currency:'HNL'}]){
+  const f=fixture({rows:[{...row,...patch}]});
+  a.deepEqual(await f.service.read(request),{status:503,body:{mode:'sandbox',error:'UNAVAILABLE'}});
+ }
+});
