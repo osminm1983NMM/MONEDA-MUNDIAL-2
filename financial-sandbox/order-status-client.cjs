@@ -88,6 +88,9 @@ function createOrderStatusClient({environment,sandboxOrigin,fetchImpl=globalThis
    }
    if(response.status!==200){
     void response.body?.cancel().catch(()=>{});
+    // An explicit hosted permission denial invalidates the shared LAB session.
+    // Keep a missing order distinct from an authorization failure.
+    if(hosted&&response.status===403)return fail('AUTH_REQUIRED');
     return fail(({400:'INVALID_REQUEST',401:'AUTH_REQUIRED',404:'NOT_FOUND'})[response.status]??'UNAVAILABLE');
    }
    if(response.headers.get('content-type')?.split(';')[0].trim().toLowerCase()!=='application/json'||
