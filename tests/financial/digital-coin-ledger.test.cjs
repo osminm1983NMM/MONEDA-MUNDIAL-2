@@ -102,3 +102,28 @@ test('open handles reject durable seed or gate-mode drift before reads or writes
   a.equal(f.ledger.get().quotes[0].state,'reserved');
  }finally{db.close();second.close();}
 }));
+
+test('accessor and hidden event fields are rejected before durable write, without invoking getters',()=>fixture(f=>{
+ const before=f.ledger.manifest();
+ let reads=0;const unstable=quote();
+ Object.defineProperty(unstable,'coinMinor',{enumerable:true,get(){reads++;return reads===1?'300':'400';}});
+ a.throws(()=>f.ledger.appendBatch([unstable,accept()]),/INVALID_SWAP_EVENT/);
+ a.equal(reads,0);
+ const hidden=quote();Object.defineProperty(hidden,'extra',{value:'unexpected'});
+ const symbolic=quote();symbolic[Symbol('hidden')]='unexpected';
+ for(const event of [hidden,symbolic,{...quote(),extra:undefined},{...quote(),kind:['quote_created']}])
+  a.throws(()=>f.ledger.appendBatch([event]),/INVALID_SWAP_EVENT/);
+ a.deepEqual(f.reopen().manifest(),before);
+ a.deepEqual(f.ledger.counts(),{events:0});
+ const result=f.ledger.appendBatch([quote(),accept()]);
+ a.deepEqual(f.reopen().get(),result.projection);
+}));
+test('malformed transition cannot persist or release either reserved asset',()=>fixture(f=>{
+ f.ledger.appendBatch([quote(),accept()]);
+ const before=f.ledger.manifest(),held=f.ledger.get();
+ for(const kind of [['swap_confirmed'],['swap_cancelled']])
+  a.throws(()=>f.ledger.appendBatch([end('q',12,kind)]),/INVALID_SWAP_EVENT/);
+ a.deepEqual(f.reopen().manifest(),before);
+ a.deepEqual(f.ledger.get(),held);
+ a.equal(f.ledger.appendBatch([end()]).status,'applied');
+}));

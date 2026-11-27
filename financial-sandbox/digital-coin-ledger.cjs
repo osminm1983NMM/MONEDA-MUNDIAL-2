@@ -145,16 +145,21 @@ function openDigitalCoinLedger({environment,path,initialize=false,seed,requireRe
     // Reject invalid shape even for duplicate submissions. Deduplicate only
     // identical payloads; never let a replay consume another journal sequence.
     for(const e of events){
-     if(!e||typeof e!=='object'||Array.isArray(e)||typeof e.eventId!=='string')fail('INVALID_SWAP_EVENT');
-     const payload=ordered(e);
-     if(known.has(e.eventId)){
-      if(known.get(e.eventId)!==payload)fail('EVENT_ID_CONFLICT');
-      // A JSON payload cannot represent undefined or extra non-JSON fields.
-      const normalized=JSON.parse(payload);
-      if(Object.keys(e).length!==Object.keys(normalized).length||Object.keys(e).some(k=>e[k]!==normalized[k]))fail('INVALID_SWAP_EVENT');
+     // Capture a single plain data record. Never invoke field getters or
+     // serialize one object while projecting a different mutable value.
+     if(!e||typeof e!=='object'||Array.isArray(e)||
+      ![Object.prototype,null].includes(Object.getPrototypeOf(e)))fail('INVALID_SWAP_EVENT');
+     const descriptors=Object.getOwnPropertyDescriptors(e),keys=Reflect.ownKeys(descriptors);
+     if(keys.some(k=>typeof k!=='string'||!descriptors[k].enumerable||!Object.hasOwn(descriptors[k],'value')||
+      !(typeof descriptors[k].value==='string'||typeof descriptors[k].value==='number'&&Number.isSafeInteger(descriptors[k].value))))fail('INVALID_SWAP_EVENT');
+     const normalized=Object.fromEntries(keys.map(k=>[k,descriptors[k].value]));
+     if(typeof normalized.eventId!=='string')fail('INVALID_SWAP_EVENT');
+     const payload=ordered(normalized);
+     if(known.has(normalized.eventId)){
+      if(known.get(normalized.eventId)!==payload)fail('EVENT_ID_CONFLICT');
       continue;
      }
-     known.set(e.eventId,payload);all.push(e);added.push([e.eventId,payload]);
+     known.set(normalized.eventId,payload);all.push(normalized);added.push([normalized.eventId,payload]);
     }
     const projection=project(all);
     // The mode is durable and cannot be disabled on reopen. Exact replays
