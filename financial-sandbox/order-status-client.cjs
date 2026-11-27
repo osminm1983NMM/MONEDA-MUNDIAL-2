@@ -16,13 +16,17 @@ function valid(x,id){
  const date=new Date(x.acceptedAt);
  return Number.isFinite(date.getTime())&&date.toISOString()===x.acceptedAt;
 }
-async function readJson(response){
+async function readJson(response,signal){
  const reader=response.body?.getReader();
  if(!reader)throw Error('INVALID_RESPONSE');
+ const cancel=()=>{void reader.cancel().catch(()=>{});};
+ signal.addEventListener('abort',cancel,{once:true});
  let size=0;let ascii='';
  try{
   while(true){
+   if(signal.aborted)throw Error('ABORTED');
    const {done,value}=await reader.read();
+   if(signal.aborted)throw Error('ABORTED');
    if(done)break;
    size+=value.byteLength;if(size>8192)throw Error('INVALID_RESPONSE');
    // The entire status wire schema consists of ASCII identifiers, dates and amounts.
@@ -30,8 +34,8 @@ async function readJson(response){
    if(!(value instanceof Uint8Array))throw Error('INVALID_RESPONSE');
    for(const byte of value){if(byte>127)throw Error('INVALID_RESPONSE');ascii+=String.fromCharCode(byte);}
   }
- }catch(e){void reader.cancel().catch(()=>{});throw e;}
- finally{reader.releaseLock();}
+ }catch(e){cancel();throw e;}
+ finally{signal.removeEventListener('abort',cancel);reader.releaseLock();}
  return JSON.parse(ascii);
 }
 function createOrderStatusClient({environment,sandboxOrigin,fetchImpl=globalThis.fetch,timeoutMs=10000}={}){
@@ -43,11 +47,19 @@ function createOrderStatusClient({environment,sandboxOrigin,fetchImpl=globalThis
   if(typeof sessionToken!=='string'||!/^[A-Za-z0-9._~-]{1,8192}$/.test(sessionToken))return fail('AUTH_REQUIRED');
   if(typeof orderId!=='string'||!uuid.test(orderId))return fail('INVALID_REQUEST');
   const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),timeoutMs);
-  try{
+  // Bound the caller's wait even if the injected transport ignores abort.
+  // The losing operation remains observed by Promise.race; a late response
+  // is discarded and its body cancelled without parsing or publishing it.
+  let timer;
+  const deadline=new Promise(resolve=>{timer=setTimeout(()=>{
+   resolve(fail('UNAVAILABLE'));controller.abort();
+  },timeoutMs);});
+  const operation=async()=>{try{
    const response=await fetchImpl(endpoint,{method:'POST',redirect:'error',cache:'no-store',credentials:'omit',
     headers:{authorization:'Bearer '+sessionToken,'content-type':'application/json'},body:JSON.stringify({orderId}),signal:controller.signal});
-   if(response.redirected||(response.url&&response.url!==endpoint))return fail('UNAVAILABLE');
+   if(controller.signal.aborted||response.redirected||(response.url&&response.url!==endpoint)){
+    void response.body?.cancel().catch(()=>{});return fail('UNAVAILABLE');
+   }
    if(response.status!==200){
     void response.body?.cancel().catch(()=>{});
     return fail(({400:'INVALID_REQUEST',401:'AUTH_REQUIRED',404:'NOT_FOUND'})[response.status]??'UNAVAILABLE');
@@ -56,9 +68,10 @@ function createOrderStatusClient({environment,sandboxOrigin,fetchImpl=globalThis
      response.headers.get('cache-control')?.trim().toLowerCase()!=='no-store'){
     void response.body?.cancel().catch(()=>{});return fail('UNAVAILABLE');
    }
-   const value=await readJson(response);
+   const value=await readJson(response,controller.signal);
    return !controller.signal.aborted&&valid(value,orderId)?{ok:true,value}:fail('UNAVAILABLE');
-  }catch{return fail('UNAVAILABLE');}finally{clearTimeout(timer);}
+  }catch{return fail('UNAVAILABLE');}};
+  try{return await Promise.race([operation(),deadline]);}finally{clearTimeout(timer);}
  }});
 }
 module.exports={createOrderStatusClient};

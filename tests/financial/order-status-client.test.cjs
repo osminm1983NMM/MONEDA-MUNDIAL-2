@@ -38,3 +38,33 @@ test('errors remain generic and timeout does not leak credentials',async()=>{
  })});
  a.deepEqual(await client.read(req),{ok:false,code:'UNAVAILABLE'});
 });
+
+test('deadline bounds a transport that ignores abort; late response is discarded', {timeout:1000}, async()=>{
+ let complete,signal,cancelled=false;
+ const client=create({environment:'sandbox',sandboxOrigin:'https://sandbox.invalid',timeoutMs:10,fetchImpl:(_,init)=>{
+  signal=init.signal;return new Promise(resolve=>{complete=resolve;});
+ }});
+ a.deepEqual(await client.read(req),{ok:false,code:'UNAVAILABLE'});
+ a.equal(signal.aborted,true);
+ const body=new ReadableStream({cancel(){cancelled=true;}});
+ complete(new Response(body,{headers:{'content-type':'application/json','cache-control':'no-store'}}));
+ await new Promise(resolve=>setImmediate(resolve));
+ a.equal(cancelled,true);
+});
+test('deadline bounds a stalled response stream and requests its cancellation', {timeout:1000}, async()=>{
+ let cancelled=false,signal;
+ const body=new ReadableStream({pull(){return new Promise(()=>{});},cancel(){cancelled=true;}});
+ const client=create({environment:'sandbox',sandboxOrigin:'https://sandbox.invalid',timeoutMs:10,fetchImpl:(_,init)=>{
+  signal=init.signal;return new Response(body,{headers:{'content-type':'application/json','cache-control':'no-store'}});
+ }});
+ a.deepEqual(await client.read(req),{ok:false,code:'UNAVAILABLE'});
+ a.equal(signal.aborted,true);
+ a.equal(cancelled,true);
+});
+test('late rejection after a deadline remains observed', {timeout:1000}, async()=>{
+ let rejectLate;
+ const client=create({environment:'sandbox',sandboxOrigin:'https://sandbox.invalid',timeoutMs:10,fetchImpl:()=>new Promise((_,reject)=>{rejectLate=reject;})});
+ a.deepEqual(await client.read(req),{ok:false,code:'UNAVAILABLE'});
+ rejectLate(Error('late transport failure'));
+ await new Promise(resolve=>setImmediate(resolve));
+});
