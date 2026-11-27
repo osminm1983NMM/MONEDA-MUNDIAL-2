@@ -119,6 +119,7 @@ function openConsumerCaseLab({environment,path,initialize=false}={}){
     caseId:c.caseId,caseType:c.caseType,receivedAt:c.receivedAt,lastAt:c.lastAt,state:c.state,locale:c.locale
    })),false);
   },
+  deadlineReview({plans,asOf,warningMs}={}){return tx(()=>require('./consumer-case-deadlines.cjs').reviewCaseDeadlines({environment,events:history(),plans,asOf,warningMs}),false);},
   audit(){return tx(()=>{const events=history();return {events,cases:projectConsumerCases(events)};},false);},
   close(){db.close();}
  };
