@@ -5,14 +5,14 @@
 | Área | Revisión y evidencia | Resultado |
 |---|---|---|
 | Android | a24b14cd075ff792ee06b0fb7a77acafc1e06f53, [CI 45989217202](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45989217202) | 136 pruebas Android, 27 regresiones, Gradle, firma e instalación/apertura Android 35 aprobadas |
-| Integración financiera | b0d3824203453918117f69c8604b9b87031691b8, [push 45991054077](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45991054077) y [PR 45991062264](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45991062264) | 274/274 pruebas Node en cada ejecución, PostgreSQL success en ambas, sin omisiones; no sumar ejecuciones duplicadas |
+| Integración financiera | 1a4ab9bcae6ee6d2cc768af493af32743cee072a, [CI 46009942094](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/46009942094) | 304/304 pruebas Node, cero fallos, cancelaciones, omisiones o todo; PostgreSQL success. Evidencia solo LAB |
 | Rama principal | 3f2fbdb7ffb5d6c75b8c56d41b4d1fa98ef64ffc | Sin modificaciones en la integración |
 
 ## Entrega Android
 
 [Artefacto 15193786859](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45989217202/artifacts/15193786859), vencimiento 4 diciembre 2026 11:27:57 UTC. Archivo ZIP 16,324,004 bytes, SHA256 7859c9dbb1cf0a09843e9f232b20d027fb59f301565cd5f27debf08406552f3d. Verificado localmente contra el digest de GitHub. APK extraído sin alterar, 34,857,720 bytes, SHA256 55c2b1922434843dd1501675f0bfa4961fb96b57069268209cf5b210a120b63b, coincide con SHA256.txt. COMMIT.txt coincide con a24b14cd075ff792ee06b0fb7a77acafc1e06f53; manifiestos package-lock.json y TOOLCHAIN.txt coinciden con sus bytes. Certificado DER extraído del bloque de firma v2: SHA256 fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c, idéntico al certificado documentado de la revisión anterior. La comparación DER no sustituye la verificación criptográfica completa de apksigner realizada en CI. No acredita certificado o hash instalado físicamente.
 
-## Aceptación física focalizada (pendiente)
+## Aceptación física focalizada (parcial; conservar evidencia posterior)
 
 1. Actualizar la app LAB sin desinstalar ni borrar datos; ante rechazo, conservar la instalación y registrar mensaje.
 2. Abrir y confirmar identificador completo de compilación a24b14cd075ff792ee06b0fb7a77acafc1e06f53. Verificar sesión y saldo visible sin mostrar datos personales innecesarios.
@@ -69,7 +69,7 @@ La decisión posterior del titular es terminar primero el desarrollo técnico y 
 
 ### Próximas puertas, en orden de utilidad
 
-1. Verificar conclusión PostgreSQL de la última revisión exacta; corregir únicamente fallos concretos. No presentar una prueba escrita como prueba aprobada.
+1. CI de la revisión financiera 1a4ab9b confirmada: ambos jobs success; cerrar esta puerta LAB, corregir únicamente fallos concretos. No presentar una prueba escrita como prueba aprobada.
 2. Preparar integración real únicamente contra contrato autorizado: configuración privada de servidor, Auth y base aislados, roles mínimos, TLS, límites de consulta, protección de secretos, monitoreo, manejo de incidentes y recuperación independiente. El transporte loopback y las respuestas Auth ficticias no son un despliegue. No usar producción como sandbox.
 3. Obtener respuesta escrita al borrador de incorporación de proveedor; confirmar corredor, métodos y responsabilidades. No elegir identidad contractual, pagador, tarifas ni endpoint activo por inferencia. Documento THUNES-ONBOARDING-GATES-20261126.md.
 4. Definir con asesoría y titular las reglas de emisión/redención, reserva, custodia, liquidez, precisión, red y precio de Digital/Coin. El ledger SQLite no es motor de activos productivo ni modelo legal aprobado. Documento DIGITAL-ASSETS-ARCHITECTURE.md.
@@ -92,3 +92,8 @@ Rama principal comprobada sin cambio: 3f2fbdb7ffb5d6c75b8c56d41b4d1fa98ef64ffc. 
 Revisión `710501bb5c39a4cf44193462f2561be66a101c11`: [CI push 45995883034](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45995883034) y [CI PR 45995891996](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/45995891996) completadas con success en ambos jobs. El log PostgreSQL del job 140495062832 confirma acceso directo por socket local con session_user=current_user=mwd_lab_status_service, funciones autorizadas, rechazo de acceso a tablas, escritura, roles ajenos y tablas temporales, retorno a NOLOGIN y restauración independiente posterior. La prueba utiliza exclusivamente la autenticación local del clúster desechable; no prueba contraseña, TLS, pool remoto ni identidad de Supabase Auth real. No cambia código de la APK, main, permisos de Supabase ni dinero real.
 
 El cierre de este requisito de laboratorio no sustituye la respuesta escrita y el acceso autorizado del proveedor ni la provisión de un entorno de integración separado. No crear ramas o proyectos facturables, activar endpoints ni repetir pruebas sintéticas aprobadas como sustituto de estas dependencias.
+
+
+## Punto de control vigente — revisión 1a4ab9b, 27 noviembre
+
+[CI 46009942094](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/46009942094): verificados directamente los jobs sandbox y postgres-lab completados con success y el resumen del log 140542578569 (304 tests, 304 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo). La revisión incorpora captura única de datos de eventos Digital/Coin y rechaza accesores, campos ocultos y transiciones malformadas antes de persistencia. No acredita identidad, cotización, custodia ni liquidación externa. El artefacto Android 15193786859 sigue no expirado según listado de GitHub; vence 4 diciembre 11:27:57 UTC. Conservar candidata y evidencia física previa. No iniciar nuevas simulaciones ni compilaciones sin defecto concreto; quedan acceso oficial del proveedor, entorno aislado autorizado y aceptación física conjunta. Estado de recepción de la solicitud del proveedor no verificado mediante correo en esta revisión. Sin cambio de código funcional, producción ni fondos.
