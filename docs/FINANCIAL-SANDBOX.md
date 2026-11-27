@@ -289,3 +289,7 @@ La versión fijada en package-lock es Expo 54.0.38 / React Native 0.81.5. La imp
 
 ## Límite de espera de consulta independiente del transporte
 El cliente de consulta compite contra un plazo explícito y devuelve UNAVAILABLE aun si el transporte inyectado no responde al AbortSignal. Solicita cancelación del cuerpo si la respuesta llega tarde o se atasca durante lectura; no publica el resultado tardío. Tres regresiones de Node cubren transporte no cooperativo, cuerpo detenido y rechazo tardío. Esto limita la espera de la interfaz, no garantiza que un transporte defectuoso cierre el socket ni sustituye controles de tiempo del servidor o validación nativa en Android. No modifica App.js, APK, esquema ni fondos reales.
+
+
+## Actualización de referencia Android 71ebdef
+La sincronización 70af5dd dejó desactualizados dos identificadores de blob de la barrera Android. CI 45938114071: PostgreSQL success, Node 250/251; único fallo del inventario esperado en RemittanceQuoteScreen.js. Se compararon los nueve blobs de raíz con 71ebdef: identidad exacta de los nueve; únicamente RemittanceQuoteScreen.js y remittance-quote.js difieren respecto a la referencia anterior, por la corrección aprobada del plazo de consulta. APK y smoke-test 45938083894 aprobados, apertura física y saldo visible registrados en PR 135. Se actualizan solo los dos hashes y el comentario de referencia, sin relajar el inventario o las pruebas negativas. No se modifica ningún ejecutable, SQL, producción ni dinero real. Pendiente CI de esta corrección de referencia.
