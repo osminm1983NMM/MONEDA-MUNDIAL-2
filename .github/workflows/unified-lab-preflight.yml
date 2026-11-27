@@ -1,7 +1,7 @@
 name: Unified LAB preflight
 on:
   push:
-    branches: [dev/unified-lab-20261127]
+    branches: [dev/unified-lab-20261127, dev/unified-lab-identity-20261127]
 permissions:
   contents: read
 jobs:
