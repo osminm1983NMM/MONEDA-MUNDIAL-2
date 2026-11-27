@@ -364,3 +364,7 @@ El ledger SQLite multicurrency añade manifiesto lógico con recálculo por orde
 
 ## Aceptación integrada de devolución (27 noviembre 2026)
 El arnés de seguimiento incorpora una segunda orden de prueba: entrega fallida, devolución pendiente, devolución confirmada y repetición del mismo evento. Comprueba estados de pantalla, importes, conteos antes/después de lecturas, un único efecto de devolución, saldo contable neto cero y que la remesa pagada original permanece intacta. Usa el mismo PostgreSQL desechable y roles restringidos, transacción revertida al finalizar. No inicia una devolución externa ni prueba un proveedor oficial. CI pendiente al registrar.
+
+
+## Integración de eventos autenticados con seguimiento (27 noviembre 2026)
+El arnés PostgreSQL de entrega y devolución sustituye llamadas directas a record_verified_event por createMockProvider y createWorker.receive, verificación HMAC sintética y normalización existentes. Rechaza firma incorrecta y manipulación del importe antes de llegar al registro SQL; comprueba estado intacto, replay, cantidades y cinco referencias de prueba. El store de este arnés deshabilita despacho y el proveedor simulado se prepara explícitamente para generar eventos; no prueba envío de red, leases ni confirmación externa. La prueba transaccional sigue revertida; no cambia Android ni producción. CI pendiente al registrar.

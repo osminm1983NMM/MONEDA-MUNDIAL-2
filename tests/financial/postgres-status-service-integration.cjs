@@ -10,6 +10,8 @@ const {createOrderStatusClient}=require('../../financial-sandbox/order-status-cl
 const {presentStatus}=require('../../financial-sandbox/order-status-presentation.cjs');
 const {createRemittanceStatusHost}=require('../../financial-sandbox/mobile/remittance-status-host.js');
 const {createRemittanceStatusPanel}=require('../../financial-sandbox/mobile/remittance-status-panel.js');
+const {createMockProvider}=require('../../financial-sandbox/mock-provider.cjs');
+const {createWorker}=require('../../financial-sandbox/provider-worker.cjs');
 const container=process.env.LAB_CONTAINER;
 if(!/^[a-f0-9]{12,64}$/.test(container||''))throw Error('CI_LAB_REQUIRED');
 const owner='00000000-0000-4000-8000-000000000071',other='00000000-0000-4000-8000-000000000072';
@@ -82,8 +84,28 @@ async function main(){
   assert.equal(display.warning,'PRUEBA — SIN DINERO REAL');
   assert.deepEqual(await client.read({sessionToken:'other-token',orderId}),{ok:false,code:'NOT_FOUND'});
   // Exercise the actual mobile composition across real lab database states.
-  // Synthetic trusted events enter through the existing restricted event role.
-  // This harness does not assert that an external provider has signed anything.
+  // Signed synthetic provider events enter through the actual worker verifier
+  // and restricted event role. No external provider, transport or live keys.
+  const provider=createMockProvider({secret:'synthetic-ci-status-lifecycle-fixture-only'});
+  const noDispatch=()=>{throw Error('DISPATCH_NOT_ENABLED_IN_STATUS_HARNESS');};
+  let recorded=0;
+  const worker=createWorker({environment:'sandbox',provider,store:{
+   claim:noDispatch,checkLease:noDispatch,checkSubmission:noDispatch,ack:noDispatch,
+   async record(e){
+    // Only validated synthetic fields enter the existing restricted SQL role.
+    const safe=v=>{assert.match(v,/^[A-Za-z0-9_-]{1,128}$/);return "'"+v+"'";};
+    assert.ok(Number.isSafeInteger(e.amountMinor)&&e.amountMinor>0);
+    recorded++;
+    const rows=await run('SELECT record_verified_event('+[e.provider,e.eventId,e.reference,e.outcome,e.currency].map(safe).join(',')+','+e.amountMinor+');');
+    assert.equal(rows.length,1);return rows[0];
+   }
+  }});
+  async function event(id,kind,outcome,eventId){
+   const reference=id+'-'+kind,currency=kind==='payout'?'HNL':'USD',amountMinor=kind==='payout'?250000:10150;
+   await provider.submit({mode:'sandbox',orderId:id,reference,kind,currency,amountMinor});
+   return provider.event(reference,kind+'_'+outcome,eventId);
+  }
+  const receive=e=>worker.receive(e.raw,e.signature);
   let mobile;
   const host=createRemittanceStatusHost({environment:'sandbox',enabled:true,sandboxOrigin:'https://sandbox.invalid',
    expoFetch:(url,init)=>handle(new Request(url,init)),onChange:state=>{mobile=state;}});
@@ -114,7 +136,14 @@ async function main(){
    await refresh('Financiación pendiente');
    assert.deepEqual(await counts(),initial);
    await run('RESET ROLE; SET LOCAL ROLE mwd_lab_event_service;');
-   assert.deepEqual(await run("SELECT record_verified_event('mock-remittance','status-integration-funding',"+literal(orderId)+"||'-funding','confirmed','USD',10150);"),['funded']);
+   const signedFunding=await event(orderId,'funding','confirmed','status-integration-funding');
+   await assert.rejects(worker.receive(signedFunding.raw,'0'.repeat(64)),/INVALID_SIGNATURE/);
+   assert.equal(recorded,0);
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_status_service;');
+   await refresh('Financiación pendiente');
+   assert.deepEqual(await counts(),initial);
+   await run('RESET ROLE; SET LOCAL ROLE mwd_lab_event_service;');
+   assert.equal(await receive(signedFunding),'funded');
    await run('RESET ROLE; SET LOCAL ROLE mwd_lab_status_service;');
    await refresh('Financiación confirmada en prueba');
    await run('RESET ROLE; SET LOCAL ROLE mwd_lab_order_service;');
@@ -122,7 +151,7 @@ async function main(){
    await run('RESET ROLE; SET LOCAL ROLE mwd_lab_status_service;');
    await refresh('Entrega pendiente');
    await run('RESET ROLE; SET LOCAL ROLE mwd_lab_event_service;');
-   assert.deepEqual(await run("SELECT record_verified_event('mock-remittance','status-integration-payout',"+literal(orderId)+"||'-payout','confirmed','HNL',250000);"),['paid']);
+   assert.equal(await receive(await event(orderId,'payout','confirmed','status-integration-payout')),'paid');
    await run('RESET ROLE; SET LOCAL ROLE mwd_lab_status_service;');
    await refresh('Entrega confirmada en prueba');
    const settled=await counts();
@@ -145,11 +174,11 @@ async function main(){
    host.setSession('owner-token');host.selectOrder(refundId);
    await refresh('Financiación pendiente',refundId);
    await run('RESET ROLE; SET LOCAL ROLE mwd_lab_event_service;');
-   assert.deepEqual(await run("SELECT record_verified_event('mock-remittance','status-refund-funding',"+literal(refundId)+"||'-funding','confirmed','USD',10150);"),['funded']);
+   assert.equal(await receive(await event(refundId,'funding','confirmed','status-refund-funding')),'funded');
    await run('RESET ROLE; SET LOCAL ROLE mwd_lab_order_service;');
    await run("SELECT prepare_authorized("+literal(owner)+","+literal(refundId)+"::uuid,'payout');");
    await run('RESET ROLE; SET LOCAL ROLE mwd_lab_event_service;');
-   assert.deepEqual(await run("SELECT record_verified_event('mock-remittance','status-refund-failed',"+literal(refundId)+"||'-payout','failed','HNL',250000);"),['payout_failed']);
+   assert.equal(await receive(await event(refundId,'payout','failed','status-refund-failed')),'payout_failed');
    await run('RESET ROLE; SET LOCAL ROLE mwd_lab_status_service;');
    await refresh('Entrega no completada',refundId);
    await run('RESET ROLE; SET LOCAL ROLE mwd_lab_order_service;');
@@ -161,9 +190,13 @@ async function main(){
    await refresh('Devolución pendiente',refundId);
    assert.deepEqual(await counts(refundId),pendingRefund);
    await run('RESET ROLE; SET LOCAL ROLE mwd_lab_event_service;');
-   const refundEvent="SELECT record_verified_event('mock-remittance','status-refund-confirmed',"+literal(refundId)+"||'-refund','confirmed','USD',10150);";
-   assert.deepEqual(await run(refundEvent),['refunded']);
-   assert.deepEqual(await run(refundEvent),['duplicate']);
+   const refundEvent=await event(refundId,'refund','confirmed','status-refund-confirmed');
+   await assert.rejects(worker.receive(refundEvent.raw.replace('10150','10151'),refundEvent.signature),/INVALID_SIGNATURE/);
+   assert.equal(recorded,4);
+   assert.equal(await receive(refundEvent),'refunded');
+   assert.equal(await receive(refundEvent),'duplicate');
+   assert.equal(recorded,6);
+   assert.equal(provider.submissions().length,5);
    await run('RESET ROLE; SET LOCAL ROLE mwd_lab_status_service;');
    await refresh('Devolución confirmada en prueba',refundId);
    assert.deepEqual(await counts(refundId),['1|3|2']);
@@ -191,7 +224,7 @@ async function main(){
   assert.deepEqual(await run('SELECT sum(cash),sum(payable),sum(revenue) FROM journal WHERE order_id='+literal(orderId)+';'),['150|0|-150']);
   await run('ROLLBACK;');
   assert.deepEqual(await run('SELECT count(*) FROM mwd_financial_lab.actor_policy WHERE actor='+literal(owner)+';'),['0']);
-  console.log('Integrated Auth fixture, restricted PostgreSQL roles, mobile lifecycle, read-only invariants, settlement, refund replay and revocation verified');
+  console.log('Integrated Auth fixture, restricted PostgreSQL roles, signed synthetic events, mobile lifecycle, read-only invariants, settlement, refund replay and revocation verified');
  }finally{
   if(!closed)child.stdin.end('\\q\n');
   const code=await finished;
