@@ -25,3 +25,35 @@ test('safe errors do not forward private service diagnostics or production respo
  }
  a.throws(()=>createOrderStatusHttp({environment:'production',service:{read(){}}}),/SANDBOX_ONLY/);
 });
+
+test('bounded body read cancels stalled upload without invoking service',{timeout:2000},async()=>{
+ let cancelled=false,calls=0;
+ const stream=new ReadableStream({start(controller){controller.enqueue(new TextEncoder().encode('{"orderId":'));},cancel(){cancelled=true;}});
+ const handle=createOrderStatusHttp({environment:'sandbox',bodyTimeoutMs:20,maxActive:1,service:{async read(){calls++;return {status:404};}}});
+ const r=await handle(new Request(url,{method:'POST',headers:{authorization:'Bearer t','content-type':'application/json'},body:stream,duplex:'half'}));
+ a.equal(r.status,408);a.equal(cancelled,true);a.equal(calls,0);
+ a.equal((await handle(make())).status,404);a.equal(calls,1);
+});
+test('timed out service retains capacity until settlement and discards late response',{timeout:2000},async()=>{
+ let complete,calls=0;
+ const handle=createOrderStatusHttp({environment:'sandbox',serviceTimeoutMs:20,maxActive:1,service:{read(){calls++;return calls===1?new Promise(resolve=>{complete=resolve;}):{status:404};}}});
+ const first=await handle(make());a.equal(first.status,503);a.deepEqual(await first.json(),{mode:'sandbox',error:'UNAVAILABLE'});
+ a.equal((await handle(make())).status,503);a.equal(calls,1);
+ complete({status:200,body:{mode:'sandbox',orderId}});await new Promise(resolve=>setImmediate(resolve));
+ a.equal((await handle(make())).status,404);a.equal(calls,2);
+});
+test('late service rejection releases capacity and does not escape as an unhandled rejection',{timeout:2000},async()=>{
+ let rejectLate,calls=0;
+ const handle=createOrderStatusHttp({environment:'sandbox',serviceTimeoutMs:20,maxActive:1,service:{read(){calls++;return calls===1?new Promise((_,reject)=>{rejectLate=reject;}):{status:404};}}});
+ a.equal((await handle(make())).status,503);rejectLate(Error('private'));await new Promise(resolve=>setImmediate(resolve));
+ a.equal((await handle(make())).status,404);a.equal(calls,2);
+});
+test('admission is bounded across incomplete uploads and invalid limits fail closed',{timeout:2000},async()=>{
+ let cancelled=false;
+ const handle=createOrderStatusHttp({environment:'sandbox',bodyTimeoutMs:100,maxActive:1,service:{read(){throw Error('not reached');}}});
+ const body=new ReadableStream({cancel(){cancelled=true;}});
+ const pending=handle(new Request(url,{method:'POST',headers:{authorization:'Bearer t','content-type':'application/json'},body,duplex:'half'}));
+ a.equal((await handle(make())).status,503);
+ a.equal((await pending).status,408);a.equal(cancelled,true);
+ for(const opts of [{maxActive:0},{maxActive:257},{bodyTimeoutMs:0},{serviceTimeoutMs:Infinity}])a.throws(()=>createOrderStatusHttp({environment:'sandbox',service:{read(){}},...opts}),/INVALID_HTTP_LIMITS/);
+});
