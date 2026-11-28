@@ -82,7 +82,18 @@ jobs:
           from pathlib import Path
           manifest=Path('/tmp/unified-manifest.txt').read_text()
           permissions=Path('/tmp/unified-permissions.txt').read_text()
-          assert re.search(r'^\s*A: android:allowBackup(?:\(0x[0-9a-fA-F]+\))?=\(type 0x12\)0x0\s*          cp "$apk" unified-artifact/MonedaMundial-LAB-Unificado.apk
+          def bool_attr(name):
+              return re.findall(r'^\s*A: android:'+name+r'(?:\(0x[0-9a-fA-F]+\))?=\(type 0x12\)0x([0-9a-fA-F]+)\s*$',manifest,re.M)
+          backup=bool_attr('allowBackup')
+          assert len(backup)==1 and int(backup[0],16)==0, 'APK backup restriction missing'
+          for name in ('SYSTEM_ALERT_WINDOW','READ_EXTERNAL_STORAGE','WRITE_EXTERNAL_STORAGE'):
+              assert 'android.permission.'+name not in permissions, name
+          assert 'android.permission.INTERNET' in permissions
+          assert all(int(value,16)==0 for value in bool_attr('debuggable')), 'APK debuggable'
+          print('PASS: binary APK manifest and permissions')
+          PY
+          mkdir -p unified-artifact
+          cp "$apk" unified-artifact/MonedaMundial-LAB-Unificado.apk
           cp /tmp/unified-badging.txt /tmp/unified-signature.txt /tmp/unified-manifest.txt /tmp/unified-permissions.txt unified-artifact/
           git rev-parse HEAD > unified-artifact/revision.txt
           echo '0ae8b0e1da1d9147ce0a04f3eb2fd757a416611fdbdcb702457a72a9cb2ffdc3  package-lock.json' | sha256sum -c -
@@ -146,90 +157,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MonedaMundial-LAB-Unificado-hardened-verified
-          path: ${{ runner.temp }}/unified-apk/
-          retention-days: 7
-          if-no-files-found: error
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: unified-emulator-diagnostics
-          path: |
-            ${{ runner.temp }}/unified-emulator.log
-            ${{ runner.temp }}/unified-badging.txt
-          if-no-files-found: ignore
-          retention-days: 7
-,manifest,re.M), 'APK backup restriction missing'
-          for name in ('SYSTEM_ALERT_WINDOW','READ_EXTERNAL_STORAGE','WRITE_EXTERNAL_STORAGE'):
-              assert 'android.permission.'+name not in permissions, name
-          assert 'android.permission.INTERNET' in permissions
-          assert not re.search(r'^\s*A: android:debuggable(?:\(0x[0-9a-fA-F]+\))?=\(type 0x12\)0x(?!0\b)[0-9a-fA-F]+',manifest,re.M), 'APK debuggable'
-          print('PASS: binary APK manifest and permissions')
-          PY
-          mkdir -p unified-artifact
-          cp "$apk" unified-artifact/MonedaMundial-LAB-Unificado.apk
-          cp /tmp/unified-badging.txt /tmp/unified-signature.txt unified-artifact/
-          git rev-parse HEAD > unified-artifact/revision.txt
-          echo '0ae8b0e1da1d9147ce0a04f3eb2fd757a416611fdbdcb702457a72a9cb2ffdc3  package-lock.json' | sha256sum -c -
-          sha256sum package-lock.json > unified-artifact/dependency-lock.sha256
-          cp "$RUNNER_TEMP/audit.json" unified-artifact/npm-audit.json
-          (cd unified-artifact && sha256sum MonedaMundial-LAB-Unificado.apk > SHA256SUMS)
-      - uses: actions/upload-artifact@v4
-        with:
-          name: unified-apk-INTERNAL-NOT-VALIDATED
-          path: unified-artifact/
-          retention-days: 1
-          if-no-files-found: error
-
-  smoke:
-    needs: apk
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - uses: actions/download-artifact@v4
-        with:
-          name: unified-apk-INTERNAL-NOT-VALIDATED
-          path: ${{ runner.temp }}/unified-apk
-      - name: Verify provenance, package, signature and architectures
-        run: |
-          set -euo pipefail
-          cd "$RUNNER_TEMP/unified-apk"
-          test "$(cat revision.txt)" = "$GITHUB_SHA"
-          sha256sum -c SHA256SUMS
-          tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
-          "$tools/apksigner" verify --verbose MonedaMundial-LAB-Unificado.apk
-          "$tools/aapt" dump badging MonedaMundial-LAB-Unificado.apk > "$RUNNER_TEMP/unified-badging.txt"
-          grep -F "package: name='com.monedamundial.unifiedlab'" "$RUNNER_TEMP/unified-badging.txt"
-          grep '^native-code:' "$RUNNER_TEMP/unified-badging.txt" | grep -F "'x86_64'" | grep -F "'arm64-v8a'"
-      - name: Test both modes and visible build identity
-        run: |
-          set -euo pipefail
-          export PATH="$ANDROID_HOME/platform-tools:$PATH"
-          sudo chmod 666 /dev/kvm
-          image='system-images;android-35;google_apis;x86_64'
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install emulator platform-tools "$image"
-          export ANDROID_AVD_HOME="$RUNNER_TEMP/unified-avd"
-          mkdir -p "$ANDROID_AVD_HOME"
-          printf 'no\n' | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n unifiedlab -k "$image" --force
-          "$ANDROID_HOME/emulator/emulator" -avd unifiedlab -port 5554 -no-window -no-audio -no-snapshot -gpu swiftshader_indirect -no-boot-anim >"$RUNNER_TEMP/unified-emulator.log" 2>&1 &
-          trap 'adb -s emulator-5554 emu kill || true' EXIT
-          timeout 480 adb -s emulator-5554 wait-for-device
-          timeout 600 bash -c 'until adb -s emulator-5554 shell getprop sys.boot_completed | tr -d "\r" | grep -qx 1; do sleep 3; done'
-          python3 scripts/smoke-unified-lab.py --serial emulator-5554 --artifact "$RUNNER_TEMP/unified-apk" --revision "$GITHUB_SHA"
-      - name: Record successful emulator validation for exact APK
-        run: |
-          set -euo pipefail
-          cd "$RUNNER_TEMP/unified-apk"
-          test "$(cat revision.txt)" = "$GITHUB_SHA"
-          sha256sum -c SHA256SUMS
-          printf 'revision=%s\nrun_id=%s\nrun_attempt=%s\nandroid_api=35\nsmoke=passed\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > emulator-validation.txt
-      - name: Publish verified LAB APK only after emulator success
-        uses: actions/upload-artifact@v4
-        with:
-          name: MonedaMundial-LAB-Unificado-consolidated-security-verified
           path: ${{ runner.temp }}/unified-apk/
           retention-days: 7
           if-no-files-found: error
