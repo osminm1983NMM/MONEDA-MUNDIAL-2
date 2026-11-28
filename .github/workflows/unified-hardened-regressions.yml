@@ -1,0 +1,41 @@
+name: Unified LAB hardened - exact installed candidate regressions
+on:
+  push:
+    branches: [dev/unified-android-hardening-20261127]
+    paths: ['.github/workflows/unified-hardened-regressions.yml']
+permissions:
+  contents: read
+jobs:
+  regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ec1477daf5e7afc7919a38892180c59322b77ef0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact approved candidate and dependency lock
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'ec1477daf5e7afc7919a38892180c59322b77ef0'
+          echo '0ae8b0e1da1d9147ce0a04f3eb2fd757a416611fdbdcb702457a72a9cb2ffdc3  package-lock.json' | sha256sum -c -
+      - run: npm ci --no-audit --no-fund --engine-strict
+      - name: Android and installed Auth SDK regressions (mock transport only)
+        run: node --test tests/android/*.test.cjs tests/auth/*.test.cjs
+      - name: Financial Node regressions against exact candidate
+        run: |
+          set -euo pipefail
+          # The original financial branch's boundary gate pins the older standalone
+          # Android lockfile; do not misrepresent that baseline as the unified one.
+          tests=()
+          for file in tests/financial/*.test.cjs; do
+            if [[ "$file" == tests/financial/android-boundary.test.cjs ]]; then continue; fi
+            tests+=("$file")
+          done
+          test "${#tests[@]}" -gt 0
+          node --test "${tests[@]}"
+      - name: Verify no tracked source or lockfile was altered
+        run: git diff --exit-code HEAD --
