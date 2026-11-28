@@ -1,6 +1,7 @@
 'use strict';
 // This sandbox-only gate pins the root mobile sources/config/dependency lock to
-// the reviewed Android build a24b14c (APK and emulator gates passed; physical acceptance pending).
+// the reviewed unified Android build ec1477d (APK and emulator gates passed;
+// initial physical opening and identity observed; functional acceptance pending).
 // A deliberate Android update requires
 // a reviewed new baseline, not silently changing these expected blob IDs.
 const {test}=require('node:test');
@@ -17,8 +18,8 @@ const expected={
   "app.json": "ca7d5498f8e7831f4553074f6a8683d57881fb9c",
   "auth-storage.js": "56c08654c79860615322084e3f6e64af11684263",
   "eas.json": "d338997611e261bc328d9055db9eb387d60721dd",
-  "package-lock.json": "67afcc4fbd90946ca985bc7d7dabd6b15da38d77",
-  "package.json": "375a3aaca4d646315cfb0dbe35a49a564f62bdba",
+  "package-lock.json": "faf5fd56aa945ab7912f1e13efd7e1484395c9b3",
+  "package.json": "90f12eb15b1e9d7146ae832c48eaa9c2b96f1b6d",
   "remittance-quote.js": "d7643131307fae5b643073317a9178ec4ab4932e"
 };
 // Reviewed hosted artifacts only. Pin the manual HTTPS proof separately by exact blob; arbitrary files remain forbidden.
