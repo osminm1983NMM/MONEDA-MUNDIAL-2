@@ -1,0 +1,24 @@
+name: Hosted wallet proof offline contract
+on:
+  push:
+    branches: [dev/hosted-wallet-acceptance-20261128]
+    paths: ['scripts/verify-hosted-wallet-proof.cjs','tests/financial/hosted-wallet-proof.test.cjs','.github/workflows/hosted-wallet-proof-offline.yml']
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify absent authorization prevents manual HTTPS execution
+        run: |
+          if node scripts/verify-hosted-wallet-proof.cjs > "$RUNNER_TEMP/wallet-proof-negative.log" 2>&1; then exit 1; fi
+          grep -qx LAB_CONFIGURATION_REQUIRED "$RUNNER_TEMP/wallet-proof-negative.log"
+      - run: node --test tests/financial/*.test.cjs
+      - run: git diff --exit-code HEAD --
