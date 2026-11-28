@@ -11,6 +11,24 @@ function normalize(i){
  if(!i||i.mode!=='sandbox'||!id(i.orderId)||!id(i.reference)||!['funding','payout','refund'].includes(i.kind)||i.reference!==i.orderId+'-'+i.kind||i.currency!==(i.kind==='payout'?'HNL':'USD')||!Number.isSafeInteger(i.amountMinor)||i.amountMinor<=0)fail('INVALID_INTENT');
  return {mode:'sandbox',orderId:i.orderId,reference:i.reference,kind:i.kind,currency:i.currency,amountMinor:i.amountMinor};
 }
+// Persisted submissions must match both their database key and canonical payload.
+function storedSubmission(reference,payload){
+ try{
+  const value=normalize(parseSyntheticEnvelope(payload));
+  if(value.reference!==reference||JSON.stringify(value)!==payload)fail('PROVIDER_STATE_INVALID');
+  return value;
+ }catch{fail('PROVIDER_STATE_INVALID');}
+}
+function storedEvent(raw,reference,intent,type,eventId){
+ try{
+  const e=parseSyntheticEnvelope(raw);
+  if(e.eventId!==eventId||e.reference!==reference||e.mode!=='sandbox'||e.provider!=='mock-remittance'||
+    e.orderId!==intent.orderId||e.currency!==intent.currency||e.amountMinor!==intent.amountMinor||
+    ![intent.kind+'_confirmed',intent.kind+'_failed'].includes(e.type)||
+    !Number.isSafeInteger(e.timestamp)||e.timestamp<0||Object.keys(e).length!==9)fail('PROVIDER_STATE_INVALID');
+  if(e.type!==type)fail('EVENT_ID_CONFLICT');
+ }catch(error){if(error?.code==='EVENT_ID_CONFLICT')throw error;fail('PROVIDER_STATE_INVALID');}
+}
 function openDurableProvider({environment,path,initialize=false,secret,clock=Date.now}){
  if(environment!=='sandbox'||typeof path!=='string'||path===':memory:'||!path.endsWith('.sqlite')||typeof secret!=='string'||secret.length<32)fail('SANDBOX_ONLY');
  if(initialize){const fd=openSync(path,'wx',0o600);closeSync(fd);}
@@ -37,7 +55,7 @@ function openDurableProvider({environment,path,initialize=false,secret,clock=Dat
   const i=normalize(input),payload=JSON.stringify(i);
   const pending=tx(()=>{
    const old=db.prepare('SELECT payload FROM submissions WHERE reference=?').get(i.reference);
-   if(old&&old.payload!==payload)fail('PROVIDER_IDEMPOTENCY_CONFLICT');
+   if(old){storedSubmission(i.reference,old.payload);if(old.payload!==payload)fail('PROVIDER_IDEMPOTENCY_CONFLICT');}
    if(!old){
     db.prepare('INSERT INTO submissions VALUES(?,?)').run(i.reference,payload);
     if(i.kind==='payout')db.prepare('INSERT INTO unconfirmed_payouts VALUES(?)').run(i.reference);
@@ -54,6 +72,7 @@ function openDurableProvider({environment,path,initialize=false,secret,clock=Dat
   tx(()=>{
    const old=db.prepare('SELECT payload FROM submissions WHERE reference=?').get(i.reference);
    if(!old)fail('UNKNOWN_REFERENCE');
+   storedSubmission(i.reference,old.payload);
    if(old.payload!==JSON.stringify(i))fail('PROVIDER_IDEMPOTENCY_CONFLICT');
    db.prepare('DELETE FROM unconfirmed_payouts WHERE reference=?').run(i.reference);
   });
@@ -66,19 +85,23 @@ function openDurableProvider({environment,path,initialize=false,secret,clock=Dat
    'SELECT s.payload, p.reference IS NOT NULL AS pending FROM submissions s LEFT JOIN unconfirmed_payouts p USING(reference) WHERE s.reference=?'
   ).get(reference);
   if(!row)return {status:'absent'};
-  return {status:row.pending?'awaiting_confirmation':'accepted',intent:normalize(JSON.parse(row.payload))};
+  return {status:row.pending?'awaiting_confirmation':'accepted',intent:storedSubmission(reference,row.payload)};
  },
  loseNextResponse(){lose=true;},
- submissions(){return db.prepare('SELECT payload FROM submissions ORDER BY reference').all().map(r=>normalize(JSON.parse(r.payload)));},
+ submissions(){return db.prepare('SELECT reference,payload FROM submissions ORDER BY reference').all().map(r=>storedSubmission(r.reference,r.payload));},
  event(reference,type,eventId){
   if(!isProviderEventId(eventId))fail('INVALID_EVENT');
   return tx(()=>{
    const s=db.prepare('SELECT payload FROM submissions WHERE reference=?').get(reference);if(!s)fail('UNKNOWN_REFERENCE');
    if(db.prepare('SELECT 1 FROM unconfirmed_payouts WHERE reference=?').get(reference))fail('PAYOUT_NOT_CONFIRMED');
-   const i=normalize(JSON.parse(s.payload));
+   const i=storedSubmission(reference,s.payload);
    if(![i.kind+'_confirmed',i.kind+'_failed'].includes(type))fail('INVALID_EVENT');
-   const prior=db.prepare('SELECT raw FROM events WHERE event_id=?').get(eventId);
-   if(prior){const e=JSON.parse(prior.raw);if(e.reference!==reference||e.type!==type)fail('EVENT_ID_CONFLICT');return {raw:prior.raw,signature:sign(prior.raw)};}
+   const prior=db.prepare('SELECT reference,raw FROM events WHERE event_id=?').get(eventId);
+   if(prior){
+    if(prior.reference!==reference)fail('EVENT_ID_CONFLICT');
+    storedEvent(prior.raw,reference,i,type,eventId);
+    return {raw:prior.raw,signature:sign(prior.raw)};
+   }
    const timestamp=clock();if(!Number.isSafeInteger(timestamp)||timestamp<0)fail('CLOCK');
    const raw=JSON.stringify({mode:'sandbox',provider:'mock-remittance',eventId,orderId:i.orderId,reference,type,currency:i.currency,amountMinor:i.amountMinor,timestamp});
    db.prepare('INSERT INTO events VALUES(?,?,?)').run(eventId,reference,raw);

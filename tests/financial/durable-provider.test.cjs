@@ -70,3 +70,36 @@ test('durable provider refuses to sign event IDs beyond the PostgreSQL limit',as
   a.equal(p.verifyEvent(raw,signature).eventId,valid);
  }finally{p.close();}
 });
+
+test('provider refuses corrupt persisted submission or reference before replaying or signing',async t=>{
+ const f=setup(t),p=openDurableProvider({...f,initialize:true});
+ const {DatabaseSync}=require('node:sqlite');
+ await p.submit(intent);
+ const db=new DatabaseSync(f.path);
+ try{
+  for(const payload of [JSON.stringify({...intent,orderId:'other',reference:'other-funding'}),JSON.stringify({...intent,extra:'unexpected'}),' '+JSON.stringify(intent)]){
+   db.prepare('UPDATE submissions SET payload=? WHERE reference=?').run(payload,intent.reference);
+   await a.rejects(p.lookup(intent.reference),/PROVIDER_STATE_INVALID/);
+   await a.rejects(p.submit(intent),/PROVIDER_STATE_INVALID/);
+   a.throws(()=>p.submissions(),/PROVIDER_STATE_INVALID/);
+   a.throws(()=>p.event(intent.reference,'funding_confirmed','new-event'),/PROVIDER_STATE_INVALID/);
+  }
+  db.prepare('UPDATE submissions SET payload=? WHERE reference=?').run(JSON.stringify(intent),intent.reference);
+  a.equal((await p.lookup(intent.reference)).status,'accepted');
+ }finally{db.close();p.close();}
+});
+test('provider never signs replayed events inconsistent with stored submission or event identity',async t=>{
+ const f=setup(t),p=openDurableProvider({...f,initialize:true});
+ const {DatabaseSync}=require('node:sqlite');
+ await p.submit(intent);
+ const event=p.event(intent.reference,'funding_confirmed','evt-integrity'),parsed=JSON.parse(event.raw);
+ const db=new DatabaseSync(f.path);
+ try{
+  for(const patch of [{amountMinor:1},{currency:'HNL'},{eventId:'another'},{orderId:'another'},{mode:'production'},{timestamp:-1},{unexpected:true}]){
+   db.prepare('UPDATE events SET raw=? WHERE event_id=?').run(JSON.stringify({...parsed,...patch}),parsed.eventId);
+   a.throws(()=>p.event(intent.reference,'funding_confirmed',parsed.eventId),/PROVIDER_STATE_INVALID/);
+  }
+  db.prepare('UPDATE events SET raw=? WHERE event_id=?').run(event.raw,parsed.eventId);
+  a.deepEqual(p.event(intent.reference,'funding_confirmed',parsed.eventId),event);
+ }finally{db.close();p.close();}
+});

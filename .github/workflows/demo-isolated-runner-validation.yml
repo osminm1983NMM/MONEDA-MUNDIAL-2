@@ -1,0 +1,120 @@
+name: DEMO isolated SQL runner validation
+on:
+  push:
+    branches: [dev/financial-http-hardening-20261128]
+    paths: ['scripts/run-demo-sql-gates.cjs', 'scripts/test-demo-sql-runner.cjs', 'tests/sql/**', 'database/replay/**', '.github/workflows/demo-isolated-runner-validation.yml']
+permissions:
+  contents: read
+concurrency:
+  group: mwd-disposable-postgres-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  isolated-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: mwd_demo_isolated
+          POSTGRES_PASSWORD: disposable-local-fixture-only
+        ports:
+          - 54322:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mwd_demo_isolated"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      MWD_CONFIRM_ISOLATED: YES_LOCAL_DISPOSABLE
+      MWD_LOCAL_DB_PASSWORD: disposable-local-fixture-only
+      PGPASSWORD: disposable-local-fixture-only
+      PGCONNECT_TIMEOUT: '5'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: PostgreSQL client
+        run: |
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+          psql --version
+      - name: Mark disposable database and reconstruct schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -X -w -h 127.0.0.1 -p 54322 -U postgres -d mwd_demo_isolated -v ON_ERROR_STOP=1 -c "COMMENT ON DATABASE mwd_demo_isolated IS 'MWD_DISPOSABLE_CONCURRENCY_TEST_ONLY';"
+          node scripts/build-isolated-demo-sql.cjs > "$RUNNER_TEMP/replay.sql"
+          psql -X -w -h 127.0.0.1 -p 54322 -U postgres -d mwd_demo_isolated -v ON_ERROR_STOP=1 -f "$RUNNER_TEMP/replay.sql"
+          # The schema is present but has no synthetic users yet.
+          if node scripts/run-demo-sql-gates.cjs functional > "$RUNNER_TEMP/fixture-negative.log" 2>&1; then
+            echo 'Unsafe execution without fixture identities'; exit 1
+          fi
+          grep -q 'SYNTHETIC_FIXTURES_REQUIRED' "$RUNNER_TEMP/fixture-negative.log"
+          psql -X -w -h 127.0.0.1 -p 54322 -U postgres -d mwd_demo_isolated -v ON_ERROR_STOP=1 -f tests/sql/prepare-disposable-concurrency-fixtures.sql
+      - name: Test offline runner contract
+        run: node --test scripts/test-demo-sql-runner.cjs
+      - name: Prove missing marker blocks functional execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          sql() { psql -X -w -h 127.0.0.1 -p 54322 -U postgres -d mwd_demo_isolated -v ON_ERROR_STOP=1 "$@"; }
+          sql -c "COMMENT ON DATABASE mwd_demo_isolated IS NULL;"
+          if node scripts/run-demo-sql-gates.cjs functional > "$RUNNER_TEMP/guard-negative.log" 2>&1; then
+            echo 'Unsafe execution without marker'; exit 1
+          fi
+          grep -q 'DISPOSABLE_DATABASE_REQUIRED' "$RUNNER_TEMP/guard-negative.log"
+          sql -c "COMMENT ON DATABASE mwd_demo_isolated IS 'MWD_DISPOSABLE_CONCURRENCY_TEST_ONLY';"
+      - name: Verify real payment flag cannot be enabled in DEMO
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -X -w -h 127.0.0.1 -p 54322 -U postgres -d mwd_demo_isolated -v ON_ERROR_STOP=1 <<'SQL'
+          BEGIN;
+          DO $test$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM mwd_finance_private.demo_fee_routes WHERE origin_country='US' AND destination_country='HN' AND real_payments_enabled IS FALSE)
+            THEN RAISE EXCEPTION 'Missing disabled Honduras fixture'; END IF;
+            BEGIN
+              UPDATE mwd_finance_private.demo_fee_routes SET real_payments_enabled=true WHERE origin_country='US' AND destination_country='HN';
+              RAISE EXCEPTION 'DEMO accepted real payment activation';
+            EXCEPTION WHEN check_violation THEN NULL;
+            END;
+            IF EXISTS (SELECT 1 FROM mwd_finance_private.demo_fee_routes WHERE real_payments_enabled IS DISTINCT FROM false)
+            THEN RAISE EXCEPTION 'Unsafe payment flag'; END IF;
+          END $test$;
+          ROLLBACK;
+          SQL
+      - name: Execute three transactional functional gates
+        run: node scripts/run-demo-sql-gates.cjs functional
+      - name: Verify merchant payment and cancellation in disposable database
+        run: psql -X -w -h 127.0.0.1 -p 54322 -U postgres -d mwd_demo_isolated -v ON_ERROR_STOP=1 -f tests/sql/demo-merchant-functional-gate.sql
+      - name: Execute four simultaneous retry scenarios
+        run: node scripts/test-demo-concurrency-local.cjs
+      - name: Prepare guarded synthetic historical states
+        run: psql -X -w -h 127.0.0.1 -p 54322 -U postgres -d mwd_demo_isolated -v ON_ERROR_STOP=1 -f tests/sql/prepare-disposable-history-fixtures.sql
+      - name: Verify all 17 historical accounting and recovery gates
+        run: node scripts/run-demo-sql-gates.cjs historical
+      - name: Verify concurrent merchant payment and post-payment reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/merchant-concurrency-local.cjs
+          for gate in accounting-release ledger-posting-identity ledger-reverse-coverage; do
+            psql -X -w -h 127.0.0.1 -p 54322 -U postgres -d mwd_demo_isolated -v ON_ERROR_STOP=1 -f "tests/sql/demo-$gate-gate.sql"
+          done
+      - name: Rehearse private ledger audit V2 with negative control
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -X -w -h 127.0.0.1 -p 54322 -U postgres -d mwd_demo_isolated -v ON_ERROR_STOP=1 -f docs/operations-audit-v2-candidate.sql
+      - name: Verify exact privileged RPC inventory
+        run: psql -X -w -h 127.0.0.1 -p 54322 -U postgres -d mwd_demo_isolated -v ON_ERROR_STOP=1 -f docs/rpc-privilege-inventory-gate.sql
+      - name: Acceptance scope
+        if: success()
+        run: echo 'Local PostgreSQL tests passed. Auth is a SQL test double; no mobile, email or real payments certified. The service is discarded automatically by Actions.'

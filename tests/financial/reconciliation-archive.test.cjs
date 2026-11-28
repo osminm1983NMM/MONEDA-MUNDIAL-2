@@ -151,3 +151,17 @@ test('backup never publishes an inconsistent source and preserves existing desti
  a.equal(fs.existsSync(destination),false);
  a.equal(fs.readdirSync(dirname(destination)).some(x=>x.startsWith('.mwd-archive-')),false);
 }));
+
+test('archive and backup refuse missing or replaced immutability triggers even with unchanged receipts',()=>fixture(({store,config})=>{
+ store.record({internalPages:pages('internal'),providerPages:pages('provider')});
+ const destination=config.path+'.guard-backup.sqlite',manifest=store.backup(destination);
+ const db=new DatabaseSync(destination);
+ try{
+  db.exec('DROP TRIGGER receipts_no_update');
+  a.throws(()=>verifyReconciliationBackup({environment:'sandbox',path:destination,expected:manifest}),/ARCHIVE_CORRUPT/);
+  a.throws(()=>openReconciliationArchive({...config,path:destination}),/ARCHIVE_CORRUPT/);
+  db.exec('CREATE TRIGGER receipts_no_update BEFORE UPDATE ON receipts BEGIN SELECT 1; END');
+  a.throws(()=>verifyReconciliationBackup({environment:'sandbox',path:destination,expected:manifest}),/ARCHIVE_CORRUPT/);
+  a.throws(()=>openReconciliationArchive({...config,path:destination}),/ARCHIVE_CORRUPT/);
+ }finally{db.close();}
+}));

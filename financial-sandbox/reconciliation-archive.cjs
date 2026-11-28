@@ -20,7 +20,27 @@ function summarizeReceipt(result){
 
 // Digest the logical archive rather than its physical SQLite page layout.
 // This is local consistency evidence, not authenticity against a privileged attacker.
+// Require the exact immutability triggers defined by this archive format.
+// A logically matching backup must not silently lose its write protections.
+const requiredTriggers=[
+ "CREATE TRIGGER snapshots_no_update BEFORE UPDATE ON snapshots BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END",
+ "CREATE TRIGGER snapshots_no_delete BEFORE DELETE ON snapshots BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END",
+ "CREATE TRIGGER receipts_no_update BEFORE UPDATE ON receipts BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END",
+ "CREATE TRIGGER receipts_no_delete BEFORE DELETE ON receipts BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END",
+ "CREATE TRIGGER snapshots_no_replace BEFORE INSERT ON snapshots WHEN EXISTS(SELECT 1 FROM snapshots WHERE source=NEW.source AND snapshot_id=NEW.snapshot_id) BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END",
+ "CREATE TRIGGER receipts_no_replace BEFORE INSERT ON receipts WHEN EXISTS(SELECT 1 FROM receipts WHERE receipt_id=NEW.receipt_id) BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END",
+ "CREATE TRIGGER metadata_no_replace BEFORE INSERT ON metadata WHEN EXISTS(SELECT 1 FROM metadata WHERE key=NEW.key) BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END",
+ "CREATE TRIGGER metadata_no_update BEFORE UPDATE ON metadata BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END",
+ "CREATE TRIGGER metadata_no_delete BEFORE DELETE ON metadata BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END"
+];
+function verifyTriggers(db){
+ const actual=db.prepare("SELECT name,sql FROM sqlite_schema WHERE type='trigger'").all();
+ const normalize=sql=>typeof sql==='string'?sql.trim().replace(/;$/,'').replace(/\s+/g,' '):'';
+ const byName=new Map(actual.map(x=>[x.name,normalize(x.sql)]));
+ if(actual.length!==requiredTriggers.length||requiredTriggers.some(sql=>byName.get(sql.split(' ')[2])!==normalize(sql)))fail('ARCHIVE_CORRUPT');
+}
 function inspect(db){
+ verifyTriggers(db);
  if(db.prepare("SELECT value FROM metadata WHERE key='mode'").get()?.value!=='synthetic-reconciliation-archive-v1')fail('INVALID_ARCHIVE');
  if(db.prepare('PRAGMA quick_check').all().some(r=>Object.values(r)[0]!=='ok'))fail('ARCHIVE_CORRUPT');
  const snapshots=db.prepare('SELECT source,snapshot_id,fingerprint,evidence FROM snapshots ORDER BY source,snapshot_id').all();
@@ -84,6 +104,7 @@ function openReconciliationArchive({environment,path,initialize=false}={}){
    CREATE TRIGGER metadata_no_delete BEFORE DELETE ON metadata BEGIN SELECT RAISE(ABORT,'IMMUTABLE_ARCHIVE'); END;
    COMMIT;`);
   if(db.prepare("SELECT value FROM metadata WHERE key='mode'").get()?.value!=='synthetic-reconciliation-archive-v1')fail('INVALID_ARCHIVE');
+  verifyTriggers(db);
   db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;');
  }catch(e){db.close();throw e;}
  function tx(fn){db.exec('BEGIN IMMEDIATE');try{const r=fn();db.exec('COMMIT');return r;}catch(e){db.exec('ROLLBACK');throw e;}}

@@ -111,3 +111,45 @@ test('client disconnect during service discards result and retains slot until ac
  complete({status:200,body:publicStatus});await new Promise(resolve=>setImmediate(resolve));
  a.equal((await handle(make())).status,404);a.equal(calls,2);
 });
+
+test('early HTTP rejection cancels an unread stream and never calls service',async()=>{
+ const f=fixture();
+ for(const [target,headers,status] of [
+  [url+'#fragment',{},400],
+  [url+'/other',{},404],
+  [url,{authorization:'invalid'},401],
+  [url,{'content-type':'text/plain'},415],
+  [url,{'content-length':'1025'},413],
+  [url,{'content-length':'42','transfer-encoding':'chunked'},400]
+ ]){
+  let cancelled=false;
+  const body=new ReadableStream({cancel(){cancelled=true;}});
+  const req=new Request(target,{method:'POST',headers:{authorization:'Bearer t','content-type':'application/json',...headers},body,duplex:'half'});
+  a.equal((await f.handle(req)).status,status);
+  a.equal(cancelled,true);
+ }
+ a.equal(f.calls.length,0);
+});
+test('declared content length must match actual UTF-8 request bytes',async()=>{
+ const f=fixture(),body=JSON.stringify({orderId}),size=Buffer.byteLength(body);
+ for(const n of [0,size-1,size+1]){
+  const request=make({body,headers:{authorization:'Bearer t','content-type':'application/json','content-length':String(n)}});
+  a.equal((await f.handle(request)).status,400);
+ }
+ a.equal(f.calls.length,0);
+ const request=make({body,headers:{authorization:'Bearer t','content-type':'application/json','content-length':String(size)}});
+ a.equal((await f.handle(request)).status,200);
+ a.equal(f.calls.length,1);
+});
+
+test('status validates exact serialized response and rejects hidden serialization of private fields',async()=>{
+ const nested={...publicStatus.source};
+ Object.defineProperty(nested,'toJSON',{value:()=>({...publicStatus.source,privateToken:'fixture-secret'})});
+ const root={...publicStatus};
+ Object.defineProperty(root,'toJSON',{value:()=>({...publicStatus,privateToken:'fixture-secret'})});
+ for(const body of [root,{...publicStatus,source:nested}]){
+  const r=await fixture({status:200,body}).handle(make());
+  a.equal(r.status,503);a.deepEqual(await r.json(),{mode:'sandbox',error:'UNAVAILABLE'});
+ }
+ const valid=await fixture().handle(make());a.equal(valid.status,200);a.equal(await valid.text(),JSON.stringify(publicStatus));
+});

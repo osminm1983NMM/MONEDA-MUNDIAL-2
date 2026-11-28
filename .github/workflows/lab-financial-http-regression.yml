@@ -1,0 +1,23 @@
+name: LAB financial regression
+on:
+  push:
+    branches: [dev/financial-http-hardening-20261128]
+    paths: ['*', 'financial-sandbox/**', 'financial-hosted/**', 'tests/financial/**', 'scripts/stage-unified-lab.cjs', 'scripts/smoke-unified-lab.py', '.github/workflows/unified-hardened-apk.yml', '.github/workflows/lab-financial-http-regression.yml']
+permissions:
+  contents: read
+jobs:
+  financial-http:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify immutable dependency lock
+        run: echo '0ae8b0e1da1d9147ce0a04f3eb2fd757a416611fdbdcb702457a72a9cb2ffdc3  package-lock.json' | sha256sum -c -
+      - run: node --test tests/financial/*.test.cjs
+      - name: Verify no tracked files changed
+        run: git diff --exit-code HEAD --

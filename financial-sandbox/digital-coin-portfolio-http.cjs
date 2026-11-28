@@ -9,12 +9,14 @@ function createPortfolioHttp({environment,service,timeoutMs=8000,maxActive=32}={
  let active=0;
  return async request=>{
   if(!(request instanceof Request))return error(400,'INVALID_REQUEST');
-  if(request.signal.aborted)return error(408,'INVALID_REQUEST');
+  // A read-only endpoint must release rejected incoming streams, even on abort.
+  const reject=(status,code,headers)=>{void request.body?.cancel().catch(()=>{});return error(status,code,headers);};
+  if(request.signal.aborted)return reject(408,'INVALID_REQUEST');
   const url=new URL(request.url);
-  if(url.pathname!=='/v1/sandbox/wallet/portfolio')return error(404,'NOT_FOUND');
-  if(url.search||url.hash)return error(400,'INVALID_REQUEST');
-  if(request.method!=='GET')return error(405,'METHOD_NOT_ALLOWED',{allow:'GET'});
-  if(request.body!==null||request.headers.has('transfer-encoding')||(request.headers.has('content-length')&&request.headers.get('content-length')!=='0'))return error(400,'INVALID_REQUEST');
+  if(url.pathname!=='/v1/sandbox/wallet/portfolio')return reject(404,'NOT_FOUND');
+  if(url.search||url.hash)return reject(400,'INVALID_REQUEST');
+  if(request.method!=='GET')return reject(405,'METHOD_NOT_ALLOWED',{allow:'GET'});
+  if(request.body!==null||request.headers.has('transfer-encoding')||(request.headers.has('content-length')&&request.headers.get('content-length')!=='0'))return reject(400,'INVALID_REQUEST');
   const token=request.headers.get('authorization')?.match(/^Bearer ([A-Za-z0-9._~-]{1,8192})$/i)?.[1];
   if(!token)return error(401,'AUTH_REQUIRED',{'www-authenticate':'Bearer'});
   if(active>=maxActive)return error(503,'UNAVAILABLE');
@@ -34,7 +36,14 @@ function createPortfolioHttp({environment,service,timeoutMs=8000,maxActive=32}={
   try{
    const result=await Promise.race([operation,deadline]);
    if(request.signal.aborted)return error(408,'INVALID_REQUEST');
-   if(result?.status===200&&validPortfolio(result.body))return response(200,result.body);
+   if(result?.status===200&&validPortfolio(result.body)){
+    // Validate the same bytes the caller receives, including the serialized
+    // representation of nested objects, and fail closed on private fields.
+    const wire=JSON.stringify(result.body);
+    if(typeof wire==='string'&&Buffer.byteLength(wire)<=1024*1024+1024&&validPortfolio(JSON.parse(wire)))
+     return new Response(wire,{status:200,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
+    return error(503,'UNAVAILABLE');
+   }
    if(result?.status===401)return error(401,'AUTH_REQUIRED',{'www-authenticate':'Bearer'});
    if(result?.status===400)return error(400,'INVALID_REQUEST');
    return error(503,'UNAVAILABLE');

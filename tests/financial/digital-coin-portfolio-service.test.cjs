@@ -31,3 +31,16 @@ test('production sessions and treasury denied; production service cannot initial
  for(const session of [{environment:'production',actor:'alice'},{environment:'sandbox',actor:'treasury'}]){const f=fixture(async()=>session);a.equal((await f.service.read({sessionToken:'a'})).status,401);a.equal(f.reads(),0);}
  a.throws(()=>create({environment:'production',verifySession:async()=>null,ledger:{reconciliationSnapshot(){return snapshot;}}}),/SANDBOX_ONLY/);
 });
+
+test('wallet rejects ambiguous verified identity and malformed request without reading ledger',async()=>{
+ let invoked=0;
+ const identity={environment:'sandbox',get actor(){invoked++;return 'bob';}};
+ const hidden={environment:'sandbox',actor:'alice'};Object.defineProperty(hidden,'extra',{value:true});
+ for(const bad of [identity,hidden,{environment:'sandbox',actor:'alice',[Symbol()]:true},Object.assign(Object.create({actor:'bob'}),{environment:'sandbox'}),new Proxy({environment:'sandbox',actor:'alice'},{ownKeys(){throw Error('private');}})]){
+  const f=fixture(async()=>bad);a.equal((await f.service.read({sessionToken:'a'})).status,401);a.equal(f.reads(),0);
+ }
+ a.equal(invoked,0);
+ const f=fixture();const bad=new Proxy({sessionToken:'a'},{ownKeys(){throw Error('private');}});
+ a.equal((await f.service.read(bad)).status,400);a.equal(f.checks(),0);
+ a.equal((await f.service.read({sessionToken:'a'})).status,200);
+});

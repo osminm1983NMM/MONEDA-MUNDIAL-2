@@ -36,6 +36,30 @@ const hostedArtifacts={
   "financial-sandbox/sql/mwd_lab_session_identity.sql": "53fb1e1648686fdae2a2c7f23c27bc7f8adcc7b3",
   "financial-sandbox/sql/mwd_lab_wallet_snapshot.sql": "9fe113158f0b22dc049892311a7a4e838928a3d9"
 };
+// Unified APK entry points, shared client contracts and build/smoke inputs.
+// These are pinned to the verified APK commit, not the evolving local server.
+const unifiedInputs={
+ ".github/workflows/unified-hardened-apk.yml": "9d20754e1cafee4d8c73ab3d2148c244f79c909f",
+ "financial-sandbox/digital-coin-portfolio-client.cjs": "46d70e661f1d253b48dfdbaa3d4cb5ff26fc10e1",
+ "financial-sandbox/digital-coin-portfolio-contract.cjs": "386bd94d9405a8d6eeffb5375e23924b8ba48ad4",
+ "financial-sandbox/mobile/digital-coin-portfolio-expo.js": "6c107f094442f4acec1fbccb2dae754ac4896827",
+ "financial-sandbox/mobile/digital-coin-portfolio-host.js": "e297764007626bbd6fcec82b5ff7758dcae9aadd",
+ "financial-sandbox/mobile/digital-coin-portfolio-panel.js": "255b71c3ed20fa21d10c464e0ef7a52023646215",
+ "financial-sandbox/mobile/hosted-lab-app.json": "f8c3c7f194730b3d295a0cf6383533fdeea875ef",
+ "financial-sandbox/mobile/hosted-lab-entry.jsx": "acaeda96e88fd118866dbc7d5aae9cf155efeffc",
+ "financial-sandbox/mobile/hosted-session-fence.js": "31492ddc83979001204152f70b6808a223a3d89e",
+ "financial-sandbox/mobile/order-status-expo.js": "c2dada5b657872302cf25f261d2caa9a86a630ce",
+ "financial-sandbox/mobile/remittance-status-host.js": "d97486e4f41c711a2f0e8d8a865b8c81a9af828f",
+ "financial-sandbox/mobile/remittance-status-panel.js": "fbe6241c6b660ce564f6f2dfa7c7efc1114ced7d",
+ "financial-sandbox/mobile/unified-lab-entry.jsx": "692e363b0b0bc9069ddc4a7259cfd52479902cca",
+ "financial-sandbox/mobile/unified-mode-latch.cjs": "5bf426b7ea63cd3e4c0a8b07afa6c947f321c044",
+ "financial-sandbox/order-status-client.cjs": "05cdb9d82b3fbce5e46a0ee62c5d7cf2db058050",
+ "financial-sandbox/order-status-contract.cjs": "266efdbb0fe9f7adc4c1de4dcbbe8f9c5e4d0cf7",
+ "financial-sandbox/order-status-presentation.cjs": "61c98dbebe835487f01e87559f3316a6531cc492",
+ "financial-sandbox/order-status-route.cjs": "af4e2073373e1bcfa3a1882759f5799c86e01bc6",
+ "scripts/smoke-unified-lab.py": "9ef3ab494f1e31927da1e1640893ca48db677f83",
+ "scripts/stage-unified-lab.cjs": "cffd61bfb11e34bca4588888c82f8113913a8500"
+};
 function blobSha(bytes){
  return createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');
 }
@@ -48,6 +72,12 @@ function assertMobileBoundary(tracked,read){
    assert.ok(Object.hasOwn(hostedArtifacts,p),'Unreviewed hosted file: '+p);
    assert.equal(blobSha(read(p)),hostedArtifacts[p],'Hosted artifact changed: '+p);
   }else assert.ok(allowedDirectories.has(p.split('/')[0]),'Unreviewed root directory: '+p);
+ }
+ const mobile=tracked.filter(p=>p.startsWith('financial-sandbox/mobile/')).sort();
+ assert.deepEqual(mobile,Object.keys(unifiedInputs).filter(p=>p.startsWith('financial-sandbox/mobile/')).sort(),'Unified mobile inventory changed');
+ for(const p of Object.keys(unifiedInputs)){
+  assert.ok(tracked.includes(p),'Unified build input missing: '+p);
+  assert.equal(blobSha(read(p)),unifiedInputs[p],'Unified build input changed: '+p);
  }
  for(const p of Object.keys(hostedArtifacts))assert.ok(tracked.includes(p),'Reviewed hosted artifact missing: '+p);
  for(const p of rootFiles){
@@ -64,7 +94,7 @@ test('sandbox branch preserves the automated Android candidate root files byte-f
  });
 });
 test('boundary rejects changed source and unreviewed new root paths',()=>{
- const paths=[...Object.keys(expected),...Object.keys(hostedArtifacts)],read=p=>fs.readFileSync(path.join(root,p));
+ const paths=[...Object.keys(expected),...Object.keys(hostedArtifacts),...Object.keys(unifiedInputs)],read=p=>fs.readFileSync(path.join(root,p));
  assert.throws(()=>assertMobileBoundary([...paths,'metro.config.js'],read),/inventory changed/);
  assert.throws(()=>assertMobileBoundary([...paths,'unreviewed/index.js'],read),/Unreviewed root directory/);
  assert.throws(()=>assertMobileBoundary(paths,p=>p==='App.js'?Buffer.concat([read(p),Buffer.from(' ') ]):read(p)),/Mobile source\/config changed: App.js/);
@@ -75,5 +105,14 @@ test('boundary rejects changed source and unreviewed new root paths',()=>{
  for(const file of Object.keys(hostedArtifacts)){
   assert.throws(()=>assertMobileBoundary(paths.filter(p=>p!==file),read),/Reviewed hosted artifact missing/);
   assert.throws(()=>assertMobileBoundary(paths,p=>p===file?Buffer.concat([read(p),Buffer.from(' ')]):read(p)),/Hosted artifact changed/);
+ }
+});
+
+test('frozen unified build rejects new mobile files and altered shared inputs',()=>{
+ const paths=[...Object.keys(expected),...Object.keys(hostedArtifacts),...Object.keys(unifiedInputs)],read=p=>fs.readFileSync(path.join(root,p));
+ assert.throws(()=>assertMobileBoundary([...paths,'financial-sandbox/mobile/unreviewed.js'],read),/Unified mobile inventory changed/);
+ for(const p of Object.keys(unifiedInputs)){
+  assert.throws(()=>assertMobileBoundary(paths.filter(x=>x!==p),read),/Unified (mobile inventory changed|build input missing)/);
+  assert.throws(()=>assertMobileBoundary(paths,x=>x===p?Buffer.concat([read(x),Buffer.from(' ')]):read(x)),/Unified build input changed/);
  }
 });

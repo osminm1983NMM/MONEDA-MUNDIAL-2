@@ -28,9 +28,25 @@ for (const file of files) {
 const args = ['-X', '-w', '-h', '127.0.0.1', '-p', '54322', '-U', 'postgres', '-d', 'mwd_demo_isolated', '-v', 'ON_ERROR_STOP=1'];
 // Do not inherit PGHOSTADDR, PGSERVICE, PGOPTIONS, connection URLs or other settings.
 const env = { PATH: process.env.PATH, PGPASSWORD: process.env.MWD_LOCAL_DB_PASSWORD, PGCONNECT_TIMEOUT: '5', PGOPTIONS: '-c statement_timeout=30000 -c lock_timeout=2000' };
+// Repeat the guard in the SAME psql connection as each test file. A
+// different server behind a local port cannot pass merely by using the DB name.
+// A marker is an additional safeguard, not proof against malicious tunnels.
+const guard = `DO $isolation$
+BEGIN
+ IF current_database() <> 'mwd_demo_isolated' OR
+    (SELECT shobj_description(oid,'pg_database') FROM pg_database WHERE datname=current_database()) IS DISTINCT FROM 'MWD_DISPOSABLE_CONCURRENCY_TEST_ONLY'
+ THEN RAISE EXCEPTION 'DISPOSABLE_DATABASE_REQUIRED'; END IF;
+ IF EXISTS (SELECT 1 FROM mwd_finance_private.demo_fee_routes WHERE real_payments_enabled IS DISTINCT FROM false)
+ THEN RAISE EXCEPTION 'REAL_PAYMENTS_MUST_BE_DISABLED'; END IF;
+ IF (SELECT count(*) FROM auth.users) <> 2 OR
+    (SELECT count(*) FROM auth.users WHERE ((id='f1a00000-0000-4000-8000-000000000001' AND email='fixture-a@example.invalid') OR (id='f1a00000-0000-4000-8000-000000000002' AND email='fixture-b@example.invalid')) AND coalesce(encrypted_password,'')='') <> 2 OR
+    (SELECT count(*) FROM public.mwd_wallets) <> 2 OR
+    (SELECT count(*) FROM public.mwd_wallets WHERE user_id IN ('f1a00000-0000-4000-8000-000000000001','f1a00000-0000-4000-8000-000000000002')) <> 2
+ THEN RAISE EXCEPTION 'SYNTHETIC_FIXTURES_REQUIRED'; END IF;
+END $isolation$;`;
 for (const file of files) {
   console.log('RUN ' + path.basename(file));
-  const result = spawnSync('psql', [...args, '-f', file], { env, stdio: 'inherit' });
+  const result = spawnSync('psql', [...args, '-c', guard, '-f', file], { env, stdio: 'inherit', timeout: 120000, killSignal: 'SIGKILL' });
   if (result.error || result.status !== 0) {
     console.error('FAILED ' + path.basename(file));
     process.exit(1);

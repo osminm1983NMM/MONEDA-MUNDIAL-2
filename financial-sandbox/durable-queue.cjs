@@ -86,8 +86,18 @@ class DurableSandboxQueue{
   if(!e)fail('INVALID_EVENT');
   const fp=hash(raw);
   return this.#tx(()=>{
-   const old=this.#db.prepare('SELECT fingerprint FROM sandbox_inbox WHERE provider=? AND event_id=?').get(e.provider,e.eventId);
-   if(old){if(old.fingerprint!==fp)fail('EVENT_ID_CONFLICT');return {status:'duplicate'};}
+   const old=this.#db.prepare('SELECT fingerprint,raw,signature,received_at FROM sandbox_inbox WHERE provider=? AND event_id=?').get(e.provider,e.eventId);
+   if(old){
+    // Do not acknowledge a corrupted saved receipt as a successful replay.
+    if(typeof old.raw!=='string'||Buffer.byteLength(old.raw)>16384||hash(old.raw)!==old.fingerprint||
+       typeof old.signature!=='string'||!/^[0-9a-f]{64}$/.test(old.signature)||
+       !Number.isSafeInteger(old.received_at)||old.received_at<0)fail('INBOX_INTEGRITY');
+    if(old.fingerprint!==fp)fail('EVENT_ID_CONFLICT');
+    // This synthetic adapter uses deterministic signatures. The incoming
+    // receipt was verified above; its exact bytes must equal the stored ones.
+    if(old.raw!==raw||old.signature!==signature)fail('INBOX_INTEGRITY');
+    return {status:'duplicate'};
+   }
    this.#db.prepare('INSERT INTO sandbox_inbox VALUES(?,?,?,?,?,?)').run(e.provider,e.eventId,fp,raw,signature,this.#now());
    return {status:'recorded_not_applied'};
   });
