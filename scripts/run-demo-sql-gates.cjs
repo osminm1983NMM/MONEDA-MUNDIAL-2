@@ -46,7 +46,7 @@ BEGIN
 END $isolation$;`;
 for (const file of files) {
   console.log('RUN ' + path.basename(file));
-  const result = spawnSync('psql', [...args, '-c', guard, '-f', file], { env, stdio: 'inherit' });
+  const result = spawnSync('psql', [...args, '-c', guard, '-f', file], { env, stdio: 'inherit', timeout: 120000, killSignal: 'SIGKILL' });
   if (result.error || result.status !== 0) {
     console.error('FAILED ' + path.basename(file));
     process.exit(1);

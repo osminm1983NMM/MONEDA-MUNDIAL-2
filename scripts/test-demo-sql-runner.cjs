@@ -12,7 +12,7 @@ function simulate(mode, options = {}) {
   const proc = { argv: ['node', 'runner', mode], env, exit(code) { status = code; throw exitSignal; } };
   try {
     vm.runInNewContext(source, { __dirname, process: proc, console: { log: v => logs.push(v), error: v => logs.push(v) }, require(name) {
-      if (name === 'node:child_process') return { spawnSync(cmd, args, opts) { calls.push({cmd,args,opts}); return calls.length === options.failAt ? { status: 1 } : { status: 0 }; } };
+      if (name === 'node:child_process') return { spawnSync(cmd, args, opts) { calls.push({cmd,args,opts}); return calls.length === options.failAt ? { status: 1 } : calls.length === options.timeoutAt ? { status: null, error: Object.assign(Error('timeout'),{code:'ETIMEDOUT'}) } : { status: 0 }; } };
       if (name === 'node:fs') return { existsSync: file => !options.missing || !file.endsWith(options.missing) };
       if (name === 'node:path') return path;
       throw Error('Unexpected import: ' + name);
@@ -52,4 +52,10 @@ test('each SQL file is preceded by isolation, fixture and payment checks in one 
    assert.ok(args.includes('ON_ERROR_STOP=1'));
   }
  }
+});
+
+test('runner has a bounded process deadline and stops on a timed-out SQL gate', () => {
+ const r=simulate('historical',{timeoutAt:2});
+ assert.equal(r.status,1);assert.equal(r.calls.length,2);
+ for(const c of r.calls){assert.equal(c.opts.timeout,120000);assert.equal(c.opts.killSignal,'SIGKILL');}
 });
