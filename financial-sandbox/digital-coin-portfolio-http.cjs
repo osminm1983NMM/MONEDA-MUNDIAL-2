@@ -36,7 +36,14 @@ function createPortfolioHttp({environment,service,timeoutMs=8000,maxActive=32}={
   try{
    const result=await Promise.race([operation,deadline]);
    if(request.signal.aborted)return error(408,'INVALID_REQUEST');
-   if(result?.status===200&&validPortfolio(result.body))return response(200,result.body);
+   if(result?.status===200&&validPortfolio(result.body)){
+    // Validate the same bytes the caller receives, including the serialized
+    // representation of nested objects, and fail closed on private fields.
+    const wire=JSON.stringify(result.body);
+    if(typeof wire==='string'&&Buffer.byteLength(wire)<=1024*1024+1024&&validPortfolio(JSON.parse(wire)))
+     return new Response(wire,{status:200,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
+    return error(503,'UNAVAILABLE');
+   }
    if(result?.status===401)return error(401,'AUTH_REQUIRED',{'www-authenticate':'Bearer'});
    if(result?.status===400)return error(400,'INVALID_REQUEST');
    return error(503,'UNAVAILABLE');

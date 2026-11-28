@@ -85,7 +85,14 @@ function createOrderStatusHttp({environment,service,bodyTimeoutMs=5000,serviceTi
    retained=true;
    const result=await bounded(operation,serviceTimeoutMs,()=>controller.abort(),request.signal);
    if(request.signal.aborted)return error(408,'INVALID_REQUEST');
-   if(result?.status===200&&validOrderStatus(result.body,body.orderId))return respond(200,result.body);
+   if(result?.status===200&&validOrderStatus(result.body,body.orderId)){
+    // Validate the actual serialized snapshot, not an object that can change
+    // during serialization through getters or a hidden toJSON method.
+    const wire=JSON.stringify(result.body);
+    if(typeof wire==='string'&&Buffer.byteLength(wire)<=8192&&validOrderStatus(JSON.parse(wire),body.orderId))
+     return new Response(wire,{status:200,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
+    return error(503,'UNAVAILABLE');
+   }
    const allowed={400:'INVALID_REQUEST',401:'AUTH_REQUIRED',404:'NOT_FOUND',503:'UNAVAILABLE'};
    if(result&&Object.hasOwn(allowed,result.status))return error(result.status,allowed[result.status],result.status===401?{'www-authenticate':'Bearer'}:{});
   }catch{}

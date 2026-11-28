@@ -73,3 +73,16 @@ test('wallet disconnect aborts service, discards late results and preserves admi
  release({status:200,body:payload});await new Promise(resolve=>setImmediate(resolve));
  a.equal((await http(req())).status,200);a.equal(calls,2);
 });
+
+test('wallet validates exact serialized response and rejects private data from hidden toJSON',async()=>{
+ const nested={...payload.assets[0]};
+ Object.defineProperty(nested,'toJSON',{value:()=>({...payload.assets[0],privateAccount:'fixture-secret'})});
+ const root={...payload};
+ Object.defineProperty(root,'toJSON',{value:()=>({...payload,privateJournal:'fixture-secret'})});
+ for(const body of [root,{...payload,assets:[nested,payload.assets[1]]}]){
+  const http=create({environment:'sandbox',service:{read:async()=>({status:200,body})}});
+  const r=await http(req());a.equal(r.status,503);a.deepEqual(await r.json(),{mode:'sandbox',error:'UNAVAILABLE'});
+ }
+ const http=create({environment:'sandbox',service:{read:async()=>({status:200,body:payload})}});
+ const r=await http(req());a.equal(r.status,200);a.equal(await r.text(),JSON.stringify(payload));
+});

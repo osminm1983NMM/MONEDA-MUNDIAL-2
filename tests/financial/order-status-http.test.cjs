@@ -141,3 +141,15 @@ test('declared content length must match actual UTF-8 request bytes',async()=>{
  a.equal((await f.handle(request)).status,200);
  a.equal(f.calls.length,1);
 });
+
+test('status validates exact serialized response and rejects hidden serialization of private fields',async()=>{
+ const nested={...publicStatus.source};
+ Object.defineProperty(nested,'toJSON',{value:()=>({...publicStatus.source,privateToken:'fixture-secret'})});
+ const root={...publicStatus};
+ Object.defineProperty(root,'toJSON',{value:()=>({...publicStatus,privateToken:'fixture-secret'})});
+ for(const body of [root,{...publicStatus,source:nested}]){
+  const r=await fixture({status:200,body}).handle(make());
+  a.equal(r.status,503);a.deepEqual(await r.json(),{mode:'sandbox',error:'UNAVAILABLE'});
+ }
+ const valid=await fixture().handle(make());a.equal(valid.status,200);a.equal(await valid.text(),JSON.stringify(publicStatus));
+});
