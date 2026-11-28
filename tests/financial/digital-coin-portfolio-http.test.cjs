@@ -38,3 +38,38 @@ test('timed out operation retains slot until settled; cancellation signal delive
  await new Promise(resolve=>setImmediate(resolve));
  const pending=http(req());await new Promise(resolve=>setImmediate(resolve));release();a.equal((await pending).status,200);
 });
+
+test('wallet rejects and cancels unread streams on wrong method, route or already aborted request',async()=>{
+ let calls=0;
+ const http=create({environment:'sandbox',service:{read(){calls++;return {status:200,body:payload};}}});
+ for(const [target,status,aborted] of [[url,405,false],[url+'/other',404,false],[url+'?owner=bob',400,false],[url+'#fragment',400,false],[url,408,true]]){
+  let cancelled=false;
+  const controller=new AbortController();
+  const body=new ReadableStream({cancel(){cancelled=true;}});
+  const request=req('a',target,{method:'POST',body,duplex:'half',signal:controller.signal});
+  if(aborted)controller.abort();
+  a.equal((await http(request)).status,status);
+  a.equal(cancelled,true);
+ }
+ a.equal(calls,0);
+ a.equal((await http(req())).status,200);
+ a.equal(calls,1);
+});
+test('wallet disconnect aborts service, discards late results and preserves admission limit',{timeout:2000},async()=>{
+ let calls=0,release,started,signal;
+ const ready=new Promise(resolve=>{started=resolve;});
+ const http=create({environment:'sandbox',maxActive:1,timeoutMs:1000,service:{read(_,s){
+  calls++;signal=s;
+  if(calls===1){started();return new Promise(resolve=>{release=resolve;});}
+  return {status:200,body:payload};
+ }}});
+ const controller=new AbortController();
+ const pending=http(req('a',url,{signal:controller.signal}));
+ await ready;controller.abort();
+ const response=await pending;
+ a.equal(response.status,408);a.equal(signal.aborted,true);
+ a.deepEqual(await response.json(),{mode:'sandbox',error:'INVALID_REQUEST'});
+ a.equal((await http(req())).status,503);a.equal(calls,1);
+ release({status:200,body:payload});await new Promise(resolve=>setImmediate(resolve));
+ a.equal((await http(req())).status,200);a.equal(calls,2);
+});
