@@ -37,3 +37,31 @@ test('absent hosted snapshot is fail-closed, not a claim that remote revocation 
  const f=fixture();f.signIn();await f.refreshR();f.replyW(()=>json(null));await f.refreshW();
  a.equal(f.lost(),1);a.equal(f.r().view.state,'signed_out');a.equal(f.w().state,'signed_out');
 });
+
+for(const slowSource of ['remittance','wallet'])for(const delayedStatus of [200,403])test(slowSource+' delayed HTTP '+delayedStatus+' cannot affect replacement shared session',{timeout:5000},async()=>{
+ const f=fixture();f.signIn();await f.refreshR();await f.refreshW();
+ let release,started;
+ const gate=new Promise(resolve=>{release=resolve;});
+ const entered=new Promise(resolve=>{started=resolve;});
+ // Deliberately ignore transport cancellation: the hosts must also fence stale results.
+ const delayed=()=>{started();return gate;};
+ const slowIsR=slowSource==='remittance';
+ if(slowIsR)f.replyR(delayed);else f.replyW(delayed);
+ const pending=slowIsR?f.refreshR():f.refreshW();
+ try{
+  await entered;
+  if(slowIsR){f.replyW(()=>new Response('',{status:401}));await f.refreshW();}
+  else{f.replyR(()=>new Response('',{status:401}));await f.refreshR();}
+  a.equal(f.lost(),1);a.equal(f.r().view.state,'signed_out');a.equal(f.w().state,'signed_out');
+  f.replyR(()=>json(status));f.replyW(()=>json(snapshot));f.signIn();await f.refreshR();await f.refreshW();
+  const currentR=f.r(),currentW=f.w();
+  a.equal(currentR.view.state,'ready');a.equal(currentW.state,'ready');
+  release(delayedStatus===403?new Response('',{status:403}):json(slowIsR?{...status,status:'refunded'}:{...snapshot,exportedAt:'2026-11-26T12:00:00.000Z'}));
+  await pending;
+  // Permit late transport continuations to finish even if abort settled the host early.
+  await new Promise(resolve=>setImmediate(resolve));
+  a.equal(f.lost(),1);a.strictEqual(f.r(),currentR);a.strictEqual(f.w(),currentW);
+ }finally{
+  release(json(slowIsR?status:snapshot));f.fence.disarm();f.remittance.dispose();f.wallet.dispose();
+ }
+});
