@@ -91,3 +91,31 @@ test('offline coverage passes for complete verified inventory after restart and 
  a.throws(()=>audit({...options,limit:0}),/INVALID_INVENTORY_LIMIT/);
  a.throws(()=>audit({...options,environment:'production'}),/SANDBOX_ONLY/);
 }));
+
+test('bounded bundle reads reject files growing or shrinking after initial size validation',t=>fixture(({options,path})=>{
+ save(options);
+ const bytes=fs.readFileSync(path),original=fs.readSync;
+ for(const change of ['grow','shrink']){
+  let mutated=false;
+  const mocked=t.mock.method(fs,'readSync',function(fd,buffer,offset,length,position){
+   if(!mutated){
+    mutated=true;
+    if(change==='grow')fs.appendFileSync(path,'x');
+    else fs.truncateSync(path,Math.floor(bytes.length/2));
+   }
+   return original.call(fs,fd,buffer,offset,length,position);
+  });
+  try{
+   a.throws(()=>read(options),/INVALID_BUNDLE_FILE/);
+   a.equal(mutated,true);
+  }finally{mocked.mock.restore();fs.writeFileSync(path,bytes);}
+ }
+ a.deepEqual(read(options).bundle,options.bundle);
+}));
+test('oversized sparse bundle is rejected before any file read',t=>fixture(({options,path})=>{
+ save(options);
+ fs.truncateSync(path,80*1024*1024+1);
+ const mock=t.mock.method(fs,'readSync',()=>a.fail('oversized file must not be read'));
+ try{a.throws(()=>read(options),/INVALID_BUNDLE_FILE/);a.equal(mock.mock.callCount(),0);}
+ finally{mock.mock.restore();}
+}));

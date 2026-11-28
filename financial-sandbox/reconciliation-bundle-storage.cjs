@@ -22,8 +22,19 @@ function load(path){
  try{
   const stat=fs.fstatSync(fd);
   if(!stat.isFile()||stat.size<1||stat.size>MAX_BYTES)fail('INVALID_BUNDLE_FILE');
-  const bytes=fs.readFileSync(fd);
-  if(bytes.length!==stat.size||bytes.length>MAX_BYTES)fail('INVALID_BUNDLE_FILE');
+  // Allocate only the already validated size. A growing file cannot cause
+  // readFileSync to allocate beyond MAX_BYTES after the initial fstat.
+  const bytes=Buffer.alloc(stat.size);
+  let offset=0;
+  while(offset<bytes.length){
+   const n=fs.readSync(fd,bytes,offset,bytes.length-offset,offset);
+   if(n===0)fail('INVALID_BUNDLE_FILE');
+   offset+=n;
+  }
+  const extra=Buffer.alloc(1);
+  if(fs.readSync(fd,extra,0,1,offset)!==0)fail('INVALID_BUNDLE_FILE');
+  const after=fs.fstatSync(fd);
+  if(after.size!==stat.size||after.mtimeMs!==stat.mtimeMs||after.ctimeMs!==stat.ctimeMs)fail('INVALID_BUNDLE_FILE');
   return bytes;
  }finally{fs.closeSync(fd);}
 }
