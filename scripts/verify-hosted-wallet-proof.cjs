@@ -38,25 +38,29 @@ async function runProof({exportedAt,fixtures,signIn,read,signOut,anonRead}){
   return 'PASS: anonymous denial, two distinct exact dated synthetic wallets, independent session revocation, and continued access for the other user.';
  }finally{await Promise.allSettled(sessions.map(s=>Promise.resolve().then(()=>signOut(s))));}
 }
-async function main(){
- const env=process.env,key=env.MWD_LAB_PUBLISHABLE_KEY,exportedAt=env.MWD_LAB_WALLET_EXPORTED_AT;
+async function runHostedProof({env,createAuthClient,fetchImpl}){
+ const key=env.MWD_LAB_PUBLISHABLE_KEY,exportedAt=env.MWD_LAB_WALLET_EXPORTED_AT;
  const fixtures=['A','B'].map(name=>({email:env['MWD_LAB_'+name+'_EMAIL'],password:env['MWD_LAB_'+name+'_PASSWORD']}));
  check(env.MWD_CONFIRM_HOSTED_WALLET_PROOF==='YES_AUTHORIZED_SYNTHETIC_ONLY'&&/^sb_publishable_[A-Za-z0-9_-]{16,200}$/.test(key||'')&&
  fixtures.every(f=>typeof f.email==='string'&&f.email.length>0&&typeof f.password==='string'&&f.password.length>0)&&
  fixtures[0].email.toLowerCase()!==fixtures[1].email.toLowerCase()&&typeof exportedAt==='string','LAB_CONFIGURATION_REQUIRED');
  // Validate the expected export locally before any network call.
  buildWalletAcceptanceFixture(exportedAt);
- const {createClient}=require('@supabase/supabase-js');
- const boundedFetch=(url,opts={})=>fetch(url,{...opts,redirect:'error',signal:opts.signal?AbortSignal.any([opts.signal,AbortSignal.timeout(10000)]):AbortSignal.timeout(10000)});
- const client=createPortfolioClient({environment:'sandbox',sandboxOrigin:origin,transport:'hosted-snapshot',publishableKey:key});
- console.log(await runProof({exportedAt,fixtures,
+ // No credential-bearing request may leave the fixed LAB origin.
+ const boundedFetch=(url,opts={})=>{
+  const target=new URL(typeof url==='string'?url:url.url||url.href);
+  if(target.origin!==origin||target.username||target.password)throw Error('UNAPPROVED_ORIGIN');
+  return fetchImpl(url,{...opts,redirect:'error',signal:opts.signal?AbortSignal.any([opts.signal,AbortSignal.timeout(10000)]):AbortSignal.timeout(10000)});
+ };
+ const client=createPortfolioClient({environment:'sandbox',sandboxOrigin:origin,transport:'hosted-snapshot',publishableKey:key,fetchImpl:boundedFetch});
+ return runProof({exportedAt,fixtures,
   async anonRead(){
    const response=await boundedFetch(origin+'/rest/v1/rpc/mwd_lab_read_wallet_snapshot',{method:'POST',headers:{apikey:key,'content-type':'application/json'},body:'{}'});
    await response.body?.cancel();
    return [401,403,404].includes(response.status);
   },
   async signIn(f){
-   const authClient=createClient(origin,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:boundedFetch}});
+   const authClient=createAuthClient(origin,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:boundedFetch}});
    const {data,error}=await authClient.auth.signInWithPassword({email:f.email,password:f.password});
    if(error||!data?.session?.access_token||!data?.user?.id||data.user.is_anonymous!==false){await authClient.auth.signOut({scope:'local'}).catch(()=>{});throw Error('LOGIN_FAILED');}
    return {token:data.session.access_token,userId:data.user.id,anonymous:false,authClient,closed:false};
@@ -68,9 +72,14 @@ async function main(){
    if(error)throw Error('LOGOUT_FAILED');
    s.closed=true;
   }
- }));
+ });
 }
-module.exports={runProof};
+async function main(){
+ // Lazy SDK load preserves the credential-free negative check.
+ const result=await runHostedProof({env:process.env,createAuthClient:(...args)=>require('@supabase/supabase-js').createClient(...args),fetchImpl:globalThis.fetch});
+ console.log(result);
+}
+module.exports={runProof,runHostedProof};
 if(require.main===module)main().catch(e=>{
  const code=String(e?.message||'');
  console.error(/^(LAB_CONFIGURATION_REQUIRED|LOGIN_FAILED|LOGOUT_FAILED|ANONYMOUS_NOT_DENIED|DISTINCT_USERS_REQUIRED|UNRELATED_SESSION_LOST|INVALID_EXPORT_TIME|(?:WALLET_SNAPSHOT_MISMATCH|REVOKED_SESSION_NOT_DENIED)_[01])$/.test(code)?code:'HOSTED_WALLET_PROOF_FAILED');

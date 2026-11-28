@@ -19,3 +19,7 @@ El punto congelado 1ff2ee651bb480f594991d1b220f49ce21e8b9c6 no se modifica. La r
 6. Aceptación física posterior en la APK congelada: cuenta propia, aviso de saldo no vivo, fecha de snapshot, cierre de sesión y ausencia de datos residuales. No repetir pruebas previas sin necesidad.
 
 No habilitar, reemplazar ni corregir snapshots alojados por inferencia. Si faltan datos o el resultado es negativo, detener aceptación y revisar con el titular. Esta prueba no valida reservas, emisión, precio comercial ni liquidación de dinero real.
+
+## Evidencia y transporte del ejecutor
+- [CI 46164176658](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/46164176658): 416/416, sin fallos, cancelaciones, omisiones ni TODO, revisión 03934aafb1049b3c2c4f46ce9f1d94a6af59c8c5. La revocación independiente se comprobó con dependencias simuladas.
+- Se prepara una comprobación integral offline del ejecutor con cliente de cartera real y transporte/Auth inyectados; se limita el transporte al origen LAB fijo, con rechazo de redirecciones. Pendiente de CI. No valida SDK Auth real, credenciales, TLS de la red ni autorización remota. No se conectó al proyecto alojado.
