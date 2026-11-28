@@ -85,9 +85,9 @@ jobs:
           (cd unified-artifact && sha256sum MonedaMundial-LAB-Unificado.apk > SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
-          name: MonedaMundial-LAB-Unificado-consolidated-security
+          name: unified-apk-INTERNAL-NOT-VALIDATED
           path: unified-artifact/
-          retention-days: 7
+          retention-days: 1
           if-no-files-found: error
 
   smoke:
@@ -101,7 +101,7 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
-          name: MonedaMundial-LAB-Unificado-consolidated-security
+          name: unified-apk-INTERNAL-NOT-VALIDATED
           path: ${{ runner.temp }}/unified-apk
       - name: Verify provenance, package, signature and architectures
         run: |
@@ -129,6 +129,20 @@ jobs:
           timeout 480 adb -s emulator-5554 wait-for-device
           timeout 600 bash -c 'until adb -s emulator-5554 shell getprop sys.boot_completed | tr -d "\r" | grep -qx 1; do sleep 3; done'
           python3 scripts/smoke-unified-lab.py --serial emulator-5554 --artifact "$RUNNER_TEMP/unified-apk" --revision "$GITHUB_SHA"
+      - name: Record successful emulator validation for exact APK
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/unified-apk"
+          test "$(cat revision.txt)" = "$GITHUB_SHA"
+          sha256sum -c SHA256SUMS
+          printf 'revision=%s\nrun_id=%s\nrun_attempt=%s\nandroid_api=35\nsmoke=passed\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > emulator-validation.txt
+      - name: Publish verified LAB APK only after emulator success
+        uses: actions/upload-artifact@v4
+        with:
+          name: MonedaMundial-LAB-Unificado-consolidated-security-verified
+          path: ${{ runner.temp }}/unified-apk/
+          retention-days: 7
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
