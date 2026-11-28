@@ -1,0 +1,24 @@
+name: Unified LAB - reviewed Android boundary
+on:
+  push:
+    branches: [dev/unified-android-hardening-20261127]
+    paths: ['.github/workflows/unified-android-boundary.yml', 'tests/financial/android-boundary.test.cjs']
+permissions:
+  contents: read
+jobs:
+  boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify reviewed dependency lock and mobile boundary
+        run: |
+          set -euo pipefail
+          echo '0ae8b0e1da1d9147ce0a04f3eb2fd757a416611fdbdcb702457a72a9cb2ffdc3  package-lock.json' | sha256sum -c -
+          node --test tests/financial/android-boundary.test.cjs
+          git diff --exit-code HEAD --
