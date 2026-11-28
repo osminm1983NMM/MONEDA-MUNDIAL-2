@@ -36,3 +36,20 @@ test('failed SQL gate stops execution immediately', () => { const r=simulate('hi
 test('local fixed target and no inherited remote parameters', () => {
   for(const c of simulate('functional').calls){assert.equal(c.cmd,'psql');assert.equal(c.args[c.args.indexOf('-h')+1],'127.0.0.1');assert.equal(c.args[c.args.indexOf('-p')+1],'54322');assert.equal(c.args[c.args.indexOf('-d')+1],'mwd_demo_isolated');assert.equal(c.opts.env.PGHOSTADDR,undefined);assert.equal(c.opts.env.PGSERVICE,undefined);assert.match(c.opts.env.PGOPTIONS,/statement_timeout/);assert.ok(c.args.includes('ON_ERROR_STOP=1'));}
 });
+
+test('each SQL file is preceded by isolation, fixture and payment checks in one psql invocation', () => {
+ for(const mode of ['historical','functional']){
+  const result=simulate(mode);
+  for(const {args} of result.calls){
+   const i=args.indexOf('-c'),j=args.indexOf('-f');
+   assert.ok(i>=0&&j===i+2);
+   const guard=args[i+1];
+   assert.match(guard,/MWD_DISPOSABLE_CONCURRENCY_TEST_ONLY/);
+   assert.match(guard,/real_payments_enabled IS DISTINCT FROM false/);
+   assert.match(guard,/SYNTHETIC_FIXTURES_REQUIRED/);
+   assert.match(guard,/fixture-a@example\.invalid/);
+   assert.match(guard,/fixture-b@example\.invalid/);
+   assert.ok(args.includes('ON_ERROR_STOP=1'));
+  }
+ }
+});
