@@ -18,17 +18,24 @@ async function runProof({exportedAt,fixtures,signIn,read,signOut,anonRead}){
    check(s&&typeof s.token==='string'&&s.token.length>0&&typeof s.userId==='string'&&s.userId.length>0&&s.anonymous===false,'LOGIN_FAILED');
   }
   check(sessions[0].userId!==sessions[1].userId&&sessions[0].token!==sessions[1].token,'DISTINCT_USERS_REQUIRED');
-  for(let i=0;i<2;i++){
+  async function own(i,code){
    const result=await read(sessions[i].token);
    check(result?.ok===true&&isDeepStrictEqual(result.value,expected.portfolios[i].portfolio)&&
-     isDeepStrictEqual(result.snapshot,{kind:expected.kind,exportedAt:expected.exportedAt}),'WALLET_SNAPSHOT_MISMATCH_'+i);
+     isDeepStrictEqual(result.snapshot,{kind:expected.kind,exportedAt:expected.exportedAt}),code);
   }
-  for(let i=0;i<2;i++){
-   await signOut(sessions[i]);
+  async function denied(i){
    const revoked=await read(sessions[i].token);
    check(revoked?.ok===false&&revoked.code==='AUTH_REQUIRED','REVOKED_SESSION_NOT_DENIED_'+i);
   }
-  return 'PASS: anonymous denial, two distinct exact dated synthetic wallets, and revocation of both sessions.';
+  for(let i=0;i<2;i++)await own(i,'WALLET_SNAPSHOT_MISMATCH_'+i);
+  await signOut(sessions[0]);
+  await denied(0);
+  // A global outage or shared revocation must not be mistaken for isolation.
+  await own(1,'UNRELATED_SESSION_LOST');
+  await signOut(sessions[1]);
+  await denied(1);
+  await denied(0);
+  return 'PASS: anonymous denial, two distinct exact dated synthetic wallets, independent session revocation, and continued access for the other user.';
  }finally{await Promise.allSettled(sessions.map(s=>Promise.resolve().then(()=>signOut(s))));}
 }
 async function main(){
@@ -66,6 +73,6 @@ async function main(){
 module.exports={runProof};
 if(require.main===module)main().catch(e=>{
  const code=String(e?.message||'');
- console.error(/^(LAB_CONFIGURATION_REQUIRED|LOGIN_FAILED|LOGOUT_FAILED|ANONYMOUS_NOT_DENIED|DISTINCT_USERS_REQUIRED|INVALID_EXPORT_TIME|(?:WALLET_SNAPSHOT_MISMATCH|REVOKED_SESSION_NOT_DENIED)_[01])$/.test(code)?code:'HOSTED_WALLET_PROOF_FAILED');
+ console.error(/^(LAB_CONFIGURATION_REQUIRED|LOGIN_FAILED|LOGOUT_FAILED|ANONYMOUS_NOT_DENIED|DISTINCT_USERS_REQUIRED|UNRELATED_SESSION_LOST|INVALID_EXPORT_TIME|(?:WALLET_SNAPSHOT_MISMATCH|REVOKED_SESSION_NOT_DENIED)_[01])$/.test(code)?code:'HOSTED_WALLET_PROOF_FAILED');
  process.exitCode=1;
 });

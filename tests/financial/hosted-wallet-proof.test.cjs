@@ -8,7 +8,7 @@ function mock(o={}){
  return {exportedAt,fixtures:['A','B'],cleaned,
  anonRead:async()=>!o.anon,
  signIn:async f=>({token:f,userId:o.same?'A':f,anonymous:false}),
- signOut:async s=>{cleaned.push(s.token);if(o.logout)throw Error('LOGOUT_FAILED');revoked.add(s.token);},
+ signOut:async s=>{cleaned.push(s.token);if(o.logout)throw Error('LOGOUT_FAILED');revoked.add(s.token);if(o.globalLogout)revoked.add('B');},
  read:async t=>{
   if(revoked.has(t)&&!o.revocation)return {ok:false,code:o.unavailable?'UNAVAILABLE':'AUTH_REQUIRED'};
   const i=t==='A'||o.leak?0:1;
@@ -28,8 +28,27 @@ for(const [name,options,code] of [
  ['stale timestamp',{stale:true},'WALLET_SNAPSHOT_MISMATCH_0'],
  ['accepted revoked token',{revocation:true},'REVOKED_SESSION_NOT_DENIED_0'],
  ['network failure not proof of revocation',{unavailable:true},'REVOKED_SESSION_NOT_DENIED_0'],
+ ['shared session invalidation',{globalLogout:true},'UNRELATED_SESSION_LOST'],
  ['logout failure',{logout:true},'LOGOUT_FAILED']
 ])test('rejects '+name,async()=>{
  const m=mock(options);await a.rejects(runProof(m),new RegExp(code));
  if(!options.anon)a.ok(m.cleaned.includes('A')&&m.cleaned.includes('B'));
+});
+
+test('partial login failure still closes the first acquired session',async()=>{
+ const m=mock(),original=m.signIn;
+ m.signIn=async f=>{if(f==='B')throw Error('LOGIN_FAILED');return original(f);};
+ await a.rejects(runProof(m),/LOGIN_FAILED/);a.deepEqual(m.cleaned,['A']);
+});
+test('a revoked first session cannot regain access after the second logout',async()=>{
+ const m=mock(),original=m.read;let aDenied=false;
+ m.read=async token=>{
+  const r=await original(token);
+  if(token==='A'&&!r.ok){
+   if(aDenied)return {ok:true,value:x.portfolios[0].portfolio,snapshot:{kind:x.kind,exportedAt}};
+   aDenied=true;
+  }
+  return r;
+ };
+ await a.rejects(runProof(m),/REVOKED_SESSION_NOT_DENIED_0/);
 });
