@@ -18,7 +18,7 @@
 Los hashes y comprobaciones de coherencia local no constituyen prueba de integridad contra un atacante con control total del almacenamiento o de las claves. No hay contrato ni transporte Thunes real en estos cambios.
 
 ## Automatización consolidada
-Commit f4fe9b70b582aa0650b5ede09ae3ecad5274993a: todas las modificaciones bajo financial-sandbox/ y tests/financial/ activan la suite completa en la rama de laboratorio. Se elimina la ejecución redundante del subconjunto y se comprueba el lockfile y la ausencia de cambios de archivos rastreados. Resultado pendiente al registrar.
+Commit f4fe9b70b582aa0650b5ede09ae3ecad5274993a: todas las modificaciones bajo financial-sandbox/ y tests/financial/ activan la suite completa en la rama de laboratorio. Se elimina la ejecución redundante del subconjunto y se comprueba el lockfile y la ausencia de cambios de archivos rastreados. [CI 46157541951](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/46157541951): success; lockfile OK, 400/400, cero fallos, cancelaciones, omisiones o TODO; verificación de archivos rastreados aprobada. Es la misma suite, no sumar conteos.
 
 ## Puertas restantes
 - Mantener congelada la candidata móvil y reservar aceptación física diferencial hasta que el titular la solicite; no repetir instalación, selector e identificación visibles ya observados. Ver acta CIERRE-LAB-UNIFICADO-20261127.md.
