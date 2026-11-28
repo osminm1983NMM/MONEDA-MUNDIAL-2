@@ -26,3 +26,10 @@ Commit f4fe9b70b582aa0650b5ede09ae3ecad5274993a: todas las modificaciones bajo f
 - Activos Digital/Coin: custodia, reservas, emisión, red, precio y cumplimiento autorizados; activos sintéticos no tienen valor monetario.
 - Producción: autorización expresa, revisión jurídica, contable y de seguridad, firma comercial Android, configuración de identidad, monitoreo y recuperación del entorno autorizado.
 - No confundir las regresiones del laboratorio con autorización de operaciones reales. Evitar ciclos indefinidos de pruebas marginales; priorizar defectos concretos y puertas de aceptación que puedan cerrarse sin intervención.
+
+## Conciliación y aislamiento de candidata — actualización
+- [402/402](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/46158082723) para 2e0fd5217a79011ada7ebf294234c46d21964a75: lectura acotada de evidencia, rechazo de cambios de longitud durante lectura.
+- [403/403](https://github.com/osminm1983NMM/MONEDA-MUNDIAL-2/actions/runs/46158617229) para 3f82c5af113bc15705e0aa407f46828b31a0072f: verificación de nueve triggers de inmutabilidad de archivos contables, al abrir y verificar respaldos. Sin fallos, cancelaciones, omisiones ni TODO. No confundir con inmutabilidad ante acceso privilegiado.
+- 684480eec8b28c833b9c7723f70659b03141125e: se fijan 20 entradas adicionales del APK verificado (inventario móvil, contratos/clientes compartidos, preparación, smoke y workflow APK) contra los blobs de ec1477d. La suite se activa también al cambiar archivos raíz, artefactos alojados y entradas de build incluidas. Validación pendiente al registrar.
+- Metadatos del artefacto APK 15239803884 consultados directamente por listado de la ejecución 46088465052: 25,384,374 bytes, no expirado, SHA-256 del ZIP 30e4e0ebb772e139c3ad727462555f9b7898bda699234bcc57784d981aa56e4f, vence 2026-12-05 00:43:58 UTC. No se descargó ni calculó de nuevo la huella de sus bytes; no es verificación del APK instalado. No usar artefacto intermedio 15240067839.
+- Main observado sin modificaciones: 3f2fbdb7ffb5d6c75b8c56d41b4d1fa98ef64ffc. No se modificó código de la candidata instalada ni se enviaron solicitudes adicionales al proveedor.
