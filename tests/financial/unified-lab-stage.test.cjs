@@ -18,6 +18,8 @@ test('staging keeps LAB package, Auth redirects and mode selection separate',t=>
  stage(root,revision);
  const {expo}=JSON.parse(read('app.json'));
  a.equal(expo.android.package,scheme);a.equal(expo.scheme,scheme);
+ a.equal(expo.android.allowBackup,false);
+ a.deepEqual(expo.android.blockedPermissions,['android.permission.SYSTEM_ALERT_WINDOW','android.permission.READ_EXTERNAL_STORAGE','android.permission.WRITE_EXTERNAL_STORAGE']);
  a.ok(expo.plugins.includes('expo-secure-store'));a.equal(expo.extra,undefined);a.equal(expo.owner,undefined);
  a.ok(read('DemoApp.jsx').includes("const BUILD_COMMIT = '"+revision+"';"));
  a.doesNotMatch(read('DemoApp.jsx'),/const BUILD_COMMIT = 'sin verificar'/);
