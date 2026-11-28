@@ -75,3 +75,23 @@ test('corruption after leasing prevents acknowledgement and does not advance sta
   f.advance(30000);a.throws(()=>q.claim(),/OUTBOX_INTEGRITY/);
  }finally{db.close();}
 });
+
+test('corrupted stored receipt cannot be acknowledged as a duplicate or overwritten',async t=>{
+ const f=fixture(t),q=f.open(),p=createMockProvider({secret:'synthetic-secret-for-local-queue-tests',clock:f.clock});
+ await p.submit(intent);
+ const e=p.event(intent.reference,'funding_confirmed','evt-integrity');
+ q.ingest({...e,provider:p});
+ const {DatabaseSync}=require('node:sqlite'),db=new DatabaseSync(f.path);
+ try{
+  const row=db.prepare('SELECT * FROM sandbox_inbox').get();
+  for(const [field,value] of [['raw',row.raw+' '],['fingerprint','0'.repeat(64)],['signature','0'.repeat(64)],['received_at',-1]]){
+   // Field names are fixed test fixtures.
+   db.prepare('UPDATE sandbox_inbox SET '+field+'=?').run(value);
+   a.throws(()=>q.ingest({...e,provider:p}),/INBOX_INTEGRITY/);
+   a.equal(db.prepare('SELECT '+field+' AS value FROM sandbox_inbox').get().value,value);
+   a.equal(q.counts().inbox,1);
+   db.prepare('UPDATE sandbox_inbox SET '+field+'=?').run(row[field]);
+  }
+  a.equal(q.ingest({...e,provider:p}).status,'duplicate');
+ }finally{db.close();}
+});
