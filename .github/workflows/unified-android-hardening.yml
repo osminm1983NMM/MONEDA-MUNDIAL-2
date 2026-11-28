@@ -1,0 +1,50 @@
+name: Unified LAB Android manifest hardening trial
+on:
+  push:
+    branches: [dev/unified-android-hardening-20261127]
+    paths: ['.github/workflows/unified-android-hardening.yml', 'scripts/stage-unified-lab.cjs', 'tests/financial/unified-lab-stage.test.cjs']
+permissions:
+  contents: read
+jobs:
+  manifest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: node --test tests/financial/unified-lab-stage.test.cjs
+      - run: node scripts/stage-unified-lab.cjs --disposable-checkout
+      - run: echo '0ae8b0e1da1d9147ce0a04f3eb2fd757a416611fdbdcb702457a72a9cb2ffdc3  package-lock.json' | sha256sum -c -
+      - run: npm ci --no-audit --no-fund --engine-strict
+      - run: npx expo install --check
+      - run: npx expo prebuild --platform android --no-install
+      - name: Generate release merged manifest, without building APK
+        working-directory: android
+        run: ./gradlew :app:processReleaseMainManifest --no-daemon
+      - name: Assert merged manifest hardening and required connectivity
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          ns='{http://schemas.android.com/apk/res/android}'
+          manifests=list(Path('android/app/build/intermediates/merged_manifest/release').rglob('AndroidManifest.xml'))
+          assert len(manifests)==1, manifests
+          root=ET.parse(manifests[0]).getroot()
+          app=root.find('application')
+          assert app is not None and app.get(ns+'allowBackup')=='false'
+          permissions={x.get(ns+'name') for x in root if x.tag in ('uses-permission','uses-permission-sdk-23')}
+          for name in ('SYSTEM_ALERT_WINDOW','READ_EXTERNAL_STORAGE','WRITE_EXTERNAL_STORAGE'):
+              assert 'android.permission.'+name not in permissions, name
+          assert 'android.permission.INTERNET' in permissions
+          assert root.get('package')=='com.monedamundial.unifiedlab'
+          assert app.get(ns+'debuggable')!='true'
+          print('PASS: merged manifest backup disabled; overlay and legacy storage permissions absent; INTERNET retained')
+          PY
