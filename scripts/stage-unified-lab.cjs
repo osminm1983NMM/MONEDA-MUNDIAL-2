@@ -20,7 +20,7 @@ function stage(root,revision){
  if(demo.split(marker).length!==2)throw Error('UNEXPECTED_BUILD_IDENTITY');
  const isolatedDemo=(demo.slice(0,start)+'  async function requestPasswordReset() {\n    return message("Recuperar contraseña", "Utiliza la DEMO independiente para recuperación. Este LAB no tiene redirección autorizada.");\n  }\n\n'+demo.slice(end)).replaceAll('com.monedamundial.app',scheme).replace(marker,"const BUILD_COMMIT = '"+revision+"';");
  if(isolatedDemo.includes('resetPasswordForEmail('))throw Error('RECOVERY_SEND_NOT_DISABLED');
- const expo={name:'Moneda Mundial LAB Unificado',slug:'moneda-mundial-unified-lab',scheme,version:config.expo.version,orientation:'portrait',userInterfaceStyle:'automatic',android:{package:scheme},plugins:config.expo.plugins};
+ const expo={name:'Moneda Mundial LAB Unificado',slug:'moneda-mundial-unified-lab',scheme,version:config.expo.version,orientation:'portrait',userInterfaceStyle:'automatic',android:{package:scheme,allowBackup:false,blockedPermissions:['android.permission.SYSTEM_ALERT_WINDOW','android.permission.READ_EXTERNAL_STORAGE','android.permission.WRITE_EXTERNAL_STORAGE']},plugins:config.expo.plugins};
  fs.writeFileSync(target('DemoApp.jsx'),isolatedDemo,{flag:'wx'});
  fs.writeFileSync(target('HostedFinancialLab.jsx'),hosted,{flag:'wx'});
  fs.writeFileSync(target('App.js'),entry);
