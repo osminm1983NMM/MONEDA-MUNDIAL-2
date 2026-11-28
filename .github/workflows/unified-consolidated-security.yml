@@ -2,7 +2,7 @@ name: Unified LAB consolidated security APK
 on:
   push:
     branches: [dev/unified-lab-secure-lock-20261127]
-    paths: ['.github/workflows/unified-consolidated-security.yml', 'package.json', 'package-lock.json']
+    paths: ['.github/workflows/unified-consolidated-security.yml', 'package.json', 'package-lock.json', 'financial-sandbox/mobile/**', 'financial-sandbox/order-status-*.cjs', 'financial-sandbox/digital-coin-portfolio-*.cjs', 'scripts/stage-unified-lab.cjs', 'scripts/smoke-unified-lab.py', 'tests/financial/unified-lab-stage.test.cjs', 'tests/financial/hosted-shared-session.test.cjs', 'App.js', 'app.json']
 permissions:
   contents: read
 jobs:
@@ -16,7 +16,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test tests/financial/unified-lab-stage.test.cjs
+      - name: Verify staging and hosted shared-session isolation
+        run: node --test tests/financial/unified-lab-stage.test.cjs tests/financial/hosted-shared-session.test.cjs
       - name: Stage isolated LAB in disposable checkout
         run: node scripts/stage-unified-lab.cjs --disposable-checkout
       - name: Verify committed dependency lock
