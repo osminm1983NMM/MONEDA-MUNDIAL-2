@@ -20,7 +20,7 @@ function bounded(operation,ms,onTimeout=()=>{},signal){
   clearTimeout(timer);signal?.removeEventListener('abort',cancel);
  });
 }
-async function parseBody(request,timeoutMs){
+async function parseBody(request,timeoutMs,declaredSize){
  const reader=request.body?.getReader();
  if(!reader)throw Error('INVALID_REQUEST');
  const chunks=[];let length=0;
@@ -36,6 +36,7 @@ async function parseBody(request,timeoutMs){
   }
  }catch(e){void reader.cancel().catch(()=>{});throw e;}
  finally{reader.releaseLock();}
+  if(declaredSize!==null&&length!==Number(declaredSize))throw Error('INVALID_REQUEST');
   const raw=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(Buffer.concat(chunks));
  // This endpoint has exactly one ASCII UUID field. Accept JSON whitespace,
  // but reject duplicated keys, escaped aliases and any ambiguous wire shape.
@@ -52,25 +53,25 @@ function createOrderStatusHttp({environment,service,bodyTimeoutMs=5000,serviceTi
  let active=0;
  return async request=>{
   if(!(request instanceof Request))return error(400,'INVALID_REQUEST');
-  if(request.signal.aborted){void request.body?.cancel().catch(()=>{});return error(408,'INVALID_REQUEST');}
+  // Release unread streams on every early rejection, including malformed metadata.
+  const reject=(status,code,headers)=>{void request.body?.cancel().catch(()=>{});return error(status,code,headers);};
+  if(request.signal.aborted)return reject(408,'INVALID_REQUEST');
   const url=new URL(request.url);
-  if(url.pathname!==route)return error(404,'NOT_FOUND');
-  if(url.search)return error(400,'INVALID_REQUEST');
-  if(request.method!=='POST')return error(405,'METHOD_NOT_ALLOWED',{allow:'POST'});
+  if(url.pathname!==route)return reject(404,'NOT_FOUND');
+  if(url.search||url.hash)return reject(400,'INVALID_REQUEST');
+  if(request.method!=='POST')return reject(405,'METHOD_NOT_ALLOWED',{allow:'POST'});
   const token=request.headers.get('authorization')?.match(/^Bearer ([A-Za-z0-9._~-]{1,8192})$/i)?.[1];
-  if(!token)return error(401,'AUTH_REQUIRED',{'www-authenticate':'Bearer'});
-  if(request.headers.get('content-type')?.split(';')[0].trim().toLowerCase()!=='application/json')return error(415,'UNSUPPORTED_MEDIA_TYPE');
+  if(!token)return reject(401,'AUTH_REQUIRED',{'www-authenticate':'Bearer'});
+  if(request.headers.get('content-type')?.split(';')[0].trim().toLowerCase()!=='application/json')return reject(415,'UNSUPPORTED_MEDIA_TYPE');
   const size=request.headers.get('content-length');
-  if(size!==null&&(!/^\d{1,10}$/.test(size)||Number(size)>maxBody))return error(413,'BODY_TOO_LARGE');
-  if(active>=maxActive){
-   void request.body?.cancel().catch(()=>{});
-   return error(503,'UNAVAILABLE');
-  }
+  if(size!==null&&request.headers.has('transfer-encoding'))return reject(400,'INVALID_REQUEST');
+  if(size!==null&&(!/^\d{1,10}$/.test(size)||Number(size)>maxBody))return reject(413,'BODY_TOO_LARGE');
+  if(active>=maxActive)return reject(503,'UNAVAILABLE');
   active++;
   let retained=false;
   try{
   let body;
-  try{body=await parseBody(request,bodyTimeoutMs);}catch(e){return e.message==='BODY_TOO_LARGE'?error(413,'BODY_TOO_LARGE'):['DEADLINE','ABORTED'].includes(e.message)?error(408,'INVALID_REQUEST'):error(400,'INVALID_REQUEST');}
+  try{body=await parseBody(request,bodyTimeoutMs,size);}catch(e){return e.message==='BODY_TOO_LARGE'?error(413,'BODY_TOO_LARGE'):['DEADLINE','ABORTED'].includes(e.message)?error(408,'INVALID_REQUEST'):error(400,'INVALID_REQUEST');}
   if(request.signal.aborted)return error(408,'INVALID_REQUEST');
   if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).length!==1||!Object.hasOwn(body,'orderId')||typeof body.orderId!=='string'||!uuid.test(body.orderId))return error(400,'INVALID_REQUEST');
   try{
