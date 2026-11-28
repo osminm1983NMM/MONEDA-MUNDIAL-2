@@ -2,7 +2,7 @@ name: LAB financial HTTP regression
 on:
   push:
     branches: [dev/financial-http-hardening-20261128]
-    paths: ['financial-sandbox/order-status-http.cjs', 'tests/financial/order-status-http.test.cjs', 'financial-sandbox/digital-coin-portfolio-http.cjs', 'tests/financial/digital-coin-portfolio-http.test.cjs', '.github/workflows/lab-financial-http-regression.yml']
+    paths: ['financial-sandbox/order-status-http.cjs', 'tests/financial/order-status-http.test.cjs', 'financial-sandbox/digital-coin-portfolio-http.cjs', 'tests/financial/digital-coin-portfolio-http.test.cjs', 'financial-sandbox/order-status-service.cjs', 'financial-sandbox/digital-coin-portfolio-service.cjs', 'tests/financial/order-status-service.test.cjs', 'tests/financial/digital-coin-portfolio-service.test.cjs', '.github/workflows/lab-financial-http-regression.yml']
 permissions:
   contents: read
 jobs:
@@ -16,5 +16,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test tests/financial/order-status-http.test.cjs tests/financial/order-status-loopback.test.cjs tests/financial/status-lab-server.test.cjs tests/financial/digital-coin-portfolio-http.test.cjs tests/financial/wallet-lab-server.test.cjs
+      - run: node --test tests/financial/order-status-http.test.cjs tests/financial/order-status-loopback.test.cjs tests/financial/status-lab-server.test.cjs tests/financial/digital-coin-portfolio-http.test.cjs tests/financial/wallet-lab-server.test.cjs tests/financial/order-status-service.test.cjs tests/financial/digital-coin-portfolio-service.test.cjs
       - run: node --test tests/financial/*.test.cjs

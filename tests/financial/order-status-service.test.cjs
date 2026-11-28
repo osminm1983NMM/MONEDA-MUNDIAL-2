@@ -75,3 +75,17 @@ test('cancelled service does not start identity or SQL and rejects a late databa
  const g=fixture({db:()=>{late.abort();return {rows:[row]};}});
  a.equal((await g.service.read(request,late.signal)).status,503);a.equal(g.calls.length,1);
 });
+
+test('status rejects accessors, inherited and hidden identity fields without querying',async()=>{
+ let invoked=0,verified=0;
+ const f=fixture({verify:async()=>{verified++;return {environment:'sandbox',actor:'fixture-owner'};}});
+ const getter={sessionToken:'opaque-fixture',get orderId(){invoked++;return orderId;}};
+ const hidden={...request};Object.defineProperty(hidden,'actor',{value:'victim'});
+ for(const bad of [getter,hidden,{...request,[Symbol()]:true},Object.assign(Object.create({actor:'victim'}),request),new Proxy(request,{ownKeys(){throw Error('private');}})])
+  a.equal((await f.service.read(bad)).status,400);
+ a.equal(verified,0);a.equal(invoked,0);a.equal(f.calls.length,0);
+ const identity={environment:'sandbox',get actor(){invoked++;return 'victim';}};
+ const g=fixture({session:identity});a.equal((await g.service.read(request)).status,401);
+ a.equal(invoked,0);a.equal(g.calls.length,0);
+ a.equal((await f.service.read(request)).status,200);
+});

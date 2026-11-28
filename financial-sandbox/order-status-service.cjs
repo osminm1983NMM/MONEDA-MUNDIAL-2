@@ -5,6 +5,21 @@
 const actorId=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(v);
 const uuid=v=>typeof v==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(v);
 const exact=(o,keys)=>o!==null&&typeof o==='object'&&!Array.isArray(o)&&Object.keys(o).length===keys.length&&keys.every(k=>Object.hasOwn(o,k));
+// Snapshot only enumerable own data fields; never invoke an accessor or
+// accept inherited, hidden or symbol fields at an identity boundary.
+function ownData(value,keys){
+ try{
+  if(!value||typeof value!=='object'||![Object.prototype,null].includes(Object.getPrototypeOf(value)))return null;
+  const fields=Object.getOwnPropertyDescriptors(value);
+  if(Reflect.ownKeys(fields).length!==keys.length)return null;
+  const out=Object.create(null);
+  for(const k of keys){
+   if(!Object.hasOwn(fields,k)||!fields[k].enumerable||!Object.hasOwn(fields[k],'value'))return null;
+   out[k]=fields[k].value;
+  }
+  return out;
+ }catch{return null;}
+}
 const {validOrderStatus}=require('./order-status-contract.cjs');
 const result=(status,body)=>({status,body});
 const error=(status,code)=>result(status,{mode:'sandbox',error:code});
@@ -25,8 +40,9 @@ function createOrderStatusService({environment,verifySession,query}={}){
   async read(request,signal){
    // The actor is never accepted from the request. An opaque session token
    // must be validated by a trusted server-side verifier supplied by the host.
-   if(!exact(request,['sessionToken','orderId']))return error(400,'INVALID_REQUEST');
-   const {sessionToken,orderId}=request;
+   const input=ownData(request,['sessionToken','orderId']);
+   if(!input)return error(400,'INVALID_REQUEST');
+   const {sessionToken,orderId}=input;
    if(typeof sessionToken!=='string'||!/^[A-Za-z0-9._~-]{1,8192}$/.test(sessionToken))return error(401,'AUTH_REQUIRED');
    // Reject malformed requests before invoking the identity provider.
    if(!uuid(orderId))return error(400,'INVALID_REQUEST');
@@ -35,8 +51,9 @@ function createOrderStatusService({environment,verifySession,query}={}){
    try{session=await verifySession(sessionToken,signal);}catch{return error(503,'UNAVAILABLE');}
    // Do not start a database read after a cancelled identity check.
    if(signal?.aborted)return error(503,'UNAVAILABLE');
-   if(!exact(session,['environment','actor'])||session.environment!=='sandbox'||!actorId(session.actor))return error(401,'AUTH_REQUIRED');
-   const actor=session.actor;
+   const identity=ownData(session,['environment','actor']);
+   if(!identity||identity.environment!=='sandbox'||!actorId(identity.actor))return error(401,'AUTH_REQUIRED');
+   const actor=identity.actor;
    try{
     const response=await query(SQL,[actor,orderId],signal);
     if(signal?.aborted)return error(503,'UNAVAILABLE');
